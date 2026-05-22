@@ -1,0 +1,85 @@
+{
+  "entities": {
+    "Company": {
+      "title": "Parking Company",
+      "description": "A company providing airport parking services.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "name": { "type": "string" },
+        "image_url": { "type": "string" },
+        "rating": { "type": "number" },
+        "reviews_count": { "type": "number" },
+        "booking_url": { "type": "string" },
+        "distance_score": { "type": "number" },
+        "is_recommended": { "type": "boolean" },
+        "base_price": { "type": "number" },
+        "extra_day_price": { "type": "number" },
+        "base_days": { "type": "number" },
+        "base_price_t2": { "type": "number" },
+        "extra_day_price_t2": { "type": "number" },
+        "base_days_t2": { "type": "number" },
+        "night_surcharge": { "type": "number" },
+        "features": { "type": "array", "items": { "type": "string" } },
+        "description": { "type": "string" },
+        "terminals": { "type": "array", "items": { "type": "string" } },
+        "insurance_status": { "type": "string" },
+        "is_indoor": { "type": "boolean" },
+        "supports_indoor": { "type": "boolean" },
+        "supports_outdoor": { "type": "boolean" },
+        "indoor_base_price": { "type": "number" },
+        "indoor_extra_day_price": { "type": "number" },
+        "indoor_base_days": { "type": "number" },
+        "indoor_base_price_t2": { "type": "number" },
+        "indoor_extra_day_price_t2": { "type": "number" },
+        "indoor_base_days_t2": { "type": "number" },
+        "phone": { "type": "string" },
+        "hourly_wage": { "type": "number" }
+      },
+      "required": ["name", "base_price", "extra_day_price", "night_surcharge", "is_indoor"]
+    },
+    "Reservation": {
+      "title": "User Reservation",
+      "description": "A parking reservation made by a user.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "companyId": { "type": "string" },
+        "companyName": { "type": "string" },
+        "startDate": { "type": "string", "format": "date-time" },
+        "endDate": { "type": "string", "format": "date-time" },
+        "days": { "type": "number" },
+        "parkingType": { "type": "string", "enum": ["outdoor", "indoor"] },
+        "terminal": { "type": "string", "enum": ["T1", "T2"] },
+        "totalPrice": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "confirmed", "cancelled"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "companyId", "startDate", "endDate", "totalPrice"]
+    },
+    "ParkingLot": {
+      "title": "Parking Lot",
+      "description": "A physical parking lot location.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["name"]
+    }
+  },
+  "firestore": {
+    "/companies": {
+      "schema": "Company",
+      "description": "List of available parking companies."
+    },
+    "/reservations": {
+      "schema": "Reservation",
+      "description": "User reservations."
+    },
+    "/parking_lots": {
+      "schema": "ParkingLot",
+      "description": "Physical parking locations."
+    }
+  }
+}

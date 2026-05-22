@@ -1,0 +1,9 @@
+{
+  "name": "Remix: air pick2",
+  "description": "인천공항 주차대행 예약 및 차량 관리 시스템 (고객용/관리자용)",
+  "requestFramePermissions": [
+    "camera",
+    "microphone",
+    "geolocation"
+  ]
+}
