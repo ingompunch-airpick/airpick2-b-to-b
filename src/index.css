@@ -1,31 +1,71 @@
-@import url("https://cdn.jsdelivr.net/gh/sun-typeface/SUIT/fonts/variable/suit-variable.css");
-@import url("https://fonts.googleapis.com/css2?family=Fredoka:wght@600&display=swap");
-@import url("https://fastly.jsdelivr.net/gh/projectnoonnu/2408-1@1.0/Paperlogy-8ExtraBold.woff2");
+@import url("https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.css");
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "SUIT Variable", -apple-system, BlinkMacSystemFont, system-ui, Roboto, "Helvetica Neue", "Segoe UI", "Apple SD Gothic Neo", "Noto Sans KR", "Malgun Gothic", "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
-  --font-display: "Fredoka", sans-serif;
-  --font-paperlogy: "Paperlogy-8ExtraBold", sans-serif;
-  
+  --font-sans:
+    "Pretendard Variable",
+    "Pretendard",
+    -apple-system,
+    BlinkMacSystemFont,
+    system-ui,
+    "Apple SD Gothic Neo",
+    "Noto Sans KR",
+    sans-serif;
+
   --color-primary: #0f172a;
   --color-accent: #2563eb;
   --color-success: #10b981;
   --color-warning: #f59e0b;
   --color-danger: #ef4444;
-  --color-bg: #f8fafc;
-  
+  --color-bg: #000000;
+
+  /* Toss-like neutrals on dark UI */
+  --color-toss-fg: #ffffff;
+  --color-toss-fg-muted: #b0b8c1;
+  --color-toss-fg-subtle: #8b95a1;
+
   --radius-xl: 1.5rem;
   --radius-2xl: 2rem;
   --radius-3xl: 2.5rem;
 }
 
 @layer base {
-  body {
+  html {
+    font-size: 16px;
+    -webkit-text-size-adjust: 100%;
+  }
+
+  html,
+  body,
+  #root {
     font-family: var(--font-sans);
     letter-spacing: -0.02em;
-    background-color: var(--color-bg);
-    color: var(--color-primary);
+    background-color: #000000;
+    color: var(--color-toss-fg);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "kern" 1, "liga" 1;
+  }
+
+  body,
+  #root {
+    font-size: 0.9375rem; /* 15px — 토스 본문에 가까운 기본 크기 */
+    line-height: 1.45;
+    font-weight: 500;
+  }
+
+  button,
+  input,
+  select,
+  textarea {
+    font: inherit;
+    letter-spacing: inherit;
+  }
+
+  /* 숫자·요금 가독 (토스 실시간 차트처럼) */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
   }
 }
 
@@ -35,11 +75,11 @@
     backdrop-filter: blur(10px);
     border: 1px solid rgba(255, 255, 255, 0.2);
   }
-  
+
   .card-shadow {
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.05);
   }
-  
+
   .no-scrollbar::-webkit-scrollbar {
     display: none;
   }
@@ -47,4 +87,65 @@
     -ms-overflow-style: none;
     scrollbar-width: none;
   }
+
+  /* 토스형 타이포 계층 */
+  .text-toss-caption {
+    font-size: 0.8125rem; /* 13px */
+    line-height: 1.35;
+    font-weight: 500;
+    color: var(--color-toss-fg-subtle);
+  }
+
+  .text-toss-body {
+    font-size: 0.9375rem; /* 15px */
+    line-height: 1.45;
+    font-weight: 500;
+    color: var(--color-toss-fg-muted);
+  }
+
+  .text-toss-label {
+    font-size: 0.875rem; /* 14px */
+    line-height: 1.4;
+    font-weight: 600;
+    color: var(--color-toss-fg);
+  }
+
+  .text-toss-title {
+    font-size: 1.0625rem; /* 17px */
+    line-height: 1.35;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    color: var(--color-toss-fg);
+  }
+
+  .text-toss-display {
+    font-size: 1.25rem; /* 20px */
+    line-height: 1.3;
+    font-weight: 700;
+    letter-spacing: -0.03em;
+    color: var(--color-toss-fg);
+  }
+}
+
+/* Ensure native date picker triggers on click/tap anywhere on the input */
+.full-click-date {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+  z-index: 30;
+  display: block;
+}
+.full-click-date::-webkit-calendar-picker-indicator {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  cursor: pointer;
 }

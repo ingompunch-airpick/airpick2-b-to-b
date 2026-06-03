@@ -1,9 +1,12 @@
 {
   "name": "Remix: air pick2",
-  "description": "인천공항 주차대행 예약 및 차량 관리 시스템 (고객용/관리자용)",
+  "description": "인천공항 주차대행 예약 및 사물 분할형 제휴 업체 관리 시스템 (최고관리자 모니터링 및 업체별 데이터 격리 포함)",
   "requestFramePermissions": [
     "camera",
     "microphone",
     "geolocation"
+  ],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
   ]
 }

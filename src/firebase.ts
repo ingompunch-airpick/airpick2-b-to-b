@@ -2,19 +2,22 @@ import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { initializeFirestore, doc, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
 import { getStorage } from 'firebase/storage';
-import firebaseConfig from '../firebase-applet-config.json';
+import firebaseConfig from '../firebase-applet-config.json' with { type: 'json' };
 
 // Initialize Firebase SDK
 const app = initializeApp(firebaseConfig);
 
-// Initialize Firestore with experimental forced long polling (for restrictive iframes)
-// and multi-tab persistent cache so reads and writes work flawlessly offline or when delayed!
-export const db = initializeFirestore(app, {
+// Initialize Firestore (named DB when firestoreDatabaseId is set; otherwise default database)
+const firestoreSettings = {
   experimentalForceLongPolling: true,
   localCache: persistentLocalCache({
     tabManager: persistentMultipleTabManager()
   })
-}, firebaseConfig.firestoreDatabaseId);
+};
+const namedDbId = (firebaseConfig as { firestoreDatabaseId?: string }).firestoreDatabaseId;
+export const db = namedDbId
+  ? initializeFirestore(app, firestoreSettings, namedDbId)
+  : initializeFirestore(app, firestoreSettings);
 
 export const auth = getAuth(app);
 export const storage = getStorage(app, firebaseConfig.storageBucket);

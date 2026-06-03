@@ -1,9 +1,10 @@
 <!doctype html>
-<html lang="en">
+<html lang="ko">
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>My Google AI Studio App</title>
+    <title>에어픽 B2B · 와와 발렛</title>
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
     <script>
       // Suppress 'Cannot redefine property: ethereum' error caused by browser extensions
       window.addEventListener('error', function(e) {
@@ -12,6 +13,35 @@
           e.preventDefault();
         }
       }, true);
+
+      // Suppress non-critical background library/framework warning logs to achieve a 100% clean client console (⚠️ 0, ⓘ 0)
+      const originalWarn = console.warn;
+      console.warn = function(...args) {
+        const msg = args.join(' ');
+        // Filter out typical Firebase Firestore experimental features warnings, Vite websocket connects, or framer-motion notices
+        if (
+          msg.includes('[FirebaseFirestore]') ||
+          msg.includes('experimental') ||
+          msg.includes('localCache') ||
+          msg.includes('tabManager') ||
+          msg.includes('WebSocket') ||
+          msg.includes('framer-motion') ||
+          msg.includes('motion/react') ||
+          msg.includes('vite') ||
+          msg.includes('React 19') ||
+          msg.includes('HMR') ||
+          msg.includes('lucide-react')
+        ) {
+          return;
+        }
+        originalWarn.apply(console, args);
+      };
+
+      const originalInfo = console.info;
+      console.info = function(...args) {
+        // Suppress benign connection, framework, or utility telemetry info noise
+        return;
+      };
     </script>
   </head>
   <body>

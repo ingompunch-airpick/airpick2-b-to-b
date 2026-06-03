@@ -66,6 +66,17 @@
         "createdAt": { "type": "string" }
       },
       "required": ["name"]
+    },
+    "SystemSettings": {
+      "title": "System Settings",
+      "description": "Global custom configurations and booking system toggles.",
+      "type": "object",
+      "properties": {
+        "isSystemOpen": { "type": "boolean" },
+        "blockedDates": { "type": "array", "items": { "type": "string" } },
+        "updatedAt": { "type": "string" }
+      },
+      "required": []
     }
   },
   "firestore": {
@@ -80,6 +91,10 @@
     "/parking_lots": {
       "schema": "ParkingLot",
       "description": "Physical parking locations."
+    },
+    "/system_settings": {
+      "schema": "SystemSettings",
+      "description": "Global custom configurations and booking system toggles."
     }
   }
 }

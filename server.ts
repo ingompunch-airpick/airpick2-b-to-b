@@ -1,21 +1,79 @@
+import "dotenv/config";
+import http from "http";
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
 import axios from "axios";
 import admin from "firebase-admin";
 import cookieParser from "cookie-parser";
-import firebaseConfig from "./firebase-applet-config.json";
+import firebaseConfig from "./firebase-applet-config.json" with { type: "json" };
+
+function logError(label: string, err: unknown) {
+  if (err instanceof Error) {
+    console.error(`[${label}]`, err.message);
+    if (err.stack) console.error(err.stack);
+    const code = (err as NodeJS.ErrnoException).code;
+    if (code) console.error(`  code: ${code}`);
+  } else {
+    console.error(`[${label}]`, err);
+  }
+}
+
+function registerProcessErrorHandlers() {
+  process.on("uncaughtException", (err) => {
+    logError("uncaughtException — process will exit", err);
+    process.exit(1);
+  });
+
+  process.on("unhandledRejection", (reason) => {
+    logError("unhandledRejection — process will exit", reason);
+    process.exit(1);
+  });
+
+  process.on("SIGINT", () => {
+    console.log("\n[server] SIGINT received, shutting down...");
+    process.exit(0);
+  });
+
+  process.on("SIGTERM", () => {
+    console.log("\n[server] SIGTERM received, shutting down...");
+    process.exit(0);
+  });
+}
+
+registerProcessErrorHandlers();
 
 // Initialize Firebase Admin
-if (!admin.apps.length) {
-  admin.initializeApp({
-    projectId: firebaseConfig.projectId,
-  });
+try {
+  if (!admin.apps.length) {
+    admin.initializeApp({
+      projectId: firebaseConfig.projectId,
+    });
+  }
+} catch (err) {
+  logError("firebase-admin init (non-fatal, OAuth may fail)", err);
 }
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3000;
+  const isProduction = process.env.NODE_ENV === "production";
+
+  // Single HTTP server — Vite HMR WebSocket shares this port (avoids 24678 EADDRINUSE crash)
+  const httpServer = http.createServer(app);
+
+  httpServer.on("error", (err: NodeJS.ErrnoException) => {
+    logError("httpServer error", err);
+    if (err.code === "EADDRINUSE") {
+      console.error(
+        `\n[server] Port ${PORT} is already in use.\n` +
+          `  Stop the other process:  netstat -ano | findstr :${PORT}\n` +
+          `  Then:  taskkill /PID <pid> /F\n` +
+          `  Or use another port:  $env:PORT=3001; npm run dev\n`
+      );
+    }
+    process.exit(1);
+  });
 
   app.use(express.json());
   app.use(cookieParser());
@@ -385,23 +443,57 @@ async function startServer() {
   });
 
   // Vite middleware for development
-  if (process.env.NODE_ENV !== "production") {
-    const vite = await createViteServer({
-      server: { middlewareMode: true },
-      appType: "spa",
-    });
-    app.use(vite.middlewares);
+  if (!isProduction) {
+    console.log("[server] Starting Vite dev middleware (HMR on same HTTP port)...");
+    try {
+      const vite = await createViteServer({
+        configFile: path.join(process.cwd(), "vite.config.ts"),
+        server: {
+          middlewareMode: { server: httpServer },
+          hmr: process.env.DISABLE_HMR === "true" ? false : { server: httpServer },
+        },
+        appType: "spa",
+      });
+      app.use(vite.middlewares);
+      console.log("[server] Vite ready.");
+    } catch (err) {
+      logError("Vite startup failed", err);
+      throw err;
+    }
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
+    const distPath = path.join(process.cwd(), "dist");
     app.use(express.static(distPath));
-    app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+    app.get("*", (req, res) => {
+      const ext = path.extname(req.path).toLowerCase();
+      if (
+        req.path.startsWith("/assets/") ||
+        [".js", ".css", ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".woff", ".woff2", ".ttf"].includes(ext)
+      ) {
+        res.status(404).type("text/plain").send("Resource not found");
+      } else {
+        res.sendFile(path.join(distPath, "index.html"));
+      }
     });
   }
 
-  app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+  await new Promise<void>((resolve, reject) => {
+    const onListenError = (err: NodeJS.ErrnoException) => {
+      reject(err);
+    };
+    httpServer.once("error", onListenError);
+    httpServer.listen(PORT, "0.0.0.0", () => {
+      httpServer.removeListener("error", onListenError);
+      console.log(`[server] Running — open http://localhost:${PORT}`);
+      console.log(`[server] Mode: ${isProduction ? "production" : "development"} | PID: ${process.pid}`);
+      resolve();
+    });
   });
+
+  // Keep event loop alive explicitly (guard against accidental early exit)
+  return httpServer;
 }
 
-startServer();
+startServer().catch((err) => {
+  logError("startServer failed", err);
+  process.exit(1);
+});

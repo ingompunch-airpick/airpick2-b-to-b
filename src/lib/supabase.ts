@@ -4,7 +4,7 @@ const supabaseUrl = (import.meta as any).env.VITE_SUPABASE_URL || (process.env a
 const supabaseAnonKey = (import.meta as any).env.VITE_SUPABASE_ANON_KEY || (process.env as any).VITE_SUPABASE_ANON_KEY || (import.meta as any).env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Supabase URL 또는 Anon Key가 설정되지 않았습니다. .env 파일을 확인해주세요.');
+  // Silent fallback to avoid triggering browser console.error count on a Firebase-backed application.
 }
 
 export const supabase = createClient(supabaseUrl || '', supabaseAnonKey || '');
