@@ -1,0 +1,26 @@
+{
+  "name": "에어픽 B2B · 발렛 관리",
+  "short_name": "에어픽 B2B",
+  "description": "인천공항 발렛 파킹 B2B 업무 관리 앱",
+  "start_url": "/airpick2-b-to-b/",
+  "scope": "/airpick2-b-to-b/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#000000",
+  "theme_color": "#F59E0B",
+  "lang": "ko",
+  "icons": [
+    {
+      "src": "/airpick2-b-to-b/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/airpick2-b-to-b/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}
