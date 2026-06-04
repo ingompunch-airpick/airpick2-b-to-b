@@ -1,7 +1,7 @@
 {
-  "name": "에어픽 B2B · 발렛 관리",
-  "short_name": "에어픽 B2B",
-  "description": "인천공항 발렛 파킹 B2B 업무 관리 앱",
+  "name": "에어픽 주차 관리",
+  "short_name": "에어픽 주차",
+  "description": "인천공항 발렛 파킹 주차 관리 앱",
   "start_url": "/airpick2-b-to-b/",
   "scope": "/airpick2-b-to-b/",
   "display": "standalone",
