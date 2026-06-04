@@ -1585,28 +1585,59 @@ export default function App() {
     }
   };
 
-  // Mutate scratch photo sync lists
+  // Mutate scratch photo sync lists (scratchPhotos 필드 — 현재 ScratchModal에서 사용)
   const handleUpdateScratchPhotos = async (resId: string, photos: ScratchPhotoSet) => {
     const operatorName = isEmployee ? employeeName : (isSuperAdmin ? '본사 마스터(최고관리자)' : '업체 마스터');
+    await ensureFirestoreAuth();
+    const payload = {
+      scratchPhotos: photos,
+      updatedBy: operatorName,
+      updatedAt: new Date().toISOString(),
+    };
     try {
-      const docRef = doc(db, 'reservations', resId);
-      await updateDoc(docRef, { 
-        scratchPhotos: photos,
-        updatedBy: operatorName,
-        updatedAt: new Date().toISOString()
-      });
-      setReservations(prev => {
-        const updated = prev.map(r => r.id === resId ? { ...r, scratchPhotos: photos, updatedBy: operatorName, updatedAt: new Date().toISOString() } : r);
-        localStorage.setItem(`${currentCompanyId}_reservations`, JSON.stringify(updated));
-        return updated;
-      });
-    } catch (err: any) {
-      setReservations(prev => {
-        const updated = prev.map(r => r.id === resId ? { ...r, scratchPhotos: photos, updatedBy: operatorName, updatedAt: new Date().toISOString() } : r);
-        localStorage.setItem(`${currentCompanyId}_reservations`, JSON.stringify(updated));
-        return updated;
-      });
+      await updateDoc(doc(db, 'reservations', resId), payload);
+    } catch (err: unknown) {
+      const code = (err as { code?: string })?.code;
+      if (code === 'not-found') {
+        throw new Error('Firestore에 이 예약 문서가 없습니다. 타임라인에서 입고 처리 후 다시 시도해 주세요.');
+      }
+      throw err;
     }
+    setReservations((prev) => {
+      const updated = prev.map((r) =>
+        r.id === resId ? { ...r, scratchPhotos: photos, updatedBy: operatorName, updatedAt: new Date().toISOString() } : r
+      );
+      localStorage.setItem(`${currentCompanyId}_reservations`, JSON.stringify(updated));
+      localStorage.setItem('firestore_reservations_cache', JSON.stringify(updated));
+      return updated;
+    });
+  };
+
+  // 사이드바 「③ 차량 사진 업로드」— images[] 필드, images/ 폴더
+  const handleUpdateReservationImages = async (resId: string, imageUrls: string[]) => {
+    const operatorName = isEmployee ? employeeName : (isSuperAdmin ? '본사 마스터(최고관리자)' : '업체 마스터');
+    await ensureFirestoreAuth();
+    try {
+      await updateDoc(doc(db, 'reservations', resId), {
+        images: imageUrls,
+        updatedBy: operatorName,
+        updatedAt: new Date().toISOString(),
+      });
+    } catch (err: unknown) {
+      const code = (err as { code?: string })?.code;
+      if (code === 'not-found') {
+        throw new Error('Firestore에 이 예약 문서가 없습니다. 타임라인에서 입고 처리 후 다시 시도해 주세요.');
+      }
+      throw err;
+    }
+    setReservations((prev) => {
+      const updated = prev.map((r) =>
+        r.id === resId ? { ...r, images: imageUrls, updatedBy: operatorName, updatedAt: new Date().toISOString() } : r
+      );
+      localStorage.setItem(`${currentCompanyId}_reservations`, JSON.stringify(updated));
+      localStorage.setItem('firestore_reservations_cache', JSON.stringify(updated));
+      return updated;
+    });
   };
 
   // Security Guard and Redirection Bouncer Engine:
@@ -1619,7 +1650,7 @@ export default function App() {
         setCurrentView('statistics');
       }
     } else {
-      if (currentView === 'statistics' || currentView === 'cancelled_list' || currentView === 'parkingRegister') {
+      if (currentView === 'statistics' || currentView === 'parkingRegister') {
         setCurrentView('timeline');
       }
     }
@@ -2174,10 +2205,10 @@ export default function App() {
                   exit={{ opacity: 0, scale: 0.98 }}
                   transition={{ duration: 0.15 }}
                 >
-                  <ScratchUploadView 
+                  <ScratchUploadView
                     onBack={() => setCurrentView('timeline')}
                     reservations={visibleReservations}
-                    onUpdateScratchPhotos={handleUpdateScratchPhotos}
+                    onUpdateImages={handleUpdateReservationImages}
                   />
                 </motion.div>
               )}

@@ -82,16 +82,15 @@ export default function Sidebar({
       ]
     : isAdminModeActive
     ? [
-        { id: 'admin_statistics', label: '① 대시보드 (통계)', desc: '일간/주간/월간 입출차 흐름 그래프 및 매출 요약 확인', icon: TrendingUp, view: 'statistics' as AppView },
-        { id: 'admin_timeline', label: '② 주차접수 내역', desc: '현재 접수된 차량들의 모바일 카드 리스트 조회 및 검색', icon: ClipboardList, view: 'parkingRegister' as AppView },
-        { id: 'admin_cancelled_list', label: '③ 접수취소 내역', desc: '취소된 예약 건들만 따로 모아보는 모바일 취소 장부', icon: FileX, view: 'cancelled_list' as AppView },
-        { id: 'admin_master_settings', label: '④ 업체 정보 설정', desc: '본인 계정 비밀번호 변경 및 자율 주차 요금 설정', icon: Settings, view: 'master_settings' as AppView }
+        { id: 'admin_statistics', label: '① 대시보드', desc: '매출 통계 · 접수현황 · 일별 흐름 통합', icon: TrendingUp, view: 'statistics' as AppView },
+        { id: 'admin_master_settings', label: '② 업체 정보 설정', desc: '본인 계정 비밀번호 변경 및 자율 주차 요금 설정', icon: Settings, view: 'master_settings' as AppView }
       ]
     : [
         { id: 'service_history', label: '① 나의 서비스 기록', desc: '당일 총 운행시간 요약 및 입출차 완료 로그', icon: History, view: 'service_history' as AppView },
         { id: 'payment_change', label: '② 결제 변경', desc: '결제수단 사후 수정', icon: CreditCard, view: 'payment_change' as AppView },
-        { id: 'scratch_images', label: '③ 차량 사진 업로드', desc: '사방 스크래치 전송 및 재전송', icon: Camera, view: 'scratch_images' as AppView },
+        { id: 'scratch_images', label: '③ 차량 사진 업로드', desc: '사진 미등록 차량 후속 업로드', icon: Camera, view: 'scratch_images' as AppView },
         { id: 'parking_departure', label: '④ 주차장별 현황', desc: '실내외 실시간 차량 분류 현황', icon: Calendar, view: 'parking_departure' as AppView },
+        { id: 'cancelled_list', label: '⑤ 접수취소 내역', desc: '취소된 예약 건 조회', icon: FileX, view: 'cancelled_list' as AppView },
       ];
 
   return (

@@ -127,34 +127,59 @@ export async function uploadReservationImages(
   return urls;
 }
 
-export type ScratchView = 'front' | 'rear' | 'left' | 'right';
+function storagePathForScratch(
+  companyId: string,
+  reservationId: string,
+  index: number
+): string {
+  return `reservations/${companyId}/${reservationId}/scratch/${Date.now()}_${index}.jpg`;
+}
 
-/** 사방 스크래치(전·후·좌·우) 단일 면 업로드 */
-export async function uploadScratchViewPhoto(
+/** 스크래치 사진 여러 장 업로드 (장수 제한 없음) */
+export async function uploadScratchPhotos(
   reservationId: string,
   companyId: string,
-  view: ScratchView,
-  source: string
-): Promise<string> {
-  if (!reservationId) throw new Error('예약 ID가 없습니다.');
-
-  const trimmed = source?.trim() || '';
-  if (!trimmed) throw new Error('이미지가 비어 있습니다.');
-  if (isRemoteImageUrl(trimmed)) return trimmed;
-
-  if (!trimmed.startsWith('data:')) {
-    throw new Error('JPG/PNG 사진을 선택하거나 촬영해 주세요.');
-  }
+  sources: string[]
+): Promise<string[]> {
+  if (!reservationId || sources.length === 0) return [];
 
   await ensureFirestoreAuth();
   const safeCompany = (companyId || 'unknown').replace(/[^\w-]/g, '_');
-  const blob = await dataUrlToCompressedBlob(trimmed);
-  const path = `reservations/${safeCompany}/${reservationId}/scratch/${view}_${Date.now()}.jpg`;
-  const storageRef = ref(storage, path);
+  const urls: string[] = [];
 
-  await withTimeout(
-    uploadBytes(storageRef, blob, { contentType: 'image/jpeg' }),
-    `${view} 면 업로드`
-  );
-  return withTimeout(getDownloadURL(storageRef), `${view} 면 URL`);
+  for (let i = 0; i < sources.length; i++) {
+    const src = sources[i]?.trim();
+    if (!src) continue;
+
+    if (isRemoteImageUrl(src)) {
+      urls.push(src);
+      continue;
+    }
+
+    if (!src.startsWith('data:')) continue;
+
+    try {
+      const blob = await dataUrlToCompressedBlob(src);
+      const path = storagePathForScratch(safeCompany, reservationId, i);
+      const storageRef = ref(storage, path);
+
+      await withTimeout(
+        uploadBytes(storageRef, blob, { contentType: 'image/jpeg' }),
+        `스크래치 사진 ${i + 1} 업로드`
+      );
+      const downloadUrl = await withTimeout(
+        getDownloadURL(storageRef),
+        `스크래치 사진 ${i + 1} URL`
+      );
+      urls.push(downloadUrl);
+    } catch (err) {
+      throw new Error(formatUploadError(err));
+    }
+  }
+
+  if (sources.some((s) => s?.trim().startsWith('data:')) && urls.length === 0) {
+    throw new Error('사진을 Storage에 올리지 못했습니다. 다시 촬영해 주세요.');
+  }
+
+  return urls;
 }

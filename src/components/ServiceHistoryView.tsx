@@ -48,10 +48,14 @@ export default function ServiceHistoryView({ onBack, reservations }: ServiceHist
       ['completed_in', 'request_out', 'completed_out'].includes(r.status)
     ).length;
 
-    const realExitedToday = reservations.filter(r => 
-      r.arrivalDate === todayStr && 
-      r.status === 'completed_out'
-    ).length;
+    const realExitedToday = reservations.filter(r => {
+      if (r.status !== 'completed_out') return false;
+      // actualExitTime(실제 출고 시각) 우선, 없으면 arrivalDate(예정일) fallback
+      const exitDate = r.actualExitTime
+        ? r.actualExitTime.slice(0, 10)
+        : r.arrivalDate;
+      return exitDate === todayStr;
+    }).length;
 
     const hasRealTodayData = realAdmittedToday > 0 || realExitedToday > 0;
     
@@ -73,7 +77,10 @@ export default function ServiceHistoryView({ onBack, reservations }: ServiceHist
 
   // Group reservations by date
   const groupedHistory = completedReservations.reduce<{ [date: string]: Reservation[] }>((acc, res) => {
-    const rawDate = res.arrivalDate || res.departureDate;
+    // 실제 출고 시각 우선, 없으면 출고 예정일 fallback
+    const rawDate = (res.actualExitTime ? res.actualExitTime.slice(0, 10) : null)
+      || res.arrivalDate
+      || res.departureDate;
     // Format date in Korean: e.g., "05월 22일(금)"
     let formattedDate = rawDate;
     try {

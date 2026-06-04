@@ -76,6 +76,9 @@ export type ReservationStatus =
 export type PaymentMethod = 'cash' | 'account' | 'card' | 'prepaid' | 'unpaid' | 'paid';
 
 export interface ScratchPhotoSet {
+  /** 스크래치·손상 사진 URL 목록 (장수 제한 없음) */
+  urls?: string[];
+  /** 예전 4면 형식 (읽기 호환용) */
   front?: string;
   rear?: string;
   left?: string;

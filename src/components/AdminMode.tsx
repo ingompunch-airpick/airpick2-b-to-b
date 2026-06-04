@@ -52,6 +52,7 @@ export default function AdminMode({
   // Render sub-views dynamically based on the current active admin view
   switch (currentView) {
     case 'statistics':
+    case 'parkingRegister':
       return (
         <StatisticsView 
           reservations={reservations} 
@@ -65,15 +66,7 @@ export default function AdminMode({
           blockedDates={blockedDates}
           onSaveBlockedDates={onSaveBlockedDates}
           setCurrentView={setCurrentView}
-        />
-      );
-
-    case 'parkingRegister':
-      return (
-        <ParkingRegisterView 
-          reservations={reservations} 
-          companyName={companyInfo.name} 
-          onUpdateStatus={onUpdateValetStatus} 
+          onUpdateValetStatus={onUpdateValetStatus}
         />
       );
 
@@ -104,7 +97,6 @@ export default function AdminMode({
       );
 
     default:
-      // Fallback fallback if somehow an unrecognized driver view leaks in during admin toggles
-      return <StatisticsView reservations={reservations} companyName={companyInfo.name} />;
+      return <StatisticsView reservations={reservations} companyName={companyInfo.name} onUpdateValetStatus={onUpdateValetStatus} />;
   }
 }
