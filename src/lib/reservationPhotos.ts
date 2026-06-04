@@ -126,3 +126,35 @@ export async function uploadReservationImages(
 
   return urls;
 }
+
+export type ScratchView = 'front' | 'rear' | 'left' | 'right';
+
+/** 사방 스크래치(전·후·좌·우) 단일 면 업로드 */
+export async function uploadScratchViewPhoto(
+  reservationId: string,
+  companyId: string,
+  view: ScratchView,
+  source: string
+): Promise<string> {
+  if (!reservationId) throw new Error('예약 ID가 없습니다.');
+
+  const trimmed = source?.trim() || '';
+  if (!trimmed) throw new Error('이미지가 비어 있습니다.');
+  if (isRemoteImageUrl(trimmed)) return trimmed;
+
+  if (!trimmed.startsWith('data:')) {
+    throw new Error('JPG/PNG 사진을 선택하거나 촬영해 주세요.');
+  }
+
+  await ensureFirestoreAuth();
+  const safeCompany = (companyId || 'unknown').replace(/[^\w-]/g, '_');
+  const blob = await dataUrlToCompressedBlob(trimmed);
+  const path = `reservations/${safeCompany}/${reservationId}/scratch/${view}_${Date.now()}.jpg`;
+  const storageRef = ref(storage, path);
+
+  await withTimeout(
+    uploadBytes(storageRef, blob, { contentType: 'image/jpeg' }),
+    `${view} 면 업로드`
+  );
+  return withTimeout(getDownloadURL(storageRef), `${view} 면 URL`);
+}

@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
-import { ArrowLeft, Camera, RefreshCw, CheckCircle, AlertTriangle, CloudRain, UploadCloud } from 'lucide-react';
+import React, { useRef, useState } from 'react';
+import { ArrowLeft, Camera, RefreshCw, ChevronDown } from 'lucide-react';
 import { Reservation, ScratchPhotoSet } from '../types';
+import { uploadScratchViewPhoto, type ScratchView } from '../lib/reservationPhotos';
+import { ensureFirestoreAuth } from '../lib/reservationFirestore';
 
 interface ScratchUploadViewProps {
   onBack: () => void;
@@ -8,125 +10,273 @@ interface ScratchUploadViewProps {
   onUpdateScratchPhotos: (id: string, photos: ScratchPhotoSet) => Promise<void>;
 }
 
-export default function ScratchUploadView({ onBack, reservations, onUpdateScratchPhotos }: ScratchUploadViewProps) {
-  const [selectedRes, setSelectedRes] = useState<Reservation | null>(null);
-  const [photosCache, setPhotosCache] = useState<{ [id: string]: ScratchPhotoSet }>({});
-  const [syncFailedList, setSyncFailedList] = useState<{ [id: string]: boolean }>({
-    // Prefill some items as failed to demonstrate the compulsory Photo 6 retry mechanism immediately!
+const SCRATCH_SLOTS: { id: ScratchView; label: string; short: string }[] = [
+  { id: 'front', label: '① 전면', short: '전면' },
+  { id: 'rear', label: '② 후면', short: '후면' },
+  { id: 'left', label: '③ 좌측', short: '좌측' },
+  { id: 'right', label: '④ 우측', short: '우측' },
+];
+
+function readFileAsDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      if (typeof reader.result === 'string') resolve(reader.result);
+      else reject(new Error('사진을 읽지 못했습니다.'));
+    };
+    reader.onerror = () => reject(new Error('사진을 읽지 못했습니다.'));
+    reader.readAsDataURL(file);
   });
-  const [isSimulatingFailure, setIsSimulatingFailure] = useState(true);
+}
+
+/** 예전 데모(unsplash) URL — 실제 촬영으로 간주하지 않음 */
+function isDemoScratchUrl(url?: string): boolean {
+  if (!url) return false;
+  return url.includes('unsplash.com') || url.includes('images.unsplash');
+}
+
+function realScratchUrl(url?: string): string | undefined {
+  return url && !isDemoScratchUrl(url) ? url : undefined;
+}
+
+function normalizeScratchSet(set: ScratchPhotoSet | undefined): ScratchPhotoSet | undefined {
+  if (!set) return undefined;
+  const front = realScratchUrl(set.front);
+  const rear = realScratchUrl(set.rear);
+  const left = realScratchUrl(set.left);
+  const right = realScratchUrl(set.right);
+  const hasAny = !!(front || rear || left || right);
+  if (!hasAny && !set.synced) return undefined;
+  return {
+    ...set,
+    front,
+    rear,
+    left,
+    right,
+    synced: !!(set.synced && front && rear && left && right),
+  };
+}
+
+function getPhotoSet(
+  res: Reservation,
+  photosCache: { [id: string]: ScratchPhotoSet }
+): ScratchPhotoSet | undefined {
+  if (!res.id) return undefined;
+  const raw = photosCache[res.id] || res.scratchPhotos;
+  return normalizeScratchSet(raw);
+}
+
+function isFullySynced(cache: ScratchPhotoSet | undefined): boolean {
+  return !!(cache?.synced && cache.front && cache.rear && cache.left && cache.right);
+}
+
+export default function ScratchUploadView({ onBack, reservations, onUpdateScratchPhotos }: ScratchUploadViewProps) {
+  const [expandedResId, setExpandedResId] = useState<string | null>(null);
+  const [photosCache, setPhotosCache] = useState<{ [id: string]: ScratchPhotoSet }>({});
+  const [syncFailedList, setSyncFailedList] = useState<{ [id: string]: boolean }>({});
   const [isSyncing, setIsSyncing] = useState<string | null>(null);
+  const [uploadingKey, setUploadingKey] = useState<string | null>(null);
+  const [captureTargetRes, setCaptureTargetRes] = useState<Reservation | null>(null);
+  const [pendingView, setPendingView] = useState<ScratchView | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // Initialize failure state for reservations to give the user a live sandbox experience immediately
-  React.useEffect(() => {
-    if (reservations.length > 0) {
-      const initialFailed: { [id: string]: boolean } = {};
-      reservations.slice(0, 2).forEach((res, i) => {
-        if (res.id && !photosCache[res.id]) {
-          initialFailed[res.id] = true;
-        }
-      });
-      setSyncFailedList(prev => ({ ...initialFailed, ...prev }));
-    }
-  }, [reservations]);
+  const activeReservations = reservations.filter(
+    (r) => r.id && !['cancelled', 'completed_out'].includes(r.status)
+  );
 
-  const handleCapturePhoto = (view: 'front' | 'rear' | 'left' | 'right') => {
-    if (!selectedRes?.id) return;
+  const openUpload = (res: Reservation, view?: ScratchView) => {
+    if (!res.id) return;
+    setExpandedResId(res.id);
+    const cache = getPhotoSet(res, photosCache);
+    const nextView =
+      view ||
+      SCRATCH_SLOTS.find((s) => !cache?.[s.id])?.id ||
+      'front';
+    setCaptureTargetRes(res);
+    setPendingView(nextView);
+    fileInputRef.current?.click();
+  };
 
-    // Simulate taking a photo by using a descriptive mock base64 or Unsplash url
-    const timestamp = new Date().toLocaleTimeString();
-    const urls = {
-      front: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?q=80&w=400&fit=crop',
-      rear: 'https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?q=80&w=400&fit=crop',
-      left: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?q=80&w=400&fit=crop',
-      right: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?q=80&w=400&fit=crop'
-    };
+  const handleCaptureSlot = (res: Reservation, view: ScratchView) => {
+    setCaptureTargetRes(res);
+    setExpandedResId(res.id ?? null);
+    setPendingView(view);
+    fileInputRef.current?.click();
+  };
 
-    const currentPhotos = photosCache[selectedRes.id] || selectedRes.scratchPhotos || { synced: false };
-    const updatedPhotos = {
-      ...currentPhotos,
-      [view]: urls[view],
-      synced: false,
-      updatedAt: timestamp
-    };
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    const view = pendingView;
+    const res = captureTargetRes;
+    if (e.target) e.target.value = '';
+    setPendingView(null);
+    if (!file || !view || !res?.id) return;
 
-    setPhotosCache(prev => ({
-      ...prev,
-      [selectedRes.id!]: updatedPhotos
-    }));
+    const uploadKey = `${res.id}-${view}`;
+    setUploadingKey(uploadKey);
+    try {
+      await ensureFirestoreAuth();
+      const dataUrl = await readFileAsDataUrl(file);
+      const downloadUrl = await uploadScratchViewPhoto(
+        res.id,
+        res.companyId || 'wawa',
+        view,
+        dataUrl
+      );
 
-    // If simulating failure, mark this vehicle as failed immediately after capturing photos!
-    if (isSimulatingFailure) {
-      setSyncFailedList(prev => ({
+      const timestamp = new Date().toLocaleTimeString('ko-KR');
+      const currentPhotos = getPhotoSet(res, photosCache) || { synced: false };
+      const updatedPhotos: ScratchPhotoSet = {
+        ...currentPhotos,
+        [view]: downloadUrl,
+        synced: false,
+        updatedAt: timestamp,
+      };
+
+      setPhotosCache((prev) => ({
         ...prev,
-        [selectedRes.id!]: true
+        [res.id!]: updatedPhotos,
       }));
+
+      setSyncFailedList((prev) => {
+        const next = { ...prev };
+        delete next[res.id!];
+        return next;
+      });
+      setExpandedResId(res.id);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '사진 업로드에 실패했습니다.';
+      alert(msg);
+      setSyncFailedList((prev) => ({ ...prev, [res.id!]: true }));
+    } finally {
+      setUploadingKey(null);
+      setCaptureTargetRes(null);
     }
   };
 
   const handleSyncPhotos = async (resId: string, customPhotos?: ScratchPhotoSet) => {
     setIsSyncing(resId);
-    
-    // Find current set
-    const res = reservations.find(r => r.id === resId);
-    const set = customPhotos || photosCache[resId] || res?.scratchPhotos || { 
-      front: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?q=80&w=400&fit=crop', 
-      rear: 'https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?q=80&w=400&fit=crop',
-      synced: false
-    };
 
-    // Simulate network latency
-    await new Promise(resolve => setTimeout(resolve, 1500));
+    const res = reservations.find((r) => r.id === resId);
+    const set =
+      customPhotos ||
+      photosCache[resId] ||
+      res?.scratchPhotos || {
+        synced: false,
+      };
 
-    if (isSimulatingFailure && !customPhotos) {
-      // Failed! Maintain the warning
-      setSyncFailedList(prev => ({ ...prev, [resId]: true }));
+    const hasAllSides = !!(set.front && set.rear && set.left && set.right);
+    if (!hasAllSides) {
       setIsSyncing(null);
-      alert("인천공항 지하 유해 전파 방해로 인해 전송이 실패했습니다. 재전송 버튼을 이용바랍니다.");
-    } else {
-      // Successful transaction
-      try {
-        const finalizedSet = { ...set, synced: true };
-        await onUpdateScratchPhotos(resId, finalizedSet);
-        
-        // Remove from failed list
-        setSyncFailedList(prev => {
-          const c = { ...prev };
-          delete c[resId];
-          return c;
-        });
+      alert('전·후·좌·우 4면 사진을 모두 올린 뒤 저장해 주세요.');
+      return;
+    }
 
-        // Update local cache
-        setPhotosCache(prev => ({
-          ...prev,
-          [resId]: finalizedSet
-        }));
+    try {
+      const finalizedSet: ScratchPhotoSet = { ...set, synced: true };
+      await onUpdateScratchPhotos(resId, finalizedSet);
 
-        setIsSyncing(null);
-        alert("사방 스크래치 고해상도 이미지가 AWS 안전 클라우드로 동기화되었습니다!");
-      } catch (err) {
-        setSyncFailedList(prev => ({ ...prev, [resId]: true }));
-        setIsSyncing(null);
-      }
+      setSyncFailedList((prev) => {
+        const c = { ...prev };
+        delete c[resId];
+        return c;
+      });
+
+      setPhotosCache((prev) => ({
+        ...prev,
+        [resId]: finalizedSet,
+      }));
+
+      setIsSyncing(null);
+      setExpandedResId(null);
+      alert('사방 스크래치 사진이 저장되었습니다.');
+    } catch {
+      setSyncFailedList((prev) => ({ ...prev, [resId]: true }));
+      setIsSyncing(null);
+      alert('저장에 실패했습니다. 재전송해 주세요.');
     }
   };
 
-  const getSyncStatusBadge = (resId: string, hasPhotos: boolean) => {
-    const isFailed = syncFailedList[resId];
-    if (isFailed) {
-      return { text: '△ 삭제 / 미동기', color: 'text-amber-550/90 bg-amber-500/5 border-amber-500/15' };
-    }
-    if (hasPhotos) {
-      return { text: '● 동기 완수', color: 'text-emerald-400 bg-emerald-500/5 border-emerald-500/15' };
-    }
-    return { text: '촬영 대기', color: 'text-zinc-500 bg-neutral-900/60 border-neutral-850/80' };
+  const renderInlineCapture = (res: Reservation) => {
+    const cache = getPhotoSet(res, photosCache);
+    const allFour = !!(cache?.front && cache?.rear && cache?.left && cache?.right);
+
+    return (
+      <div
+        className="mt-3 pt-3 border-t border-neutral-800 space-y-3"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="grid grid-cols-4 gap-2">
+          {SCRATCH_SLOTS.map((view) => {
+            const capturedUrl = cache?.[view.id];
+            const isUploading = uploadingKey === `${res.id}-${view.id}`;
+
+            return (
+              <button
+                type="button"
+                key={view.id}
+                disabled={!!isUploading}
+                onClick={() => handleCaptureSlot(res, view.id)}
+                className="relative aspect-square rounded-lg bg-neutral-950 border border-neutral-800 overflow-hidden flex flex-col items-center justify-center gap-0.5 hover:border-amber-500/60 transition-all disabled:opacity-50"
+              >
+                {isUploading ? (
+                  <RefreshCw className="animate-spin text-amber-500" size={16} />
+                ) : capturedUrl ? (
+                  <>
+                    <img
+                      src={capturedUrl}
+                      alt={view.short}
+                      className="absolute inset-0 w-full h-full object-cover"
+                      referrerPolicy="no-referrer"
+                    />
+                    <span className="absolute bottom-0 inset-x-0 bg-black/70 text-[7px] font-bold py-0.5 text-center text-zinc-300">
+                      {view.short}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <Camera size={14} className="text-amber-500/80" />
+                    <span className="text-[8px] font-bold text-zinc-500">{view.short}</span>
+                  </>
+                )}
+              </button>
+            );
+          })}
+        </div>
+        <button
+          type="button"
+          disabled={isSyncing === res.id || !allFour}
+          onClick={() => handleSyncPhotos(res.id!, cache)}
+          className={`w-full py-2.5 rounded-xl text-[11px] font-black flex items-center justify-center gap-1.5 transition-all ${
+            allFour
+              ? 'bg-amber-500 text-neutral-950 hover:bg-amber-400'
+              : 'bg-neutral-850 text-zinc-600 cursor-not-allowed'
+          }`}
+        >
+          {isSyncing === res.id ? (
+            <RefreshCw className="animate-spin" size={12} />
+          ) : (
+            <>4면 저장 완료</>
+          )}
+        </button>
+      </div>
+    );
   };
 
   return (
     <div className="min-h-screen bg-neutral-950 text-white p-5 pb-24">
-      {/* Header */}
-      <div className="flex items-center gap-3.5 mb-6">
-        <button 
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        className="hidden"
+        onChange={handleFileChange}
+      />
+
+      <div className="flex items-center gap-3.5 mb-5">
+        <button
+          type="button"
           onClick={onBack}
           className="p-2 hover:bg-neutral-900 rounded-2xl text-zinc-400 hover:text-white transition-all bg-neutral-900/60 border border-neutral-800"
         >
@@ -138,169 +288,106 @@ export default function ScratchUploadView({ onBack, reservations, onUpdateScratc
         </div>
       </div>
 
-      {/* Simulator controller sandbox alert box */}
-      <div className="mb-6 p-4 bg-neutral-900 border border-neutral-800 rounded-2xl">
-        <div className="flex items-center justify-between">
-          <div>
-            <h4 className="text-xs font-black text-white flex items-center gap-1.5">
-              <UploadCloud size={13} className="text-amber-500" />
-              네트워크 장애 모의 시뮬레이터
-            </h4>
-            <p className="text-[9.5px] text-neutral-400 mt-1 max-w-[200px]">
-              체험 시 업로드 실패 후 우측 <strong className="text-amber-500">재전송</strong> 버튼 시연이 원활하도록 장애 모드를 강제 활성화합니다.
-            </p>
-          </div>
-          <button
-            onClick={() => setIsSimulatingFailure(!isSimulatingFailure)}
-            className={`px-3 py-1.5 rounded-xl text-[10px] font-bold border transition-all ${
-              isSimulatingFailure 
-                ? 'bg-amber-600/15 border-amber-500/30 text-amber-500' 
-                : 'bg-zinc-800 border-neutral-750 text-zinc-400'
-            }`}
-          >
-            {isSimulatingFailure ? '장애 활성화됨' : '정상 전송모드'}
-          </button>
-        </div>
-      </div>
+      <div className="space-y-3">
+        <h3 className="text-[10px] uppercase font-black tracking-widest text-zinc-500 px-1">
+          입고차량 ({activeReservations.length}건) · 촬영 대기는 「촬영·업로드」 탭
+        </h3>
 
-      {/* Main split-screen grid layout */}
-      <div className="space-y-6">
-        
-        {/* Step List of Active Cars */}
-        <div className="space-y-3">
-          <h3 className="text-[10px] uppercase font-black tracking-widest text-zinc-500 px-1">입고차량 목록 ({reservations.length}건)</h3>
-          
-          <div className="space-y-2.5 max-h-[220px] overflow-y-auto no-scrollbar">
-            {reservations.map((res, idx) => {
+        <div className="space-y-2.5">
+          {activeReservations.length === 0 ? (
+            <p className="text-xs text-zinc-500 font-bold px-1">촬영 대상 입고 차량이 없습니다.</p>
+          ) : (
+            activeReservations.map((res, idx) => {
               if (!res.id) return null;
-              const cache = photosCache[res.id] || res.scratchPhotos;
+              const cache = getPhotoSet(res, photosCache);
               const hasPhotos = !!(cache?.front || cache?.rear || cache?.left || cache?.right);
+              const allFour = !!(cache?.front && cache?.rear && cache?.left && cache?.right);
+              const synced = isFullySynced(cache);
               const isFailed = syncFailedList[res.id];
-              const statusBadge = getSyncStatusBadge(res.id, hasPhotos);
-              const isSelected = selectedRes?.id === res.id;
+              const isExpanded = expandedResId === res.id;
+              const needsUpload = !synced && !isFailed;
 
               return (
-                <div 
-                  key={`${res.id || ''}-${idx}`}
-                  onClick={() => setSelectedRes(res)}
-                  className={`p-3.5 rounded-2xl border transition-all cursor-pointer flex items-center justify-between ${
-                    isSelected 
-                      ? 'bg-neutral-900 border-amber-500' 
-                      : 'bg-neutral-900/60 hover:bg-neutral-900 hover:border-neutral-750 border-neutral-850'
+                <div
+                  key={`${res.id}-${idx}`}
+                  className={`rounded-2xl border transition-all ${
+                    isExpanded
+                      ? 'bg-neutral-900 border-amber-500/80 ring-1 ring-amber-500/25'
+                      : 'bg-neutral-900/60 border-neutral-850'
                   }`}
                 >
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium text-zinc-200">{res.carNumber}</span>
-                      <span className="text-[10px] text-zinc-450 font-normal">({res.carModel})</span>
+                  <div
+                    className="p-3.5 flex items-center justify-between gap-2 cursor-pointer"
+                    onClick={() => {
+                      if (needsUpload) {
+                        setExpandedResId(isExpanded ? null : res.id);
+                      }
+                    }}
+                  >
+                    <div className="space-y-1 min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xs font-medium text-zinc-200">{res.carNumber}</span>
+                        <span className="text-[10px] text-zinc-500 truncate">({res.carModel})</span>
+                      </div>
+                      <p className="text-[9.5px] text-zinc-500 truncate">
+                        {res.userName} · {res.companyName || '제휴주차장'}
+                      </p>
                     </div>
-                    <p className="text-[9.5px] text-zinc-500">
-                      고객명: {res.userName} • 주차장: <span className="text-zinc-450 font-medium">{res.companyName || '제휴주차장'}</span>
-                    </p>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {isFailed ? (
+                        <button
+                          type="button"
+                          disabled={isSyncing === res.id}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setExpandedResId(res.id);
+                            handleSyncPhotos(res.id!);
+                          }}
+                          className="px-3 py-2 bg-amber-500 text-neutral-950 rounded-xl text-[10px] font-black"
+                        >
+                          {isSyncing === res.id ? (
+                            <RefreshCw className="animate-spin" size={10} />
+                          ) : (
+                            '재전송'
+                          )}
+                        </button>
+                      ) : synced ? (
+                        <span className="text-[9.5px] font-medium px-2.5 py-1.5 rounded-lg border text-emerald-400 bg-emerald-500/5 border-emerald-500/15">
+                          동기 완료
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            openUpload(res);
+                          }}
+                          className="px-3 py-2 bg-amber-500 text-neutral-950 hover:bg-amber-400 rounded-xl text-[10px] font-black flex items-center gap-1 shadow-sm active:scale-95 transition-all"
+                        >
+                          <Camera size={12} />
+                          {hasPhotos && !allFour ? '이어서 촬영' : '촬영·업로드'}
+                        </button>
+                      )}
+                    </div>
                   </div>
 
-                  <div className="flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
-                    {isFailed ? (
-                      <button 
-                        disabled={isSyncing === res.id}
-                        onClick={() => handleSyncPhotos(res.id!, {
-                          front: 'https://images.unsplash.com/photo-1549399542-7e3f8b79c341?q=80&w=400&fit=crop',
-                          rear: 'https://images.unsplash.com/photo-1541899481282-d53bffe3c35d?q=80&w=400&fit=crop',
-                          left: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?q=80&w=400&fit=crop',
-                          right: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?q=80&w=400&fit=crop',
-                          synced: true
-                        })}
-                        className="px-3 py-1.5 bg-amber-500/90 text-neutral-950 hover:bg-amber-600 rounded-xl text-[10px] font-medium tracking-tight flex items-center gap-1 shadow-sm transition-all animate-pulse"
-                      >
-                        {isSyncing === res.id ? (
-                          <RefreshCw className="animate-spin" size={10} />
-                        ) : (
-                          <>재전송 (AWS)</>
-                        )}
-                      </button>
-                    ) : (
-                      <span className={`text-[9.5px] font-mono font-medium px-3.5 py-1.5 rounded-lg border leading-none ${statusBadge.color}`}>
-                        {statusBadge.text}
-                      </span>
-                    )}
-                  </div>
+                  {isExpanded && needsUpload && renderInlineCapture(res)}
+
+                  {isExpanded && needsUpload && (
+                    <button
+                      type="button"
+                      className="w-full py-1 flex items-center justify-center text-zinc-600"
+                      onClick={() => setExpandedResId(null)}
+                    >
+                      <ChevronDown size={14} className="rotate-180" />
+                    </button>
+                  )}
                 </div>
               );
-            })}
-          </div>
+            })
+          )}
         </div>
-
-        {/* Selected vehicle photography panel */}
-        {selectedRes ? (
-          <div className="p-4 bg-neutral-900 border border-neutral-800 rounded-2xl space-y-4 animate-in fade-in slide-in-from-bottom-2">
-            <div className="flex justify-between items-center">
-              <div>
-                <p className="text-[10px] text-zinc-500 uppercase font-bold tracking-tight">선택차량 사방촬영</p>
-                <h4 className="text-sm font-black text-white">{selectedRes.carNumber} ({selectedRes.carModel})</h4>
-              </div>
-              <button 
-                onClick={() => handleSyncPhotos(selectedRes.id!, photosCache[selectedRes.id!])}
-                disabled={isSyncing === selectedRes.id}
-                className="px-3.5 py-2 bg-neutral-850 hover:bg-neutral-800 rounded-xl border border-neutral-750 text-xs font-black text-zinc-300 flex items-center gap-1 hover:text-white"
-              >
-                {isSyncing === selectedRes.id ? (
-                  <RefreshCw className="animate-spin" size={12} />
-                ) : (
-                  <>수동 동기화</>
-                )}
-              </button>
-            </div>
-
-            {/* 4 Quadrants of the car: Front, Back, Left, Right */}
-            <div className="grid grid-cols-2 gap-3.5">
-              {[
-                { id: 'front' as const, label: '① 전면 스크래치' },
-                { id: 'rear' as const, label: '② 후면 스크래치' },
-                { id: 'left' as const, label: '③ 좌측면 스크래치' },
-                { id: 'right' as const, label: '④ 우측면 스크래치' }
-              ].map((view) => {
-                const imgSet = photosCache[selectedRes.id!] || selectedRes.scratchPhotos;
-                const capturedUrl = imgSet?.[view.id];
-
-                return (
-                  <div 
-                    key={view.id}
-                    onClick={() => handleCapturePhoto(view.id)}
-                    className="relative aspect-video rounded-xl bg-neutral-950 border border-neutral-850 overflow-hidden group cursor-pointer flex flex-col justify-center items-center gap-1.5 text-zinc-500 hover:text-white hover:border-neutral-700 transition-all select-none"
-                  >
-                    {capturedUrl ? (
-                      <>
-                        <img 
-                          src={capturedUrl} 
-                          alt={view.label}
-                          className="w-full h-full object-cover"
-                          referrerPolicy="no-referrer"
-                        />
-                        <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                          <p className="text-[10px] font-black text-amber-500 uppercase">재촬영 하기</p>
-                        </div>
-                        <span className="absolute bottom-1.5 left-2 bg-black/60 px-2 py-0.5 rounded text-[8px] font-mono tracking-tight text-zinc-400">
-                          {view.label.split(' ')[1]}
-                        </span>
-                      </>
-                    ) : (
-                      <>
-                        <Camera size={18} className="text-neutral-700 group-hover:text-amber-500 transition-colors" />
-                        <span className="text-[10px] font-bold tracking-tight">{view.label}</span>
-                      </>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-            <p className="text-[9px] text-zinc-500 text-center">각 슬롯을 누르면 가칭 검증 사진 촬영을 자동 시뮬레이션 기록합니다.</p>
-          </div>
-        ) : (
-          <div className="p-10 text-center bg-neutral-900/30 border border-dashed border-neutral-800 rounded-2xl">
-            <Camera className="mx-auto text-neutral-850 mb-3" size={32} />
-            <p className="text-xs text-neutral-500 font-bold">사방 스크래치를 촬영할 차량을 위 목록에서 선택해 주십시오</p>
-          </div>
-        )}
       </div>
     </div>
   );

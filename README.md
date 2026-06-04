@@ -8,6 +8,16 @@ This contains everything you need to run your app locally.
 
 View your app in AI Studio: https://ai.studio/apps/38340e4e-f8e7-4c6a-bc23-67a684103302
 
+## 배포 (현장 앱 URL)
+
+| 용도 | 방식 | URL |
+|------|------|-----|
+| **B2B 웹 화면** | GitHub Pages (`main` push 시 자동) | https://ingompunch-airpick.github.io/airpick2-b-to-b/ |
+| **DB·사진·로그인** | Firebase 프로젝트 `airpick-reservation` | Console / Firestore / Storage |
+
+- 화면 수정 후 배포: `main`에 push → Actions **Deploy to GitHub Pages** 완료 후 폰에서 새로고침
+- (선택) Firebase Hosting: 터미널에서 `firebase login` 후 `npm run deploy:hosting` → `https://airpick-reservation.web.app`
+
 ## Run Locally
 
 **Prerequisites:**  Node.js

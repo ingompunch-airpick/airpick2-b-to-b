@@ -5,8 +5,11 @@ import {defineConfig, loadEnv} from 'vite';
 
 export default defineConfig(({mode}) => {
   const env = loadEnv(mode, '.', '');
+  // GitHub Pages 프로젝트 경로 (/airpick2-b-to-b/). 로컬·Firebase Hosting은 '/'
+  const base =
+    process.env.GITHUB_PAGES === 'true' ? '/airpick2-b-to-b/' : '/';
   return {
-    base: '/',
+    base,
     plugins: [react(), tailwindcss()],
     define: {
       'process.env.GEMINI_API_KEY': JSON.stringify(env.GEMINI_API_KEY),
