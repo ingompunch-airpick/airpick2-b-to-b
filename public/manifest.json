@@ -1,6 +1,6 @@
 {
   "name": "에어픽 주차 관리",
-  "short_name": "에어픽 주차",
+  "short_name": "에어픽 주차 관리",
   "description": "인천공항 발렛 파킹 주차 관리 앱",
   "start_url": "/airpick2-b-to-b/",
   "scope": "/airpick2-b-to-b/",
