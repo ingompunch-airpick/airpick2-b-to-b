@@ -54,10 +54,10 @@ export default class ErrorBoundary extends React.Component<Props, State> {
             </p>
 
             <div className="bg-neutral-950 border border-neutral-800 rounded-xl p-3 mb-6 text-left">
-              <span className="text-[10px] font-mono font-bold text-zinc-500 block uppercase tracking-wider mb-1">
+              <span className="text-[11px] font-mono font-bold text-zinc-500 block uppercase tracking-wider mb-1">
                 SYSTEM DIAGNOSIS LOG
               </span>
-              <p className="text-[11px] font-mono text-amber-500 break-all leading-normal">
+              <p className="text-[12px] font-mono text-amber-500 break-all leading-normal">
                 {this.state.error?.message || "Null-ish context state crash occurred during mount."}
               </p>
             </div>

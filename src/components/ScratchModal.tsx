@@ -142,7 +142,7 @@ export default function ScratchModal({
             <div className="p-4 border-b border-neutral-800 flex items-center justify-between bg-neutral-900/40">
               <div className="flex items-center gap-2">
                 <Camera className="text-amber-500 animate-pulse" size={16} />
-                <span className="text-[11px] font-bold font-mono text-zinc-350">
+                <span className="text-[12px] font-bold font-mono text-zinc-350">
                   사진 등록 ({targetReservationForScratch.userName} 고객님 • {targetReservationForScratch.carNumber})
                 </span>
               </div>
@@ -161,13 +161,13 @@ export default function ScratchModal({
             {/* Body */}
             <div className="overflow-y-auto p-5 space-y-4 select-none scrollbar-thin">
               <div className="bg-neutral-950 border border-neutral-850 p-3 rounded-xl">
-                <p className="text-[10.5px] text-zinc-400 font-sans leading-relaxed">
+                <p className="text-[11.5px] text-zinc-400 font-sans leading-relaxed">
                   차량 인계를 접수하기 전 손상 발생 방지를 위해 사진 촬영을 실시합니다. 만족할 때까지 자유롭게 촬영하십시오.
                 </p>
               </div>
 
               <div className="space-y-2">
-                <p className="text-[10px] font-black uppercase text-zinc-500 tracking-wider">수납 상태</p>
+                <p className="text-[11px] font-black uppercase text-zinc-500 tracking-wider">수납 상태</p>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
@@ -194,7 +194,7 @@ export default function ScratchModal({
                     완납
                   </button>
                 </div>
-                <p className="text-[9px] text-zinc-550 leading-relaxed">
+                <p className="text-[10px] text-zinc-550 leading-relaxed">
                   선택하지 않은 차량은 목록에 「미납」으로 표시됩니다. 선결·현장 수납 완료는 「완납」을 선택하세요.
                 </p>
               </div>
@@ -216,23 +216,23 @@ export default function ScratchModal({
                 
                 <Camera className="text-neutral-500 group-hover:text-amber-500 transition-colors mb-2.5" size={28} />
                 <span className="text-xs font-black text-zinc-200">📸 사진 촬영 및 추가하기</span>
-                <span className="text-[9px] text-zinc-550 mt-1">파일 선택창 개방 또는 카메라 촬영 개시</span>
+                <span className="text-[10px] text-zinc-550 mt-1">파일 선택창 개방 또는 카메라 촬영 개시</span>
               </div>
 
               {/* Real-time photo counter info line */}
-              <div className="flex items-center justify-between text-[10.5px] font-mono border-t border-neutral-850/60 pt-2.5 text-zinc-400">
+              <div className="flex items-center justify-between text-[11.5px] font-mono border-t border-neutral-850/60 pt-2.5 text-zinc-400">
                 <div className="flex items-center gap-1.5">
                   <span className="text-amber-500 text-xs">◆</span>
                   <span>등록된 사진 수 :</span>
                   <span className="text-amber-500/90 font-black">{uploadedPhotos.length}장</span>
                 </div>
-                <span className="text-[8.5px] text-zinc-550">제한 없이 만족할 때까지 촬영하십시오</span>
+                <span className="text-[9.5px] text-zinc-550">제한 없이 만족할 때까지 촬영하십시오</span>
               </div>
 
               {/* Render lists of thumbnails */}
               {uploadedPhotos.length > 0 && (
                 <div className="space-y-1.5">
-                  <span className="text-[10px] uppercase font-black tracking-wider text-zinc-500 px-0.5">촬영 내역 (바둑판식 배열)</span>
+                  <span className="text-[11px] uppercase font-black tracking-wider text-zinc-500 px-0.5">촬영 내역 (바둑판식 배열)</span>
                   <div className="grid grid-cols-4 gap-2 max-h-[180px] overflow-y-auto p-1 bg-neutral-950 rounded-xl border border-neutral-850/60">
                     {uploadedPhotos.map((url, idx) => (
                       <div key={idx} className="relative aspect-video rounded-lg border border-neutral-850/60 bg-neutral-900 overflow-hidden group">
@@ -245,7 +245,7 @@ export default function ScratchModal({
                         <div className="absolute inset-0 bg-neutral-950/20 group-hover:bg-neutral-950/0 transition-colors" />
                         
                         {/* Bullet badge count */}
-                        <span className="absolute bottom-1 left-1 bg-neutral-950/85 px-1 py-0.5 rounded text-[8px] font-mono font-bold text-zinc-450 border border-neutral-800">
+                        <span className="absolute bottom-1 left-1 bg-neutral-950/85 px-1 py-0.5 rounded text-[9px] font-mono font-bold text-zinc-450 border border-neutral-800">
                           #{idx + 1}
                         </span>
 

@@ -137,7 +137,7 @@ export default function DriverReservationEditModal({
           </div>
           <button 
             onClick={onClose}
-            className="p-1 px-2.5 bg-neutral-950 hover:bg-zinc-800 text-zinc-500 rounded-lg text-[10px] font-black cursor-pointer"
+            className="p-1 px-2.5 bg-neutral-950 hover:bg-zinc-800 text-zinc-500 rounded-lg text-[11px] font-black cursor-pointer"
           >
             닫기
           </button>
@@ -146,17 +146,17 @@ export default function DriverReservationEditModal({
         <div className="overflow-y-auto p-5 flex-1 space-y-4 text-xs font-sans">
           <div className="p-3 bg-neutral-950 border border-neutral-850/60 rounded-2xl flex items-center justify-between">
             <div>
-              <span className="text-[9px] text-zinc-500 block">고객 고유 예약 코드</span>
+              <span className="text-[10px] text-zinc-500 block">고객 고유 예약 코드</span>
               <span className="text-xs font-black text-white font-mono">{reservation.receiptCode || reservation.id}</span>
             </div>
-            <span className="text-[10px] text-zinc-400 bg-neutral-900 px-2.5 py-1 rounded-lg border border-neutral-800 font-bold">
+            <span className="text-[11px] text-zinc-400 bg-neutral-900 px-2.5 py-1 rounded-lg border border-neutral-800 font-bold">
               {reservation.companyName}
             </span>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-[9.5px] font-bold text-zinc-500 block mb-1">인계 고객명</label>
+              <label className="text-[10.5px] font-bold text-zinc-500 block mb-1">인계 고객명</label>
               <input 
                 type="text" 
                 value={editUserName}
@@ -165,7 +165,7 @@ export default function DriverReservationEditModal({
               />
             </div>
             <div>
-              <label className="text-[9.5px] font-bold text-zinc-500 block mb-1">고객 연락처</label>
+              <label className="text-[10.5px] font-bold text-zinc-500 block mb-1">고객 연락처</label>
               <input 
                 type="text" 
                 value={editPhone}
@@ -177,7 +177,7 @@ export default function DriverReservationEditModal({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-[9.5px] font-bold text-zinc-500 block mb-1">차량 번호</label>
+              <label className="text-[10.5px] font-bold text-zinc-500 block mb-1">차량 번호</label>
               <input 
                 type="text" 
                 value={editCarNumber}
@@ -186,7 +186,7 @@ export default function DriverReservationEditModal({
               />
             </div>
             <div>
-              <label className="text-[9.5px] font-bold text-zinc-500 block mb-1">차량 모델</label>
+              <label className="text-[10.5px] font-bold text-zinc-500 block mb-1">차량 모델</label>
               <input 
                 type="text" 
                 value={editCarModel}
@@ -197,10 +197,10 @@ export default function DriverReservationEditModal({
           </div>
 
           <div className="space-y-1.5 p-3.5 bg-[#141416] border border-neutral-850 rounded-2xl">
-            <span className="text-[9.5px] font-black text-amber-500 block">✈️ 입/출항 여정 동선 지정</span>
+            <span className="text-[10.5px] font-black text-amber-500 block">✈️ 입/출항 여정 동선 지정</span>
             <div className="grid grid-cols-2 gap-2 text-xs pt-1">
               <div>
-                <span className="text-[9px] text-zinc-500 block mb-1 font-bold">입고일 (출발일)</span>
+                <span className="text-[10px] text-zinc-500 block mb-1 font-bold">입고일 (출발일)</span>
                 <input 
                   type="date"
                   value={editDepartureDate}
@@ -209,7 +209,7 @@ export default function DriverReservationEditModal({
                 />
               </div>
               <div>
-                <span className="text-[9px] text-zinc-500 block mb-1 font-bold">입고 시각</span>
+                <span className="text-[10px] text-zinc-500 block mb-1 font-bold">입고 시각</span>
                 <input 
                   type="time"
                   value={editDepartureTime}
@@ -219,7 +219,7 @@ export default function DriverReservationEditModal({
               </div>
             </div>
 
-            <div className="flex gap-2.5 pt-1 text-[10px]">
+            <div className="flex gap-2.5 pt-1 text-[11px]">
               <span className="text-zinc-500 font-bold my-auto">입고 터미널:</span>
               <button 
                 type="button" 
@@ -235,10 +235,10 @@ export default function DriverReservationEditModal({
           </div>
 
           <div className="space-y-1.5 p-3.5 bg-[#141416] border border-neutral-850 rounded-2xl">
-            <span className="text-[9.5px] font-black text-emerald-500 block">✨ 고객 반납일</span>
+            <span className="text-[10.5px] font-black text-emerald-500 block">✨ 고객 반납일</span>
             <div className="grid grid-cols-2 gap-2 text-xs pt-1">
               <div>
-                <span className="text-[9px] text-zinc-500 block mb-1 font-bold">출고일 (반납일)</span>
+                <span className="text-[10px] text-zinc-500 block mb-1 font-bold">출고일 (반납일)</span>
                 <input 
                   type="date"
                   value={editArrivalDate}
@@ -247,7 +247,7 @@ export default function DriverReservationEditModal({
                 />
               </div>
               <div>
-                <span className="text-[9px] text-zinc-500 block mb-1 font-bold">출고 시각</span>
+                <span className="text-[10px] text-zinc-500 block mb-1 font-bold">출고 시각</span>
                 <input 
                   type="time"
                   value={editArrivalTime}
@@ -257,7 +257,7 @@ export default function DriverReservationEditModal({
               </div>
             </div>
 
-            <div className="flex gap-2.5 pt-1 text-[10px]">
+            <div className="flex gap-2.5 pt-1 text-[11px]">
               <span className="text-zinc-500 font-bold my-auto">반납 터미널:</span>
               <button 
                 type="button" 
@@ -273,7 +273,7 @@ export default function DriverReservationEditModal({
           </div>
 
           <div className="col-span-2">
-            <label className="text-[9.5px] font-bold text-zinc-500 block mb-1">주차 보관 구역</label>
+            <label className="text-[10.5px] font-bold text-zinc-500 block mb-1">주차 보관 구역</label>
             <div className="grid grid-cols-2 gap-2.5">
               <button
                 type="button"

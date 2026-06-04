@@ -49,12 +49,11 @@ export default function ReservationCard({
   setUploadedSpots,
   setSelectedParkingSpace,
 }: ReservationCardProps) {
-  // Calculate dynamic virtual spaces to look extremely rich
-  const numPart = parseInt((res.carNumber || '').replace(/\D/g, '')) || 7;
-  const computedSpace = res.parkingSpace || ['상주A', '내부F1', '지하B2', '야외C3', '타워D2'][numPart % 5];
+  // 실제 배정된 자리만 표시(없으면 미지정), 실내/야외는 접수 시 결정된 등급(res.isIndoor) 사용
+  const computedSpace = res.parkingSpace || '미지정';
   const isOutOrCompletedIn = (res.status || '').includes('out') || res.status === 'completed_in';
   const isT1 = ((!res.status.includes('out') && res.status !== 'completed_in') ? res.departureTerminal : res.arrivalTerminal) === 'T1';
-  const isIndoor = !computedSpace.includes('야외') && !computedSpace.includes('실외') && !computedSpace.includes('야외 주차장');
+  const isIndoor = res.isIndoor !== false;
   const showUnpaidBadge = isReservationUnpaid(res);
   // 기사 타임라인: 상단 탭이 이미 상태를 나타내므로 입고예정·입고요청 등 상태 뱃지 숨김
   const showStatusBadge = isAdminModeActive || activeCounterTab === undefined;
@@ -87,7 +86,7 @@ export default function ReservationCard({
         <div className="flex flex-wrap items-center gap-1.5">
           {showStatusBadge && (
             <span className={cn(
-              "text-[11px] px-2 py-0.5 rounded-[6px] font-semibold shrink-0 text-center",
+              "text-[12px] px-2 py-0.5 rounded-[6px] font-semibold shrink-0 text-center",
               badgeColorClass
             )}>
               {getStepKorean(res.status)}
@@ -95,27 +94,27 @@ export default function ReservationCard({
           )}
 
           {isT1 ? (
-            <span className="text-[11px] px-2 py-0.5 rounded-[6px] font-semibold bg-[#00D2FF]/10 text-[#00D2FF] border border-[#00D2FF]/20 shrink-0">
+            <span className="text-[12px] px-2 py-0.5 rounded-[6px] font-semibold bg-[#00D2FF]/10 text-[#00D2FF] border border-[#00D2FF]/20 shrink-0">
               1터미널
             </span>
           ) : (
-            <span className="text-[11px] px-2 py-0.5 rounded-[6px] font-semibold bg-[#FFB800]/10 text-[#FFB800] border border-[#FFB800]/20 shrink-0">
+            <span className="text-[12px] px-2 py-0.5 rounded-[6px] font-semibold bg-[#FFB800]/10 text-[#FFB800] border border-[#FFB800]/20 shrink-0">
               2터미널
             </span>
           )}
 
           {isIndoor ? (
-            <span className="text-[11px] px-2 py-0.5 rounded-[6px] font-semibold bg-[#A855F7] text-white shrink-0">
+            <span className="text-[12px] px-2 py-0.5 rounded-[6px] font-semibold bg-[#A855F7] text-white shrink-0">
               실내
             </span>
           ) : (
-            <span className="text-[11px] px-2 py-0.5 rounded-[6px] font-semibold bg-[#22C55E] text-white shrink-0">
+            <span className="text-[12px] px-2 py-0.5 rounded-[6px] font-semibold bg-[#22C55E] text-white shrink-0">
               야외
             </span>
           )}
 
           {showUnpaidBadge && (
-            <span className="text-[11px] px-2 py-0.5 rounded-[6px] font-semibold bg-rose-500/15 text-rose-400 border border-rose-500/25 shrink-0">
+            <span className="text-[12px] px-2 py-0.5 rounded-[6px] font-semibold bg-rose-500/15 text-rose-400 border border-rose-500/25 shrink-0">
               미납
             </span>
           )}

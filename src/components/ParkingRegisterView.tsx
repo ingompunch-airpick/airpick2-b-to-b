@@ -195,17 +195,17 @@ export default function ParkingRegisterView({
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'pending':
-        return <span className="bg-[#1C1C1E] text-amber-500 border border-amber-500/20 text-[9px] font-bold px-2 py-0.5 rounded-lg">접수대기</span>;
+        return <span className="bg-[#1C1C1E] text-amber-500 border border-amber-500/20 text-[10px] font-bold px-2 py-0.5 rounded-lg">접수대기</span>;
       case 'pending_in':
-        return <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[9px] font-bold px-2 py-0.5 rounded-lg">입고대기</span>;
+        return <span className="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] font-bold px-2 py-0.5 rounded-lg">입고대기</span>;
       case 'completed_in':
-        return <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[9px] font-bold px-2 py-0.5 rounded-lg">입고완료</span>;
+        return <span className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 text-[10px] font-bold px-2 py-0.5 rounded-lg">입고완료</span>;
       case 'request_out':
-        return <span className="bg-rose-500/10 text-rose-400 border border-rose-500/20 text-[9px] font-bold px-2 py-0.5 rounded-lg">출고요청</span>;
+        return <span className="bg-rose-500/10 text-rose-400 border border-rose-500/20 text-[10px] font-bold px-2 py-0.5 rounded-lg">출고요청</span>;
       case 'completed_out':
-        return <span className="bg-zinc-800 text-zinc-400 border border-zinc-700 text-[9px] font-bold px-2 py-0.5 rounded-lg">반납출고완료</span>;
+        return <span className="bg-zinc-800 text-zinc-400 border border-zinc-700 text-[10px] font-bold px-2 py-0.5 rounded-lg">반납출고완료</span>;
       default:
-        return <span className="bg-neutral-800 text-neutral-400 text-[9px] font-bold px-2 py-0.5 rounded-lg">{status}</span>;
+        return <span className="bg-neutral-800 text-neutral-400 text-[10px] font-bold px-2 py-0.5 rounded-lg">{status}</span>;
     }
   };
 
@@ -215,30 +215,30 @@ export default function ParkingRegisterView({
       <div className="flex items-center gap-3.5 mb-5 select-none px-1">
         <div>
           <h2 className="text-sm font-black tracking-tight text-white">{companyName} 주차접수 내역 (CRM)</h2>
-          <p className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">Active Parking Registrations & CRM</p>
+          <p className="text-[11px] text-zinc-500 font-bold uppercase tracking-wider">Active Parking Registrations & CRM</p>
         </div>
       </div>
 
       {/* 1. 상단 요약 정산 카드 (Compact Summary Wallet) */}
       <div className="bg-gradient-to-r from-neutral-900 via-[#1C1C1E] to-neutral-900 p-4.5 rounded-2xl border border-neutral-800/50 shadow-xl mb-4.5">
         <div className="flex justify-between items-center mb-3">
-          <span className="text-[10px] uppercase font-black tracking-wider text-zinc-400 flex items-center gap-1">
+          <span className="text-[11px] uppercase font-black tracking-wider text-zinc-400 flex items-center gap-1">
             <CreditCard size={12} className="text-amber-500" />
             접수 요약 현황
           </span>
-          <span className="text-[9px] font-mono text-zinc-500 font-bold bg-[#1C1C1E] px-2 py-0.5 rounded border border-neutral-800">
+          <span className="text-[10px] font-mono text-zinc-500 font-bold bg-[#1C1C1E] px-2 py-0.5 rounded border border-neutral-800">
             KST Realtime
           </span>
         </div>
         <div className="grid grid-cols-2 gap-4">
           <div className="bg-neutral-950/60 p-3 rounded-xl border border-neutral-800/40">
-            <span className="text-[9.5px] text-zinc-500 font-bold block mb-0.5">전체 접수 건수</span>
+            <span className="text-[10.5px] text-zinc-500 font-bold block mb-0.5">전체 접수 건수</span>
             <span className="text-base font-black text-amber-500 font-mono">
               {totalCount.toLocaleString()}건
             </span>
           </div>
           <div className="bg-neutral-950/60 p-3 rounded-xl border border-neutral-800/40">
-            <span className="text-[9.5px] text-zinc-500 font-bold block mb-0.5">총 결제금액</span>
+            <span className="text-[10.5px] text-zinc-500 font-bold block mb-0.5">총 결제금액</span>
             <span className="text-base font-black text-white font-mono">
               {totalRevenue.toLocaleString()}원
             </span>
@@ -262,14 +262,14 @@ export default function ParkingRegisterView({
       <div className="grid grid-cols-3 gap-2 p-1 bg-neutral-900 rounded-xl border border-neutral-800/50 mb-5 select-none text-center">
         <button
           onClick={() => setActiveTab('today_reserve')}
-          className={`py-2 rounded-lg text-[10px] sm:text-xs font-bold transition-all flex flex-col items-center justify-center gap-1 leading-tight ${
+          className={`py-2 rounded-lg text-[11px] sm:text-xs font-bold transition-all flex flex-col items-center justify-center gap-1 leading-tight ${
             activeTab === 'today_reserve'
               ? 'bg-amber-500 text-neutral-950 shadow-md shadow-amber-500/10'
               : 'text-zinc-400 hover:text-white hover:bg-neutral-800/40'
           }`}
         >
           <span>당일 예약 온손님</span>
-          <span className={`text-[8.5px] px-1.5 py-0.2 rounded font-mono font-extrabold ${
+          <span className={`text-[9.5px] px-1.5 py-0.2 rounded font-mono font-extrabold ${
             activeTab === 'today_reserve' ? 'bg-neutral-950/20 text-neutral-950' : 'bg-[#1C1C1E] text-zinc-400 border border-neutral-800/60'
           }`}>
             {counts.today_reserve}건
@@ -277,14 +277,14 @@ export default function ParkingRegisterView({
         </button>
         <button
           onClick={() => setActiveTab('today_parked')}
-          className={`py-2 rounded-lg text-[10px] sm:text-xs font-bold transition-all flex flex-col items-center justify-center gap-1 leading-tight ${
+          className={`py-2 rounded-lg text-[11px] sm:text-xs font-bold transition-all flex flex-col items-center justify-center gap-1 leading-tight ${
             activeTab === 'today_parked'
               ? 'bg-[#A855F7] text-white shadow-md shadow-purple-600/15'
               : 'text-zinc-400 hover:text-white hover:bg-neutral-800/40'
           }`}
         >
           <span>당일 주차 완료</span>
-          <span className={`text-[8.5px] px-1.5 py-0.2 rounded font-mono font-extrabold ${
+          <span className={`text-[9.5px] px-1.5 py-0.2 rounded font-mono font-extrabold ${
             activeTab === 'today_parked' ? 'bg-neutral-950/20 text-white' : 'bg-[#1C1C1E] text-zinc-400 border border-neutral-800/60'
           }`}>
             {counts.today_parked}건
@@ -292,14 +292,14 @@ export default function ParkingRegisterView({
         </button>
         <button
           onClick={() => setActiveTab('today_released')}
-          className={`py-2 rounded-lg text-[10px] sm:text-xs font-bold transition-all flex flex-col items-center justify-center gap-1 leading-tight ${
+          className={`py-2 rounded-lg text-[11px] sm:text-xs font-bold transition-all flex flex-col items-center justify-center gap-1 leading-tight ${
             activeTab === 'today_released'
               ? 'bg-[#22C55E] text-white shadow-md shadow-green-600/15'
               : 'text-zinc-400 hover:text-white hover:bg-neutral-800/40'
           }`}
         >
           <span>당일 출차 완료</span>
-          <span className={`text-[8.5px] px-1.5 py-0.2 rounded font-mono font-extrabold ${
+          <span className={`text-[9.5px] px-1.5 py-0.2 rounded font-mono font-extrabold ${
             activeTab === 'today_released' ? 'bg-neutral-950/20 text-white' : 'bg-[#1C1C1E] text-zinc-400 border border-neutral-800/60'
           }`}>
             {counts.today_released}건
@@ -310,7 +310,7 @@ export default function ParkingRegisterView({
       {/* 3. 리스트 영역 (모바일 카드 레이아웃) */}
       <div className="space-y-3">
         <div className="flex justify-between items-center px-1">
-          <span className="text-[10px] text-zinc-500 font-bold uppercase tracking-wider">
+          <span className="text-[11px] text-zinc-500 font-bold uppercase tracking-wider">
             검색 결과 ({filteredReservations.length}건)
           </span>
         </div>
@@ -319,7 +319,7 @@ export default function ParkingRegisterView({
           <div className="text-center py-12 bg-[#1C1C1E] rounded-2xl border border-neutral-850 p-6">
             <ShieldAlert size={28} className="mx-auto text-zinc-600 mb-2.5 animate-pulse" />
             <p className="text-xs text-zinc-400 font-bold">검색에 부합하는 접수 내역이 존재하지 않습니다.</p>
-            <p className="text-[10px] text-zinc-600 mt-1 font-medium">검색어 철자 또는 차량번호 띄어쓰기를 다시 확인해 주세요.</p>
+            <p className="text-[11px] text-zinc-600 mt-1 font-medium">검색어 철자 또는 차량번호 띄어쓰기를 다시 확인해 주세요.</p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -327,10 +327,9 @@ export default function ParkingRegisterView({
               const visitCount = getUserVisitCount(res.userName, res.phone);
               const isVIP = visitCount >= 2;
 
-              // Compute precise design tags
-              const numPart = parseInt(res.carNumber.replace(/\D/g, '')) || 7;
-              const computedSpace = res.parkingSpace || ['상주A', '내부F1', '지하B2', '야외C3', '타워D2'][numPart % 5];
-              const isIndoor = !computedSpace.includes('야외') && !computedSpace.includes('실외') && !computedSpace.includes('야외 주차장');
+              // 실제 배정된 자리만 표시(없으면 미지정), 실내/야외는 접수 시 결정된 등급(res.isIndoor) 사용
+              const computedSpace = res.parkingSpace || '미지정';
+              const isIndoor = res.isIndoor !== false;
 
               return (
                 <div 
@@ -344,12 +343,12 @@ export default function ParkingRegisterView({
                       <span className="text-xs font-black text-white tracking-tight font-mono flex items-center gap-1.5">
                         {res.carNumber}
                         {isVIP && (
-                          <span className="text-[9.5px] px-1.5 py-0.2 bg-amber-500/10 text-amber-500 border border-amber-500/20 rounded font-black tracking-normal">
+                          <span className="text-[10.5px] px-1.5 py-0.2 bg-amber-500/10 text-amber-500 border border-amber-500/20 rounded font-black tracking-normal">
                             VIP 단골
                           </span>
                         )}
                       </span>
-                      <span className="text-[10px] text-zinc-500 font-bold block">
+                      <span className="text-[11px] text-zinc-500 font-bold block">
                         {res.carModel}
                       </span>
                     </div>
@@ -360,67 +359,67 @@ export default function ParkingRegisterView({
 
                   {/* Middle details mapping */}
                   <div className="grid grid-cols-1 gap-y-1.5 text-xs text-zinc-300 font-sans">
-                    <div className="flex justify-between items-center text-[11px]">
+                    <div className="flex justify-between items-center text-[12px]">
                       <span className="text-zinc-550 font-bold">주차 입고일시</span>
                       <div className="flex items-center gap-1.5 font-mono">
                         <span className="font-semibold text-zinc-200">
                           {res.departureDate} {res.departureTime}
                         </span>
                         {res.departureTerminal === 'T1' ? (
-                          <span className="text-[9px] px-1.5 py-0.2 rounded bg-[#00D2FF]/10 text-[#00D2FF] border border-[#00D2FF]/20 font-black">
+                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-[#00D2FF]/10 text-[#00D2FF] border border-[#00D2FF]/20 font-black">
                             1터미널
                           </span>
                         ) : (
-                          <span className="text-[9px] px-1.5 py-0.2 rounded bg-[#FFB800]/10 text-[#FFB800] border border-[#FFB800]/20 font-black">
+                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-[#FFB800]/10 text-[#FFB800] border border-[#FFB800]/20 font-black">
                             2터미널
                           </span>
                         )}
                       </div>
                     </div>
-                    <div className="flex justify-between items-center text-[11px]">
+                    <div className="flex justify-between items-center text-[12px]">
                       <span className="text-zinc-550 font-bold">출차 반납일시</span>
                       <div className="flex items-center gap-1.5 font-mono">
                         <span className="font-semibold text-zinc-200">
                           {res.arrivalDate} {res.arrivalTime}
                         </span>
                         {res.arrivalTerminal === 'T1' ? (
-                          <span className="text-[9px] px-1.5 py-0.2 rounded bg-[#00D2FF]/10 text-[#00D2FF] border border-[#00D2FF]/20 font-black">
+                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-[#00D2FF]/10 text-[#00D2FF] border border-[#00D2FF]/20 font-black">
                             1터미널
                           </span>
                         ) : (
-                          <span className="text-[9px] px-1.5 py-0.2 rounded bg-[#FFB800]/10 text-[#FFB800] border border-[#FFB800]/20 font-black">
+                          <span className="text-[10px] px-1.5 py-0.2 rounded bg-[#FFB800]/10 text-[#FFB800] border border-[#FFB800]/20 font-black">
                             2터미널
                           </span>
                         )}
                       </div>
                     </div>
-                    <div className="flex justify-between items-center text-[11px]">
+                    <div className="flex justify-between items-center text-[12px]">
                       <span className="text-zinc-550 font-bold">지정 주차구역</span>
                       <div className="flex items-center gap-1.5 font-mono">
                         <span className="font-semibold text-zinc-200">
                           {computedSpace}
                         </span>
                         {isIndoor ? (
-                          <span className="text-[9px] px-1.5 py-0.2 rounded-[6px] bg-[#A855F7] text-white font-black shrink-0 tracking-tight">
+                          <span className="text-[10px] px-1.5 py-0.2 rounded-[6px] bg-[#A855F7] text-white font-black shrink-0 tracking-tight">
                             실내
                           </span>
                         ) : (
-                          <span className="text-[9px] px-1.5 py-0.2 rounded-[6px] bg-[#22C55E] text-white font-black shrink-0 tracking-tight">
+                          <span className="text-[10px] px-1.5 py-0.2 rounded-[6px] bg-[#22C55E] text-white font-black shrink-0 tracking-tight">
                             야외
                           </span>
                         )}
                       </div>
                     </div>
-                    <div className="flex justify-between text-[11px] items-center pt-0.5">
+                    <div className="flex justify-between text-[12px] items-center pt-0.5">
                       <span className="text-zinc-550 font-bold">결제금액</span>
                       <span className="font-black text-amber-400 font-mono">
                         {(res.totalPrice || 0).toLocaleString()}원
                       </span>
                     </div>
-                    <div className="flex justify-between text-[11px] pt-1 border-t border-dashed border-neutral-800/85">
+                    <div className="flex justify-between text-[12px] pt-1 border-t border-dashed border-neutral-800/85">
                       <span className="text-zinc-550 font-semibold">고객 정보</span>
                       <span className="font-bold text-zinc-200">
-                        {res.userName} <span className="text-amber-500 text-[10px] font-mono font-bold">[이용: {visitCount}회]</span>
+                        {res.userName} <span className="text-amber-500 text-[11px] font-mono font-bold">[이용: {visitCount}회]</span>
                       </span>
                     </div>
                   </div>
@@ -437,10 +436,9 @@ export default function ParkingRegisterView({
         const depFlightCode = getFlightCode(selectedRes, true);
         const arrFlightCode = getFlightCode(selectedRes, false);
 
-        // Compute precise design tags for modal
-        const selectNumPart = parseInt(selectedRes.carNumber.replace(/\D/g, '')) || 7;
-        const selectedSpace = selectedRes.parkingSpace || ['상주A', '내부F1', '지하B2', '야외C3', '타워D2'][selectNumPart % 5];
-        const isSelectedIndoor = !selectedSpace.includes('야외') && !selectedSpace.includes('실외') && !selectedSpace.includes('야외 주차장');
+        // 실제 배정된 자리만 표시(없으면 미지정), 실내/야외는 접수 시 결정된 등급(selectedRes.isIndoor) 사용
+        const selectedSpace = selectedRes.parkingSpace || '미지정';
+        const isSelectedIndoor = selectedRes.isIndoor !== false;
 
         return (
           <div className="fixed inset-0 z-[150] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-fade-in">
@@ -456,7 +454,7 @@ export default function ParkingRegisterView({
                     <h3 className="text-xs font-black text-white font-mono uppercase tracking-tight">
                       {selectedRes.carNumber} 상세 정보
                     </h3>
-                    <p className="text-[9.5px] text-zinc-500 font-bold uppercase tracking-wider">
+                    <p className="text-[10.5px] text-zinc-500 font-bold uppercase tracking-wider">
                       ADMIN SPECIAL CUSTOMER MANAGEMENT
                     </p>
                   </div>
@@ -475,9 +473,9 @@ export default function ParkingRegisterView({
                 {/* 1. VIP Badge Banner */}
                 <div className="bg-gradient-to-br from-amber-500/5 to-amber-500/0 border border-amber-500/10 p-4 rounded-2xl flex items-center justify-between">
                   <div>
-                    <span className="text-[9px] font-mono font-bold uppercase text-amber-500 tracking-wider">Customer Premium Rating</span>
+                    <span className="text-[10px] font-mono font-bold uppercase text-amber-500 tracking-wider">Customer Premium Rating</span>
                     <h4 className="text-sm font-black text-white">{selectedRes.userName} 고객님</h4>
-                    <p className="text-[10px] text-zinc-400 font-semibold mt-0.5">{companyName} 누적 예약 건수: <span className="text-amber-500 font-bold font-mono">{visitCount}회</span></p>
+                    <p className="text-[11px] text-zinc-400 font-semibold mt-0.5">{companyName} 누적 예약 건수: <span className="text-amber-500 font-bold font-mono">{visitCount}회</span></p>
                   </div>
                   <div className="bg-amber-500/10 border border-amber-500/20 p-2.5 rounded-xl">
                     <Award size={18} className="text-amber-500" />
@@ -486,7 +484,7 @@ export default function ParkingRegisterView({
 
                 {/* 2. Flight & Terminal Mapping Area */}
                 <div className="space-y-3">
-                  <h4 className="text-[10px] font-black text-zinc-500 uppercase tracking-wider">항공편 및 관영 스케줄 매핑</h4>
+                  <h4 className="text-[11px] font-black text-zinc-500 uppercase tracking-wider">항공편 및 관영 스케줄 매핑</h4>
                   
                   {/* Departures */}
                   <div className="bg-neutral-950/40 border border-neutral-800/40 p-4 rounded-2xl space-y-3">
@@ -496,7 +494,7 @@ export default function ParkingRegisterView({
                     </div>
                     <div className="grid grid-cols-2 gap-3 text-xs pt-0.5">
                       <div>
-                        <span className="text-[10px] text-zinc-500 font-bold block mb-0.5">출국 터미널</span>
+                        <span className="text-[11px] text-zinc-500 font-bold block mb-0.5">출국 터미널</span>
                         {selectedRes.departureTerminal === 'T1' ? (
                           <span className="font-black text-[#00D2FF] bg-[#00D2FF]/10 px-2 py-0.5 rounded border border-[#00D2FF]/20">제 1여객터미널</span>
                         ) : (
@@ -504,11 +502,11 @@ export default function ParkingRegisterView({
                         )}
                       </div>
                       <div>
-                        <span className="text-[10px] text-zinc-500 font-bold block mb-0.5">항공편명</span>
+                        <span className="text-[11px] text-zinc-500 font-bold block mb-0.5">항공편명</span>
                         <span className="font-black text-amber-400 font-mono tracking-wider">{depFlightCode}</span>
                       </div>
                     </div>
-                    <div className="pt-2 text-[11px] border-t border-dashed border-neutral-800">
+                    <div className="pt-2 text-[12px] border-t border-dashed border-neutral-800">
                       <span className="text-zinc-550 font-bold">주차 입고시간 : </span>
                       <span className="text-zinc-300 font-mono font-semibold">{selectedRes.departureDate} | {selectedRes.departureTime}</span>
                     </div>
@@ -522,7 +520,7 @@ export default function ParkingRegisterView({
                     </div>
                     <div className="grid grid-cols-2 gap-3 text-xs pt-0.5">
                       <div>
-                        <span className="text-[10px] text-zinc-500 font-bold block mb-0.5">입국 터미널</span>
+                        <span className="text-[11px] text-zinc-500 font-bold block mb-0.5">입국 터미널</span>
                         {selectedRes.arrivalTerminal === 'T1' ? (
                           <span className="font-black text-[#00D2FF] bg-[#00D2FF]/10 px-2 py-0.5 rounded border border-[#00D2FF]/20">제 1여객터미널</span>
                         ) : (
@@ -530,11 +528,11 @@ export default function ParkingRegisterView({
                         )}
                       </div>
                       <div>
-                        <span className="text-[10px] text-zinc-500 font-bold block mb-0.5">편명 (귀국)</span>
+                        <span className="text-[11px] text-zinc-500 font-bold block mb-0.5">편명 (귀국)</span>
                         <span className="font-black text-emerald-400 font-mono tracking-wider">{arrFlightCode}</span>
                       </div>
                     </div>
-                    <div className="pt-2 text-[11px] border-t border-dashed border-neutral-800">
+                    <div className="pt-2 text-[12px] border-t border-dashed border-neutral-800">
                       <span className="text-zinc-550 font-bold">출차 반납시간 : </span>
                       <span className="text-zinc-300 font-mono font-semibold">{selectedRes.arrivalDate} | {selectedRes.arrivalTime}</span>
                     </div>
@@ -543,7 +541,7 @@ export default function ParkingRegisterView({
 
                 {/* 3. Detailed Client Identification */}
                 <div className="space-y-3">
-                  <h4 className="text-[10px] font-black text-zinc-500 uppercase tracking-wider">주문 및 차량상세</h4>
+                  <h4 className="text-[11px] font-black text-zinc-500 uppercase tracking-wider">주문 및 차량상세</h4>
                   <div className="bg-neutral-950/20 border border-neutral-800/40 rounded-2xl p-4 space-y-2 text-xs">
                     <div className="flex justify-between py-1">
                       <span className="text-zinc-500 font-semibold">차량정보</span>
@@ -562,11 +560,11 @@ export default function ParkingRegisterView({
                       <div className="flex items-center gap-1.5 font-mono">
                         <span className="font-extrabold text-neutral-200">{selectedSpace}</span>
                         {isSelectedIndoor ? (
-                          <span className="text-[9px] px-1.5 py-0.2 rounded-[6px] bg-[#A855F7] text-white font-black shrink-0 tracking-tight">
+                          <span className="text-[10px] px-1.5 py-0.2 rounded-[6px] bg-[#A855F7] text-white font-black shrink-0 tracking-tight">
                             실내
                           </span>
                         ) : (
-                          <span className="text-[9px] px-1.5 py-0.2 rounded-[6px] bg-[#22C55E] text-white font-black shrink-0 tracking-tight">
+                          <span className="text-[10px] px-1.5 py-0.2 rounded-[6px] bg-[#22C55E] text-white font-black shrink-0 tracking-tight">
                             야외
                           </span>
                         )}
@@ -577,10 +575,10 @@ export default function ParkingRegisterView({
 
                 {/* 4. One-click Mobile Dialer Area & Emergency Quicklink */}
                 <div className="space-y-3">
-                  <h4 className="text-[10px] font-black text-zinc-500 uppercase tracking-wider font-mono">Mobile Contact Action</h4>
+                  <h4 className="text-[11px] font-black text-zinc-500 uppercase tracking-wider font-mono">Mobile Contact Action</h4>
                   <div className="bg-neutral-950/30 border border-zinc-800 p-4 rounded-2xl flex items-center justify-between">
                     <div>
-                      <span className="text-[9.5px] text-zinc-500 block font-bold">고객 안전 연락처</span>
+                      <span className="text-[10.5px] text-zinc-500 block font-bold">고객 안전 연락처</span>
                       <span className="text-xs font-bold text-white font-mono">{selectedRes.phone}</span>
                     </div>
                     <a 
@@ -588,7 +586,7 @@ export default function ParkingRegisterView({
                       className="p-3 bg-amber-500 text-neutral-950 hover:bg-amber-400 active:scale-[0.95] rounded-xl duration-100 transition-all flex items-center gap-1.5 font-bold shadow-lg shadow-amber-500/10"
                     >
                       <PhoneCall size={14} />
-                      <span className="text-[11px] font-black">즉시 통화</span>
+                      <span className="text-[12px] font-black">즉시 통화</span>
                     </a>
                   </div>
                 </div>
@@ -610,7 +608,7 @@ export default function ParkingRegisterView({
                             alert("강제 출고요청 처리가 성공적으로 실행되었습니다.");
                           }
                         }}
-                        className="flex-1 py-3 bg-red-950/85 hover:bg-rose-900/40 text-rose-450 border border-rose-500/20 rounded-xl text-[10.5px] font-black transition-all flex items-center justify-center gap-1"
+                        className="flex-1 py-3 bg-red-950/85 hover:bg-rose-900/40 text-rose-450 border border-rose-500/20 rounded-xl text-[11.5px] font-black transition-all flex items-center justify-center gap-1"
                       >
                         🚨 강제 출고요청
                       </button>
@@ -630,7 +628,7 @@ export default function ParkingRegisterView({
                             alert("강제 반납완료 처리가 성공적으로 실행되었습니다.");
                           }
                         }}
-                        className="flex-1 py-3 bg-emerald-950/85 hover:bg-emerald-900/40 text-emerald-400 border border-emerald-500/20 rounded-xl text-[10.5px] font-black transition-all flex items-center justify-center gap-1"
+                        className="flex-1 py-3 bg-emerald-950/85 hover:bg-emerald-900/40 text-emerald-400 border border-emerald-500/20 rounded-xl text-[11.5px] font-black transition-all flex items-center justify-center gap-1"
                       >
                         ⚡ 강제 반납완료
                       </button>

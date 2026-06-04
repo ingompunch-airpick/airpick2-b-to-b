@@ -188,7 +188,7 @@ export default function TimelineView({
                     type="button"
                     onClick={() => setFilterType(type)}
                     className={cn(
-                      "flex-1 text-[10.5px] font-bold py-1.5 rounded-[12px] transition-all text-center cursor-pointer",
+                      "flex-1 text-[11.5px] font-bold py-1.5 rounded-[12px] transition-all text-center cursor-pointer",
                       isSelected 
                         ? "bg-amber-500/15 text-amber-500 shadow-sm font-extrabold" 
                         : "text-[#8E8E93] hover:text-white"

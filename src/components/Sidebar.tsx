@@ -120,11 +120,11 @@ export default function Sidebar({
               <div>
                 <h3 className="font-bold text-sm tracking-tight text-white flex items-center gap-1.5">
                   {isAirpickHeadquarters(currentCompanyId) ? '에어픽 (airpick) 본사' : (isSuperAdmin ? '김인원' : (isEmployee ? (employeeRole === 'admin' ? `${employeeName} 부관리자` : `${employeeName} 기사`) : `${safeCompanyInfo.name} 관리자`))} 
-                  <span className="text-[10px] text-amber-500 font-bold bg-amber-500/10 px-1.5 py-0.5 rounded font-sans shrink-0">
+                  <span className="text-[11px] text-amber-500 font-bold bg-amber-500/10 px-1.5 py-0.5 rounded font-sans shrink-0">
                     {isAirpickHeadquarters(currentCompanyId) ? '본사' : (isAdminModeActive ? '관리자' : (isEmployee ? (employeeRole === 'admin' ? '부관리자' : '직원기사') : '기사'))}
                   </span>
                 </h3>
-                <p className="text-[10px] text-zinc-400 font-mono mt-0.5 truncate max-w-[150px]">
+                <p className="text-[11px] text-zinc-400 font-mono mt-0.5 truncate max-w-[150px]">
                   {isAirpickHeadquarters(currentCompanyId) 
                     ? '통합 예약 중개 서비스 본사' 
                     : (isAdminModeActive ? (isSuperAdmin ? '최고 관리자 계정' : (isEmployee && employeeRole === 'admin' ? `소속 부관리자: ${employeeName}` : `${safeCompanyInfo.name} 관리자 계정`)) : (isEmployee ? (employeeRole === 'admin' ? `소속 부관리자: ${employeeName}` : `소속 직원: ${employeeName}`) : (isAnonymous ? `익명 ${safeCompanyInfo.name.substring(0, 2)} 기사` : userEmail)))}
@@ -141,7 +141,7 @@ export default function Sidebar({
 
           <div className="flex items-center justify-between p-2.5 bg-neutral-900 rounded-xl border border-neutral-800 text-xs">
             <span className="text-zinc-400 font-medium">단말기 ID</span>
-            <span className="font-mono font-bold text-white uppercase text-[11px] tracking-wider">
+            <span className="font-mono font-bold text-white uppercase text-[12px] tracking-wider">
               {isSuperAdmin ? 'airpick' : (currentCompanyId || companyInfo?.id || 'wawa')}
             </span>
           </div>
@@ -149,7 +149,7 @@ export default function Sidebar({
 
         {/* Navigation Grid of Buttons */}
         <div className="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar">
-          <p className="text-[10px] text-zinc-500 font-bold tracking-widest uppercase px-2 mb-2">
+          <p className="text-[11px] text-zinc-500 font-bold tracking-widest uppercase px-2 mb-2">
             {isAdminModeActive ? `${safeCompanyInfo.name} 관리자 메뉴` : `${safeCompanyInfo.name} 업무 메뉴`}
           </p>
           
@@ -182,7 +182,7 @@ export default function Sidebar({
                     </div>
                     <div>
                       <h4 className="text-xs font-bold tracking-tight">{item.label}</h4>
-                      <p className={`text-[10px] mt-0.5 ${isActive ? 'text-neutral-850 font-medium' : 'text-zinc-500'}`}>
+                      <p className={`text-[11px] mt-0.5 ${isActive ? 'text-neutral-850 font-medium' : 'text-zinc-500'}`}>
                         {item.desc}
                       </p>
                     </div>
@@ -195,7 +195,7 @@ export default function Sidebar({
           {/* Admin portal (Toggled modal) */}
           {!isAirpickHeadquarters(currentCompanyId) && !isSuperAdmin && !isAdmin && !isEmployee && (
             <div className="pt-4 mt-4 border-t border-neutral-800/80 space-y-2">
-              <p className="text-[10px] text-zinc-500 font-bold tracking-widest uppercase px-2">시스템 권한 관리</p>
+              <p className="text-[11px] text-zinc-500 font-bold tracking-widest uppercase px-2">시스템 권한 관리</p>
               
               <button
                 onClick={() => {
@@ -207,7 +207,7 @@ export default function Sidebar({
                 <ShieldAlert size={18} className="text-neutral-500" />
                 <div>
                   <h4 className="text-xs font-bold">관리자 계정 전환</h4>
-                  <p className="text-[10px] text-zinc-500 mt-0.5">최고 권한 활성화 자격증 보증</p>
+                  <p className="text-[11px] text-zinc-500 mt-0.5">최고 권한 활성화 자격증 보증</p>
                 </div>
               </button>
             </div>
@@ -222,7 +222,7 @@ export default function Sidebar({
                 onNavigate(isAirpickHeadquarters(currentCompanyId) ? 'statistics' : (isAdminModeActive ? 'statistics' : 'timeline'));
                 onClose();
               }}
-              className="flex-1 py-2.5 bg-zinc-800 text-white hover:bg-zinc-700/80 text-[11px] font-bold rounded-lg transition-all"
+              className="flex-1 py-2.5 bg-zinc-800 text-white hover:bg-zinc-700/80 text-[12px] font-bold rounded-lg transition-all"
             >
               메인화면 이동
             </button>
@@ -240,7 +240,7 @@ export default function Sidebar({
             </button>
           </div>
 
-          <p className="text-[9px] text-zinc-650 font-mono text-center mt-3">
+          <p className="text-[10px] text-zinc-650 font-mono text-center mt-3">
             AirPick B2B v2.2.0 • © AirPick Corp.
           </p>
         </div>

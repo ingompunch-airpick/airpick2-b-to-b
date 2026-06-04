@@ -137,7 +137,7 @@ export default function EditModal({
             </span>
           </button>
           <span className={cn(
-            "text-[10.5px] px-2.5 py-1 rounded-full font-black tracking-wide uppercase",
+            "text-[11.5px] px-2.5 py-1 rounded-full font-black tracking-wide uppercase",
             ['pending', '입고예정', '예약완료', '접수', '입고대기'].includes(driverDetailRes.status) ? "bg-amber-500/10 text-amber-500" : "bg-rose-500/10 text-[#FF453A]"
           )}>
             {['pending', '입고예정', '예약완료', '접수', '입고대기'].includes(driverDetailRes.status) ? '인계 전' : '출차 요청됨'}
@@ -156,7 +156,7 @@ export default function EditModal({
 
             {/* Name field */}
             <div className="relative group">
-              <label className="text-[10px] font-black text-zinc-500 block mb-1">이름</label>
+              <label className="text-[11px] font-black text-zinc-500 block mb-1">이름</label>
               <input 
                 type="text"
                 value={driverEditName}
@@ -168,7 +168,7 @@ export default function EditModal({
 
             {/* Phone field */}
             <div className="relative group">
-              <label className="text-[10px] font-black text-zinc-500 block mb-1">전화번호</label>
+              <label className="text-[11px] font-black text-zinc-500 block mb-1">전화번호</label>
               <div className="relative">
                 <input 
                   type="text"
@@ -183,7 +183,7 @@ export default function EditModal({
 
             {/* User Request field */}
             <div className="relative group">
-              <label className="text-[10px] font-black text-zinc-500 block mb-1">고객요청사항</label>
+              <label className="text-[11px] font-black text-zinc-500 block mb-1">고객요청사항</label>
               <input 
                 type="text"
                 value={driverEditUserRequest}
@@ -195,7 +195,7 @@ export default function EditModal({
 
             {/* Admin Memo field */}
             <div className="relative group">
-              <label className="text-[10px] font-black text-zinc-500 block mb-1">관리자메모 (특이사항)</label>
+              <label className="text-[11px] font-black text-zinc-500 block mb-1">관리자메모 (특이사항)</label>
               <input 
                 type="text"
                 value={driverEditAdminMemo}
@@ -207,7 +207,7 @@ export default function EditModal({
 
             {/* 주차 유형구분 (실내 / 실외) 수정 */}
             <div className="relative group">
-              <label className="text-[10px] font-black text-zinc-500 block mb-1">주차 유형구분 (실내 / 실외)</label>
+              <label className="text-[11px] font-black text-zinc-500 block mb-1">주차 유형구분 (실내 / 실외)</label>
               <div className="grid grid-cols-2 gap-2 mt-1">
                 <button
                   type="button"
@@ -238,7 +238,7 @@ export default function EditModal({
 
             {/* Linker Memo field */}
             <div className="relative group">
-              <label className="text-[10px] font-black text-zinc-500 block mb-1">링커메모 (주차구역 상세)</label>
+              <label className="text-[11px] font-black text-zinc-500 block mb-1">링커메모 (주차구역 상세)</label>
               <input 
                 type="text"
                 value={driverEditLinkerMemo}
@@ -258,7 +258,7 @@ export default function EditModal({
             
             <div className="grid grid-cols-2 gap-4">
               <div>
-                <label className="text-[10px] font-black text-[#8E8E93] block mb-1">입고 날짜 (입차일자)</label>
+                <label className="text-[11px] font-black text-[#8E8E93] block mb-1">입고 날짜 (입차일자)</label>
                 <input 
                   type="date"
                   value={driverEditDepartureDate}
@@ -267,7 +267,7 @@ export default function EditModal({
                 />
               </div>
               <div>
-                <label className="text-[10px] font-black text-[#8E8E93] block mb-1">입고 시각 (입차시간)</label>
+                <label className="text-[11px] font-black text-[#8E8E93] block mb-1">입고 시각 (입차시간)</label>
                 <input 
                   type="text"
                   value={driverEditDepartureTime}
@@ -278,7 +278,7 @@ export default function EditModal({
               </div>
               
               <div>
-                <label className="text-[10px] font-black text-[#8E8E93] block mb-1">출고 날짜 (반납일자)</label>
+                <label className="text-[11px] font-black text-[#8E8E93] block mb-1">출고 날짜 (반납일자)</label>
                 <input 
                   type="date"
                   value={driverEditArrivalDate}
@@ -287,7 +287,7 @@ export default function EditModal({
                 />
               </div>
               <div>
-                <label className="text-[10px] font-black text-[#8E8E93] block mb-1">출고 시각 (반납시간)</label>
+                <label className="text-[11px] font-black text-[#8E8E93] block mb-1">출고 시각 (반납시간)</label>
                 <input 
                   type="text"
                   value={driverEditArrivalTime}
@@ -308,14 +308,14 @@ export default function EditModal({
 
             <div className="grid grid-cols-2 gap-x-4 gap-y-4">
               <div className="relative group">
-                <label className="text-[10px] font-black text-[#8E8E93] block mb-1">동반 제휴업체 지점</label>
+                <label className="text-[11px] font-black text-[#8E8E93] block mb-1">동반 제휴업체 지점</label>
                 <span className="block py-1.5 text-[13px] text-zinc-400 font-bold border-b border-transparent select-none">
                   {driverDetailRes.companyName || '와와발렛'}
                 </span>
               </div>
 
               <div className="relative group">
-                <label className="text-[10px] font-black text-[#8E8E93] block mb-1">여행지</label>
+                <label className="text-[11px] font-black text-[#8E8E93] block mb-1">여행지</label>
                 <input 
                   type="text"
                   value={driverEditDestination}
@@ -326,7 +326,7 @@ export default function EditModal({
               </div>
 
               <div className="relative group">
-                <label className="text-[10px] font-black text-[#8E8E93] block mb-1">출국 항공사</label>
+                <label className="text-[11px] font-black text-[#8E8E93] block mb-1">출국 항공사</label>
                 <input 
                   type="text"
                   value={driverEditDeptAirline}
@@ -337,7 +337,7 @@ export default function EditModal({
               </div>
 
               <div className="relative group">
-                <label className="text-[10px] font-black text-[#8E8E93] block mb-1">입국 항공사</label>
+                <label className="text-[11px] font-black text-[#8E8E93] block mb-1">입국 항공사</label>
                 <input 
                   type="text"
                   value={driverEditArrAirline}
@@ -348,7 +348,7 @@ export default function EditModal({
               </div>
 
               <div className="relative group col-span-2">
-                <label className="text-[10px] font-black text-[#8E8E93] block mb-1">입국 항공편</label>
+                <label className="text-[11px] font-black text-[#8E8E93] block mb-1">입국 항공편</label>
                 <input 
                   type="text"
                   value={driverEditArrFlight}
@@ -369,7 +369,7 @@ export default function EditModal({
 
             <div className="grid grid-cols-2 gap-4">
               <div className="relative group">
-                <label className="text-[10px] font-black text-zinc-500 block mb-1">차량 번호</label>
+                <label className="text-[11px] font-black text-zinc-500 block mb-1">차량 번호</label>
                 <input 
                   type="text"
                   value={driverEditCarNumber}
@@ -380,7 +380,7 @@ export default function EditModal({
               </div>
 
               <div className="relative group">
-                <label className="text-[10px] font-black text-zinc-500 block mb-1">차종 명칭</label>
+                <label className="text-[11px] font-black text-zinc-500 block mb-1">차종 명칭</label>
                 <input 
                   type="text"
                   value={driverEditCarModel}

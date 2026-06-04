@@ -118,7 +118,7 @@ export default function BlockoutCalendarModal({
             <CalendarRange size={16} className="text-amber-500 animate-pulse" />
             <div>
               <h3 className="text-sm font-black text-white">예약 및 영업 마감 종합 관리</h3>
-              <p className="text-[10px] text-zinc-400 font-bold tracking-tight">RESERVATION CONTROL CENTER</p>
+              <p className="text-[11px] text-zinc-400 font-bold tracking-tight">RESERVATION CONTROL CENTER</p>
             </div>
           </div>
           <button 
@@ -147,7 +147,7 @@ export default function BlockoutCalendarModal({
                   </div>
                   <div>
                     <h4 className="text-[11.5px] font-black text-white">{companyName} 예약 총괄</h4>
-                    <p className="text-[9px] text-zinc-400 font-bold uppercase tracking-tight">MASTER SHUTOFF</p>
+                    <p className="text-[10px] text-zinc-400 font-bold uppercase tracking-tight">MASTER SHUTOFF</p>
                   </div>
                 </div>
                 
@@ -158,7 +158,7 @@ export default function BlockoutCalendarModal({
                     const nextState = !companyIsOpen;
                     await onToggleCompanyOpen(nextState);
                   }}
-                  className={`px-3 py-1.5 rounded-xl transition-all text-[10px] font-black border flex items-center justify-center shadow-sm select-none shrink-0 ${
+                  className={`px-3 py-1.5 rounded-xl transition-all text-[11px] font-black border flex items-center justify-center shadow-sm select-none shrink-0 ${
                     companyIsOpen 
                       ? "bg-emerald-500 hover:bg-emerald-400 text-neutral-950 border-emerald-600/20" 
                       : "bg-red-600 hover:bg-red-500 text-white border-red-500/25"
@@ -168,7 +168,7 @@ export default function BlockoutCalendarModal({
                   {companyIsOpen ? '🟢 예약 접수 허용중' : '🔴 예약 전체 마감 시킴'}
                 </button>
               </div>
-              <p className="text-[10px] text-zinc-300 leading-normal font-semibold">
+              <p className="text-[11px] text-zinc-300 leading-normal font-semibold">
                 버튼 수정 시 즉시 {companyName}의 모든 신규 예약을 완전히 차단/허용합니다. (실시간 DB 반영)
               </p>
             </div>
@@ -187,7 +187,7 @@ export default function BlockoutCalendarModal({
                 <ChevronLeft size={14} />
               </button>
               <div className="text-center">
-                <h4 className="text-[11px] font-black tracking-tight text-zinc-400 uppercase">이달의 영업 마감</h4>
+                <h4 className="text-[12px] font-black tracking-tight text-zinc-400 uppercase">이달의 영업 마감</h4>
                 <p className="text-xs font-black tracking-tight text-white font-mono mt-0.5">
                   {currentYear}년 {monthsKR[currentMonth]}
                 </p>
@@ -202,7 +202,7 @@ export default function BlockoutCalendarModal({
             </div>
 
             {/* Custom Explanation Card */}
-            <div className="bg-amber-500/5 border border-amber-500/10 p-3 rounded-2xl flex items-start gap-2.5 text-[10px] text-zinc-350">
+            <div className="bg-amber-500/5 border border-amber-500/10 p-3 rounded-2xl flex items-start gap-2.5 text-[11px] text-zinc-350">
               <Info size={12} className="text-amber-500 shrink-0 mt-0.5" />
               <p className="leading-relaxed">
                 <strong className="text-amber-400/90">날짜별 마감법</strong>: 터치하여 붉은색으로 설정된 개별 날짜에는 고객 접수 페이지 등에서 신규 예약 접수가 즉시 불가능합니다.
@@ -211,7 +211,7 @@ export default function BlockoutCalendarModal({
 
             {/* Calendar Grid */}
             <div>
-              <div className="grid grid-cols-7 text-center text-[10px] font-black text-zinc-400 uppercase tracking-wider mb-2.5 font-mono">
+              <div className="grid grid-cols-7 text-center text-[11px] font-black text-zinc-400 uppercase tracking-wider mb-2.5 font-mono">
                 {weekdays.map((day, idx) => (
                   <div key={idx} className={idx === 0 ? 'text-red-500/90' : idx === 6 ? 'text-blue-400/90' : 'text-neutral-300'}>
                     {day}

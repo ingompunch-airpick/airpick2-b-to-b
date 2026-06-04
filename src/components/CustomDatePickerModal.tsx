@@ -114,7 +114,7 @@ export default function CustomDatePickerModal({
               <Calendar size={16} className="text-amber-500" />
               <div>
                 <h3 className="text-[13px] font-black text-white">{title}</h3>
-                <p className="text-[9px] text-zinc-400 font-bold tracking-tight uppercase">DATE SELECTION CENTER</p>
+                <p className="text-[10px] text-zinc-400 font-bold tracking-tight uppercase">DATE SELECTION CENTER</p>
               </div>
             </div>
             <button
@@ -155,7 +155,7 @@ export default function CustomDatePickerModal({
             {/* Calendar Grid */}
             <div className="space-y-2">
               {/* Day Names */}
-              <div className="grid grid-cols-7 text-center text-[10px] font-black text-zinc-400 uppercase tracking-wider font-mono">
+              <div className="grid grid-cols-7 text-center text-[11px] font-black text-zinc-400 uppercase tracking-wider font-mono">
                 {weekdays.map((day, idx) => (
                   <div key={idx} className={idx === 0 ? 'text-red-500' : idx === 6 ? 'text-blue-400' : 'text-neutral-300'}>
                     {day}
@@ -196,7 +196,7 @@ export default function CustomDatePickerModal({
 
             {/* Currently Selected Preview block */}
             <div className="p-3 bg-[#141416] border border-neutral-850 rounded-xl flex items-center justify-between">
-              <span className="text-[10px] text-zinc-400 font-black">선택한 날짜</span>
+              <span className="text-[11px] text-zinc-400 font-black">선택한 날짜</span>
               <span className="text-sm text-white font-black font-mono">
                 {selectedDateStr || '-'}
               </span>
