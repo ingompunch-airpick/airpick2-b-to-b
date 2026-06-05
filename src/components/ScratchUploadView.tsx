@@ -5,7 +5,8 @@ import { uploadReservationImages } from '../lib/reservationPhotos';
 import { ensureFirestoreAuth } from '../lib/reservationFirestore';
 
 interface Props {
-  onBack: () => void;
+  onBack?: () => void;
+  embedded?: boolean;
   reservations: Reservation[];
   onUpdateImages: (resId: string, imageUrls: string[]) => Promise<void>;
 }
@@ -209,7 +210,12 @@ function PhotoCard({
 }
 
 // ── 뷰 전체 ─────────────────────────────────────────────
-export default function ScratchUploadView({ onBack, reservations, onUpdateImages }: Props) {
+export default function ScratchUploadView({
+  onBack,
+  embedded = false,
+  reservations,
+  onUpdateImages,
+}: Props) {
   const [doneIds, setDoneIds] = useState<Set<string>>(new Set());
 
   const targets = reservations.filter(
@@ -225,22 +231,7 @@ export default function ScratchUploadView({ onBack, reservations, onUpdateImages
     setDoneIds((prev) => new Set([...prev, resId]));
   };
 
-  return (
-    <div className="min-h-screen bg-neutral-950 text-white p-5 pb-24">
-      <div className="flex items-center gap-3.5 mb-5">
-        <button
-          type="button"
-          onClick={onBack}
-          className="p-2 rounded-2xl text-zinc-400 hover:text-white bg-neutral-900/60 border border-neutral-800 transition-all"
-        >
-          <ArrowLeft size={16} />
-        </button>
-        <div>
-          <h2 className="text-sm font-black tracking-tight text-white">차량 사진 업로드</h2>
-          <p className="text-[12px] text-zinc-500 font-bold">사진 미등록 입고차량 후속 업로드</p>
-        </div>
-      </div>
-
+  const content = (
       <div className="space-y-3">
         <h3 className="text-[12px] uppercase font-black tracking-widest text-zinc-500 px-1">
           사진 미등록 입고차량 ({targets.length}건)
@@ -259,6 +250,28 @@ export default function ScratchUploadView({ onBack, reservations, onUpdateImages
           </div>
         )}
       </div>
+  );
+
+  if (embedded) {
+    return content;
+  }
+
+  return (
+    <div className="min-h-screen bg-neutral-950 text-white p-5 pb-24">
+      <div className="mb-5 flex items-center gap-3.5">
+        <button
+          type="button"
+          onClick={onBack}
+          className="rounded-2xl border border-neutral-800 bg-neutral-900/60 p-2 text-zinc-400 transition-all hover:text-white"
+        >
+          <ArrowLeft size={16} />
+        </button>
+        <div>
+          <h2 className="text-sm font-black tracking-tight text-white">차량 사진 업로드</h2>
+          <p className="text-[12px] font-bold text-zinc-500">사진 미등록 입고차량 후속 업로드</p>
+        </div>
+      </div>
+      {content}
     </div>
   );
 }

@@ -1,6 +1,15 @@
-# 홈페이지 ↔ B2B 앱 Firebase 연동
+# 홈페이지 · B2B · B2C Firebase 연동
 
-두 채널은 **같은 Firebase 프로젝트** `airpick-reservation` 의 **같은 컬렉션** `reservations` 를 사용합니다.
+**홈페이지(wawavalet.com) · B2B 기사앱(`airpick2-b-to-b`) · B2C 고객앱(`airpick-b2c`)** 은 모두 **같은 Firebase 프로젝트** `airpick-reservation` 의 **같은 컬렉션** `reservations` 를 사용합니다.
+
+| 앱 | repo | 예약 생성 | 예약 처리 |
+|----|------|-----------|-----------|
+| B2C 에어픽 | `airpick-b2c` | 고객 비교·예약 (`createdBy: 'airpick-b2c'`) | — |
+| 와와 홈페이지 | 별도 | 고객 예약 (`createdBy: 'homepage'`) | — |
+| B2B | `airpick2-b-to-b` | 현장 접수 | 입고·출고·결제·사진 |
+
+제휴 업체 마스터 데이터는 Firestore `companies/{id}` — **B2B에서 등록**하면 B2C·홈페이지가 같은 요금·마감 정보를 읽습니다.  
+B2C 구조 설명: GitHub 형제 폴더 `airpick-b2c/README.md`
 
 | 항목 | 값 |
 |------|-----|

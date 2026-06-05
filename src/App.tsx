@@ -39,7 +39,7 @@ import { isPending, normalizeReservationStatus } from './utils/reservationStatus
 // --- Sub-views Imports ---
 import Sidebar from './components/Sidebar';
 import PaymentChangeView from './components/PaymentChangeView';
-import ScratchUploadView from './components/ScratchUploadView';
+import VehiclePhotosView from './components/VehiclePhotosView';
 import ServiceHistoryView from './components/ServiceHistoryView';
 import ParkingDepartureView from './components/ParkingDepartureView';
 import CancelledListView from './components/CancelledListView';
@@ -2189,7 +2189,7 @@ export default function App() {
                   exit={{ opacity: 0, scale: 0.98 }}
                   transition={{ duration: 0.15 }}
                 >
-                  <ScratchUploadView
+                  <VehiclePhotosView
                     onBack={() => setCurrentView('timeline')}
                     reservations={visibleReservations}
                     onUpdateImages={handleUpdateReservationImages}

@@ -88,7 +88,7 @@ export default function Sidebar({
     : [
         { id: 'service_history', label: '① 나의 서비스 기록', desc: '당일 총 운행시간 요약 및 입출차 완료 로그', icon: History, view: 'service_history' as AppView },
         { id: 'payment_change', label: '② 결제 변경', desc: '결제수단 사후 수정', icon: CreditCard, view: 'payment_change' as AppView },
-        { id: 'scratch_images', label: '③ 차량 사진 업로드', desc: '사진 미등록 차량 후속 업로드', icon: Camera, view: 'scratch_images' as AppView },
+        { id: 'scratch_images', label: '③ 차량 사진', desc: '미등록 사진 올리기 · 차량번호로 조회', icon: Camera, view: 'scratch_images' as AppView },
         { id: 'parking_departure', label: '④ 주차장별 현황', desc: '실내외 실시간 차량 분류 현황', icon: Calendar, view: 'parking_departure' as AppView },
         { id: 'cancelled_list', label: '⑤ 접수취소 내역', desc: '취소된 예약 건 조회', icon: FileX, view: 'cancelled_list' as AppView },
       ];
