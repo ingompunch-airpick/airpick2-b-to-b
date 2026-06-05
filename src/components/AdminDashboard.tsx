@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { 
   Edit, 
   Trash2, 
@@ -389,9 +389,9 @@ export default function AdminDashboard({
           <div className="bg-white p-3.5 rounded-2xl border border-slate-100 flex items-center justify-between text-left">
             <div>
               <h4 className="text-xs font-black text-slate-900">제휴사 통합 모니터링 및 수정/삭제 관리</h4>
-              <p className="text-[11px] text-slate-450 mt-0.5">시스템에 등록된 제휴 대행사들을 검토하고 요율 및 계약 조건을 수정하거나 불필요한 업체를 파기합니다.</p>
+              <p className="text-[12px] text-slate-450 mt-0.5">시스템에 등록된 제휴 대행사들을 검토하고 요율 및 계약 조건을 수정하거나 불필요한 업체를 파기합니다.</p>
             </div>
-            <span className="text-[11px] bg-red-50 text-red-700 px-2.5 py-1 rounded-xl font-bold font-mono shrink-0">
+            <span className="text-[12px] bg-red-50 text-red-700 px-2.5 py-1 rounded-xl font-bold font-mono shrink-0">
               총 {(partners || []).length}개 지사
             </span>
           </div>
@@ -400,7 +400,7 @@ export default function AdminDashboard({
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-slate-50 border-b border-slate-100 text-[10px] text-slate-400 font-extrabold tracking-wider">
+                  <tr className="bg-slate-50 border-b border-slate-100 text-[11px] text-slate-400 font-extrabold tracking-wider">
                     <th className="py-2.5 px-3">가맹 대행사 정보</th>
                     <th className="py-2.5 px-2 text-center">상태</th>
                     <th className="py-2.5 px-2 text-center">통계</th>
@@ -416,14 +416,14 @@ export default function AdminDashboard({
                         <td className="py-3 px-3 text-left">
                           <div className="font-bold text-slate-900 flex items-center gap-1.5 flex-wrap">
                             <span>{p.name}</span>
-                            <span className="text-[10px] font-mono text-indigo-600 bg-indigo-50/80 px-1 py-0.2 rounded font-black uppercase">
+                            <span className="text-[11px] font-mono text-indigo-600 bg-indigo-50/80 px-1 py-0.2 rounded font-black uppercase">
                               {p.companyId}
                             </span>
                           </div>
-                          <div className="text-[11px] text-slate-400 font-medium mt-0.5">
+                          <div className="text-[12px] text-slate-400 font-medium mt-0.5">
                             대표: {p.representative} • {p.phone}
                           </div>
-                          <div className="text-[10px] bg-slate-100/60 border border-slate-200/30 p-1 rounded-lg mt-1 text-slate-500 font-mono inline-block">
+                          <div className="text-[11px] bg-slate-100/60 border border-slate-200/30 p-1 rounded-lg mt-1 text-slate-500 font-mono inline-block">
                             정산: {p.settlementMemo}
                           </div>
                         </td>
@@ -431,7 +431,7 @@ export default function AdminDashboard({
                           <button
                             type="button"
                             onClick={() => handleToggleStatus(p.companyId)}
-                            className={`px-2.5 py-1.5 text-[11px] font-extrabold rounded-lg inline-flex items-center gap-1 border transition-all ${
+                            className={`px-2.5 py-1.5 text-[12px] font-extrabold rounded-lg inline-flex items-center gap-1 border transition-all ${
                               isSuspended
                                 ? 'bg-rose-50 border-rose-200 text-rose-600 hover:bg-rose-100'
                                 : 'bg-emerald-50 border-emerald-200 text-emerald-700 hover:bg-emerald-100'
@@ -442,14 +442,14 @@ export default function AdminDashboard({
                           </button>
                         </td>
                         <td className="py-3 px-2 align-middle text-center font-mono whitespace-nowrap">
-                          <div className="text-[11px] text-slate-800 font-black">금일 {stats.todayCompleted}건</div>
-                          <div className="text-[10px] text-slate-450 font-bold mt-0.5">월간 {stats.monthlyCompleted}건</div>
+                          <div className="text-[12px] text-slate-800 font-black">금일 {stats.todayCompleted}건</div>
+                          <div className="text-[11px] text-slate-450 font-bold mt-0.5">월간 {stats.monthlyCompleted}건</div>
                         </td>
                         <td className="py-3 px-3 align-middle text-right whitespace-nowrap">
                           <button
                             type="button"
                             onClick={() => handleStartEdit(p)}
-                            className="px-2 py-1.5 bg-slate-50 border border-slate-200 text-slate-755 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 rounded-lg text-[11px] font-black tracking-tight inline-flex items-center gap-1 transition-all mr-1.5"
+                            className="px-2 py-1.5 bg-slate-50 border border-slate-200 text-slate-755 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 rounded-lg text-[12px] font-black tracking-tight inline-flex items-center gap-1 transition-all mr-1.5"
                           >
                             <Edit size={11} />
                             수정
@@ -457,7 +457,7 @@ export default function AdminDashboard({
                           <button
                             type="button"
                             onClick={() => handleDeletePartner(p.companyId, p.name)}
-                            className="px-2 py-1.5 bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-650 hover:text-white rounded-lg text-[11px] font-black tracking-tight inline-flex items-center gap-1 transition-all"
+                            className="px-2 py-1.5 bg-rose-50 border border-rose-200 text-rose-600 hover:bg-rose-650 hover:text-white rounded-lg text-[12px] font-black tracking-tight inline-flex items-center gap-1 transition-all"
                           >
                             <Trash2 size={11} />
                             삭제
@@ -478,7 +478,7 @@ export default function AdminDashboard({
                 <div className="flex items-center justify-between pb-3 border-b border-slate-150 mb-4">
                   <div>
                     <h4 className="text-sm font-black text-slate-900">🏢 제휴 가맹점 정보 수정</h4>
-                    <p className="text-[11px] text-slate-450 mt-0.5">고유 ID: <span className="font-mono font-bold text-indigo-600 bg-indigo-50 px-1 py-0.2 rounded">{editingPartner.companyId}</span></p>
+                    <p className="text-[12px] text-slate-450 mt-0.5">고유 ID: <span className="font-mono font-bold text-indigo-600 bg-indigo-50 px-1 py-0.2 rounded">{editingPartner.companyId}</span></p>
                   </div>
                   <button 
                     type="button" 
@@ -492,7 +492,7 @@ export default function AdminDashboard({
                 <form onSubmit={handleSaveEdit} className="space-y-3">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="text-[11px] text-slate-500 block mb-1 font-bold">가맹사 법인명 (상호명) *</label>
+                      <label className="text-[12px] text-slate-500 block mb-1 font-bold">가맹사 법인명 (상호명) *</label>
                       <input 
                         type="text" 
                         required
@@ -502,7 +502,7 @@ export default function AdminDashboard({
                       />
                     </div>
                     <div>
-                      <label className="text-[11px] text-slate-500 block mb-1 font-bold">대표자 성함 *</label>
+                      <label className="text-[12px] text-slate-500 block mb-1 font-bold">대표자 성함 *</label>
                       <input 
                         type="text" 
                         required
@@ -515,7 +515,7 @@ export default function AdminDashboard({
 
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="text-[11px] text-slate-500 block mb-1 font-bold">업체 대표 연락처 *</label>
+                      <label className="text-[12px] text-slate-500 block mb-1 font-bold">업체 대표 연락처 *</label>
                       <input 
                         type="text" 
                         required
@@ -525,7 +525,7 @@ export default function AdminDashboard({
                       />
                     </div>
                     <div>
-                      <label className="text-[11px] text-slate-500 block mb-1 font-bold">로그인 비밀번호</label>
+                      <label className="text-[12px] text-slate-500 block mb-1 font-bold">로그인 비밀번호</label>
                       <input 
                         type="text" 
                         value={editPassword}
@@ -537,7 +537,7 @@ export default function AdminDashboard({
                   </div>
 
                   <div>
-                     <label className="text-[11px] text-slate-500 block mb-1 font-bold">정산 방식 및 계약 조건 메모</label>
+                     <label className="text-[12px] text-slate-500 block mb-1 font-bold">정산 방식 및 계약 조건 메모</label>
                      <textarea
                        value={editMemo}
                        onChange={e => setEditMemo(e.target.value)}
@@ -571,12 +571,12 @@ export default function AdminDashboard({
         <form onSubmit={handleCreatePartner} className="space-y-3 bg-white p-4 rounded-2xl border border-slate-100 text-xs text-left">
           <div className="border-b border-slate-100 pb-2 mb-2">
             <h4 className="text-xs font-black text-slate-850">신규 제휴 가맹점 입점 승인</h4>
-            <p className="text-[10.5px] text-slate-600">새 업체 계정을 발급하면 해당 ID 전용 사물함 및 파티션이 자동 할당됩니다.</p>
+            <p className="text-[11.5px] text-slate-600">새 업체 계정을 발급하면 해당 ID 전용 사물함 및 파티션이 자동 할당됩니다.</p>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-[11px] text-slate-800 block mb-1 font-extrabold">가맹점 고유 식별 코드 (companyId) *</label>
+              <label className="text-[12px] text-slate-800 block mb-1 font-extrabold">가맹점 고유 식별 코드 (companyId) *</label>
               <input
                 type="text"
                 required
@@ -587,7 +587,7 @@ export default function AdminDashboard({
               />
             </div>
             <div>
-              <label className="text-[11px] text-slate-800 block mb-1 font-extrabold">임시 로그인 비밀번호 *</label>
+              <label className="text-[12px] text-slate-800 block mb-1 font-extrabold">임시 로그인 비밀번호 *</label>
               <input
                 type="password"
                 required
@@ -601,7 +601,7 @@ export default function AdminDashboard({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-[11px] text-slate-800 block mb-1 font-extrabold">가맹사 법인명 (상호명) *</label>
+              <label className="text-[12px] text-slate-800 block mb-1 font-extrabold">가맹사 법인명 (상호명) *</label>
               <input
                 type="text"
                 required
@@ -612,7 +612,7 @@ export default function AdminDashboard({
               />
             </div>
             <div>
-              <label className="text-[11px] text-slate-800 block mb-1 font-extrabold">대표자 성함 *</label>
+              <label className="text-[12px] text-slate-800 block mb-1 font-extrabold">대표자 성함 *</label>
               <input
                 type="text"
                 required
@@ -625,7 +625,7 @@ export default function AdminDashboard({
           </div>
 
           <div>
-            <label className="text-[11px] text-slate-800 block mb-1 font-extrabold">업체 대표 연락처 *</label>
+            <label className="text-[12px] text-slate-800 block mb-1 font-extrabold">업체 대표 연락처 *</label>
             <input
               type="text"
               required
@@ -637,7 +637,7 @@ export default function AdminDashboard({
           </div>
 
           <div>
-            <label className="text-[11px] text-slate-800 block mb-1 font-extrabold">정산 방식 및 계약 조건 메모</label>
+            <label className="text-[12px] text-slate-800 block mb-1 font-extrabold">정산 방식 및 계약 조건 메모</label>
             <textarea
               value={newMemo}
               onChange={e => setNewMemo(e.target.value)}

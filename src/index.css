@@ -50,7 +50,7 @@
 
   body,
   #root {
-    font-size: 0.9375rem; /* 15px — 토스 본문에 가까운 기본 크기 */
+    font-size: 1rem; /* 16px — 야외 현장 가독용 기본 크기 */
     line-height: 1.45;
     font-weight: 500;
   }
@@ -90,28 +90,28 @@
 
   /* 토스형 타이포 계층 */
   .text-toss-caption {
-    font-size: 0.8125rem; /* 13px */
+    font-size: 0.875rem; /* 14px */
     line-height: 1.35;
     font-weight: 500;
     color: var(--color-toss-fg-subtle);
   }
 
   .text-toss-body {
-    font-size: 0.9375rem; /* 15px */
+    font-size: 1rem; /* 16px */
     line-height: 1.45;
     font-weight: 500;
     color: var(--color-toss-fg-muted);
   }
 
   .text-toss-label {
-    font-size: 0.875rem; /* 14px */
+    font-size: 0.9375rem; /* 15px */
     line-height: 1.4;
     font-weight: 600;
     color: var(--color-toss-fg);
   }
 
   .text-toss-title {
-    font-size: 1.0625rem; /* 17px */
+    font-size: 1.125rem; /* 18px */
     line-height: 1.35;
     font-weight: 700;
     letter-spacing: -0.03em;
@@ -119,7 +119,7 @@
   }
 
   .text-toss-display {
-    font-size: 1.25rem; /* 20px */
+    font-size: 1.375rem; /* 22px — 차량번호 등 핵심 정보 */
     line-height: 1.3;
     font-weight: 700;
     letter-spacing: -0.03em;

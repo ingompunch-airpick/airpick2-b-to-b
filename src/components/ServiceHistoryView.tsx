@@ -1,6 +1,7 @@
-import React, { useMemo } from 'react';
+﻿import React, { useMemo } from 'react';
 import { ArrowLeft, Copy, User, Calendar, Car, Tag, Landmark, ExternalLink, ClipboardCheck } from 'lucide-react';
 import { Reservation } from '../types';
+import { isAdmitted, isCompletedOut } from '../utils/reservationStatus';
 
 interface ServiceHistoryViewProps {
   onBack: () => void;
@@ -39,17 +40,16 @@ export default function ServiceHistoryView({ onBack, reservations }: ServiceHist
   }, []);
 
   // Filter completed reservations only
-  const completedReservations = reservations.filter(res => res.status === 'completed_out');
+  const completedReservations = reservations.filter(res => isCompletedOut(res.status));
 
   // Compute live statistics for driver today (실데이터만, 없으면 0)
   const stats = useMemo(() => {
     const todayAdmitted = reservations.filter(r => 
-      r.departureDate === todayStr && 
-      ['completed_in', 'request_out', 'completed_out'].includes(r.status)
+      r.departureDate === todayStr && isAdmitted(r.status)
     ).length;
 
     const todayExited = reservations.filter(r => {
-      if (r.status !== 'completed_out') return false;
+      if (!isCompletedOut(r.status)) return false;
       // actualExitTime(실제 출고 시각) 우선, 없으면 arrivalDate(예정일) fallback
       const exitDate = r.actualExitTime
         ? r.actualExitTime.slice(0, 10)
@@ -102,18 +102,18 @@ export default function ServiceHistoryView({ onBack, reservations }: ServiceHist
         </button>
         <div>
           <h2 className="text-sm font-black tracking-tight text-white">나의 서비스 기록</h2>
-          <p className="text-[11px] text-zinc-500 font-bold uppercase">My Driving & Service Logs</p>
+          <p className="text-[12px] text-zinc-500 font-bold uppercase">My Driving & Service Logs</p>
         </div>
       </div>
 
       {/* 1. 상단 컴팩트 통계 위젯 (Compact Stats Widget) */}
       <div className="bg-gradient-to-br from-neutral-900 via-neutral-900 to-neutral-950 p-5 rounded-3xl border border-neutral-850 shadow-xl space-y-4 mb-6">
         <div className="flex items-center justify-between">
-          <span className="text-[11.5px] font-black text-zinc-400 tracking-wider flex items-center gap-1.5 uppercase">
+          <span className="text-[12.5px] font-black text-zinc-400 tracking-wider flex items-center gap-1.5 uppercase">
             <ClipboardCheck size={14} className="text-amber-500 animate-pulse" />
             당일 운행 현황 요약
           </span>
-          <span className="text-[10.5px] font-mono text-zinc-500 font-bold bg-[#1C1C1E] px-2 py-0.5 rounded border border-neutral-800">
+          <span className="text-[11.5px] font-mono text-zinc-500 font-bold bg-[#1C1C1E] px-2 py-0.5 rounded border border-neutral-800">
             {todayStr}
           </span>
         </div>
@@ -123,7 +123,7 @@ export default function ServiceHistoryView({ onBack, reservations }: ServiceHist
           <div className="bg-[#A855F7]/10 p-4 border border-[#A855F7]/20 rounded-2xl flex flex-col justify-center gap-1.5">
             <div className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-[#A855F7]" />
-              <span className="text-[11px] text-zinc-400 font-bold">주차 완료</span>
+              <span className="text-[12px] text-zinc-400 font-bold">주차 완료</span>
             </div>
             <span className="font-mono font-black text-xl text-[#A855F7]">{stats.todayAdmitted}건</span>
           </div>
@@ -131,7 +131,7 @@ export default function ServiceHistoryView({ onBack, reservations }: ServiceHist
           <div className="bg-[#22C55E]/10 p-4 border border-[#22C55E]/20 rounded-2xl flex flex-col justify-center gap-1.5">
             <div className="flex items-center gap-2">
               <span className="w-1.5 h-1.5 rounded-full bg-[#22C55E]" />
-              <span className="text-[11px] text-zinc-400 font-bold">출차 완료</span>
+              <span className="text-[12px] text-zinc-400 font-bold">출차 완료</span>
             </div>
             <span className="font-mono font-black text-xl text-[#22C55E]">{stats.todayExited}건</span>
           </div>
@@ -139,10 +139,10 @@ export default function ServiceHistoryView({ onBack, reservations }: ServiceHist
       </div>
 
       <div className="flex items-center justify-between px-1 mb-4 select-none">
-        <h3 className="text-[12px] text-zinc-400 font-black tracking-wider uppercase">
+        <h3 className="text-[13px] text-zinc-400 font-black tracking-wider uppercase">
           전체 완료 서비스 히스토리 Log ({completedReservations.length}건)
         </h3>
-        <span className="text-[10.5px] font-mono text-zinc-500 font-semibold uppercase">Completed Timelines</span>
+        <span className="text-[11.5px] font-mono text-zinc-500 font-semibold uppercase">Completed Timelines</span>
       </div>
 
       {/* Spacing List of Historical Log Entries */}
@@ -162,7 +162,7 @@ export default function ServiceHistoryView({ onBack, reservations }: ServiceHist
                       key={`${res.id || ''}-${idx}`}
                       className="p-4 bg-neutral-900 border border-neutral-850 rounded-2xl space-y-3 hover:border-neutral-750 transition-all font-sans"
                     >
-                      <div className="grid grid-cols-2 gap-y-2 gap-x-3 text-[12px]">
+                      <div className="grid grid-cols-2 gap-y-2 gap-x-3 text-[13px]">
                         <div className="flex flex-col">
                           <span className="text-zinc-500 font-bold">이용시간</span>
                           <span className="font-mono text-zinc-300 font-bold mt-0.5">
@@ -186,13 +186,13 @@ export default function ServiceHistoryView({ onBack, reservations }: ServiceHist
                           <span className="text-zinc-500 font-bold">차량 및 승인내역</span>
                           <span className="text-amber-500/90 font-medium mt-0.5 flex items-center gap-1.5 select-all">
                             <Car size={11} />
-                            (출차완료) {res.carNumber} ({res.carModel}) • <span className="text-zinc-450 text-[12px] font-medium">({res.paymentMethod || '선결'})</span>
+                            (출차완료) {res.carNumber} ({res.carModel}) • <span className="text-zinc-450 text-[13px] font-medium">({res.paymentMethod || '선결'})</span>
                           </span>
                         </div>
                       </div>
 
                       {/* Receipt Code Box with Quick Clip Copy */}
-                      <div className="mt-2 p-2.5 bg-neutral-950 rounded-xl border border-neutral-850 flex items-center justify-between text-[11px]">
+                      <div className="mt-2 p-2.5 bg-neutral-950 rounded-xl border border-neutral-850 flex items-center justify-between text-[12px]">
                         <span className="text-zinc-500 font-mono tracking-tight flex items-center gap-1.5">
                           <Tag size={10} />
                           발급 영수증: <strong className="text-zinc-300 font-mono">{rCode}</strong>
@@ -221,7 +221,7 @@ export default function ServiceHistoryView({ onBack, reservations }: ServiceHist
           <div className="py-16 flex flex-col items-center justify-center text-center gap-2 select-none">
             <ClipboardCheck size={28} className="text-neutral-700" />
             <p className="text-xs font-bold text-zinc-400">아직 완료된 서비스 기록이 없습니다</p>
-            <p className="text-[11px] text-zinc-600">출차완료 처리된 차량이 여기에 표시됩니다.</p>
+            <p className="text-[12px] text-zinc-600">출차완료 처리된 차량이 여기에 표시됩니다.</p>
           </div>
         )}
       </div>

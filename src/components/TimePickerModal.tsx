@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { X, Clock, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -99,8 +99,8 @@ export default function TimePickerModal({
             <div className="flex items-center gap-2">
               <Clock size={16} className="text-amber-500" />
               <div>
-                <h3 className="text-[13px] font-black text-white">{title}</h3>
-                <p className="text-[10px] text-zinc-400 font-bold tracking-tight uppercase">TIME SELECTION CENTER</p>
+                <h3 className="text-[14px] font-black text-white">{title}</h3>
+                <p className="text-[11px] text-zinc-400 font-bold tracking-tight uppercase">TIME SELECTION CENTER</p>
               </div>
             </div>
             <button 
@@ -142,7 +142,7 @@ export default function TimePickerModal({
 
             {/* Hours Selector Grid */}
             <div>
-              <span className="text-[11px] text-[#FFFFFF] font-extrabold block mb-2">시간 선택 (Hour)</span>
+              <span className="text-[12px] text-[#FFFFFF] font-extrabold block mb-2">시간 선택 (Hour)</span>
               <div className="grid grid-cols-4 gap-1.5">
                 {hours.map((hr) => {
                   const isSelected = selectedHour === hr;
@@ -151,7 +151,7 @@ export default function TimePickerModal({
                       key={hr}
                       type="button"
                       onClick={() => setSelectedHour(hr)}
-                      className={`py-2 text-[12px] font-bold rounded-xl transition-all border ${
+                      className={`py-2 text-[13px] font-bold rounded-xl transition-all border ${
                         isSelected 
                           ? 'bg-amber-500 text-zinc-950 font-black' 
                           : 'bg-[#141416]/50 border-neutral-850 text-white hover:text-zinc-200 hover:border-neutral-700'
@@ -166,7 +166,7 @@ export default function TimePickerModal({
 
             {/* Minutes Selector Grid */}
             <div>
-              <span className="text-[11px] text-[#FFFFFF] font-extrabold block mb-2">분 선택 (Minute - 5분 단위)</span>
+              <span className="text-[12px] text-[#FFFFFF] font-extrabold block mb-2">분 선택 (Minute - 5분 단위)</span>
               <div className="grid grid-cols-4 gap-1.5">
                 {minutes.map((min) => {
                   const isSelected = selectedMinute === min;
@@ -175,7 +175,7 @@ export default function TimePickerModal({
                       key={min}
                       type="button"
                       onClick={() => setSelectedMinute(min)}
-                      className={`py-2 text-[12px] font-bold rounded-xl transition-all border ${
+                      className={`py-2 text-[13px] font-bold rounded-xl transition-all border ${
                         isSelected 
                           ? 'bg-amber-500 text-zinc-950 font-black' 
                           : 'bg-[#141416]/50 border-neutral-850 text-white hover:text-zinc-200 hover:border-neutral-700'
@@ -190,7 +190,7 @@ export default function TimePickerModal({
 
             {/* Currently Selected Preview block */}
             <div className="p-3 bg-[#141416] border border-neutral-850 rounded-xl flex items-center justify-between">
-              <span className="text-[11px] text-zinc-300 font-black">선택한 시간</span>
+              <span className="text-[12px] text-zinc-300 font-black">선택한 시간</span>
               <div className="flex items-baseline gap-1">
                 <span className="text-xs text-amber-500 font-bold">{ampm === 'AM' ? '오전' : '오후'}</span>
                 <span className="text-base text-white font-black font-mono">

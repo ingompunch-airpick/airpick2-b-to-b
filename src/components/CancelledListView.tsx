@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Search, Undo2, Ban, ShieldAlert, Calendar, Car, Coins, FileText, ChevronRight } from 'lucide-react';
 import { Reservation, AppView } from '../types';
@@ -41,17 +41,17 @@ export default function CancelledListView({ reservations, onUpdateStatus, onBack
               <Ban size={18} />
             </div>
             <div>
-              <h2 className="text-[13px] font-black tracking-tight text-white uppercase font-sans">
+              <h2 className="text-[14px] font-black tracking-tight text-white uppercase font-sans">
                 접수취소 내역 장부
               </h2>
-              <p className="text-[11px] text-zinc-400 mt-0.5">
+              <p className="text-[12px] text-zinc-400 mt-0.5">
                 예약이 취소된 모바일 상세 내역 요약 ({filtered.length}건)
               </p>
             </div>
           </div>
           <button
             onClick={onBack}
-            className="text-[11px] bg-neutral-950 hover:bg-neutral-800 text-zinc-300 font-bold px-3 py-1.5 rounded-xl border border-neutral-800 transition-colors cursor-pointer"
+            className="text-[12px] bg-neutral-950 hover:bg-neutral-800 text-zinc-300 font-bold px-3 py-1.5 rounded-xl border border-neutral-800 transition-colors cursor-pointer"
           >
             메인으로
           </button>
@@ -72,7 +72,7 @@ export default function CancelledListView({ reservations, onUpdateStatus, onBack
           {searchTerm && (
             <button
               onClick={() => setSearchTerm('')}
-              className="absolute inset-y-0 right-0 flex items-center pr-3 text-zinc-500 hover:text-white text-[11px]"
+              className="absolute inset-y-0 right-0 flex items-center pr-3 text-zinc-500 hover:text-white text-[12px]"
             >
               지우기
             </button>
@@ -97,17 +97,17 @@ export default function CancelledListView({ reservations, onUpdateStatus, onBack
                 <div className="flex justify-between items-start">
                   <div className="space-y-1">
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-[11.5px] font-black text-rose-450 bg-rose-500/10 px-2 py-0.5 rounded-lg border border-rose-500/10 uppercase tracking-wider font-mono">
+                      <span className="text-[12.5px] font-black text-rose-450 bg-rose-500/10 px-2 py-0.5 rounded-lg border border-rose-500/10 uppercase tracking-wider font-mono">
                         CANCELED
                       </span>
                       <span className="text-xs font-black text-zinc-100">{res.userName}</span>
-                      <span className="text-[11px] text-zinc-500 font-mono font-semibold">({res.phone})</span>
+                      <span className="text-[12px] text-zinc-500 font-mono font-semibold">({res.phone})</span>
                     </div>
                     <div className="flex items-center gap-2 pt-0.5">
-                      <span className="text-[13px] font-extrabold text-amber-500 tracking-tight font-mono">
+                      <span className="text-[14px] font-extrabold text-amber-500 tracking-tight font-mono">
                         {res.carNumber}
                       </span>
-                      <span className="text-[12px] font-bold text-zinc-400">{res.carModel || '일반 차종'}</span>
+                      <span className="text-[13px] font-bold text-zinc-400">{res.carModel || '일반 차종'}</span>
                     </div>
                   </div>
 
@@ -118,7 +118,7 @@ export default function CancelledListView({ reservations, onUpdateStatus, onBack
                         onUpdateStatus(res.id || '', 'pending');
                       }
                     }}
-                    className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-900 hover:bg-zinc-800 text-zinc-350 hover:text-amber-400 border border-neutral-800 rounded-xl text-[11.5px] font-black transition-all shadow-sm cursor-pointer"
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-neutral-900 hover:bg-zinc-800 text-zinc-350 hover:text-amber-400 border border-neutral-800 rounded-xl text-[12.5px] font-black transition-all shadow-sm cursor-pointer"
                     title="접수 상태 복구"
                   >
                     <Undo2 size={11} />
@@ -127,7 +127,7 @@ export default function CancelledListView({ reservations, onUpdateStatus, onBack
                 </div>
 
                 {/* Subdetails Panel */}
-                <div className="grid grid-cols-2 gap-2 text-[11px] bg-neutral-950/40 p-3 rounded-xl border border-neutral-900">
+                <div className="grid grid-cols-2 gap-2 text-[12px] bg-neutral-950/40 p-3 rounded-xl border border-neutral-900">
                   <div className="space-y-1">
                     <div className="flex items-center gap-1 text-zinc-500 mb-1">
                       <Calendar size={11} />
@@ -137,17 +137,17 @@ export default function CancelledListView({ reservations, onUpdateStatus, onBack
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="font-mono">{res.departureDate} ({res.departureTime})</span>
                         {res.departureTerminal === 'T1' ? (
-                          <span className="text-[9.5px] px-1 rounded bg-[#00D2FF]/10 text-[#00D2FF] border border-[#00D2FF]/20 font-black">1터</span>
+                          <span className="text-[10.5px] px-1 rounded bg-[#00D2FF]/10 text-[#00D2FF] border border-[#00D2FF]/20 font-black">1터</span>
                         ) : (
-                          <span className="text-[9.5px] px-1 rounded bg-[#FFB800]/10 text-[#FFB800] border border-[#FFB800]/20 font-black">2터</span>
+                          <span className="text-[10.5px] px-1 rounded bg-[#FFB800]/10 text-[#FFB800] border border-[#FFB800]/20 font-black">2터</span>
                         )}
                       </div>
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="font-mono">~ {res.arrivalDate} ({res.arrivalTime})</span>
                         {res.arrivalTerminal === 'T1' ? (
-                          <span className="text-[9.5px] px-1 rounded bg-[#00D2FF]/10 text-[#00D2FF] border border-[#00D2FF]/20 font-black">1터</span>
+                          <span className="text-[10.5px] px-1 rounded bg-[#00D2FF]/10 text-[#00D2FF] border border-[#00D2FF]/20 font-black">1터</span>
                         ) : (
-                          <span className="text-[9.5px] px-1 rounded bg-[#FFB800]/10 text-[#FFB800] border border-[#FFB800]/20 font-black">2터</span>
+                          <span className="text-[10.5px] px-1 rounded bg-[#FFB800]/10 text-[#FFB800] border border-[#FFB800]/20 font-black">2터</span>
                         )}
                       </div>
                     </div>
@@ -169,12 +169,12 @@ export default function CancelledListView({ reservations, onUpdateStatus, onBack
                 </div>
 
                 {/* Cancellation Details */}
-                <div className="bg-rose-500/5 border border-rose-500/10 p-3 rounded-xl text-[11px] space-y-1">
+                <div className="bg-rose-500/5 border border-rose-500/10 p-3 rounded-xl text-[12px] space-y-1">
                   <div className="flex items-center gap-1 text-rose-400/90 font-bold">
                     <ShieldAlert size={11} className="shrink-0" />
                     <span>취소 사유 및 일자</span>
                     {res.cancelledAt && (
-                      <span className="text-[10px] font-mono font-medium text-rose-450/70 ml-auto">
+                      <span className="text-[11px] font-mono font-medium text-rose-450/70 ml-auto">
                         ({res.cancelledAt})
                       </span>
                     )}
@@ -185,7 +185,7 @@ export default function CancelledListView({ reservations, onUpdateStatus, onBack
                 </div>
 
                 {/* Receipt and Host affiliation */}
-                <div className="flex items-center justify-between text-[10.5px] text-zinc-500 font-mono border-t border-neutral-900/60 pt-2.5">
+                <div className="flex items-center justify-between text-[11.5px] text-zinc-500 font-mono border-t border-neutral-900/60 pt-2.5">
                   <span>접수 번호: {res.receiptCode || 'RE_MOCK'}</span>
                   <span className="text-zinc-405 font-sans font-bold">{res.companyName}</span>
                 </div>
@@ -199,8 +199,8 @@ export default function CancelledListView({ reservations, onUpdateStatus, onBack
               className="py-12 text-center text-zinc-500 bg-neutral-950 rounded-2xl border border-neutral-900 flex flex-col items-center justify-center space-y-2"
             >
               <Ban size={28} className="text-zinc-650" />
-              <p className="text-[12px] font-bold">취소된 예약 내역이 존재하지 않습니다.</p>
-              <p className="text-[10px] text-zinc-600">검색어를 지우거나 active 상태를 확인하십시오.</p>
+              <p className="text-[13px] font-bold">취소된 예약 내역이 존재하지 않습니다.</p>
+              <p className="text-[11px] text-zinc-600">검색어를 지우거나 active 상태를 확인하십시오.</p>
             </motion.div>
           )}
         </AnimatePresence>

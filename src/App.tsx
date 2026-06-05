@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+﻿import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   Menu,
   ShieldCheck, 
@@ -34,6 +34,7 @@ import { formatPartnerDisplayName } from './utils/companyDisplay';
 import { getParkingDayCount, mergePartnerPricing } from './utils/pricing';
 import { AIRPICK_HQ_ID, isAirpickHeadquarters, normalizePlatformCompanyId } from './constants/platform';
 import { ensureFirestoreAuth } from './lib/reservationFirestore';
+import { isPending, normalizeReservationStatus } from './utils/reservationStatus';
 
 // --- Sub-views Imports ---
 import Sidebar from './components/Sidebar';
@@ -351,23 +352,7 @@ export const normalizeDocsArray = (items: any[]): Reservation[] => {
     const departureTime = r.entryTime || r.departureTime || '';
     const arrivalTime = r.exitTime || r.arrivalTime || '';
     
-    let statusNorm: any = 'pending';
-    const s = String(r.status || '').trim();
-    if (s === 'pending' || s === '입고예정' || s === '예약완료' || s === '접수' || s === '입고대기') {
-      statusNorm = 'pending';
-    } else if (s === 'pending_in' || s === '입고요청') {
-      statusNorm = 'pending_in';
-    } else if (s === 'request_out' || s === '출고요청') {
-      statusNorm = 'request_out';
-    } else if (s === 'completed_in' || s === '출고예정' || s === '주차완료') {
-      statusNorm = 'completed_in';
-    } else if (s === 'completed_out' || s === '인도완료' || s === '출차완료') {
-      statusNorm = 'completed_out';
-    } else if (s === 'cancelled' || s === '취소') {
-      statusNorm = 'cancelled';
-    } else {
-      statusNorm = s || 'pending';
-    }
+    const statusNorm = normalizeReservationStatus(r.status);
 
     const createdAtStr = getSafeDateString(r.createdAt);
     const updatedAtStr = r.updatedAt ? getSafeDateString(r.updatedAt) : undefined;
@@ -388,7 +373,7 @@ export const normalizeDocsArray = (items: any[]): Reservation[] => {
       departureTime,
       arrivalTime,
       userName: finalName,
-      status: statusNorm as any,
+      status: statusNorm,
       createdAt: createdAtStr,
       updatedAt: updatedAtStr,
       companyId: (() => {
@@ -911,7 +896,7 @@ export default function App() {
   const handleDriverStatusAction = async () => {
     if (!driverDetailRes || !driverDetailRes.id) return;
     
-    if (['pending', '입고예정', '예약완료', '접수', '입고대기'].includes(driverDetailRes.status)) {
+    if (isPending(driverDetailRes.status)) {
       await handleUpdateValetStatus(driverDetailRes.id, 'pending_in');
     } else if (driverDetailRes.status === 'pending_in') {
       await handleUpdateValetStatus(driverDetailRes.id, 'completed_in');
@@ -1757,8 +1742,7 @@ export default function App() {
     return visibleReservations.filter(r => {
       const rDep = normalizeDateString(r.departureDate);
       const selDate = normalizeDateString(selectedDate);
-      const isExpected = ['pending', '입고예정', '예약완료', '접수', '입고대기'].includes(r.status);
-      if (!isExpected) return false;
+      if (!isPending(r.status)) return false;
       if (selDate) {
         if (rDep !== selDate) return false;
       }
@@ -1827,8 +1811,7 @@ export default function App() {
         // 2. Driver Mode Filtering Strategy
         // 2-1. Filter by active tab status strictly
         if (activeCounterTab === 'pending') {
-          const isExpected = ['pending', '입고예정', '예약완료', '접수', '입고대기'].includes(res.status);
-          if (!isExpected) return false;
+          if (!isPending(res.status)) return false;
         } else {
           if (res.status !== activeCounterTab) return false;
         }
@@ -1920,7 +1903,7 @@ export default function App() {
                       </option>
                     ))}
                   </select>
-                  <span className="text-[9px] text-amber-500/95 font-bold bg-amber-500/10 px-1.5 py-0.5 rounded uppercase font-sans tracking-wide shrink-0">
+                  <span className="text-[11px] text-amber-500/95 font-bold bg-amber-500/10 px-1.5 py-0.5 rounded uppercase font-sans tracking-wide shrink-0">
                     MASTER
                   </span>
                 </div>
@@ -1949,7 +1932,7 @@ export default function App() {
                     id="blockout-calendar-trigger"
                   >
                     <CalendarRange size={11} className="text-[#10B981] animate-pulse" />
-                    <span className="text-[10px] sm:text-[10.5px] font-black tracking-tight flex items-center gap-0.5 text-zinc-200">
+                    <span className="text-[11px] sm:text-[11.5px] font-black tracking-tight flex items-center gap-0.5 text-zinc-200">
                       ⚙️ <span className="hidden sm:inline">예약 관리</span><span className="sm:hidden">예약</span>
                       <span className="w-1 h-1 rounded-full inline-block ml-0.5 bg-[#10B981]" />
                     </span>
@@ -1961,7 +1944,7 @@ export default function App() {
                       type="button"
                       onClick={() => setIsAdminModeActive(true)}
                       className={cn(
-                        "px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-[11px] font-black transition-all cursor-pointer flex items-center justify-center gap-1",
+                        "px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-[12px] font-black transition-all cursor-pointer flex items-center justify-center gap-1",
                         isAdminModeActive 
                           ? "bg-amber-500 text-neutral-950 shadow-md font-bold" 
                           : "text-zinc-500 hover:text-zinc-300"
@@ -1974,7 +1957,7 @@ export default function App() {
                       type="button"
                       onClick={() => setIsAdminModeActive(false)}
                       className={cn(
-                        "px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[10px] sm:text-[11px] font-black transition-all cursor-pointer flex items-center justify-center gap-1",
+                        "px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-[12px] font-black transition-all cursor-pointer flex items-center justify-center gap-1",
                         !isAdminModeActive 
                           ? "bg-amber-500 text-neutral-950 shadow-md font-bold" 
                           : "text-zinc-500 hover:text-zinc-300"
@@ -1987,7 +1970,7 @@ export default function App() {
                 )}
                 
                 {isEmployee && (
-                  <div className="px-2 sm:px-3.5 py-1 sm:py-1.5 bg-amber-500/10 text-amber-500 border border-amber-500/25 rounded-[12px] text-[10px] sm:text-[11px] font-black flex items-center gap-0.5 sm:gap-1 select-none shrink-0">
+                  <div className="px-2 sm:px-3.5 py-1 sm:py-1.5 bg-amber-500/10 text-amber-500 border border-amber-500/25 rounded-[12px] text-[11px] sm:text-[12px] font-black flex items-center gap-0.5 sm:gap-1 select-none shrink-0">
                     <span className="w-1 h-1 rounded-full bg-amber-500 animate-pulse" />
                     <span>{employeeRole === 'admin' ? `부관리자 (${employeeName})` : `기사 (${employeeName})`}</span>
                   </div>
@@ -1999,7 +1982,7 @@ export default function App() {
                   setLoginEmail('ingompunch@gmail.com');
                   setShowLoginModal(true);
                 }}
-                className="px-3 py-1.5 bg-neutral-900 hover:bg-neutral-850 text-neutral-300 text-[11px] font-bold rounded-[16px] border border-neutral-800 transition-colors flex items-center gap-1.5"
+                className="px-3 py-1.5 bg-neutral-900 hover:bg-neutral-850 text-neutral-300 text-[12px] font-bold rounded-[16px] border border-neutral-800 transition-colors flex items-center gap-1.5"
                 id="login-modal-trigger"
               >
                 <Lock size={10} className="text-amber-500" />
@@ -2032,7 +2015,7 @@ export default function App() {
                   <span className={cn("text-toss-caption font-semibold mb-0.5", isActive ? "text-white" : "text-[var(--color-toss-fg-subtle)]")}>
                     {step.label}
                   </span>
-                  <span className={cn("text-lg font-bold tabular-nums leading-none", isActive ? step.color : "text-[var(--color-toss-fg-subtle)]")}>
+                  <span className={cn("text-xl font-bold tabular-nums leading-none", isActive ? step.color : "text-[var(--color-toss-fg-subtle)]")}>
                     {step.count}
                   </span>
                 </button>
@@ -2302,7 +2285,7 @@ export default function App() {
               <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-200/50">
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="text-red-600" size={18} />
-                  <span className="text-[12px] font-black font-mono text-slate-800">
+                  <span className="text-[13px] font-black font-mono text-slate-800">
                     최고관리자 데이터 보안 모드 (ADMIN PANEL)
                   </span>
                 </div>
@@ -2357,18 +2340,18 @@ export default function App() {
                 <Lock className="text-amber-500 shrink-0" size={14} />
                 대표 관리자 자격 증명
               </h3>
-              <p className="text-[11px] text-zinc-500 leading-relaxed mb-4">제휴 대행사 데이터 및 고유 수수료 기준을 사후 승인 수정하는 최고 권한을 서명합니다.</p>
+              <p className="text-[12px] text-zinc-500 leading-relaxed mb-4">제휴 대행사 데이터 및 고유 수수료 기준을 사후 승인 수정하는 최고 권한을 서명합니다.</p>
               
               <form onSubmit={handleCredentialLogin} className="space-y-3.5 text-xs">
                 {loginError && (
-                  <div className="p-2.5 bg-red-950/20 text-red-400 text-[11px] rounded-lg border border-red-900/30 flex items-center gap-1.5 font-sans">
+                  <div className="p-2.5 bg-red-950/20 text-red-400 text-[12px] rounded-lg border border-red-900/30 flex items-center gap-1.5 font-sans">
                     <AlertCircle size={12} className="shrink-0" />
                     {loginError}
                   </div>
                 )}
                 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-zinc-500 uppercase">최고승인 ID / 이메일</label>
+                  <label className="text-[11px] font-black text-zinc-500 uppercase">최고승인 ID / 이메일</label>
                   <input 
                     type="text"
                     value={loginEmail}
@@ -2379,7 +2362,7 @@ export default function App() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[10px] font-black text-zinc-500 uppercase">보안 비밀번호</label>
+                  <label className="text-[11px] font-black text-zinc-500 uppercase">보안 비밀번호</label>
                   <input 
                     type="password"
                     value={loginPassword}
@@ -2387,20 +2370,20 @@ export default function App() {
                     placeholder="비밀번호"
                     className="w-full px-3 py-2.5 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-200 outline-none focus:border-amber-500 text-xs font-mono"
                   />
-                  <p className="text-[9.5px] text-zinc-650">등록하신 B2B 최고운영자 2차 보안 비밀번호를 넣으십시오.</p>
+                  <p className="text-[10.5px] text-zinc-650">등록하신 B2B 최고운영자 2차 보안 비밀번호를 넣으십시오.</p>
                 </div>
 
                 <div className="flex gap-2 pt-2">
                   <button 
                     type="button"
                     onClick={() => setShowLoginModal(false)}
-                    className="flex-1 py-2 bg-zinc-800 text-zinc-400 rounded-lg text-[11px] font-black transition-colors"
+                    className="flex-1 py-2 bg-zinc-800 text-zinc-400 rounded-lg text-[12px] font-black transition-colors"
                   >
                     취소
                   </button>
                   <button 
                     type="submit"
-                    className="flex-1 py-2 bg-amber-500 text-neutral-950 text-[11px] font-black shadow-md shadow-amber-500/10 transition-colors"
+                    className="flex-1 py-2 bg-amber-500 text-neutral-950 text-[12px] font-black shadow-md shadow-amber-500/10 transition-colors"
                   >
                     비밀 자격 서명
                   </button>

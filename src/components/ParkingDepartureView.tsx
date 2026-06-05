@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+﻿import React, { useState } from 'react';
 import { ArrowLeft, Car, MapPin, Calendar, Clock, User, Phone, Layers, Edit, Trash2, X, Check, AlertTriangle } from 'lucide-react';
 import { Company, Reservation } from '../types';
 import { mergePartnerPricing } from '../utils/pricing';
@@ -209,7 +209,7 @@ export default function ParkingDepartureView({
         </button>
         <div>
           <h2 className="text-sm font-bold tracking-tight text-white">주차장별 실시간 현황</h2>
-          <p className="text-[11px] text-zinc-500 font-bold uppercase font-mono">Real-time Parking Space Allocation</p>
+          <p className="text-[12px] text-zinc-500 font-bold uppercase font-mono">Real-time Parking Space Allocation</p>
         </div>
       </div>
 
@@ -226,8 +226,8 @@ export default function ParkingDepartureView({
             }`}
             id="tab-select-indoor"
           >
-            <span className="text-[11.5px] font-black">실내 주차장</span>
-            <span className={`text-[11px] font-mono font-bold ${activeTab === 'indoor' ? 'text-neutral-900/70' : 'text-zinc-500'}`}>
+            <span className="text-[12.5px] font-black">실내 주차장</span>
+            <span className={`text-[12px] font-mono font-bold ${activeTab === 'indoor' ? 'text-neutral-900/70' : 'text-zinc-500'}`}>
               현재 {indoorReservations.length}대 주차 중
             </span>
           </button>
@@ -242,8 +242,8 @@ export default function ParkingDepartureView({
             }`}
             id="tab-select-outdoor"
           >
-            <span className="text-[11.5px] font-black">실외 주차장</span>
-            <span className={`text-[11px] font-mono font-bold ${activeTab === 'outdoor' ? 'text-neutral-900/70' : 'text-zinc-500'}`}>
+            <span className="text-[12.5px] font-black">실외 주차장</span>
+            <span className={`text-[12px] font-mono font-bold ${activeTab === 'outdoor' ? 'text-neutral-900/70' : 'text-zinc-500'}`}>
               현재 {outdoorReservations.length}대 주차 중
             </span>
           </button>
@@ -260,13 +260,13 @@ export default function ParkingDepartureView({
             <h3 className="text-xs font-bold text-zinc-100">
               {activeTab === 'indoor' ? '실내 주차 구역' : '실외 주차 구역'}
             </h3>
-            <p className="text-[11px] text-zinc-500 font-semibold uppercase font-mono mt-0.5">
+            <p className="text-[12px] text-zinc-500 font-semibold uppercase font-mono mt-0.5">
               {activeTab === 'indoor' ? 'Indoor Parking Zone' : 'Outdoor Parking Zone'}
             </p>
           </div>
         </div>
         <div className="text-right">
-          <span className="text-[12px] font-bold text-[#8E8E93] block">총 주차 대수</span>
+          <span className="text-[13px] font-bold text-[#8E8E93] block">총 주차 대수</span>
           <span className="text-sm font-black text-amber-500 font-mono tracking-tight leading-none mt-1 block">
             {activeTab === 'indoor' ? `${indoorReservations.length}대` : `${outdoorReservations.length}대`}
           </span>
@@ -285,11 +285,11 @@ export default function ParkingDepartureView({
               <div className="flex justify-between items-center flex-wrap gap-2">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-xs font-bold text-white">{res.userName} 고객님</span>
-                  <span className="text-[10.5px] font-mono bg-neutral-950 text-zinc-400 px-2 py-0.5 rounded border border-neutral-850 font-bold">
+                  <span className="text-[11.5px] font-mono bg-neutral-950 text-zinc-400 px-2 py-0.5 rounded border border-neutral-850 font-bold">
                     {res.phone || '010-0000-0000'}
                   </span>
                   {isReservationUnpaid(res) && (
-                    <span className="text-[10px] font-black px-2 py-0.5 rounded-md bg-rose-500/15 text-rose-400 border border-rose-500/25">
+                    <span className="text-[11px] font-black px-2 py-0.5 rounded-md bg-rose-500/15 text-rose-400 border border-rose-500/25">
                       미납
                     </span>
                   )}
@@ -298,19 +298,19 @@ export default function ParkingDepartureView({
                 <div className="flex items-center gap-1.5 ml-auto">
                   <button 
                     onClick={() => handleOpenEditModal(res)}
-                    className="flex items-center gap-1 px-2.5 py-1 bg-neutral-950 border border-neutral-800 hover:border-amber-500 text-[11px] font-bold text-[#8E8E93] hover:text-amber-500 rounded-lg transition-all duration-100"
+                    className="flex items-center gap-1 px-2.5 py-1 bg-neutral-950 border border-neutral-800 hover:border-amber-500 text-[12px] font-bold text-[#8E8E93] hover:text-amber-500 rounded-lg transition-all duration-100"
                   >
                     <Edit size={10} />
                     수정
                   </button>
                   <button 
                     onClick={() => handleOpenDeleteConfirm(res)}
-                    className="flex items-center gap-1 px-2.5 py-1 bg-neutral-950 border border-neutral-800 hover:border-red-500 text-[11px] font-bold text-[#8E8E93] hover:text-red-500 rounded-lg transition-all duration-100"
+                    className="flex items-center gap-1 px-2.5 py-1 bg-neutral-950 border border-neutral-800 hover:border-red-500 text-[12px] font-bold text-[#8E8E93] hover:text-red-500 rounded-lg transition-all duration-100"
                   >
                     <Trash2 size={10} />
                     삭제
                   </button>
-                  <span className="text-[10.5px] font-bold text-zinc-400 bg-neutral-950 border border-neutral-850 px-2.5 py-1 rounded-md">
+                  <span className="text-[11.5px] font-bold text-zinc-400 bg-neutral-950 border border-neutral-850 px-2.5 py-1 rounded-md">
                     대행: {res.companyName}
                   </span>
                 </div>
@@ -323,7 +323,7 @@ export default function ParkingDepartureView({
                     <Car size={11} className="text-amber-500" />
                   </div>
                   <div>
-                    <span className="text-[10px] text-zinc-500 block leading-none uppercase font-bold mb-0.5">모델 분류</span>
+                    <span className="text-[11px] text-zinc-500 block leading-none uppercase font-bold mb-0.5">모델 분류</span>
                     <span className="text-xs font-black text-zinc-200">{res.carModel}</span>
                   </div>
                 </div>
@@ -335,7 +335,7 @@ export default function ParkingDepartureView({
               </div>
 
               {/* Bottom Row: Entry Details */}
-              <div className="flex flex-col gap-1 text-[11px] text-zinc-400 font-mono pt-1.5 border-t border-neutral-850/60">
+              <div className="flex flex-col gap-1 text-[12px] text-zinc-400 font-mono pt-1.5 border-t border-neutral-850/60">
                 <div className="flex items-center gap-1.5">
                   <Calendar size={11} className="text-zinc-500 shrink-0" />
                   <span>
@@ -359,7 +359,7 @@ export default function ParkingDepartureView({
                   </span>
                 </div>
                 {typeof res.totalPrice === 'number' && (
-                  <div className="text-[11px] text-zinc-500 mt-0.5">
+                  <div className="text-[12px] text-zinc-500 mt-0.5">
                     요금: <span className="font-bold text-amber-500/90">{res.totalPrice.toLocaleString()}원</span>
                   </div>
                 )}
@@ -380,7 +380,7 @@ export default function ParkingDepartureView({
             <p className="text-xs text-neutral-500 font-bold">
               현재 {activeTab === 'indoor' ? '실내' : '실외'} 주차장에 완료 상태의 차량이 없습니다
             </p>
-            <p className="text-[10.5px] text-neutral-650 mt-1 font-medium">
+            <p className="text-[11.5px] text-neutral-650 mt-1 font-medium">
               차량 상태가 '주차완료'인 차량들만 실시간으로 집계됩니다.
             </p>
           </div>
@@ -396,8 +396,8 @@ export default function ParkingDepartureView({
               <div className="flex items-center gap-2">
                 <Edit size={16} className="text-amber-500" />
                 <div>
-                  <h3 className="text-[13px] font-black text-white">차량 접수 정보 수정</h3>
-                  <p className="text-[10px] text-[#8E8E93] font-bold tracking-wide uppercase">EDIT VEHICLE DETAILS</p>
+                  <h3 className="text-[14px] font-black text-white">차량 접수 정보 수정</h3>
+                  <p className="text-[11px] text-[#8E8E93] font-bold tracking-wide uppercase">EDIT VEHICLE DETAILS</p>
                 </div>
               </div>
               <button
@@ -414,7 +414,7 @@ export default function ParkingDepartureView({
               {/* 고객명 & 연락처 */}
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-[10.5px] text-zinc-500 font-black block mb-1">고객명</label>
+                  <label className="text-[11.5px] text-zinc-500 font-black block mb-1">고객명</label>
                   <input
                     type="text"
                     value={editUserName}
@@ -423,7 +423,7 @@ export default function ParkingDepartureView({
                   />
                 </div>
                 <div>
-                  <label className="text-[10.5px] text-zinc-500 font-black block mb-1">연락처</label>
+                  <label className="text-[11.5px] text-zinc-500 font-black block mb-1">연락처</label>
                   <input
                     type="text"
                     value={editPhone}
@@ -436,7 +436,7 @@ export default function ParkingDepartureView({
               {/* 차종 & 차량번호 */}
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="text-[10.5px] text-zinc-500 font-black block mb-1">차종</label>
+                  <label className="text-[11.5px] text-zinc-500 font-black block mb-1">차종</label>
                   <input
                     type="text"
                     value={editCarModel}
@@ -445,7 +445,7 @@ export default function ParkingDepartureView({
                   />
                 </div>
                 <div>
-                  <label className="text-[10.5px] text-zinc-500 font-black block mb-1">차량번호</label>
+                  <label className="text-[11.5px] text-zinc-500 font-black block mb-1">차량번호</label>
                   <input
                     type="text"
                     value={editCarNumber}
@@ -457,12 +457,12 @@ export default function ParkingDepartureView({
 
               {/* 주차 타입: 실내 / 실외 전환 */}
               <div>
-                <label className="text-[10.5px] text-zinc-500 font-black block mb-1">주차장 구분</label>
+                <label className="text-[11.5px] text-zinc-500 font-black block mb-1">주차장 구분</label>
                 <div className="grid grid-cols-2 gap-2 bg-[#1C1C1E]/50 border border-neutral-850 p-1 rounded-xl">
                   <button
                     type="button"
                     onClick={() => setEditIsIndoor(true)}
-                    className={`py-2 text-[12px] font-black rounded-lg transition-all ${
+                    className={`py-2 text-[13px] font-black rounded-lg transition-all ${
                       editIsIndoor
                         ? 'bg-amber-500 text-neutral-950 shadow-md'
                         : 'text-zinc-400 hover:text-white'
@@ -473,7 +473,7 @@ export default function ParkingDepartureView({
                   <button
                     type="button"
                     onClick={() => setEditIsIndoor(false)}
-                    className={`py-2 text-[12px] font-black rounded-lg transition-all ${
+                    className={`py-2 text-[13px] font-black rounded-lg transition-all ${
                       !editIsIndoor
                         ? 'bg-amber-500 text-neutral-950 shadow-md'
                         : 'text-zinc-400 hover:text-white'
@@ -486,7 +486,7 @@ export default function ParkingDepartureView({
 
               {/* 주차 구역 (parkingSpace) */}
               <div>
-                <label className="text-[10.5px] text-zinc-500 font-black block mb-1">주차 구역 번호</label>
+                <label className="text-[11.5px] text-zinc-500 font-black block mb-1">주차 구역 번호</label>
                 <input
                   type="text"
                   placeholder="예: 실외-A구역, B-B03"
@@ -498,20 +498,20 @@ export default function ParkingDepartureView({
 
               {/* 일정: 입·출차 (빠른/늦은 도착 반영) */}
               <div className="pt-1 border-t border-neutral-850/80 space-y-3">
-                <p className="text-[11px] font-black text-amber-500">일정 (입·출차)</p>
-                <p className="text-[10px] text-zinc-500 -mt-2 leading-relaxed">
+                <p className="text-[12px] font-black text-amber-500">일정 (입·출차)</p>
+                <p className="text-[11px] text-zinc-500 -mt-2 leading-relaxed">
                   예약보다 일찍·늦게 온 경우 입고 예정·실제 입고·출차 예정을 맞춰 주세요. 저장 시 요금이 다시 계산됩니다.
                 </p>
 
                 <div>
-                  <label className="text-[10.5px] text-zinc-500 font-black block mb-1">입고 터미널</label>
+                  <label className="text-[11.5px] text-zinc-500 font-black block mb-1">입고 터미널</label>
                   <div className="grid grid-cols-2 gap-2 bg-[#1C1C1E]/50 border border-neutral-850 p-1 rounded-xl">
                     {(['T1', 'T2'] as const).map((t) => (
                       <button
                         key={t}
                         type="button"
                         onClick={() => setEditDepartureTerminal(t)}
-                        className={`py-2 text-[12px] font-black rounded-lg transition-all ${
+                        className={`py-2 text-[13px] font-black rounded-lg transition-all ${
                           editDepartureTerminal === t
                             ? 'bg-amber-500 text-neutral-950'
                             : 'text-zinc-400 hover:text-white'
@@ -525,7 +525,7 @@ export default function ParkingDepartureView({
 
                 <div className="grid grid-cols-2 gap-2 font-mono">
                   <div>
-                    <label className="text-[10.5px] text-zinc-500 font-black block mb-1">입고 예정일</label>
+                    <label className="text-[11.5px] text-zinc-500 font-black block mb-1">입고 예정일</label>
                     <input
                       type="date"
                       value={editDepartureDate}
@@ -534,7 +534,7 @@ export default function ParkingDepartureView({
                     />
                   </div>
                   <div>
-                    <label className="text-[10.5px] text-zinc-500 font-black block mb-1">입고 예정시간</label>
+                    <label className="text-[11.5px] text-zinc-500 font-black block mb-1">입고 예정시간</label>
                     <input
                       type="time"
                       value={editDepartureTime}
@@ -546,7 +546,7 @@ export default function ParkingDepartureView({
 
                 <div className="grid grid-cols-2 gap-2 font-mono">
                   <div>
-                    <label className="text-[10.5px] text-zinc-500 font-black block mb-1">실제 입고일</label>
+                    <label className="text-[11.5px] text-zinc-500 font-black block mb-1">실제 입고일</label>
                     <input
                       type="date"
                       value={editActualParkingDate}
@@ -555,7 +555,7 @@ export default function ParkingDepartureView({
                     />
                   </div>
                   <div>
-                    <label className="text-[10.5px] text-zinc-500 font-black block mb-1">실제 입고시간</label>
+                    <label className="text-[11.5px] text-zinc-500 font-black block mb-1">실제 입고시간</label>
                     <input
                       type="time"
                       value={editActualParkingClock}
@@ -567,20 +567,20 @@ export default function ParkingDepartureView({
                 <button
                   type="button"
                   onClick={applyNowAsActualParking}
-                  className="w-full py-2 text-[11px] font-black rounded-lg border border-neutral-800 bg-neutral-950 text-zinc-300 hover:text-white hover:border-amber-500/40 transition-all"
+                  className="w-full py-2 text-[12px] font-black rounded-lg border border-neutral-800 bg-neutral-950 text-zinc-300 hover:text-white hover:border-amber-500/40 transition-all"
                 >
                   실제 입고 → 지금 시각으로
                 </button>
 
                 <div>
-                  <label className="text-[10.5px] text-zinc-500 font-black block mb-1">출차 터미널</label>
+                  <label className="text-[11.5px] text-zinc-500 font-black block mb-1">출차 터미널</label>
                   <div className="grid grid-cols-2 gap-2 bg-[#1C1C1E]/50 border border-neutral-850 p-1 rounded-xl">
                     {(['T1', 'T2'] as const).map((t) => (
                       <button
                         key={t}
                         type="button"
                         onClick={() => setEditArrivalTerminal(t)}
-                        className={`py-2 text-[12px] font-black rounded-lg transition-all ${
+                        className={`py-2 text-[13px] font-black rounded-lg transition-all ${
                           editArrivalTerminal === t
                             ? 'bg-amber-500 text-neutral-950'
                             : 'text-zinc-400 hover:text-white'
@@ -594,7 +594,7 @@ export default function ParkingDepartureView({
 
                 <div className="grid grid-cols-2 gap-2 font-mono">
                   <div>
-                    <label className="text-[10.5px] text-zinc-500 font-black block mb-1">출차 예정일</label>
+                    <label className="text-[11.5px] text-zinc-500 font-black block mb-1">출차 예정일</label>
                     <input
                       type="date"
                       value={editArrivalDate}
@@ -603,7 +603,7 @@ export default function ParkingDepartureView({
                     />
                   </div>
                   <div>
-                    <label className="text-[10.5px] text-zinc-500 font-black block mb-1">출차 예정시간</label>
+                    <label className="text-[11.5px] text-zinc-500 font-black block mb-1">출차 예정시간</label>
                     <input
                       type="time"
                       value={editArrivalTime}
@@ -616,12 +616,12 @@ export default function ParkingDepartureView({
 
               {/* 수납 상태 (주차 후 계좌 입금 등) */}
               <div>
-                <label className="text-[10.5px] text-zinc-500 font-black block mb-1.5">수납 상태</label>
+                <label className="text-[11.5px] text-zinc-500 font-black block mb-1.5">수납 상태</label>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => setEditPaymentChoice('unpaid')}
-                    className={`py-2.5 text-[12px] font-black rounded-xl border transition-all ${
+                    className={`py-2.5 text-[13px] font-black rounded-xl border transition-all ${
                       editPaymentChoice === 'unpaid'
                         ? 'bg-rose-500/15 border-rose-500 text-rose-400'
                         : 'bg-[#1C1C1E] border-neutral-800 text-zinc-400 hover:text-white'
@@ -632,7 +632,7 @@ export default function ParkingDepartureView({
                   <button
                     type="button"
                     onClick={() => setEditPaymentChoice('paid')}
-                    className={`py-2.5 text-[12px] font-black rounded-xl border transition-all ${
+                    className={`py-2.5 text-[13px] font-black rounded-xl border transition-all ${
                       editPaymentChoice === 'paid'
                         ? 'bg-emerald-500/15 border-emerald-500 text-emerald-400'
                         : 'bg-[#1C1C1E] border-neutral-800 text-zinc-400 hover:text-white'
@@ -641,7 +641,7 @@ export default function ParkingDepartureView({
                     완납
                   </button>
                 </div>
-                <p className="text-[10px] text-zinc-500 mt-1.5 leading-relaxed">
+                <p className="text-[11px] text-zinc-500 mt-1.5 leading-relaxed">
                   주차 완료 후 계좌 입금·현장 수납 시 「완납」으로 변경하세요.
                 </p>
               </div>
@@ -693,7 +693,7 @@ export default function ParkingDepartureView({
               </div>
 
               {/* Target info box */}
-              <div className="p-3.5 bg-neutral-950 border border-neutral-850 rounded-xl space-y-1 text-left font-mono text-[11.5px]">
+              <div className="p-3.5 bg-neutral-950 border border-neutral-850 rounded-xl space-y-1 text-left font-mono text-[12.5px]">
                 <div className="flex justify-between">
                   <span className="text-zinc-500">차 량</span>
                   <span className="text-zinc-200 font-bold">{deletingRes.carModel} ({deletingRes.carNumber})</span>

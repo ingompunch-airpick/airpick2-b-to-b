@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { Lock, Shuffle, AlertCircle, Sparkles, Building2, Eye, EyeOff } from 'lucide-react';
 import { PartnerCompany, Company, CompanyInfo } from '../types';
 import { AIRPICK_HQ_ID } from '../constants/platform';
@@ -321,7 +321,7 @@ export default function ConsolidatedGate({ onLoginSuccess, partners, companies }
 
           <form onSubmit={handleLoginSubmit} className="space-y-4 pt-4">
             {error && (
-              <div className="p-3 bg-red-950/20 text-red-400 text-[11px] rounded-xl border border-red-900/35 flex items-center gap-2 font-sans animate-shake">
+              <div className="p-3 bg-red-950/20 text-red-400 text-[12px] rounded-xl border border-red-900/35 flex items-center gap-2 font-sans animate-shake">
                 <AlertCircle size={13} className="shrink-0 text-red-500" />
                 <span className="font-medium leading-normal">{error}</span>
               </div>
@@ -388,7 +388,7 @@ export default function ConsolidatedGate({ onLoginSuccess, partners, companies }
                     <polyline points="20 6 9 17 4 12" />
                   </svg>
                 </div>
-                <span className="text-[12px] font-medium text-zinc-400 hover:text-zinc-300 transition-colors">
+                <span className="text-[13px] font-medium text-zinc-400 hover:text-zinc-300 transition-colors">
                   아이디 저장
                 </span>
               </label>

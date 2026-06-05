@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+﻿import React, { useRef, useState } from 'react';
 import { ArrowLeft, Camera, RefreshCw, X, CheckCircle2 } from 'lucide-react';
 import { Reservation } from '../types';
 import { uploadReservationImages } from '../lib/reservationPhotos';
@@ -90,16 +90,16 @@ function PhotoCard({
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-zinc-200">{res.carNumber}</span>
-            <span className="text-[11px] text-zinc-500">({res.carModel})</span>
+            <span className="text-[12px] text-zinc-500">({res.carModel})</span>
           </div>
-          <p className="text-[10.5px] text-zinc-500 truncate mt-0.5">
+          <p className="text-[11.5px] text-zinc-500 truncate mt-0.5">
             {res.userName} · {res.companyName || '제휴주차장'}
           </p>
         </div>
 
         <div className="shrink-0">
           {saved ? (
-            <span className="text-[10px] font-bold px-2.5 py-1.5 rounded-lg border text-emerald-400 bg-emerald-500/5 border-emerald-500/20 flex items-center gap-1">
+            <span className="text-[11px] font-bold px-2.5 py-1.5 rounded-lg border text-emerald-400 bg-emerald-500/5 border-emerald-500/20 flex items-center gap-1">
               <CheckCircle2 size={11} />
               저장 완료
             </span>
@@ -108,7 +108,7 @@ function PhotoCard({
               type="button"
               disabled={isSaving}
               onClick={triggerPicker}
-              className="px-3 py-2 bg-amber-500 hover:bg-amber-400 active:scale-95 text-neutral-950 rounded-xl text-[11px] font-black flex items-center gap-1.5 transition-all disabled:opacity-50"
+              className="px-3 py-2 bg-amber-500 hover:bg-amber-400 active:scale-95 text-neutral-950 rounded-xl text-[12px] font-black flex items-center gap-1.5 transition-all disabled:opacity-50"
             >
               {isSaving ? (
                 <RefreshCw className="animate-spin" size={12} />
@@ -136,13 +136,13 @@ function PhotoCard({
             {isSaving ? (
               <>
                 <RefreshCw className="animate-spin text-amber-500" size={22} />
-                <span className="text-[11px] text-amber-500 font-bold">Storage 업로드 중…</span>
+                <span className="text-[12px] text-amber-500 font-bold">Storage 업로드 중…</span>
               </>
             ) : (
               <>
                 <Camera className="text-amber-500/80" size={22} />
-                <span className="text-[12px] font-black text-zinc-200">사진 추가하기</span>
-                <span className="text-[10px] text-zinc-500">여러 장 선택 가능</span>
+                <span className="text-[13px] font-black text-zinc-200">사진 추가하기</span>
+                <span className="text-[11px] text-zinc-500">여러 장 선택 가능</span>
               </>
             )}
           </button>
@@ -150,14 +150,14 @@ function PhotoCard({
 
         {/* 에러 */}
         {error && (
-          <p className="text-[11px] text-rose-400 font-bold bg-rose-500/10 rounded-lg px-3 py-2">
+          <p className="text-[12px] text-rose-400 font-bold bg-rose-500/10 rounded-lg px-3 py-2">
             ⚠ {error}
           </p>
         )}
 
         {/* 저장 완료 */}
         {saved && (
-          <div className="flex items-center gap-1.5 text-[11px] text-emerald-400 font-bold">
+          <div className="flex items-center gap-1.5 text-[12px] text-emerald-400 font-bold">
             <CheckCircle2 size={13} />
             {previews.length}장 저장 완료 — 사진 더 추가하려면 오른쪽 「추가」 버튼
           </div>
@@ -177,7 +177,7 @@ function PhotoCard({
                   className="w-full h-full object-cover"
                   referrerPolicy="no-referrer"
                 />
-                <span className="absolute bottom-0.5 left-0.5 bg-black/70 px-1 rounded text-[8px] font-mono text-zinc-400">
+                <span className="absolute bottom-0.5 left-0.5 bg-black/70 px-1 rounded text-[10px] font-mono text-zinc-400">
                   #{idx + 1}
                 </span>
                 {!isSaving && (
@@ -237,12 +237,12 @@ export default function ScratchUploadView({ onBack, reservations, onUpdateImages
         </button>
         <div>
           <h2 className="text-sm font-black tracking-tight text-white">차량 사진 업로드</h2>
-          <p className="text-[11px] text-zinc-500 font-bold">사진 미등록 입고차량 후속 업로드</p>
+          <p className="text-[12px] text-zinc-500 font-bold">사진 미등록 입고차량 후속 업로드</p>
         </div>
       </div>
 
       <div className="space-y-3">
-        <h3 className="text-[11px] uppercase font-black tracking-widest text-zinc-500 px-1">
+        <h3 className="text-[12px] uppercase font-black tracking-widest text-zinc-500 px-1">
           사진 미등록 입고차량 ({targets.length}건)
         </h3>
 

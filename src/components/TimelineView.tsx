@@ -1,8 +1,9 @@
-import React, { useState, useMemo } from 'react';
+﻿import React, { useState, useMemo } from 'react';
 import { Search, Calendar, X, RefreshCw, Car, FileText } from 'lucide-react';
 import { Reservation, ReservationStatus, AppView } from '../types';
 import ReservationCard from './ReservationCard';
 import { normalizeDateString } from '../App';
+import { isDriverTimelineHidden, matchesDriverTab } from '../utils/reservationStatus';
 
 function cn(...classes: (string | boolean | undefined)[]) {
   return classes.filter(Boolean).join(' ');
@@ -78,20 +79,11 @@ export default function TimelineView({
       } else {
         // Driver Mode filters
         // EXCLUSION: Already returned (completed_out) or cancelled (cancelled) vehicles are strictly hidden in driver active tabs
-        if (res.status === 'completed_out' || res.status === 'cancelled') {
+        if (isDriverTimelineHidden(res.status)) {
           return false;
         }
 
-        // Status matching
-        if (activeCounterTab === 'pending') {
-          matchesTab = ['pending', '입고예정', '예약완료', '접수', '입고대기'].includes(res.status);
-        } else if (activeCounterTab === 'pending_in') {
-          matchesTab = res.status === 'pending_in';
-        } else if (activeCounterTab === 'request_out') {
-          matchesTab = res.status === 'request_out';
-        } else if (activeCounterTab === 'completed_in') {
-          matchesTab = res.status === 'completed_in';
-        }
+        matchesTab = matchesDriverTab(res.status, activeCounterTab);
 
         // Date matching matches characteristic of activeCounterTab to ensure 1:1 sync with tab counters
         if (selDate) {
@@ -154,7 +146,7 @@ export default function TimelineView({
                 placeholder="고객명, 차량번호, 모델, 연락처, 대행사 통합 검색"
                 value={searchKeyword}
                 onChange={(e) => setSearchKeyword(e.target.value)}
-                className="w-full bg-[#2C2C2E] border-0 text-xs rounded-[16px] pl-10 pr-9 py-3 text-white placeholder-[#8E8E93] outline-none focus:ring-1 focus:ring-amber-500/20 transition-all font-semibold"
+                className="w-full bg-[#2C2C2E] border-0 text-sm rounded-[16px] pl-10 pr-9 py-3 text-white placeholder-[#8E8E93] outline-none focus:ring-1 focus:ring-amber-500/20 transition-all font-semibold"
               />
               {searchKeyword && (
                 <button
@@ -174,7 +166,7 @@ export default function TimelineView({
             >
               <div className="flex items-center w-full justify-start pointer-events-none z-10">
                 <Calendar size={13} className="text-[#8E8E93] mr-2 shrink-0" />
-                <span className="text-xs text-white font-mono leading-none">{selectedDate}</span>
+                <span className="text-sm text-white font-mono leading-none">{selectedDate}</span>
               </div>
             </div>
 
@@ -264,7 +256,7 @@ export default function TimelineView({
               setReceptionSubMode('search');
               setCurrentView('search_reception');
             }}
-            className="flex-1 py-4 bg-[#1C1C1E] border border-neutral-800 hover:border-neutral-700 text-amber-500 rounded-[22px] text-center text-xs font-black tracking-tight shadow-md hover:bg-neutral-900 active:scale-[0.98] duration-100 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+            className="flex-1 py-4 bg-[#1C1C1E] border border-neutral-800 hover:border-neutral-700 text-amber-500 rounded-[22px] text-center text-sm font-black tracking-tight shadow-md hover:bg-neutral-900 active:scale-[0.98] duration-100 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
             id="bottom-search-edit-button"
           >
             <Search size={13} />
@@ -276,7 +268,7 @@ export default function TimelineView({
               setReceptionSubMode('new_contract');
               setCurrentView('search_reception');
             }}
-            className="flex-1 py-4 bg-amber-500 text-neutral-950 rounded-[22px] text-center text-xs font-black tracking-tight shadow-lg shadow-amber-500/10 hover:bg-amber-440 active:scale-[0.98] duration-100 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+            className="flex-1 py-4 bg-amber-500 text-neutral-950 rounded-[22px] text-center text-sm font-black tracking-tight shadow-lg shadow-amber-500/10 hover:bg-amber-440 active:scale-[0.98] duration-100 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
             id="bottom-new-contract-button"
           >
             <FileText size={13} />

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { X, ChevronLeft, ChevronRight, Calendar, Check } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -113,8 +113,8 @@ export default function CustomDatePickerModal({
             <div className="flex items-center gap-2">
               <Calendar size={16} className="text-amber-500" />
               <div>
-                <h3 className="text-[13px] font-black text-white">{title}</h3>
-                <p className="text-[10px] text-zinc-400 font-bold tracking-tight uppercase">DATE SELECTION CENTER</p>
+                <h3 className="text-[14px] font-black text-white">{title}</h3>
+                <p className="text-[11px] text-zinc-400 font-bold tracking-tight uppercase">DATE SELECTION CENTER</p>
               </div>
             </div>
             <button
@@ -139,7 +139,7 @@ export default function CustomDatePickerModal({
                 <ChevronLeft size={14} />
               </button>
               <div className="text-center">
-                <span className="text-[14px] font-black tracking-tight text-white">
+                <span className="text-[15px] font-black tracking-tight text-white">
                   {currentYear}년 {monthsKR[currentMonth]}
                 </span>
               </div>
@@ -155,7 +155,7 @@ export default function CustomDatePickerModal({
             {/* Calendar Grid */}
             <div className="space-y-2">
               {/* Day Names */}
-              <div className="grid grid-cols-7 text-center text-[11px] font-black text-zinc-400 uppercase tracking-wider font-mono">
+              <div className="grid grid-cols-7 text-center text-[12px] font-black text-zinc-400 uppercase tracking-wider font-mono">
                 {weekdays.map((day, idx) => (
                   <div key={idx} className={idx === 0 ? 'text-red-500' : idx === 6 ? 'text-blue-400' : 'text-neutral-300'}>
                     {day}
@@ -196,7 +196,7 @@ export default function CustomDatePickerModal({
 
             {/* Currently Selected Preview block */}
             <div className="p-3 bg-[#141416] border border-neutral-850 rounded-xl flex items-center justify-between">
-              <span className="text-[11px] text-zinc-400 font-black">선택한 날짜</span>
+              <span className="text-[12px] text-zinc-400 font-black">선택한 날짜</span>
               <span className="text-sm text-white font-black font-mono">
                 {selectedDateStr || '-'}
               </span>

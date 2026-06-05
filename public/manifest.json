@@ -1,9 +1,9 @@
 {
-  "name": "에어픽 주차 관리",
-  "short_name": "에어픽 주차 관리",
-  "description": "인천공항 발렛 파킹 주차 관리 앱",
-  "start_url": "/airpick2-b-to-b/",
-  "scope": "/airpick2-b-to-b/",
+  "name": "에어픽 B2B",
+  "short_name": "에어픽 B2B",
+  "description": "에어픽 발렛 주차 B2B 관리 플랫폼",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "orientation": "portrait",
   "background_color": "#000000",
@@ -11,13 +11,13 @@
   "lang": "ko",
   "icons": [
     {
-      "src": "/airpick2-b-to-b/icon-192-v2.png",
+      "src": "/icon-192-v2.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/airpick2-b-to-b/icon-512-v2.png",
+      "src": "/icon-512-v2.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any maskable"
