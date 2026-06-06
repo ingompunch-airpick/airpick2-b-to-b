@@ -70,6 +70,20 @@ function cn(...classes: (string | boolean | undefined)[]) {
   return classes.filter(Boolean).join(' ');
 }
 
+/** 관리자 모드 전용 화면 — 기사 모드에서 진입 시 timeline으로 보냄 */
+const ADMIN_ONLY_VIEWS: AppView[] = ['statistics', 'parkingRegister', 'master_settings'];
+/** 기사 모드 전용 화면 — 관리자 모드에서 진입 시 statistics로 보냄 */
+const DRIVER_ONLY_VIEWS: AppView[] = [
+  'timeline',
+  'search_reception',
+  'payment_change',
+  'scratch_images',
+  'service_history',
+  'parking_departure',
+  'cancelled_list',
+];
+const HQ_ADMIN_VIEWS: AppView[] = ['statistics', 'master_settings'];
+
 // --- Safe Storage Fallback for Sandboxed Web Views & Private Browsing Mode ---
 const safeStorage = (() => {
   const memStore: Record<string, string> = {};
@@ -757,15 +771,22 @@ export default function App() {
     }
   }, [currentCompanyId, companyInfo.id, companyInfo.name, isLoggedIn]);
 
-  // 플랫폼 본사(airpick) 관리 모드: 업체 CRM·타임라인 대신 통계 대시보드 고정
+  // View/mode sync: 관리자↔기사 전환·본사 모드 시 currentView를 허용된 화면으로 강제 정렬 (빈 화면 방지)
   useEffect(() => {
-    if (isAdminModeActive && isAirpickHeadquarters(currentCompanyId)) {
-      const allowedHQViews: AppView[] = ['statistics', 'master_settings'];
-      if (!allowedHQViews.includes(currentView)) {
+    if (!isLoggedIn) return;
+
+    if (isAdminModeActive && isAdmin) {
+      if (isAirpickHeadquarters(currentCompanyId) && !HQ_ADMIN_VIEWS.includes(currentView)) {
+        setCurrentView('statistics');
+        return;
+      }
+      if (DRIVER_ONLY_VIEWS.includes(currentView)) {
         setCurrentView('statistics');
       }
+    } else if (ADMIN_ONLY_VIEWS.includes(currentView)) {
+      setCurrentView('timeline');
     }
-  }, [isAdminModeActive, currentCompanyId, currentView]);
+  }, [isLoggedIn, isAdminModeActive, isAdmin, currentView, currentCompanyId]);
 
   // Filter core reservations array based on active companyInfo depending on whether user is Master or B2B Partner
   const visibleReservations = useMemo(() => {
@@ -1457,11 +1478,10 @@ export default function App() {
     localStorage.setItem('local_employee_name', roles.employeeName || '');
     localStorage.setItem('local_employee_role', roles.employeeRole || 'driver');
 
-    if (roles.isSuperAdmin) {
-      setCurrentView('statistics');
-    } else {
-      setCurrentView('timeline');
-    }
+    const shouldStartInAdmin =
+      roles.isAdminModeActive &&
+      (roles.isSuperAdmin || roles.isLocalAdmin || roles.isMasterAdmin || roles.employeeRole === 'admin');
+    setCurrentView(shouldStartInAdmin ? 'statistics' : 'timeline');
 
     ensureFirestoreAuth().catch((err) => {
       console.warn('Firebase auth after gate login:', err);
@@ -1625,22 +1645,6 @@ export default function App() {
       return updated;
     });
   };
-
-  // Security Guard and Redirection Bouncer Engine:
-  // Forced redirection when transitioning into Admin mode or out of Admin mode.
-  // When Admin mode is active, make sure they skip 'timeline' and go directly to 'statistics'.
-  // When transitioning out of Admin mode or not authenticated as admin, return to driver workplace ('timeline').
-  useEffect(() => {
-    if (isAdminModeActive && isAdmin) {
-      if (currentView === 'timeline') {
-        setCurrentView('statistics');
-      }
-    } else {
-      if (currentView === 'statistics' || currentView === 'parkingRegister') {
-        setCurrentView('timeline');
-      }
-    }
-  }, [isAdminModeActive, isAdmin, currentView]);
 
   const targetReservationForScratch = useMemo(() => {
     return reservations.find(r => r.id === scratchModalTargetId);
@@ -1861,6 +1865,23 @@ export default function App() {
 
   const activeTimelineReservations = computedList;
 
+  const handleNavigate = (view: AppView) => {
+    if (isAdminModeActive && isAdmin) {
+      if (isAirpickHeadquarters(currentCompanyId) && !HQ_ADMIN_VIEWS.includes(view)) {
+        setCurrentView('statistics');
+        return;
+      }
+      if (DRIVER_ONLY_VIEWS.includes(view)) {
+        setCurrentView('statistics');
+        return;
+      }
+    } else if (ADMIN_ONLY_VIEWS.includes(view)) {
+      setCurrentView('timeline');
+      return;
+    }
+    setCurrentView(view);
+  };
+
   if (!isLoggedIn) {
     return (
       <ConsolidatedGate 
@@ -1942,7 +1963,13 @@ export default function App() {
                   <div className="flex bg-[#121214] p-0.5 rounded-xl border border-neutral-800/65 font-black shrink-0" id="admin-mode-toggle">
                     <button
                       type="button"
-                      onClick={() => setIsAdminModeActive(true)}
+                      onClick={() => {
+                        setIsAdminModeActive(true);
+                        localStorage.setItem('local_is_admin_mode_active', 'true');
+                        if (DRIVER_ONLY_VIEWS.includes(currentView)) {
+                          setCurrentView('statistics');
+                        }
+                      }}
                       className={cn(
                         "px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-[12px] font-black transition-all cursor-pointer flex items-center justify-center gap-1",
                         isAdminModeActive 
@@ -1955,7 +1982,13 @@ export default function App() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => setIsAdminModeActive(false)}
+                      onClick={() => {
+                        setIsAdminModeActive(false);
+                        localStorage.setItem('local_is_admin_mode_active', 'false');
+                        if (ADMIN_ONLY_VIEWS.includes(currentView)) {
+                          setCurrentView('timeline');
+                        }
+                      }}
                       className={cn(
                         "px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-[12px] font-black transition-all cursor-pointer flex items-center justify-center gap-1",
                         !isAdminModeActive 
@@ -2030,7 +2063,7 @@ export default function App() {
         isOpen={isSidebarOpen}
         onClose={() => setIsSidebarOpen(false)}
         currentView={currentView}
-        onNavigate={(view) => setCurrentView(view)}
+        onNavigate={handleNavigate}
         userEmail={user?.email}
         isAnonymous={user?.isAnonymous}
         isAdmin={isAdmin}
@@ -2057,7 +2090,7 @@ export default function App() {
             <AnimatePresence mode="wait">
               
               {/* VIEW A: Main Driver Valet Timeline */}
-              {currentView === 'timeline' && (
+              {currentView === 'timeline' && !isAdminModeActive && (
                 <motion.div
                   key="timeline_view"
                   initial={{ opacity: 0, scale: 0.98 }}
@@ -2086,7 +2119,7 @@ export default function App() {
               )}
 
               {/* VIEW B: Vehicle Searching & Reception Desk */}
-              {currentView === 'search_reception' && (
+              {currentView === 'search_reception' && !isAdminModeActive && (
                 <motion.div
                   key="search_reception_view"
                   initial={{ opacity: 0, scale: 0.98 }}
@@ -2164,7 +2197,7 @@ export default function App() {
               )}
 
               {/* VIEW D: Offline-first payment changer */}
-              {currentView === 'payment_change' && (
+              {currentView === 'payment_change' && !isAdminModeActive && (
                 <motion.div
                   key="payment_change_view"
                   initial={{ opacity: 0, scale: 0.98 }}
@@ -2181,7 +2214,7 @@ export default function App() {
               )}
 
               {/* VIEW E: Vehicle scratch camera reporter */}
-              {currentView === 'scratch_images' && (
+              {currentView === 'scratch_images' && !isAdminModeActive && (
                 <motion.div
                   key="scratch_images_view"
                   initial={{ opacity: 0, scale: 0.98 }}
@@ -2198,7 +2231,7 @@ export default function App() {
               )}
 
               {/* VIEW F: Historic completed log logs */}
-              {currentView === 'service_history' && (
+              {currentView === 'service_history' && !isAdminModeActive && (
                 <motion.div
                   key="service_history_view"
                   initial={{ opacity: 0, scale: 0.98 }}
@@ -2214,7 +2247,7 @@ export default function App() {
               )}
 
               {/* VIEW G: Calendar timeline query searcher */}
-              {currentView === 'parking_departure' && (
+              {currentView === 'parking_departure' && !isAdminModeActive && (
                 <motion.div
                   key="parking_departure_view"
                   initial={{ opacity: 0, scale: 0.98 }}
