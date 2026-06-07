@@ -6,7 +6,22 @@ type LegacyLotFields = {
   detailLocation?: string;
   parkingLotAddress?: string;
   buildingAddress?: string;
+  photos?: string[];
+  photoUrls?: string[];
 };
+
+function normalizeLotPhotos(lot: LegacyLotFields): string[] {
+  const fromPhotos = Array.isArray(lot.photos) ? lot.photos : [];
+  const fromPhotoUrls = Array.isArray(lot.photoUrls) ? lot.photoUrls : [];
+  const seen = new Set<string>();
+  return [...fromPhotos, ...fromPhotoUrls]
+    .map((p) => String(p || '').trim())
+    .filter((url) => {
+      if (!url || !url.startsWith('http') || seen.has(url)) return false;
+      seen.add(url);
+      return true;
+    });
+}
 
 function resolveParkingAddress(lot: LegacyLotFields): string {
   if (lot.parkingAddress?.trim()) return lot.parkingAddress.trim();
@@ -37,6 +52,7 @@ export function normalizeParkingLotsFromCompany(company?: Partial<Company>): Par
           lot.label ||
           (lot.type === 'indoor' ? `실내 주차장 ${indoor.length + 1}` : `실외 주차장 ${outdoor.length + 1}`),
         parkingAddress: resolveParkingAddress(lot),
+        photos: normalizeLotPhotos(lot),
       };
       if (lot.type === 'indoor') indoor.push(normalized);
       else outdoor.push(normalized);
@@ -53,6 +69,7 @@ export function normalizeParkingLotsFromCompany(company?: Partial<Company>): Par
       parkingAddress:
         company.indoorParkingAddress?.trim() ||
         [company.indoorParkingLotAddress, company.indoorBuildingAddress].filter(Boolean).join(' · ').trim(),
+      photos: company.indoorParkingPhotos?.length ? [...company.indoorParkingPhotos] : [],
     });
   }
   if (company?.outdoorParkingLotAddress || company?.outdoorBuildingAddress || company?.outdoorParkingAddress) {
@@ -63,6 +80,7 @@ export function normalizeParkingLotsFromCompany(company?: Partial<Company>): Par
       parkingAddress:
         company.outdoorParkingAddress?.trim() ||
         [company.outdoorParkingLotAddress, company.outdoorBuildingAddress].filter(Boolean).join(' · ').trim(),
+      photos: company.outdoorParkingPhotos?.length ? [...company.outdoorParkingPhotos] : [],
     });
   }
   if (legacy.length > 0) return legacy;
@@ -102,18 +120,37 @@ export function validateParkingLots(lots: ParkingLotSite[]): string | null {
   return null;
 }
 
+function collectPhotosByType(lots: ParkingLotSite[], type: 'indoor' | 'outdoor'): string[] {
+  const seen = new Set<string>();
+  return lots
+    .filter((lot) => lot.type === type)
+    .flatMap((lot) => lot.photos || [])
+    .map((url) => url.trim())
+    .filter((url) => {
+      if (!url || !url.startsWith('http') || seen.has(url)) return false;
+      seen.add(url);
+      return true;
+    });
+}
+
 export function deriveLegacyParkingFields(lots: ParkingLotSite[]) {
-  const parkingLots = lots.map((lot) => ({
-    id: lot.id,
-    type: lot.type,
-    label: lot.label,
-    parkingAddress: lot.parkingAddress.trim(),
-  }));
+  const parkingLots = lots.map((lot) => {
+    const photos = (lot.photos || []).map((p) => p.trim()).filter((p) => p.startsWith('http'));
+    return {
+      id: lot.id,
+      type: lot.type,
+      label: lot.label,
+      parkingAddress: lot.parkingAddress.trim(),
+      ...(photos.length ? { photos } : {}),
+    };
+  });
   const firstIndoor = parkingLots.find((lot) => lot.type === 'indoor');
   const firstOutdoor = parkingLots.find((lot) => lot.type === 'outdoor');
 
   const indoorAddress = firstIndoor?.parkingAddress || '';
   const outdoorAddress = firstOutdoor?.parkingAddress || '';
+  const indoorParkingPhotos = collectPhotosByType(lots, 'indoor');
+  const outdoorParkingPhotos = collectPhotosByType(lots, 'outdoor');
 
   return {
     parkingLots,
@@ -125,5 +162,7 @@ export function deriveLegacyParkingFields(lots: ParkingLotSite[]) {
     outdoorParkingAddress: outdoorAddress,
     indoorParkingMapUrl: buildNaverMapSearchUrl(indoorAddress),
     outdoorParkingMapUrl: buildNaverMapSearchUrl(outdoorAddress),
+    ...(indoorParkingPhotos.length ? { indoorParkingPhotos } : {}),
+    ...(outdoorParkingPhotos.length ? { outdoorParkingPhotos } : {}),
   };
 }

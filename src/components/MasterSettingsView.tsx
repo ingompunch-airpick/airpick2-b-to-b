@@ -1470,10 +1470,14 @@ export default function MasterSettingsView({
                   </span>
                 </div>
                 <p className="text-[11px] text-zinc-500 mt-1 leading-relaxed">
-                  실내·실외 주차장 개수를 직접 정하고, 각 주차장마다 주차장 주소를 입력합니다. 저장 시 네이버 지도 검색 링크가 자동 생성되어 B2C MY에서 「지도에서 보기」로 연결됩니다. 제휴 업체는 이 항목을 수정할 수 없습니다.
+                  실내·실외 주차장 개수를 직접 정하고, 각 주차장마다 주소와 입구·주차장 사진을 등록합니다. 저장 시 네이버 지도 링크와 사진이 B2C MY 「주차 위치」에 자동 노출됩니다. 제휴 업체는 이 항목을 수정할 수 없습니다.
                 </p>
               </div>
-              <ParkingLotsEditor value={parkingLots} onChange={setParkingLots} />
+              <ParkingLotsEditor
+                value={parkingLots}
+                onChange={setParkingLots}
+                companyId={lockedCompanyId || id}
+              />
             </div>
 
             {/* 3. 전화번호 */}

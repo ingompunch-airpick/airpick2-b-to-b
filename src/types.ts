@@ -4,6 +4,8 @@ export interface ParkingLotSite {
   label?: string;
   /** 주차장 주소 */
   parkingAddress: string;
+  /** B2C MY 주차장 사진 (Firebase Storage URL) */
+  photos?: string[];
 }
 
 export interface Company {
@@ -49,6 +51,9 @@ export interface Company {
   /** B2C MY · 네이버 지도 검색 링크 (주소에서 자동 생성) */
   indoorParkingMapUrl?: string;
   outdoorParkingMapUrl?: string;
+  /** B2C MY · 실내/실외 주차장 시설 사진 (parkingLots[].photos 합성) */
+  indoorParkingPhotos?: string[];
+  outdoorParkingPhotos?: string[];
   indoorParkingLotAddress?: string;
   indoorBuildingAddress?: string;
   outdoorParkingLotAddress?: string;
