@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect } from 'react';
-import { CompanyInfo, Reservation, Company, PartnerCompany, Employee, ParkingLotSite } from '../types';
+import { CompanyInfo, Reservation, Company, PartnerCompany, Employee, ParkingLotSite, CompanyInsurance } from '../types';
 import { 
   Building2, 
   KeyRound, 
@@ -14,7 +14,8 @@ import {
   Edit,
   Trash2,
   MapPin,
-  ChevronLeft
+  ChevronLeft,
+  ShieldCheck
 } from 'lucide-react';
 import { FALLBACK_COMPANIES } from '../data';
 import { doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
@@ -22,12 +23,20 @@ import { db, handleFirestoreError, OperationType } from '../firebase';
 import TimePickerModal from './TimePickerModal';
 import ParkingLotsEditor from './ParkingLotsEditor';
 import ParkingLotsReadOnly from './ParkingLotsReadOnly';
+import InsuranceEditor from './InsuranceEditor';
+import InsuranceReadOnly from './InsuranceReadOnly';
 import {
   createEmptyParkingLot,
   deriveLegacyParkingFields,
   normalizeParkingLotsFromCompany,
   validateParkingLots,
 } from '../utils/parkingLots';
+import {
+  createEmptyInsurance,
+  normalizeInsuranceForSave,
+  parseInsuranceFromCompany,
+  validateInsurance,
+} from '../utils/insurance';
 import { isAirpickHeadquarters } from '../constants/platform';
 
 // TimeSpinner is deprecated and replaced by unified TimePickerModal with firm Confirm actions.
@@ -495,6 +504,7 @@ export default function MasterSettingsView({
     return companyInfo.isIndoor ? 'indoor' : 'outdoor';
   });
   const [parkingLots, setParkingLots] = useState<ParkingLotSite[]>(() => [createEmptyParkingLot('indoor', 0)]);
+  const [insurance, setInsurance] = useState<CompanyInsurance>(() => createEmptyInsurance());
   const [hqTab, setHqTab] = useState<'register' | 'manage'>('manage');
   const [lockedCompanyId, setLockedCompanyId] = useState<string | null>(null);
 
@@ -503,9 +513,11 @@ export default function MasterSettingsView({
     const c = (companies || []).find((x) => x.id === id);
     if (!c) {
       setParkingLots([createEmptyParkingLot('indoor', 0)]);
+      setInsurance(createEmptyInsurance());
       return;
     }
     setParkingLots(normalizeParkingLotsFromCompany(c));
+    setInsurance(parseInsuranceFromCompany(c));
     if (c.facilityType) {
       setFacilityType(c.facilityType);
     }
@@ -532,6 +544,7 @@ export default function MasterSettingsView({
     setPhone('');
     setFacilityType('indoor');
     setParkingLots([createEmptyParkingLot('indoor', 0)]);
+    setInsurance(createEmptyInsurance());
     setMasterEmail('');
     setMasterPassword('');
     setId('');
@@ -573,6 +586,7 @@ export default function MasterSettingsView({
     }
 
     setParkingLots(normalizeParkingLotsFromCompany(company));
+    setInsurance(parseInsuranceFromCompany(company));
     setHqTab('manage');
   };
 
@@ -700,9 +714,16 @@ export default function MasterSettingsView({
       return;
     }
 
+    const insuranceError = validateInsurance(insurance);
+    if (insuranceError) {
+      setSaveError(insuranceError);
+      return;
+    }
+
     setIsSaving(true);
     try {
       const parkingAddressFields = deriveLegacyParkingFields(parkingLots);
+      const insurancePayload = normalizeInsuranceForSave(insurance);
 
       const generatedId =
         lockedCompanyId ||
@@ -769,6 +790,10 @@ export default function MasterSettingsView({
         peakSurcharge: existingCompany?.peakSurcharge ?? 0,
         facilityType,
         ...parkingAddressFields,
+        ...(insurancePayload ? { insurance: insurancePayload } : { insurance: { enrolled: false, updatedAt: new Date().toISOString() } }),
+        hasInsurance: insurancePayload?.enrolled ?? false,
+        insuranceProvider: insurancePayload?.provider,
+        insuranceLimit: insurancePayload?.coverageLimitWon,
       };
 
       const existingIdx = dbCompanies.findIndex((c) => c.id === generatedId);
@@ -815,6 +840,12 @@ export default function MasterSettingsView({
           ...newCompanyObj,
           facilityType,
           ...parkingAddressFields,
+          ...(insurancePayload
+            ? { insurance: insurancePayload }
+            : { insurance: { enrolled: false, updatedAt: new Date().toISOString() } }),
+          hasInsurance: insurancePayload?.enrolled ?? false,
+          insuranceProvider: insurancePayload?.provider ?? null,
+          insuranceLimit: insurancePayload?.coverageLimitWon ?? null,
           password: cleanPassword,
           ...(cleanEmail ? { masterEmail: cleanEmail } : {}),
           settlementMemo,
@@ -910,6 +941,7 @@ export default function MasterSettingsView({
 
   const partnerCompany = (companies || []).find((c) => c.id === companyInfo.id);
   const partnerParkingLots = normalizeParkingLotsFromCompany(partnerCompany);
+  const partnerInsurance = parseInsuranceFromCompany(partnerCompany);
 
   if (!isHqPartnerManagement) {
     return (
@@ -938,6 +970,17 @@ export default function MasterSettingsView({
               주차장 위치는 에어픽 본사에서 등록합니다. 아래 내용만 확인할 수 있으며 직접 수정할 수 없습니다.
             </p>
             <ParkingLotsReadOnly lots={partnerParkingLots} />
+          </div>
+
+          <div className="bg-neutral-900/40 p-5 rounded-3xl border border-neutral-850 space-y-3">
+            <div className="flex items-center gap-2 text-xs font-black text-amber-500 tracking-wider uppercase">
+              <ShieldCheck size={14} />
+              <span>업체 보험 정보</span>
+            </div>
+            <p className="text-[12px] text-white/60 leading-relaxed">
+              보험 정보는 에어픽 본사에서만 등록·수정합니다. 아래 내용만 확인할 수 있습니다.
+            </p>
+            <InsuranceReadOnly insurance={partnerInsurance} />
           </div>
 
           <div className="bg-neutral-900/40 p-4.5 rounded-2xl border border-neutral-850 flex items-center justify-between">
@@ -1476,6 +1519,26 @@ export default function MasterSettingsView({
               <ParkingLotsEditor
                 value={parkingLots}
                 onChange={setParkingLots}
+                companyId={lockedCompanyId || id}
+              />
+            </div>
+
+            {/* 2-2. 업체 보험 — 에어픽 본사 전용 */}
+            <div className="space-y-3 p-3.5 bg-[#131315] border border-amber-500/20 rounded-xl">
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[12px] text-amber-500 font-bold block">[업체 보험]</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-400 font-black">
+                    에어픽 본사 전용
+                  </span>
+                </div>
+                <p className="text-[11px] text-zinc-500 mt-1 leading-relaxed">
+                  보험사·상품·보장한도를 등록하면 B2C MY·비교 탭에 안내됩니다. 가입증명서는 마스터에서만 관리하며 손님 화면에는 노출되지 않습니다.
+                </p>
+              </div>
+              <InsuranceEditor
+                value={insurance}
+                onChange={setInsurance}
                 companyId={lockedCompanyId || id}
               />
             </div>

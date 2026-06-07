@@ -1,3 +1,13 @@
+export interface CompanyInsurance {
+  enrolled: boolean;
+  provider?: string;
+  productName?: string;
+  coverageLimitWon?: number;
+  /** 가입증명서·약관 등 (Firebase Storage URL) */
+  certificateUrls?: string[];
+  updatedAt?: string;
+}
+
 export interface ParkingLotSite {
   id: string;
   type: 'indoor' | 'outdoor';
@@ -59,6 +69,14 @@ export interface Company {
   outdoorParkingLotAddress?: string;
   outdoorBuildingAddress?: string;
   parkingLots?: ParkingLotSite[];
+  /** B2C MY·비교 탭 보험 안내 (마스터 전용 편집) */
+  insurance?: CompanyInsurance;
+  /** @deprecated insurance.enrolled */
+  hasInsurance?: boolean;
+  /** @deprecated insurance.provider */
+  insuranceProvider?: string;
+  /** @deprecated insurance.coverageLimitWon */
+  insuranceLimit?: number;
 }
 
 export interface CompanyInfo {
