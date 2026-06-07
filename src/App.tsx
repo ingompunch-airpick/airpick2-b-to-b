@@ -1006,17 +1006,55 @@ export default function App() {
         }
       }
     } else {
-      // 2. Global fallback save
+      // 2. HQ global save — system_settings + 각 제휴업체 companies/{id} (홈페이지·B2C가 읽음)
       setBlockedDates(newBlockedDates);
       localStorage.setItem('blockedDates', JSON.stringify(newBlockedDates));
+
+      let partnerIds: string[] = [];
+      setCompanies((prev) => {
+        partnerIds = prev.filter((c) => !isAirpickHeadquarters(c.id)).map((c) => c.id);
+        return prev.map((c) =>
+          isAirpickHeadquarters(c.id) ? c : { ...c, blockedDates: newBlockedDates }
+        );
+      });
+
+      partnerIds.forEach((id) => {
+        localStorage.setItem(`${id}_blockedDates`, JSON.stringify(newBlockedDates));
+      });
+
+      try {
+        const savedCompanies = localStorage.getItem('companies');
+        if (savedCompanies) {
+          const parsed = JSON.parse(savedCompanies) as Company[];
+          localStorage.setItem(
+            'companies',
+            JSON.stringify(
+              parsed.map((c) =>
+                isAirpickHeadquarters(c.id) ? c : { ...c, blockedDates: newBlockedDates }
+              )
+            )
+          );
+        }
+      } catch (_) {}
+
       try {
         const docRef = doc(db, 'system_settings', 'config');
-        await setDoc(docRef, {
-          blockedDates: newBlockedDates,
-          updatedAt: new Date().toISOString()
-        }, { merge: true });
+        await setDoc(
+          docRef,
+          { blockedDates: newBlockedDates, updatedAt: new Date().toISOString() },
+          { merge: true }
+        );
+        await Promise.all(
+          partnerIds.map((id) =>
+            setDoc(
+              doc(db, 'companies', id),
+              { blockedDates: newBlockedDates, updatedAt: new Date().toISOString() },
+              { merge: true }
+            )
+          )
+        );
       } catch (err: any) {
-        console.warn("Firestore setDoc for blockedDates failed:", err);
+        console.warn('Firestore setDoc for blockedDates failed:', err);
         throw err;
       }
     }
@@ -1551,6 +1589,7 @@ export default function App() {
         updatedAt: new Date().toISOString() 
       } : r);
       localStorage.setItem(`${currentCompanyId}_reservations`, JSON.stringify(updated));
+      localStorage.setItem('firestore_reservations_cache', JSON.stringify(updated));
       return updated;
     });
 

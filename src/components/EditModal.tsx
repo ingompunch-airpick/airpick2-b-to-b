@@ -3,6 +3,7 @@ import { motion } from 'motion/react';
 import { ArrowLeft, Users, Phone, Calendar, Bell, Car } from 'lucide-react';
 import { Reservation } from '../types';
 import AirlineField from './AirlineField';
+import { getBookingSourceLabel, isHomepageBooking } from '../utils/bookingSource';
 import { isPending, statusToLabel } from '../utils/reservationStatus';
 
 function cn(...classes: (string | boolean | undefined | null)[]) {
@@ -314,9 +315,15 @@ export default function EditModal({
               <span className="text-xs font-bold text-white bg-[#2C2C2E] px-2 py-1 rounded-md">
                 {driverDetailRes.arrivalTerminal === 'T2' ? '제2터미널 (T2)' : '제1터미널 (T1)'}
               </span>
-              {driverDetailRes.createdBy === 'homepage' && (
-                <span className="text-[11px] font-black text-sky-400 bg-sky-500/10 border border-sky-500/20 px-2 py-0.5 rounded-md ml-auto">
-                  홈페이지 예약
+              {getBookingSourceLabel(driverDetailRes.createdBy) && (
+                <span
+                  className={`text-[11px] font-black px-2 py-0.5 rounded-md ml-auto border ${
+                    driverDetailRes.createdBy === 'airpick-b2c'
+                      ? 'text-violet-400 bg-violet-500/10 border-violet-500/20'
+                      : 'text-sky-400 bg-sky-500/10 border-sky-500/20'
+                  }`}
+                >
+                  {getBookingSourceLabel(driverDetailRes.createdBy)} 예약
                 </span>
               )}
             </div>

@@ -161,11 +161,7 @@ export default function Sidebar({
                 <button
                   key={item.id}
                   onClick={() => {
-                    if (item.id === 'admin_master_settings' && isAirpickHeadquarters(currentCompanyId)) {
-                      if (onOpenAdmin) onOpenAdmin();
-                    } else {
-                      onNavigate(item.view);
-                    }
+                    onNavigate(item.view);
                     onClose();
                   }}
                   className={`w-full text-left p-3.5 rounded-2xl flex items-center justify-between transition-all group ${

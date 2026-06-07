@@ -1,3 +1,11 @@
+export interface ParkingLotSite {
+  id: string;
+  type: 'indoor' | 'outdoor';
+  label?: string;
+  /** 주차장 주소 */
+  parkingAddress: string;
+}
+
 export interface Company {
   id: string;
   name: string;
@@ -33,6 +41,19 @@ export interface Company {
   peakStartTime?: string;
   peakEndTime?: string;
   peakSurcharge?: number;
+  facilityType?: 'indoor' | 'outdoor' | 'mixed';
+  /** B2C MY · 실내 주차장 도로명 주소 (주차장 + 건물 합성) */
+  indoorParkingAddress?: string;
+  /** B2C MY · 실외 주차장 도로명 주소 (주차장 + 건물 합성) */
+  outdoorParkingAddress?: string;
+  /** B2C MY · 네이버 지도 검색 링크 (주소에서 자동 생성) */
+  indoorParkingMapUrl?: string;
+  outdoorParkingMapUrl?: string;
+  indoorParkingLotAddress?: string;
+  indoorBuildingAddress?: string;
+  outdoorParkingLotAddress?: string;
+  outdoorBuildingAddress?: string;
+  parkingLots?: ParkingLotSite[];
 }
 
 export interface CompanyInfo {
@@ -44,6 +65,11 @@ export interface CompanyInfo {
   isIndoor?: boolean;
   facilityType?: 'indoor' | 'outdoor' | 'mixed';
   ratePolicy?: string;
+  indoorParkingLotAddress?: string;
+  indoorBuildingAddress?: string;
+  outdoorParkingLotAddress?: string;
+  outdoorBuildingAddress?: string;
+  parkingLots?: ParkingLotSite[];
 }
 
 export interface Employee {

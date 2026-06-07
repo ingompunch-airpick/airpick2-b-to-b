@@ -21,6 +21,7 @@ import { getCalculatePrice, checkIsNightSurcharge } from '../App';
 import { mergePartnerPricing, getParkingDayCount } from '../utils/pricing';
 import { formatPartnerDisplayName } from '../utils/companyDisplay';
 import AirlineField from './AirlineField';
+import { getBookingSourceLabel } from '../utils/bookingSource';
 
 function cn(...classes: (string | boolean | undefined)[]) {
   return classes.filter(Boolean).join(' ');
@@ -28,10 +29,6 @@ function cn(...classes: (string | boolean | undefined)[]) {
 
 function isT2Route(departure: 'T1' | 'T2', arrival: 'T1' | 'T2') {
   return departure === 'T2' || arrival === 'T2';
-}
-
-function isHomepageBookingSource(createdBy?: string) {
-  return createdBy === 'homepage';
 }
 
 // Helper to get KST Date time local string
@@ -1023,9 +1020,15 @@ export default function SearchReceptionView({
                 <div>
                   <span className="text-[11px] text-zinc-500 block">고객 고유 예약 코드</span>
                   <span className="text-xs font-black text-white font-mono">{editingSearchedRes.receiptCode || editingSearchedRes.id}</span>
-                  {isHomepageBookingSource(editingSearchedRes.createdBy) && (
-                    <span className="mt-1 inline-block text-[10px] font-black text-sky-400 bg-sky-500/10 border border-sky-500/20 px-2 py-0.5 rounded-md">
-                      홈페이지 예약
+                  {getBookingSourceLabel(editingSearchedRes.createdBy) && (
+                    <span
+                      className={`mt-1 inline-block text-[10px] font-black px-2 py-0.5 rounded-md border ${
+                        editingSearchedRes.createdBy === 'airpick-b2c'
+                          ? 'text-violet-400 bg-violet-500/10 border-violet-500/20'
+                          : 'text-sky-400 bg-sky-500/10 border-sky-500/20'
+                      }`}
+                    >
+                      {getBookingSourceLabel(editingSearchedRes.createdBy)} 예약
                     </span>
                   )}
                 </div>

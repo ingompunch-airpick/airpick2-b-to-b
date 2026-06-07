@@ -16,7 +16,8 @@ B2C 구조 설명: GitHub 형제 폴더 `airpick-b2c/README.md`
 | 프로젝트 ID | `airpick-reservation` |
 | 설정 파일(앱·복사용) | 루트 `firebase-applet-config.json`, `firebase-config.homepage.json` |
 | 예약 컬렉션 | `reservations/{id}` |
-| 와와 업체 문서 | `companies/wawa` (`isOpen`, `blockedDates`, 요금 필드) |
+| 와와 업체 문서 | `companies/wawa` (`isOpen`, `blockedDates`, 요금·주차장 주소 필드) |
+| B2B HQ 마감일 | `system_settings/config` + **동시에** 모든 `companies/{id}.blockedDates` 에 미러 (홈페이지·B2C가 per-company 문서만 읽음) |
 
 ## 동작 요약
 
@@ -101,12 +102,11 @@ export async function submitHomepageReservation(form) {
 
 ## 마감(블록아웃) 연동
 
-앱 **예약 마감** 메뉴에서 저장하는 값:
+- **제휴업체별 마감** (와와 로그인 등): `companies/{id}.blockedDates`
+- **에어픽 본사 전체 마감**: `system_settings/config.blockedDates` 에 저장되며, **동시에** 모든 제휴 `companies/{id}.blockedDates` 에도 복사됩니다 (홈페이지·B2C는 `companies` 문서만 읽음).
+- **전체 마감**: `companies/{id}.isOpen === false`
 
-- **전체 마감**: `companies/wawa.isOpen === false`
-- **날짜별 마감**: `companies/wawa.blockedDates` → `["2026-06-01", ...]`
-
-홈페이지 예약 폼 제출 **전**에 `companies/wawa` 를 읽어 동일하게 막아야 홈·앱이 일치합니다. 앱 현장 접수도 날짜별 마감을 검사합니다.
+홈페이지·B2C 예약 제출 **전**에 `companies/{id}` 를 읽어 동일하게 막아야 합니다.
 
 ## 검증 체크리스트
 

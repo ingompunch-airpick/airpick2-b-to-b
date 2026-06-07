@@ -294,7 +294,7 @@ export default function ScratchModal({
                     }
 
                     await handleUpdateValetStatus(scratchModalTargetId, 'completed_in', {
-                      parkingSpace: isIndoorVal ? '실내 주차장' : '실외 주차장',
+                      parkingSpace: selectedParkingSpace.trim() || undefined,
                       isIndoor: isIndoorVal,
                       actualParkingTime: getKSTDateTimeString(),
                       images: imageUrls,
