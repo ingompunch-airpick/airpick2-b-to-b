@@ -59,3 +59,9 @@ export const AIRLINE_OPTIONS = [
   '몽골항공',
   '우즈베키스탄항공',
 ] as const;
+
+export const CUSTOM_AIRLINE_VALUE = '__custom__';
+
+export function isListedAirline(value: string): boolean {
+  return (AIRLINE_OPTIONS as readonly string[]).includes(value);
+}

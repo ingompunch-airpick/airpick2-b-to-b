@@ -20,7 +20,7 @@ import TimePickerModal from './TimePickerModal';
 import { getCalculatePrice, checkIsNightSurcharge } from '../App';
 import { mergePartnerPricing, getParkingDayCount } from '../utils/pricing';
 import { formatPartnerDisplayName } from '../utils/companyDisplay';
-import { AIRLINE_OPTIONS } from '../constants/airlines';
+import AirlineField from './AirlineField';
 
 function cn(...classes: (string | boolean | undefined)[]) {
   return classes.filter(Boolean).join(' ');
@@ -782,13 +782,10 @@ export default function SearchReceptionView({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-[11px] text-zinc-500 font-bold block mb-1">출국 항공사</label>
-                  <input
-                    type="text"
-                    list="airline-options"
+                  <AirlineField
                     value={departureAirline}
-                    onChange={(e) => setDepartureAirline(e.target.value)}
-                    placeholder="선택 또는 직접 입력"
-                    className="w-full px-3 py-2 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-100 text-xs font-bold outline-none focus:border-amber-500"
+                    onChange={setDepartureAirline}
+                    selectClassName="w-full px-3 py-2 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-100 text-xs font-bold outline-none focus:border-amber-500"
                   />
                 </div>
                 <div>
@@ -797,13 +794,10 @@ export default function SearchReceptionView({
                 </div>
                 <div>
                   <label className="text-[11px] text-zinc-500 font-bold block mb-1">입국 항공사</label>
-                  <input
-                    type="text"
-                    list="airline-options"
+                  <AirlineField
                     value={arrivalAirline}
-                    onChange={(e) => setArrivalAirline(e.target.value)}
-                    placeholder="선택 또는 직접 입력"
-                    className="w-full px-3 py-2 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-100 text-xs font-bold outline-none focus:border-amber-500"
+                    onChange={setArrivalAirline}
+                    selectClassName="w-full px-3 py-2 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-100 text-xs font-bold outline-none focus:border-amber-500"
                   />
                 </div>
                 <div>
@@ -819,9 +813,6 @@ export default function SearchReceptionView({
                   <input type="text" value={customerNotes} onChange={(e) => setCustomerNotes(e.target.value)} placeholder="고객 요청 메모" className="w-full px-3 py-2 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-100 text-xs font-bold outline-none focus:border-amber-500" />
                 </div>
               </div>
-              <datalist id="airline-options">
-                {AIRLINE_OPTIONS.map((a) => <option key={a} value={a} />)}
-              </datalist>
             </div>
           </div>
 
@@ -1182,13 +1173,10 @@ export default function SearchReceptionView({
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="text-[11px] text-zinc-500 font-bold block mb-1">출국 항공사</label>
-                    <input
-                      type="text"
-                      list="airline-options-edit"
+                    <AirlineField
                       value={editSearchedDepartureAirline}
-                      onChange={(e) => setEditSearchedDepartureAirline(e.target.value)}
-                      placeholder="선택 또는 직접 입력"
-                      className="w-full px-2 py-2 bg-neutral-955 border border-neutral-800 rounded-xl text-zinc-200 text-xs font-bold outline-none focus:border-amber-500"
+                      onChange={setEditSearchedDepartureAirline}
+                      selectClassName="w-full px-2 py-2 bg-neutral-955 border border-neutral-800 rounded-xl text-zinc-200 text-xs font-bold outline-none focus:border-amber-500"
                     />
                   </div>
                   <div>
@@ -1197,13 +1185,10 @@ export default function SearchReceptionView({
                   </div>
                   <div>
                     <label className="text-[11px] text-zinc-500 font-bold block mb-1">입국 항공사</label>
-                    <input
-                      type="text"
-                      list="airline-options-edit"
+                    <AirlineField
                       value={editSearchedArrivalAirline}
-                      onChange={(e) => setEditSearchedArrivalAirline(e.target.value)}
-                      placeholder="선택 또는 직접 입력"
-                      className="w-full px-2 py-2 bg-neutral-955 border border-neutral-800 rounded-xl text-zinc-200 text-xs font-bold outline-none focus:border-amber-500"
+                      onChange={setEditSearchedArrivalAirline}
+                      selectClassName="w-full px-2 py-2 bg-neutral-955 border border-neutral-800 rounded-xl text-zinc-200 text-xs font-bold outline-none focus:border-amber-500"
                     />
                   </div>
                   <div>
@@ -1219,9 +1204,6 @@ export default function SearchReceptionView({
                     <input type="text" value={editSearchedCustomerNotes} onChange={(e) => setEditSearchedCustomerNotes(e.target.value)} className="w-full px-2 py-2 bg-neutral-955 border border-neutral-800 rounded-xl text-zinc-200 text-xs font-bold outline-none focus:border-amber-500" />
                   </div>
                 </div>
-                <datalist id="airline-options-edit">
-                  {AIRLINE_OPTIONS.map((a) => <option key={a} value={a} />)}
-                </datalist>
               </div>
 
               <div className="col-span-2 font-sans">

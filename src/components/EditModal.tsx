@@ -1,8 +1,8 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { ArrowLeft, Users, Phone, Calendar, Bell, Car } from 'lucide-react';
-import { AIRLINE_OPTIONS } from '../constants/airlines';
 import { Reservation } from '../types';
+import AirlineField from './AirlineField';
 import { isPending, statusToLabel } from '../utils/reservationStatus';
 
 function cn(...classes: (string | boolean | undefined | null)[]) {
@@ -343,13 +343,11 @@ export default function EditModal({
 
               <div className="relative group">
                 <label className="text-[12px] font-black text-[#8E8E93] block mb-1">출국 항공사</label>
-                <input
-                  type="text"
-                  list="airline-options-modal"
+                <AirlineField
                   value={driverEditDeptAirline}
-                  onChange={(e) => setDriverEditDeptAirline(e.target.value)}
-                  className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[14px] text-white font-bold outline-none focus:border-[#FF9F0A] transition-colors"
-                  placeholder="선택 또는 직접 입력"
+                  onChange={setDriverEditDeptAirline}
+                  selectClassName="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[14px] text-white font-bold outline-none focus:border-[#FF9F0A] transition-colors"
+                  inputClassName="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[14px] text-white font-bold outline-none focus:border-[#FF9F0A] transition-colors"
                 />
               </div>
 
@@ -366,13 +364,11 @@ export default function EditModal({
 
               <div className="relative group">
                 <label className="text-[12px] font-black text-[#8E8E93] block mb-1">입국 항공사</label>
-                <input
-                  type="text"
-                  list="airline-options-modal"
+                <AirlineField
                   value={driverEditArrAirline}
-                  onChange={(e) => setDriverEditArrAirline(e.target.value)}
-                  className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[14px] text-white font-bold outline-none focus:border-[#FF9F0A] transition-colors"
-                  placeholder="선택 또는 직접 입력"
+                  onChange={setDriverEditArrAirline}
+                  selectClassName="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[14px] text-white font-bold outline-none focus:border-[#FF9F0A] transition-colors"
+                  inputClassName="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[14px] text-white font-bold outline-none focus:border-[#FF9F0A] transition-colors"
                 />
               </div>
 
@@ -396,9 +392,6 @@ export default function EditModal({
                 </div>
               )}
             </div>
-            <datalist id="airline-options-modal">
-              {AIRLINE_OPTIONS.map((a) => <option key={a} value={a} />)}
-            </datalist>
           </div>
 
           {/* 3. VEHICLE INFO SECTION */}
