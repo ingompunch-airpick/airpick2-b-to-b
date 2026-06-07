@@ -1,8 +1,7 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { ArrowLeft, Users, Phone, Calendar, Bell, Car } from 'lucide-react';
-
-const AIRLINES = ['대한항공', '아시아나항공', '진에어', '제주항공', '티웨이항공', '에어부산'];
+import { AIRLINE_OPTIONS } from '../constants/airlines';
 import { Reservation } from '../types';
 import { isPending, statusToLabel } from '../utils/reservationStatus';
 
@@ -102,7 +101,6 @@ export default function EditModal({
       arrivalAirline: driverEditArrAirline.trim() || undefined,
       arrivalFlight: driverEditArrFlight.trim() || undefined,
       inboundFlight: driverEditArrFlight.trim() || undefined,
-      reservationPassword: driverEditReservationPassword.trim() || undefined,
       carNumber: driverEditCarNumber,
       carModel: driverEditCarModel,
       departureDate: driverEditDepartureDate,
@@ -345,14 +343,14 @@ export default function EditModal({
 
               <div className="relative group">
                 <label className="text-[12px] font-black text-[#8E8E93] block mb-1">출국 항공사</label>
-                <select
+                <input
+                  type="text"
+                  list="airline-options-modal"
                   value={driverEditDeptAirline}
                   onChange={(e) => setDriverEditDeptAirline(e.target.value)}
                   className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[14px] text-white font-bold outline-none focus:border-[#FF9F0A] transition-colors"
-                >
-                  <option value="">선택 안 함</option>
-                  {AIRLINES.map((a) => <option key={a} value={a}>{a}</option>)}
-                </select>
+                  placeholder="선택 또는 직접 입력"
+                />
               </div>
 
               <div className="relative group">
@@ -368,14 +366,14 @@ export default function EditModal({
 
               <div className="relative group">
                 <label className="text-[12px] font-black text-[#8E8E93] block mb-1">입국 항공사</label>
-                <select
+                <input
+                  type="text"
+                  list="airline-options-modal"
                   value={driverEditArrAirline}
                   onChange={(e) => setDriverEditArrAirline(e.target.value)}
                   className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[14px] text-white font-bold outline-none focus:border-[#FF9F0A] transition-colors"
-                >
-                  <option value="">선택 안 함</option>
-                  {AIRLINES.map((a) => <option key={a} value={a}>{a}</option>)}
-                </select>
+                  placeholder="선택 또는 직접 입력"
+                />
               </div>
 
               <div className="relative group">
@@ -389,17 +387,18 @@ export default function EditModal({
                 />
               </div>
 
-              <div className="relative group">
-                <label className="text-[12px] font-black text-[#8E8E93] block mb-1">예약 비밀번호</label>
-                <input
-                  type="text"
-                  value={driverEditReservationPassword}
-                  onChange={(e) => setDriverEditReservationPassword(e.target.value)}
-                  className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[14px] text-white font-bold outline-none focus:border-[#FF9F0A] transition-colors font-mono"
-                  placeholder="취소 확인용"
-                />
-              </div>
+              {driverDetailRes.createdBy === 'homepage' && driverEditReservationPassword && (
+                <div className="relative group col-span-2">
+                  <label className="text-[12px] font-black text-[#8E8E93] block mb-1">예약 비밀번호 (홈페이지)</label>
+                  <span className="block py-1.5 text-[14px] text-zinc-300 font-bold font-mono select-none">
+                    {driverEditReservationPassword}
+                  </span>
+                </div>
+              )}
             </div>
+            <datalist id="airline-options-modal">
+              {AIRLINE_OPTIONS.map((a) => <option key={a} value={a} />)}
+            </datalist>
           </div>
 
           {/* 3. VEHICLE INFO SECTION */}
