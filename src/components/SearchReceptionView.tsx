@@ -25,6 +25,16 @@ function cn(...classes: (string | boolean | undefined)[]) {
   return classes.filter(Boolean).join(' ');
 }
 
+const AIRLINES = ['대한항공', '아시아나항공', '진에어', '제주항공', '티웨이항공', '에어부산'];
+
+function isT2Route(departure: 'T1' | 'T2', arrival: 'T1' | 'T2') {
+  return departure === 'T2' || arrival === 'T2';
+}
+
+function isHomepageBookingSource(createdBy?: string) {
+  return createdBy === 'homepage';
+}
+
 // Helper to get KST Date time local string
 const getKSTDateTimeLocalString = (addedMs: number = 0) => {
   const d = new Date(Date.now() + addedMs);
@@ -103,7 +113,13 @@ export default function SearchReceptionView({
   const [editSearchedArrivalTime, setEditSearchedArrivalTime] = useState('');
   const [editSearchedArrivalTerminal, setEditSearchedArrivalTerminal] = useState<'T1' | 'T2'>('T2');
   const [editSearchedIsIndoor, setEditSearchedIsIndoor] = useState(true);
-
+  const [editSearchedDepartureAirline, setEditSearchedDepartureAirline] = useState('');
+  const [editSearchedDepartureFlight, setEditSearchedDepartureFlight] = useState('');
+  const [editSearchedArrivalAirline, setEditSearchedArrivalAirline] = useState('');
+  const [editSearchedArrivalFlight, setEditSearchedArrivalFlight] = useState('');
+  const [editSearchedDestination, setEditSearchedDestination] = useState('');
+  const [editSearchedCustomerNotes, setEditSearchedCustomerNotes] = useState('');
+  const [editSearchedReservationPassword, setEditSearchedReservationPassword] = useState('');
   // New Contract Intake Form states
   const [selectedCompanyId, setSelectedCompanyId] = useState('');
   const [userName, setUserName] = useState('');
@@ -116,10 +132,16 @@ export default function SearchReceptionView({
   const [intakeStartDate, setIntakeStartDate] = useState<string>(() => getKSTDateTimeLocalString(0));
   const [intakeEndDate, setIntakeEndDate] = useState<string>(() => getKSTDateTimeLocalString(3 * 24 * 60 * 60 * 1000));
   
-  // Terminals local selection
+  // Terminals — 홈페이지와 동일하게 출국/입국 분리
   const [departureTerminal, setDepartureTerminal] = useState<'T1' | 'T2'>('T1');
-  const [arrivalTerminal, setArrivalTerminal] = useState<'T1' | 'T2'>('T2');
-
+  const [arrivalTerminal, setArrivalTerminal] = useState<'T1' | 'T2'>('T1');
+  const [departureAirline, setDepartureAirline] = useState('');
+  const [departureFlight, setDepartureFlight] = useState('');
+  const [arrivalAirline, setArrivalAirline] = useState('');
+  const [arrivalFlight, setArrivalFlight] = useState('');
+  const [destination, setDestination] = useState('');
+  const [customerNotes, setCustomerNotes] = useState('');
+  const [reservationPassword, setReservationPassword] = useState('');
   // Date and Time picker control states
   const [datePickerTarget, setDatePickerTarget] = useState<'intakeStart' | 'intakeEnd' | 'editSearchedDeparture' | 'editSearchedArrival' | null>(null);
   const [timePickerTarget, setTimePickerTarget] = useState<'intakeStart' | 'intakeEnd' | 'editDeparture' | 'editArrival' | null>(null);
@@ -306,7 +328,7 @@ export default function SearchReceptionView({
       return;
     }
 
-    const isT2 = departureTerminal === 'T2';
+    const isT2 = isT2Route(departureTerminal, arrivalTerminal);
     const totalPrice = getCalculatePrice(partner, intakeStartDate, intakeEndDate, isIndoor, isT2);
     const id = createReservationId();
     const targetUserId = user ? user.uid : 'anonymous_guest';
@@ -335,7 +357,15 @@ export default function SearchReceptionView({
       scratchPhotos: { synced: false },
       isIndoor,
       startDate: intakeStartDate.replace('T', ' '),
-      endDate: intakeEndDate.replace('T', ' ')
+      endDate: intakeEndDate.replace('T', ' '),
+      departureAirline: departureAirline.trim() || undefined,
+      departureFlight: departureFlight.trim() || undefined,
+      arrivalAirline: arrivalAirline.trim() || undefined,
+      arrivalFlight: arrivalFlight.trim() || undefined,
+      destination: destination.trim() || undefined,
+      customerNotes: customerNotes.trim() || undefined,
+      userRequest: customerNotes.trim() || undefined,
+      reservationPassword: reservationPassword.trim() || undefined,
     };
 
     try {
@@ -359,6 +389,15 @@ export default function SearchReceptionView({
       setIsIndoor(true);
       setIntakeStartDate(getKSTDateTimeLocalString(0));
       setIntakeEndDate(getKSTDateTimeLocalString(3 * 24 * 60 * 60 * 1000));
+      setDepartureTerminal('T1');
+      setArrivalTerminal('T1');
+      setDepartureAirline('');
+      setDepartureFlight('');
+      setArrivalAirline('');
+      setArrivalFlight('');
+      setDestination('');
+      setCustomerNotes('');
+      setReservationPassword('');
     }
   };
 
@@ -378,7 +417,7 @@ export default function SearchReceptionView({
 
     const depFullStr = `${editSearchedDepartureDate}T${editSearchedDepartureTime}`;
     const arrFullStr = `${editSearchedArrivalDate}T${editSearchedArrivalTime}`;
-    const isT2 = editSearchedArrivalTerminal === 'T2';
+    const isT2 = isT2Route(editSearchedDepartureTerminal, editSearchedArrivalTerminal);
     const computedPrice = getCalculatePrice(partner, depFullStr, arrFullStr, editSearchedIsIndoor, isT2);
 
     const updatePayload: Partial<Reservation> = {
@@ -396,6 +435,14 @@ export default function SearchReceptionView({
       startDate: depFullStr.replace('T', ' '),
       endDate: arrFullStr.replace('T', ' '),
       totalPrice: computedPrice,
+      departureAirline: editSearchedDepartureAirline.trim() || undefined,
+      departureFlight: editSearchedDepartureFlight.trim() || undefined,
+      arrivalAirline: editSearchedArrivalAirline.trim() || undefined,
+      arrivalFlight: editSearchedArrivalFlight.trim() || undefined,
+      destination: editSearchedDestination.trim() || undefined,
+      customerNotes: editSearchedCustomerNotes.trim() || undefined,
+      userRequest: editSearchedCustomerNotes.trim() || undefined,
+      reservationPassword: editSearchedReservationPassword.trim() || undefined,
       updatedAt: new Date().toISOString(),
       updatedBy: isEmployee ? employeeName : (isSuperAdmin ? '본사 마스터(최고관리자)' : '업체 마스터')
     };
@@ -550,8 +597,15 @@ export default function SearchReceptionView({
                         setEditSearchedDepartureTerminal(target.departureTerminal || 'T1');
                         setEditSearchedArrivalDate(target.arrivalDate || '');
                         setEditSearchedArrivalTime(target.arrivalTime || '');
-                        setEditSearchedArrivalTerminal(target.arrivalTerminal || 'T2');
+                        setEditSearchedArrivalTerminal(target.arrivalTerminal || 'T1');
                         setEditSearchedIsIndoor(target.isIndoor !== false);
+                        setEditSearchedDepartureAirline(target.departureAirline || '');
+                        setEditSearchedDepartureFlight(target.departureFlight || '');
+                        setEditSearchedArrivalAirline(target.arrivalAirline || '');
+                        setEditSearchedArrivalFlight(target.arrivalFlight || '');
+                        setEditSearchedDestination(target.destination || '');
+                        setEditSearchedCustomerNotes(target.customerNotes || target.userRequest || '');
+                        setEditSearchedReservationPassword(target.reservationPassword || '');
                       }}
                       handleUpdateValetStatus={handleUpdateValetStatus}
                       getKSTDateTimeString={getKSTDateTimeString}
@@ -607,7 +661,7 @@ export default function SearchReceptionView({
                 type="text" 
                 value={carModel}
                 onChange={e => setCarModel(e.target.value)}
-                placeholder="그랜저IG / 아반떼"
+                placeholder="예: 그랜저 IG"
                 className="w-full px-3 py-2 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-100 outline-none focus:border-amber-500"
               />
             </div>
@@ -622,26 +676,6 @@ export default function SearchReceptionView({
                 placeholder="321무 2177"
                 className="w-full px-3 py-2 bg-neutral-950 border border-neutral-850 rounded-xl text-amber-500/90 font-medium outline-none focus:border-amber-500 placeholder-amber-550/30"
               />
-            </div>
-
-            <div className="col-span-2 pt-2 border-t border-neutral-850 mt-1">
-              <label className="text-[12px] block mb-1 font-bold text-zinc-500">터미널 지정 *</label>
-              <div className="grid grid-cols-2 gap-2 p-1 bg-neutral-950 rounded-xl border border-neutral-850">
-                <button 
-                  type="button" 
-                  onClick={() => { setDepartureTerminal('T1'); setArrivalTerminal('T1'); }}
-                  className={cn("py-1.5 text-[12.5px] font-medium rounded-lg transition-all cursor-pointer", departureTerminal === 'T1' ? "bg-amber-500/95 text-neutral-950 shadow-sm font-bold" : "text-zinc-500")}
-                >
-                  제1여객터미널 (T1)
-                </button>
-                <button 
-                  type="button" 
-                  onClick={() => { setDepartureTerminal('T2'); setArrivalTerminal('T2'); }}
-                  className={cn("py-1.5 text-[12.5px] font-medium rounded-lg transition-all cursor-pointer", departureTerminal === 'T2' ? "bg-amber-500/95 text-neutral-950 shadow-sm font-bold" : "text-zinc-500")}
-                >
-                  제2여객터미널 (T2)
-                </button>
-              </div>
             </div>
 
             <div className="col-span-2 pt-2 border-t border-neutral-850 mt-1">
@@ -672,11 +706,11 @@ export default function SearchReceptionView({
               </div>
             </div>
 
-            <div className="col-span-2 pt-2 border-t border-neutral-850 mt-1 space-y-2">
-              <label className="text-[12px] block font-bold text-zinc-500">주차 기간 설정 *</label>
+            <div className="col-span-2 pt-2 border-t border-neutral-850 mt-1 space-y-3">
+              <label className="text-[12px] block font-bold text-zinc-500">출국 정보 (공항 도착 예정) *</label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <span className="text-[11.5px] text-zinc-500 font-bold block mb-1">입고 예정일 (시작)</span>
+                  <span className="text-[11.5px] text-zinc-500 font-bold block mb-1">입고 예정일 (출국일)</span>
                   <div className="grid grid-cols-2 gap-2">
                     <div 
                       onClick={() => setDatePickerTarget('intakeStart')}
@@ -700,9 +734,22 @@ export default function SearchReceptionView({
                       </div>
                     </div>
                   </div>
+                  <div className="mt-2">
+                    <span className="text-[11px] text-zinc-500 font-bold block mb-1">출국 터미널</span>
+                    <div className="grid grid-cols-2 gap-2 p-1 bg-neutral-950 rounded-xl border border-neutral-850">
+                      <button type="button" onClick={() => setDepartureTerminal('T1')} className={cn("py-1.5 text-[12px] font-bold rounded-lg", departureTerminal === 'T1' ? "bg-amber-500/95 text-neutral-950" : "text-zinc-500")}>제1터미널 (T1)</button>
+                      <button type="button" onClick={() => setDepartureTerminal('T2')} className={cn("py-1.5 text-[12px] font-bold rounded-lg", departureTerminal === 'T2' ? "bg-amber-500/95 text-neutral-950" : "text-zinc-500")}>제2터미널 (T2)</button>
+                    </div>
+                  </div>
                 </div>
+              </div>
+            </div>
+
+            <div className="col-span-2 pt-2 border-t border-neutral-850 space-y-3">
+              <label className="text-[12px] block font-bold text-zinc-500">입국 정보 (비행기 착륙 예정) *</label>
+              <div className="grid grid-cols-1 gap-3">
                 <div>
-                  <span className="text-[11.5px] text-zinc-500 font-bold block mb-1">출고 예정일 (종료)</span>
+                  <span className="text-[11.5px] text-zinc-500 font-bold block mb-1">출고 예정일 (입국일)</span>
                   <div className="grid grid-cols-2 gap-2">
                     <div 
                       onClick={() => setDatePickerTarget('intakeEnd')}
@@ -726,6 +773,53 @@ export default function SearchReceptionView({
                       </div>
                     </div>
                   </div>
+                  <div className="mt-2">
+                    <span className="text-[11px] text-zinc-500 font-bold block mb-1">입국 터미널</span>
+                    <div className="grid grid-cols-2 gap-2 p-1 bg-neutral-950 rounded-xl border border-neutral-850">
+                      <button type="button" onClick={() => setArrivalTerminal('T1')} className={cn("py-1.5 text-[12px] font-bold rounded-lg", arrivalTerminal === 'T1' ? "bg-amber-500/95 text-neutral-950" : "text-zinc-500")}>제1터미널 (T1)</button>
+                      <button type="button" onClick={() => setArrivalTerminal('T2')} className={cn("py-1.5 text-[12px] font-bold rounded-lg", arrivalTerminal === 'T2' ? "bg-amber-500/95 text-neutral-950" : "text-zinc-500")}>제2터미널 (T2)</button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="col-span-2 pt-2 border-t border-neutral-850 space-y-3">
+              <label className="text-[12px] block font-bold text-zinc-500">항공편 · 여행 정보</label>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] text-zinc-500 font-bold block mb-1">출국 항공사</label>
+                  <select value={departureAirline} onChange={(e) => setDepartureAirline(e.target.value)} className="w-full px-3 py-2 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-100 text-xs font-bold outline-none focus:border-amber-500">
+                    <option value="">선택 안 함</option>
+                    {AIRLINES.map((a) => <option key={a} value={a}>{a}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[11px] text-zinc-500 font-bold block mb-1">출국 항공편명</label>
+                  <input type="text" value={departureFlight} onChange={(e) => setDepartureFlight(e.target.value)} placeholder="예: KE101" className="w-full px-3 py-2 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-100 text-xs font-bold outline-none focus:border-amber-500 font-mono" />
+                </div>
+                <div>
+                  <label className="text-[11px] text-zinc-500 font-bold block mb-1">입국 항공사</label>
+                  <select value={arrivalAirline} onChange={(e) => setArrivalAirline(e.target.value)} className="w-full px-3 py-2 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-100 text-xs font-bold outline-none focus:border-amber-500">
+                    <option value="">선택 안 함</option>
+                    {AIRLINES.map((a) => <option key={a} value={a}>{a}</option>)}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-[11px] text-zinc-500 font-bold block mb-1">입국 항공편명</label>
+                  <input type="text" value={arrivalFlight} onChange={(e) => setArrivalFlight(e.target.value)} placeholder="예: KE102" className="w-full px-3 py-2 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-100 text-xs font-bold outline-none focus:border-amber-500 font-mono" />
+                </div>
+                <div className="col-span-2">
+                  <label className="text-[11px] text-zinc-500 font-bold block mb-1">여행지</label>
+                  <input type="text" value={destination} onChange={(e) => setDestination(e.target.value)} placeholder="예: 오사카, 싱가포르" className="w-full px-3 py-2 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-100 text-xs font-bold outline-none focus:border-amber-500" />
+                </div>
+                <div className="col-span-2">
+                  <label className="text-[11px] text-zinc-500 font-bold block mb-1">기타 요청사항</label>
+                  <input type="text" value={customerNotes} onChange={(e) => setCustomerNotes(e.target.value)} placeholder="고객 요청 메모" className="w-full px-3 py-2 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-100 text-xs font-bold outline-none focus:border-amber-500" />
+                </div>
+                <div>
+                  <label className="text-[11px] text-zinc-500 font-bold block mb-1">예약 비밀번호 (취소용)</label>
+                  <input type="text" value={reservationPassword} onChange={(e) => setReservationPassword(e.target.value)} placeholder="4자리 숫자" maxLength={8} className="w-full px-3 py-2 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-100 text-xs font-bold outline-none focus:border-amber-500 font-mono" />
                 </div>
               </div>
             </div>
@@ -786,7 +880,7 @@ export default function SearchReceptionView({
             
             const diffDays = getParkingDayCount(intakeStartDate, intakeEndDate);
 
-            const isT2 = departureTerminal === 'T2';
+            const isT2 = isT2Route(departureTerminal, arrivalTerminal);
             const baseDays = isIndoor ? (Number(partner.indoorBaseDays) || 1) : (Number(partner.outdoorBaseDays) || 1);
             const basePrice = isIndoor ? (Number(partner.indoorBasePrice) ?? 20000) : (Number(partner.outdoorBasePrice) ?? 10000);
             const extraPrice = isIndoor ? (Number(partner.indoorExtraPrice) ?? 10000) : (Number(partner.outdoorExtraPrice) ?? 5000);
@@ -938,6 +1032,11 @@ export default function SearchReceptionView({
                 <div>
                   <span className="text-[11px] text-zinc-500 block">고객 고유 예약 코드</span>
                   <span className="text-xs font-black text-white font-mono">{editingSearchedRes.receiptCode || editingSearchedRes.id}</span>
+                  {isHomepageBookingSource(editingSearchedRes.createdBy) && (
+                    <span className="mt-1 inline-block text-[10px] font-black text-sky-400 bg-sky-500/10 border border-sky-500/20 px-2 py-0.5 rounded-md">
+                      홈페이지 예약
+                    </span>
+                  )}
                 </div>
                 <span className="text-[12px] text-zinc-400 bg-neutral-900 px-2.5 py-1 rounded-lg border border-neutral-800 font-bold">
                   {editingSearchedRes.companyName}
@@ -1075,6 +1174,46 @@ export default function SearchReceptionView({
                     onClick={() => setEditSearchedArrivalTerminal('T2')} 
                     className={cn("px-2.5 py-1 rounded-md transition-all font-black cursor-pointer", editSearchedArrivalTerminal === 'T2' ? "bg-[#FFB800] text-neutral-950" : "bg-[#2C2C2E] text-zinc-400")}
                   >2터미널</button>
+                </div>
+              </div>
+
+              <div className="space-y-3 p-3.5 bg-[#141416] border border-neutral-850 rounded-2xl font-sans">
+                <span className="text-[11.5px] font-black text-amber-500 block">✈️ 항공편 · 여행 정보</span>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[11px] text-zinc-500 font-bold block mb-1">출국 항공사</label>
+                    <select value={editSearchedDepartureAirline} onChange={(e) => setEditSearchedDepartureAirline(e.target.value)} className="w-full px-2 py-2 bg-neutral-955 border border-neutral-800 rounded-xl text-zinc-200 text-xs font-bold outline-none focus:border-amber-500">
+                      <option value="">선택 안 함</option>
+                      {AIRLINES.map((a) => <option key={a} value={a}>{a}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-zinc-500 font-bold block mb-1">출국 편명</label>
+                    <input type="text" value={editSearchedDepartureFlight} onChange={(e) => setEditSearchedDepartureFlight(e.target.value)} className="w-full px-2 py-2 bg-neutral-955 border border-neutral-800 rounded-xl text-zinc-200 text-xs font-bold outline-none focus:border-amber-500 font-mono" />
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-zinc-500 font-bold block mb-1">입국 항공사</label>
+                    <select value={editSearchedArrivalAirline} onChange={(e) => setEditSearchedArrivalAirline(e.target.value)} className="w-full px-2 py-2 bg-neutral-955 border border-neutral-800 rounded-xl text-zinc-200 text-xs font-bold outline-none focus:border-amber-500">
+                      <option value="">선택 안 함</option>
+                      {AIRLINES.map((a) => <option key={a} value={a}>{a}</option>)}
+                    </select>
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-zinc-500 font-bold block mb-1">입국 편명</label>
+                    <input type="text" value={editSearchedArrivalFlight} onChange={(e) => setEditSearchedArrivalFlight(e.target.value)} className="w-full px-2 py-2 bg-neutral-955 border border-neutral-800 rounded-xl text-zinc-200 text-xs font-bold outline-none focus:border-amber-500 font-mono" />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="text-[11px] text-zinc-500 font-bold block mb-1">여행지</label>
+                    <input type="text" value={editSearchedDestination} onChange={(e) => setEditSearchedDestination(e.target.value)} className="w-full px-2 py-2 bg-neutral-955 border border-neutral-800 rounded-xl text-zinc-200 text-xs font-bold outline-none focus:border-amber-500" />
+                  </div>
+                  <div className="col-span-2">
+                    <label className="text-[11px] text-zinc-500 font-bold block mb-1">고객 요청사항</label>
+                    <input type="text" value={editSearchedCustomerNotes} onChange={(e) => setEditSearchedCustomerNotes(e.target.value)} className="w-full px-2 py-2 bg-neutral-955 border border-neutral-800 rounded-xl text-zinc-200 text-xs font-bold outline-none focus:border-amber-500" />
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-zinc-500 font-bold block mb-1">예약 비밀번호</label>
+                    <input type="text" value={editSearchedReservationPassword} onChange={(e) => setEditSearchedReservationPassword(e.target.value)} className="w-full px-2 py-2 bg-neutral-955 border border-neutral-800 rounded-xl text-zinc-200 text-xs font-bold outline-none focus:border-amber-500 font-mono" />
+                  </div>
                 </div>
               </div>
 

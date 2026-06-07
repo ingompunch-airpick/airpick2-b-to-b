@@ -1,6 +1,8 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { ArrowLeft, Users, Phone, Calendar, Bell, Car } from 'lucide-react';
+
+const AIRLINES = ['대한항공', '아시아나항공', '진에어', '제주항공', '티웨이항공', '에어부산'];
 import { Reservation } from '../types';
 import { isPending, statusToLabel } from '../utils/reservationStatus';
 
@@ -36,8 +38,10 @@ export default function EditModal({
   const [driverEditLinkerMemo, setDriverEditLinkerMemo] = useState('');
   const [driverEditDestination, setDriverEditDestination] = useState('');
   const [driverEditDeptAirline, setDriverEditDeptAirline] = useState('');
+  const [driverEditDeptFlight, setDriverEditDeptFlight] = useState('');
   const [driverEditArrAirline, setDriverEditArrAirline] = useState('');
   const [driverEditArrFlight, setDriverEditArrFlight] = useState('');
+  const [driverEditReservationPassword, setDriverEditReservationPassword] = useState('');
   const [driverEditCarNumber, setDriverEditCarNumber] = useState('');
   const [driverEditCarModel, setDriverEditCarModel] = useState('');
   const [driverEditDepartureDate, setDriverEditDepartureDate] = useState('');
@@ -53,10 +57,12 @@ export default function EditModal({
       setDriverEditUserRequest((driverDetailRes as any).userRequest || (driverDetailRes as any).customerNotes || driverDetailRes.paymentNotes || '');
       setDriverEditAdminMemo(driverDetailRes.adminMemo || '');
       setDriverEditLinkerMemo(driverDetailRes.parkingSpace || (driverDetailRes as any).linkerMemo || '');
-      setDriverEditDestination((driverDetailRes as any).destination || '연길');
-      setDriverEditDeptAirline((driverDetailRes as any).departureAirline || '아시아나항공');
-      setDriverEditArrAirline((driverDetailRes as any).arrivalAirline || '아시아나항공');
-      setDriverEditArrFlight((driverDetailRes as any).arrivalFlight || (driverDetailRes as any).inboundFlight || 'OZ352');
+      setDriverEditDestination(driverDetailRes.destination || '');
+      setDriverEditDeptAirline(driverDetailRes.departureAirline || '');
+      setDriverEditDeptFlight(driverDetailRes.departureFlight || '');
+      setDriverEditArrAirline(driverDetailRes.arrivalAirline || '');
+      setDriverEditArrFlight(driverDetailRes.arrivalFlight || '');
+      setDriverEditReservationPassword(driverDetailRes.reservationPassword || '');
       setDriverEditCarNumber(driverDetailRes.carNumber || '');
       setDriverEditCarModel(driverDetailRes.carModel || '');
       
@@ -90,11 +96,13 @@ export default function EditModal({
       adminMemo: driverEditAdminMemo,
       parkingSpace: driverEditLinkerMemo,
       linkerMemo: driverEditLinkerMemo,
-      destination: driverEditDestination,
-      departureAirline: driverEditDeptAirline,
-      arrivalAirline: driverEditArrAirline,
-      arrivalFlight: driverEditArrFlight,
-      inboundFlight: driverEditArrFlight,
+      destination: driverEditDestination.trim() || undefined,
+      departureAirline: driverEditDeptAirline.trim() || undefined,
+      departureFlight: driverEditDeptFlight.trim() || undefined,
+      arrivalAirline: driverEditArrAirline.trim() || undefined,
+      arrivalFlight: driverEditArrFlight.trim() || undefined,
+      inboundFlight: driverEditArrFlight.trim() || undefined,
+      reservationPassword: driverEditReservationPassword.trim() || undefined,
       carNumber: driverEditCarNumber,
       carModel: driverEditCarModel,
       departureDate: driverEditDepartureDate,
@@ -298,64 +306,97 @@ export default function EditModal({
                 />
               </div>
             </div>
+
+            <div className="flex flex-wrap items-center gap-2 pt-1">
+              <span className="text-[12px] font-black text-[#8E8E93]">출국 터미널</span>
+              <span className="text-xs font-bold text-white bg-[#2C2C2E] px-2 py-1 rounded-md">
+                {driverDetailRes.departureTerminal === 'T2' ? '제2터미널 (T2)' : '제1터미널 (T1)'}
+              </span>
+              <span className="text-[12px] font-black text-[#8E8E93] ml-2">입국 터미널</span>
+              <span className="text-xs font-bold text-white bg-[#2C2C2E] px-2 py-1 rounded-md">
+                {driverDetailRes.arrivalTerminal === 'T2' ? '제2터미널 (T2)' : '제1터미널 (T1)'}
+              </span>
+              {driverDetailRes.createdBy === 'homepage' && (
+                <span className="text-[11px] font-black text-sky-400 bg-sky-500/10 border border-sky-500/20 px-2 py-0.5 rounded-md ml-auto">
+                  홈페이지 예약
+                </span>
+              )}
+            </div>
           </div>
 
-          {/* 2. ALERTS / FLIGHT INFO SECTION */}
+          {/* 2. FLIGHT / TRAVEL INFO */}
           <div className="space-y-4 pt-1">
             <div className="text-[12.5px] font-black text-zinc-400 uppercase tracking-wider border-b border-neutral-800/80 pb-1.5 flex items-center gap-1.5">
               <Bell size={13} className="text-[#FF9F0A]" />
-              <span>입출항 알림 및 여정 상세</span>
+              <span>항공편 · 여행 정보</span>
             </div>
 
             <div className="grid grid-cols-2 gap-x-4 gap-y-4">
-              <div className="relative group">
-                <label className="text-[12px] font-black text-[#8E8E93] block mb-1">동반 제휴업체 지점</label>
-                <span className="block py-1.5 text-[14px] text-zinc-400 font-bold border-b border-transparent select-none">
-                  {driverDetailRes.companyName || '와와발렛'}
-                </span>
-              </div>
-
-              <div className="relative group">
+              <div className="relative group col-span-2">
                 <label className="text-[12px] font-black text-[#8E8E93] block mb-1">여행지</label>
-                <input 
+                <input
                   type="text"
                   value={driverEditDestination}
                   onChange={(e) => setDriverEditDestination(e.target.value)}
                   className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[14px] text-white font-bold outline-none focus:border-[#FF9F0A] transition-colors"
-                  placeholder="연길"
+                  placeholder="예: 오사카, 싱가포르"
                 />
               </div>
 
               <div className="relative group">
                 <label className="text-[12px] font-black text-[#8E8E93] block mb-1">출국 항공사</label>
-                <input 
-                  type="text"
+                <select
                   value={driverEditDeptAirline}
                   onChange={(e) => setDriverEditDeptAirline(e.target.value)}
                   className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[14px] text-white font-bold outline-none focus:border-[#FF9F0A] transition-colors"
-                  placeholder="예: 아시아나항공"
+                >
+                  <option value="">선택 안 함</option>
+                  {AIRLINES.map((a) => <option key={a} value={a}>{a}</option>)}
+                </select>
+              </div>
+
+              <div className="relative group">
+                <label className="text-[12px] font-black text-[#8E8E93] block mb-1">출국 항공편</label>
+                <input
+                  type="text"
+                  value={driverEditDeptFlight}
+                  onChange={(e) => setDriverEditDeptFlight(e.target.value)}
+                  className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[14px] text-white font-bold outline-none focus:border-[#FF9F0A] transition-colors font-mono"
+                  placeholder="예: KE101"
                 />
               </div>
 
               <div className="relative group">
                 <label className="text-[12px] font-black text-[#8E8E93] block mb-1">입국 항공사</label>
-                <input 
-                  type="text"
+                <select
                   value={driverEditArrAirline}
                   onChange={(e) => setDriverEditArrAirline(e.target.value)}
                   className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[14px] text-white font-bold outline-none focus:border-[#FF9F0A] transition-colors"
-                  placeholder="예: 아시아나항공"
-                />
+                >
+                  <option value="">선택 안 함</option>
+                  {AIRLINES.map((a) => <option key={a} value={a}>{a}</option>)}
+                </select>
               </div>
 
-              <div className="relative group col-span-2">
+              <div className="relative group">
                 <label className="text-[12px] font-black text-[#8E8E93] block mb-1">입국 항공편</label>
-                <input 
+                <input
                   type="text"
                   value={driverEditArrFlight}
                   onChange={(e) => setDriverEditArrFlight(e.target.value)}
-                  className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[14px] text-white font-bold outline-none focus:border-[#FF9F0A] transition-colors"
-                  placeholder="예: OZ352"
+                  className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[14px] text-white font-bold outline-none focus:border-[#FF9F0A] transition-colors font-mono"
+                  placeholder="예: KE102"
+                />
+              </div>
+
+              <div className="relative group">
+                <label className="text-[12px] font-black text-[#8E8E93] block mb-1">예약 비밀번호</label>
+                <input
+                  type="text"
+                  value={driverEditReservationPassword}
+                  onChange={(e) => setDriverEditReservationPassword(e.target.value)}
+                  className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[14px] text-white font-bold outline-none focus:border-[#FF9F0A] transition-colors font-mono"
+                  placeholder="취소 확인용"
                 />
               </div>
             </div>

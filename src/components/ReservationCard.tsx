@@ -42,6 +42,7 @@ export default function ReservationCard({
   const isT1 = ((!res.status.includes('out') && res.status !== 'completed_in') ? res.departureTerminal : res.arrivalTerminal) === 'T1';
   const isIndoor = res.isIndoor !== false;
   const showUnpaidBadge = isReservationUnpaid(res);
+  const isHomepageBooking = res.createdBy === 'homepage';
   // 기사 타임라인: 상단 탭이 이미 상태를 나타내므로 입고예정·입고요청 등 상태 뱃지 숨김
   const showStatusBadge = isAdminModeActive || activeCounterTab === undefined;
 
@@ -99,6 +100,12 @@ export default function ReservationCard({
           {showUnpaidBadge && (
             <span className="text-[13px] px-2 py-0.5 rounded-[6px] font-semibold bg-rose-500/15 text-rose-400 border border-rose-500/25 shrink-0">
               미납
+            </span>
+          )}
+
+          {isHomepageBooking && (
+            <span className="text-[13px] px-2 py-0.5 rounded-[6px] font-semibold bg-sky-500/15 text-sky-400 border border-sky-500/25 shrink-0">
+              홈페이지
             </span>
           )}
         </div>

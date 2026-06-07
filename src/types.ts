@@ -139,6 +139,16 @@ export interface Reservation {
   // Process operator tracking
   createdBy?: string;
   updatedBy?: string;
+
+  /** 홈페이지·B2C 예약 연동 필드 */
+  departureAirline?: string;
+  departureFlight?: string;
+  arrivalAirline?: string;
+  arrivalFlight?: string;
+  destination?: string;
+  customerNotes?: string;
+  userRequest?: string;
+  reservationPassword?: string;
 }
 
 export type AppView = 
