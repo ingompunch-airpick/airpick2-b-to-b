@@ -22,6 +22,7 @@ import { mergePartnerPricing, getParkingDayCount } from '../utils/pricing';
 import { formatPartnerDisplayName } from '../utils/companyDisplay';
 import AirlineField from './AirlineField';
 import { getBookingSourceLabel } from '../utils/bookingSource';
+import { persistCompanyReservationsLocalStorage } from '../utils/companyReservations';
 
 function cn(...classes: (string | boolean | undefined)[]) {
   return classes.filter(Boolean).join(' ');
@@ -367,7 +368,7 @@ export default function SearchReceptionView({
     } catch (err: any) {
       onUpdateReservations(prev => {
         const updated = [{ id, ...bookingPayload }, ...prev];
-        window.localStorage.setItem(`${currentCompanyId}_reservations`, JSON.stringify(updated));
+        persistCompanyReservationsLocalStorage(currentCompanyId, updated);
         return updated;
       });
       alert(`차량 번호 ${bookingPayload.carNumber}의 구역 정보가 로컬 임시 메모리로 백업 보관되었습니다!`);
@@ -444,7 +445,7 @@ export default function SearchReceptionView({
     } catch (_) {
       onUpdateReservations(prev => {
         const updated = prev.map(r => r.id === editingSearchedRes.id ? { ...r, ...updatePayload } : r);
-        window.localStorage.setItem(`${currentCompanyId}_reservations`, JSON.stringify(updated));
+        persistCompanyReservationsLocalStorage(currentCompanyId, updated);
         return updated;
       });
       alert("오프라인 상태입니다. 로컬 임시 메모리에 저장 수정 처리되었습니다.");

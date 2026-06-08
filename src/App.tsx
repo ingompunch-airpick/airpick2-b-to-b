@@ -35,6 +35,7 @@ import { getParkingDayCount, mergePartnerPricing } from './utils/pricing';
 import { AIRPICK_HQ_ID, isAirpickHeadquarters, normalizePlatformCompanyId } from './constants/platform';
 import { ensureFirestoreAuth } from './lib/reservationFirestore';
 import { isPending, normalizeReservationStatus } from './utils/reservationStatus';
+import { persistCompanyReservationsLocalStorage } from './utils/companyReservations';
 
 // --- Sub-views Imports ---
 import Sidebar from './components/Sidebar';
@@ -901,7 +902,7 @@ export default function App() {
 
     setReservations(prev => {
       const updated = prev.map(r => r.id === driverDetailRes.id ? { ...r, ...updateData } : r);
-      localStorage.setItem(`${currentCompanyId}_reservations`, JSON.stringify(updated));
+      persistCompanyReservationsLocalStorage(currentCompanyId, updated);
       return updated;
     });
 
@@ -1220,6 +1221,8 @@ export default function App() {
           const existing = mergedMap.get(p.companyId);
           mergedMap.set(p.companyId, {
             ...p,
+            password: existing?.password || p.password,
+            phone: existing?.phone || p.phone,
             employees: existing?.employees || p.employees || []
           });
         });
@@ -1588,7 +1591,7 @@ export default function App() {
         updatedBy: operatorName,
         updatedAt: new Date().toISOString() 
       } : r);
-      localStorage.setItem(`${currentCompanyId}_reservations`, JSON.stringify(updated));
+      persistCompanyReservationsLocalStorage(currentCompanyId, updated);
       localStorage.setItem('firestore_reservations_cache', JSON.stringify(updated));
       return updated;
     });
@@ -1618,13 +1621,13 @@ export default function App() {
       });
       setReservations(prev => {
         const updated = prev.map(r => r.id === resId ? { ...r, paymentMethod: method, updatedBy: operatorName, updatedAt: new Date().toISOString() } : r);
-        localStorage.setItem(`${currentCompanyId}_reservations`, JSON.stringify(updated));
+        persistCompanyReservationsLocalStorage(currentCompanyId, updated);
         return updated;
       });
     } catch (err: any) {
       setReservations(prev => {
         const updated = prev.map(r => r.id === resId ? { ...r, paymentMethod: method, updatedBy: operatorName, updatedAt: new Date().toISOString() } : r);
-        localStorage.setItem(`${currentCompanyId}_reservations`, JSON.stringify(updated));
+        persistCompanyReservationsLocalStorage(currentCompanyId, updated);
         return updated;
       });
     }
@@ -1652,7 +1655,7 @@ export default function App() {
       const updated = prev.map((r) =>
         r.id === resId ? { ...r, scratchPhotos: photos, updatedBy: operatorName, updatedAt: new Date().toISOString() } : r
       );
-      localStorage.setItem(`${currentCompanyId}_reservations`, JSON.stringify(updated));
+      persistCompanyReservationsLocalStorage(currentCompanyId, updated);
       localStorage.setItem('firestore_reservations_cache', JSON.stringify(updated));
       return updated;
     });
@@ -1679,7 +1682,7 @@ export default function App() {
       const updated = prev.map((r) =>
         r.id === resId ? { ...r, images: imageUrls, updatedBy: operatorName, updatedAt: new Date().toISOString() } : r
       );
-      localStorage.setItem(`${currentCompanyId}_reservations`, JSON.stringify(updated));
+      persistCompanyReservationsLocalStorage(currentCompanyId, updated);
       localStorage.setItem('firestore_reservations_cache', JSON.stringify(updated));
       return updated;
     });

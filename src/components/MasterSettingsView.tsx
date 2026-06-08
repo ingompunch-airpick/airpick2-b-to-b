@@ -417,6 +417,7 @@ export default function MasterSettingsView({
         if (c.id === companyInfo.id) {
           return {
             ...c,
+            phone: cleanPhone,
             base_price: Number(outdoorBasePrice) || 0,
             extra_day_price: Number(outdoorExtraPrice) || 0,
             base_days: Number(outdoorBaseDays) || 0,
@@ -456,7 +457,10 @@ export default function MasterSettingsView({
       // Direct Firestore update for this partner company item, sanitizing all undefined values
       try {
         const docRef = doc(db, 'companies', companyInfo.id);
+        const partnerRecord = updatedPartners.find((p) => p.companyId === companyInfo.id);
         await setDoc(docRef, {
+          phone: cleanPhone,
+          password: partnerRecord?.password || cleanPassword,
           base_price: Number(outdoorBasePrice) || 0,
           extra_day_price: Number(outdoorExtraPrice) || 0,
           base_days: Number(outdoorBaseDays) || 0,
@@ -473,6 +477,7 @@ export default function MasterSettingsView({
           peakStartTime: peakStartTime || '',
           peakEndTime: peakEndTime || '',
           peakSurcharge: Number(peakSurcharge) || 0,
+          updatedAt: new Date().toISOString(),
           employees: (employeeList || []).map(emp => ({
             id: emp.id || '',
             name: emp.name || '',
