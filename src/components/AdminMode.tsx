@@ -90,6 +90,7 @@ export default function AdminMode({
           partners={partners}
           onUpdatePartners={onUpdatePartners}
           isSuperAdmin={isSuperAdmin}
+          currentCompanyId={currentCompanyId}
           onBack={() => setCurrentView('statistics')}
           isEmployee={isEmployee}
           employeeRole={employeeRole}

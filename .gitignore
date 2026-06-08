@@ -134,3 +134,13 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# Capacitor / Android
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+android/capacitor-cordova-android-plugins/
+*.jks
+*.keystore
+keystore.properties

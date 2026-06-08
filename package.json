@@ -1,11 +1,16 @@
 {
   "name": "react-example",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.0.0",
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
     "build": "vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs",
+    "build:mobile": "vite build",
+    "cap:sync": "npm run build:mobile && npx cap sync android",
+    "cap:open": "npx cap open android",
+    "android:bundle:release": "cd android && ./gradlew bundleRelease",
+    "android:aab": "bash scripts/build-android-aab.sh",
     "build:pages": "GITHUB_PAGES=true vite build",
     "deploy:hosting": "npm run build && npx -y firebase-tools@latest deploy --only hosting",
     "deploy:rules": "npx -y firebase-tools@latest deploy --only firestore:rules,storage",
@@ -18,6 +23,11 @@
     "firebase:rules:deploy": "firebase deploy --only firestore:rules"
   },
   "dependencies": {
+    "@capacitor/android": "^8.4.0",
+    "@capacitor/app": "^8.1.0",
+    "@capacitor/cli": "^8.4.0",
+    "@capacitor/core": "^8.4.0",
+    "@capacitor/splash-screen": "^8.0.1",
     "@google/genai": "^1.29.0",
     "@tailwindcss/vite": "^4.1.14",
     "@vitejs/plugin-react": "^5.0.4",

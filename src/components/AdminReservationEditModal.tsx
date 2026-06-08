@@ -9,6 +9,7 @@ import {
 import { db } from '../firebase';
 import { doc, updateDoc } from 'firebase/firestore';
 import { Reservation } from '../types';
+import { persistCompanyReservationsLocalStorage } from '../utils/companyReservations';
 
 function cn(...classes: (string | boolean | undefined)[]) {
   return classes.filter(Boolean).join(' ');
@@ -105,7 +106,7 @@ export default function AdminReservationEditModal({
     } catch (_) {
       onUpdateReservations(prev => {
         const updated = prev.map(r => r.id === targetReservationForEdit.id ? { ...r, ...updatePayload } : r);
-        window.localStorage.setItem(`${currentCompanyId}_reservations`, JSON.stringify(updated));
+        persistCompanyReservationsLocalStorage(currentCompanyId, updated);
         return updated;
       });
       alert("강제 오프라인 임시 저장으로 예약 데이터가 갱신되었습니다.");

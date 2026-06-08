@@ -4,5 +4,11 @@ service firebase.storage {
     match /reservations/{companyId}/{reservationId}/{allPaths=**} {
       allow read, write: if true;
     }
+    match /companies/{companyId}/parkingLots/{lotId}/{allPaths=**} {
+      allow read, write: if true;
+    }
+    match /companies/{companyId}/insurance/{allPaths=**} {
+      allow read, write: if true;
+    }
   }
 }

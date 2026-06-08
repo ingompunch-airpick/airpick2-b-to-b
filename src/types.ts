@@ -1,3 +1,23 @@
+export interface CompanyInsurance {
+  enrolled: boolean;
+  provider?: string;
+  productName?: string;
+  coverageLimitWon?: number;
+  /** 가입증명서·약관 등 (Firebase Storage URL) */
+  certificateUrls?: string[];
+  updatedAt?: string;
+}
+
+export interface ParkingLotSite {
+  id: string;
+  type: 'indoor' | 'outdoor';
+  label?: string;
+  /** 주차장 주소 */
+  parkingAddress: string;
+  /** B2C MY 주차장 사진 (Firebase Storage URL) */
+  photos?: string[];
+}
+
 export interface Company {
   id: string;
   name: string;
@@ -33,6 +53,30 @@ export interface Company {
   peakStartTime?: string;
   peakEndTime?: string;
   peakSurcharge?: number;
+  facilityType?: 'indoor' | 'outdoor' | 'mixed';
+  /** B2C MY · 실내 주차장 도로명 주소 (주차장 + 건물 합성) */
+  indoorParkingAddress?: string;
+  /** B2C MY · 실외 주차장 도로명 주소 (주차장 + 건물 합성) */
+  outdoorParkingAddress?: string;
+  /** B2C MY · 네이버 지도 검색 링크 (주소에서 자동 생성) */
+  indoorParkingMapUrl?: string;
+  outdoorParkingMapUrl?: string;
+  /** B2C MY · 실내/실외 주차장 시설 사진 (parkingLots[].photos 합성) */
+  indoorParkingPhotos?: string[];
+  outdoorParkingPhotos?: string[];
+  indoorParkingLotAddress?: string;
+  indoorBuildingAddress?: string;
+  outdoorParkingLotAddress?: string;
+  outdoorBuildingAddress?: string;
+  parkingLots?: ParkingLotSite[];
+  /** B2C MY·비교 탭 보험 안내 (마스터 전용 편집) */
+  insurance?: CompanyInsurance;
+  /** @deprecated insurance.enrolled */
+  hasInsurance?: boolean;
+  /** @deprecated insurance.provider */
+  insuranceProvider?: string;
+  /** @deprecated insurance.coverageLimitWon */
+  insuranceLimit?: number;
 }
 
 export interface CompanyInfo {
@@ -44,6 +88,11 @@ export interface CompanyInfo {
   isIndoor?: boolean;
   facilityType?: 'indoor' | 'outdoor' | 'mixed';
   ratePolicy?: string;
+  indoorParkingLotAddress?: string;
+  indoorBuildingAddress?: string;
+  outdoorParkingLotAddress?: string;
+  outdoorBuildingAddress?: string;
+  parkingLots?: ParkingLotSite[];
 }
 
 export interface Employee {

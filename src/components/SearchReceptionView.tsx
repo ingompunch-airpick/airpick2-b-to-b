@@ -20,19 +20,16 @@ import TimePickerModal from './TimePickerModal';
 import { getCalculatePrice, checkIsNightSurcharge } from '../App';
 import { mergePartnerPricing, getParkingDayCount } from '../utils/pricing';
 import { formatPartnerDisplayName } from '../utils/companyDisplay';
+import AirlineField from './AirlineField';
+import { getBookingSourceLabel } from '../utils/bookingSource';
+import { persistCompanyReservationsLocalStorage } from '../utils/companyReservations';
 
 function cn(...classes: (string | boolean | undefined)[]) {
   return classes.filter(Boolean).join(' ');
 }
 
-const AIRLINES = ['대한항공', '아시아나항공', '진에어', '제주항공', '티웨이항공', '에어부산'];
-
 function isT2Route(departure: 'T1' | 'T2', arrival: 'T1' | 'T2') {
   return departure === 'T2' || arrival === 'T2';
-}
-
-function isHomepageBookingSource(createdBy?: string) {
-  return createdBy === 'homepage';
 }
 
 // Helper to get KST Date time local string
@@ -119,7 +116,6 @@ export default function SearchReceptionView({
   const [editSearchedArrivalFlight, setEditSearchedArrivalFlight] = useState('');
   const [editSearchedDestination, setEditSearchedDestination] = useState('');
   const [editSearchedCustomerNotes, setEditSearchedCustomerNotes] = useState('');
-  const [editSearchedReservationPassword, setEditSearchedReservationPassword] = useState('');
   // New Contract Intake Form states
   const [selectedCompanyId, setSelectedCompanyId] = useState('');
   const [userName, setUserName] = useState('');
@@ -141,7 +137,6 @@ export default function SearchReceptionView({
   const [arrivalFlight, setArrivalFlight] = useState('');
   const [destination, setDestination] = useState('');
   const [customerNotes, setCustomerNotes] = useState('');
-  const [reservationPassword, setReservationPassword] = useState('');
   // Date and Time picker control states
   const [datePickerTarget, setDatePickerTarget] = useState<'intakeStart' | 'intakeEnd' | 'editSearchedDeparture' | 'editSearchedArrival' | null>(null);
   const [timePickerTarget, setTimePickerTarget] = useState<'intakeStart' | 'intakeEnd' | 'editDeparture' | 'editArrival' | null>(null);
@@ -365,7 +360,6 @@ export default function SearchReceptionView({
       destination: destination.trim() || undefined,
       customerNotes: customerNotes.trim() || undefined,
       userRequest: customerNotes.trim() || undefined,
-      reservationPassword: reservationPassword.trim() || undefined,
     };
 
     try {
@@ -374,7 +368,7 @@ export default function SearchReceptionView({
     } catch (err: any) {
       onUpdateReservations(prev => {
         const updated = [{ id, ...bookingPayload }, ...prev];
-        window.localStorage.setItem(`${currentCompanyId}_reservations`, JSON.stringify(updated));
+        persistCompanyReservationsLocalStorage(currentCompanyId, updated);
         return updated;
       });
       alert(`차량 번호 ${bookingPayload.carNumber}의 구역 정보가 로컬 임시 메모리로 백업 보관되었습니다!`);
@@ -397,7 +391,6 @@ export default function SearchReceptionView({
       setArrivalFlight('');
       setDestination('');
       setCustomerNotes('');
-      setReservationPassword('');
     }
   };
 
@@ -442,7 +435,6 @@ export default function SearchReceptionView({
       destination: editSearchedDestination.trim() || undefined,
       customerNotes: editSearchedCustomerNotes.trim() || undefined,
       userRequest: editSearchedCustomerNotes.trim() || undefined,
-      reservationPassword: editSearchedReservationPassword.trim() || undefined,
       updatedAt: new Date().toISOString(),
       updatedBy: isEmployee ? employeeName : (isSuperAdmin ? '본사 마스터(최고관리자)' : '업체 마스터')
     };
@@ -453,7 +445,7 @@ export default function SearchReceptionView({
     } catch (_) {
       onUpdateReservations(prev => {
         const updated = prev.map(r => r.id === editingSearchedRes.id ? { ...r, ...updatePayload } : r);
-        window.localStorage.setItem(`${currentCompanyId}_reservations`, JSON.stringify(updated));
+        persistCompanyReservationsLocalStorage(currentCompanyId, updated);
         return updated;
       });
       alert("오프라인 상태입니다. 로컬 임시 메모리에 저장 수정 처리되었습니다.");
@@ -605,7 +597,6 @@ export default function SearchReceptionView({
                         setEditSearchedArrivalFlight(target.arrivalFlight || '');
                         setEditSearchedDestination(target.destination || '');
                         setEditSearchedCustomerNotes(target.customerNotes || target.userRequest || '');
-                        setEditSearchedReservationPassword(target.reservationPassword || '');
                       }}
                       handleUpdateValetStatus={handleUpdateValetStatus}
                       getKSTDateTimeString={getKSTDateTimeString}
@@ -789,10 +780,11 @@ export default function SearchReceptionView({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-[11px] text-zinc-500 font-bold block mb-1">출국 항공사</label>
-                  <select value={departureAirline} onChange={(e) => setDepartureAirline(e.target.value)} className="w-full px-3 py-2 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-100 text-xs font-bold outline-none focus:border-amber-500">
-                    <option value="">선택 안 함</option>
-                    {AIRLINES.map((a) => <option key={a} value={a}>{a}</option>)}
-                  </select>
+                  <AirlineField
+                    value={departureAirline}
+                    onChange={setDepartureAirline}
+                    selectClassName="w-full px-3 py-2 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-100 text-xs font-bold outline-none focus:border-amber-500"
+                  />
                 </div>
                 <div>
                   <label className="text-[11px] text-zinc-500 font-bold block mb-1">출국 항공편명</label>
@@ -800,10 +792,11 @@ export default function SearchReceptionView({
                 </div>
                 <div>
                   <label className="text-[11px] text-zinc-500 font-bold block mb-1">입국 항공사</label>
-                  <select value={arrivalAirline} onChange={(e) => setArrivalAirline(e.target.value)} className="w-full px-3 py-2 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-100 text-xs font-bold outline-none focus:border-amber-500">
-                    <option value="">선택 안 함</option>
-                    {AIRLINES.map((a) => <option key={a} value={a}>{a}</option>)}
-                  </select>
+                  <AirlineField
+                    value={arrivalAirline}
+                    onChange={setArrivalAirline}
+                    selectClassName="w-full px-3 py-2 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-100 text-xs font-bold outline-none focus:border-amber-500"
+                  />
                 </div>
                 <div>
                   <label className="text-[11px] text-zinc-500 font-bold block mb-1">입국 항공편명</label>
@@ -816,10 +809,6 @@ export default function SearchReceptionView({
                 <div className="col-span-2">
                   <label className="text-[11px] text-zinc-500 font-bold block mb-1">기타 요청사항</label>
                   <input type="text" value={customerNotes} onChange={(e) => setCustomerNotes(e.target.value)} placeholder="고객 요청 메모" className="w-full px-3 py-2 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-100 text-xs font-bold outline-none focus:border-amber-500" />
-                </div>
-                <div>
-                  <label className="text-[11px] text-zinc-500 font-bold block mb-1">예약 비밀번호 (취소용)</label>
-                  <input type="text" value={reservationPassword} onChange={(e) => setReservationPassword(e.target.value)} placeholder="4자리 숫자" maxLength={8} className="w-full px-3 py-2 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-100 text-xs font-bold outline-none focus:border-amber-500 font-mono" />
                 </div>
               </div>
             </div>
@@ -1032,9 +1021,15 @@ export default function SearchReceptionView({
                 <div>
                   <span className="text-[11px] text-zinc-500 block">고객 고유 예약 코드</span>
                   <span className="text-xs font-black text-white font-mono">{editingSearchedRes.receiptCode || editingSearchedRes.id}</span>
-                  {isHomepageBookingSource(editingSearchedRes.createdBy) && (
-                    <span className="mt-1 inline-block text-[10px] font-black text-sky-400 bg-sky-500/10 border border-sky-500/20 px-2 py-0.5 rounded-md">
-                      홈페이지 예약
+                  {getBookingSourceLabel(editingSearchedRes.createdBy) && (
+                    <span
+                      className={`mt-1 inline-block text-[10px] font-black px-2 py-0.5 rounded-md border ${
+                        editingSearchedRes.createdBy === 'airpick-b2c'
+                          ? 'text-violet-400 bg-violet-500/10 border-violet-500/20'
+                          : 'text-sky-400 bg-sky-500/10 border-sky-500/20'
+                      }`}
+                    >
+                      {getBookingSourceLabel(editingSearchedRes.createdBy)} 예약
                     </span>
                   )}
                 </div>
@@ -1182,10 +1177,11 @@ export default function SearchReceptionView({
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="text-[11px] text-zinc-500 font-bold block mb-1">출국 항공사</label>
-                    <select value={editSearchedDepartureAirline} onChange={(e) => setEditSearchedDepartureAirline(e.target.value)} className="w-full px-2 py-2 bg-neutral-955 border border-neutral-800 rounded-xl text-zinc-200 text-xs font-bold outline-none focus:border-amber-500">
-                      <option value="">선택 안 함</option>
-                      {AIRLINES.map((a) => <option key={a} value={a}>{a}</option>)}
-                    </select>
+                    <AirlineField
+                      value={editSearchedDepartureAirline}
+                      onChange={setEditSearchedDepartureAirline}
+                      selectClassName="w-full px-2 py-2 bg-neutral-955 border border-neutral-800 rounded-xl text-zinc-200 text-xs font-bold outline-none focus:border-amber-500"
+                    />
                   </div>
                   <div>
                     <label className="text-[11px] text-zinc-500 font-bold block mb-1">출국 편명</label>
@@ -1193,10 +1189,11 @@ export default function SearchReceptionView({
                   </div>
                   <div>
                     <label className="text-[11px] text-zinc-500 font-bold block mb-1">입국 항공사</label>
-                    <select value={editSearchedArrivalAirline} onChange={(e) => setEditSearchedArrivalAirline(e.target.value)} className="w-full px-2 py-2 bg-neutral-955 border border-neutral-800 rounded-xl text-zinc-200 text-xs font-bold outline-none focus:border-amber-500">
-                      <option value="">선택 안 함</option>
-                      {AIRLINES.map((a) => <option key={a} value={a}>{a}</option>)}
-                    </select>
+                    <AirlineField
+                      value={editSearchedArrivalAirline}
+                      onChange={setEditSearchedArrivalAirline}
+                      selectClassName="w-full px-2 py-2 bg-neutral-955 border border-neutral-800 rounded-xl text-zinc-200 text-xs font-bold outline-none focus:border-amber-500"
+                    />
                   </div>
                   <div>
                     <label className="text-[11px] text-zinc-500 font-bold block mb-1">입국 편명</label>
@@ -1209,10 +1206,6 @@ export default function SearchReceptionView({
                   <div className="col-span-2">
                     <label className="text-[11px] text-zinc-500 font-bold block mb-1">고객 요청사항</label>
                     <input type="text" value={editSearchedCustomerNotes} onChange={(e) => setEditSearchedCustomerNotes(e.target.value)} className="w-full px-2 py-2 bg-neutral-955 border border-neutral-800 rounded-xl text-zinc-200 text-xs font-bold outline-none focus:border-amber-500" />
-                  </div>
-                  <div>
-                    <label className="text-[11px] text-zinc-500 font-bold block mb-1">예약 비밀번호</label>
-                    <input type="text" value={editSearchedReservationPassword} onChange={(e) => setEditSearchedReservationPassword(e.target.value)} className="w-full px-2 py-2 bg-neutral-955 border border-neutral-800 rounded-xl text-zinc-200 text-xs font-bold outline-none focus:border-amber-500 font-mono" />
                   </div>
                 </div>
               </div>

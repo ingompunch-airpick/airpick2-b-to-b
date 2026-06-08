@@ -1,22 +1,43 @@
 ﻿import React, { useState, useEffect } from 'react';
-import { CompanyInfo, Reservation, Company, PartnerCompany, Employee } from '../types';
+import { CompanyInfo, Reservation, Company, PartnerCompany, Employee, ParkingLotSite, CompanyInsurance } from '../types';
 import { 
   Building2, 
   KeyRound, 
   CheckCircle2, 
   Save, 
   Users, 
-  ShieldCheck,
   FileSpreadsheet,
   Lock,
   Sliders,
   ChevronUp,
-  ChevronDown
+  ChevronDown,
+  Edit,
+  Trash2,
+  MapPin,
+  ChevronLeft,
+  ShieldCheck
 } from 'lucide-react';
 import { FALLBACK_COMPANIES } from '../data';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import TimePickerModal from './TimePickerModal';
+import ParkingLotsEditor from './ParkingLotsEditor';
+import ParkingLotsReadOnly from './ParkingLotsReadOnly';
+import InsuranceEditor from './InsuranceEditor';
+import InsuranceReadOnly from './InsuranceReadOnly';
+import {
+  createEmptyParkingLot,
+  deriveLegacyParkingFields,
+  normalizeParkingLotsFromCompany,
+  validateParkingLots,
+} from '../utils/parkingLots';
+import {
+  createEmptyInsurance,
+  normalizeInsuranceForSave,
+  parseInsuranceFromCompany,
+  validateInsurance,
+} from '../utils/insurance';
+import { isAirpickHeadquarters } from '../constants/platform';
 
 // TimeSpinner is deprecated and replaced by unified TimePickerModal with firm Confirm actions.
 
@@ -136,6 +157,7 @@ interface MasterSettingsViewProps {
   partners?: PartnerCompany[];
   onUpdatePartners?: (updated: PartnerCompany[]) => void;
   isSuperAdmin?: boolean;
+  currentCompanyId?: string;
   onBack?: () => void;
   isEmployee?: boolean;
   employeeRole?: 'admin' | 'driver';
@@ -150,10 +172,14 @@ export default function MasterSettingsView({
   partners,
   onUpdatePartners,
   isSuperAdmin = false,
+  currentCompanyId,
   onBack,
   isEmployee = false,
   employeeRole = 'driver'
 }: MasterSettingsViewProps) {
+  const activeCompanyId = currentCompanyId || companyInfo.id;
+  /** 본사(airpick) 컨텍스트에서만 제휴업체 등록·수정 화면. wawa 등 제휴업체를 볼 때는 업체 화면과 동일 */
+  const isHqPartnerManagement = isSuperAdmin && isAirpickHeadquarters(activeCompanyId);
   // Core States for Partner View (Self rate/profile management redirect)
   const [partnerPassword, setPartnerPassword] = useState('');
   const [partnerPhone, setPartnerPhone] = useState('');
@@ -313,7 +339,7 @@ export default function MasterSettingsView({
   const [activePickerTarget, setActivePickerTarget] = useState<'surchargeStart' | 'surchargeEnd' | null>(null);
 
   useEffect(() => {
-    if (!isSuperAdmin) {
+    if (!isHqPartnerManagement) {
       const p = (partners || []).find(x => x.companyId === companyInfo.id);
       if (p) {
         setPartnerPassword(p.password || '');
@@ -340,7 +366,7 @@ export default function MasterSettingsView({
         setPeakSurcharge(c.peakSurcharge ?? 0);
       }
     }
-  }, [isSuperAdmin, partners, companies, companyInfo]);
+  }, [isHqPartnerManagement, partners, companies, companyInfo]);
 
   const handleSavePartnerSelf = async () => {
     try {
@@ -391,6 +417,7 @@ export default function MasterSettingsView({
         if (c.id === companyInfo.id) {
           return {
             ...c,
+            phone: cleanPhone,
             base_price: Number(outdoorBasePrice) || 0,
             extra_day_price: Number(outdoorExtraPrice) || 0,
             base_days: Number(outdoorBaseDays) || 0,
@@ -430,7 +457,10 @@ export default function MasterSettingsView({
       // Direct Firestore update for this partner company item, sanitizing all undefined values
       try {
         const docRef = doc(db, 'companies', companyInfo.id);
+        const partnerRecord = updatedPartners.find((p) => p.companyId === companyInfo.id);
         await setDoc(docRef, {
+          phone: cleanPhone,
+          password: partnerRecord?.password || cleanPassword,
           base_price: Number(outdoorBasePrice) || 0,
           extra_day_price: Number(outdoorExtraPrice) || 0,
           base_days: Number(outdoorBaseDays) || 0,
@@ -447,6 +477,7 @@ export default function MasterSettingsView({
           peakStartTime: peakStartTime || '',
           peakEndTime: peakEndTime || '',
           peakSurcharge: Number(peakSurcharge) || 0,
+          updatedAt: new Date().toISOString(),
           employees: (employeeList || []).map(emp => ({
             id: emp.id || '',
             name: emp.name || '',
@@ -477,10 +508,29 @@ export default function MasterSettingsView({
     if (companyInfo.facilityType) return companyInfo.facilityType;
     return companyInfo.isIndoor ? 'indoor' : 'outdoor';
   });
+  const [parkingLots, setParkingLots] = useState<ParkingLotSite[]>(() => [createEmptyParkingLot('indoor', 0)]);
+  const [insurance, setInsurance] = useState<CompanyInsurance>(() => createEmptyInsurance());
+  const [hqTab, setHqTab] = useState<'register' | 'manage'>('manage');
+  const [lockedCompanyId, setLockedCompanyId] = useState<string | null>(null);
 
-  // Auto-generate companyId from name to support individual partition storage without exposing ID field to users
   useEffect(() => {
-    if (!name.trim()) return;
+    if (!isHqPartnerManagement || !id || !lockedCompanyId) return;
+    const c = (companies || []).find((x) => x.id === id);
+    if (!c) {
+      setParkingLots([createEmptyParkingLot('indoor', 0)]);
+      setInsurance(createEmptyInsurance());
+      return;
+    }
+    setParkingLots(normalizeParkingLotsFromCompany(c));
+    setInsurance(parseInsuranceFromCompany(c));
+    if (c.facilityType) {
+      setFacilityType(c.facilityType);
+    }
+  }, [isHqPartnerManagement, companies, id, lockedCompanyId]);
+
+  // Auto-generate companyId from name (신규 등록 시에만)
+  useEffect(() => {
+    if (lockedCompanyId || !name.trim()) return;
     const cleanId = name.trim().toLowerCase().includes('가유')
       ? 'gayu'
       : name.trim().toLowerCase().includes('에어') 
@@ -489,9 +539,140 @@ export default function MasterSettingsView({
       ? 'care' 
       : name.trim().toLowerCase().includes('와와')
       ? 'wawa'
-      : name.trim().toLowerCase().replace(/[^a-z0-0a-zA-Z]/g, '') || 'wawa';
+      : name.trim().toLowerCase().replace(/[^a-z0-9]/g, '') || 'wawa';
     setId(cleanId);
-  }, [name]);
+  }, [name, lockedCompanyId]);
+
+  const resetRegisterForm = () => {
+    setLockedCompanyId(null);
+    setName('');
+    setPhone('');
+    setFacilityType('indoor');
+    setParkingLots([createEmptyParkingLot('indoor', 0)]);
+    setInsurance(createEmptyInsurance());
+    setMasterEmail('');
+    setMasterPassword('');
+    setId('');
+  };
+
+  const resolveCompanyById = (companyId: string): Company | undefined => {
+    const fromState = (companies || []).find((c) => c.id === companyId);
+    if (fromState) return fromState;
+    try {
+      const saved = localStorage.getItem('companies');
+      if (saved) {
+        const parsed = JSON.parse(saved) as Company[];
+        return parsed.find((c) => c.id === companyId);
+      }
+    } catch (_) {}
+    return undefined;
+  };
+
+  const loadPartnerForEdit = (companyId: string) => {
+    const partner = (partners || []).find((p) => p.companyId === companyId);
+    const company = resolveCompanyById(companyId);
+    if (!partner) return;
+
+    setLockedCompanyId(companyId);
+    setId(companyId);
+    setName(partner.name);
+    setPhone(partner.phone);
+    setMasterPassword(partner.password || '');
+    setMasterEmail(localStorage.getItem(`master_account_email_${companyId}`) || '');
+
+    if (company?.facilityType) {
+      setFacilityType(company.facilityType);
+    } else if (company?.supports_indoor && company?.supports_outdoor) {
+      setFacilityType('mixed');
+    } else if (company?.supports_outdoor) {
+      setFacilityType('outdoor');
+    } else {
+      setFacilityType('indoor');
+    }
+
+    setParkingLots(normalizeParkingLotsFromCompany(company));
+    setInsurance(parseInsuranceFromCompany(company));
+    setHqTab('manage');
+  };
+
+  const computePartnerStats = (compId: string) => {
+    const list = (reservations || []).filter(
+      (r) =>
+        r.companyId === compId ||
+        (r.companyName && compId === 'wawa' && r.companyName.includes('와와'))
+    );
+    const kstDate = new Date(Date.now() + 9 * 60 * 60 * 1000);
+    const todayStr = kstDate.toISOString().split('T')[0];
+    const thisMonthStr = kstDate.toISOString().substring(0, 7);
+
+    const todayCompleted = list.filter((r) => {
+      const isCompleted = r.status === 'completed_out' || r.status === 'completed_in';
+      const isToday =
+        r.departureDate === todayStr ||
+        r.arrivalDate === todayStr ||
+        (r.createdAt && r.createdAt.includes(todayStr));
+      return isCompleted && isToday;
+    }).length;
+
+    const monthlyCompleted = list.filter((r) => {
+      const isCompleted = r.status === 'completed_out' || r.status === 'completed_in';
+      const isThisMonth =
+        (r.departureDate && r.departureDate.startsWith(thisMonthStr)) ||
+        (r.arrivalDate && r.arrivalDate.startsWith(thisMonthStr)) ||
+        (r.createdAt && r.createdAt.includes(thisMonthStr));
+      return isCompleted && isThisMonth;
+    }).length;
+
+    return { todayCompleted, monthlyCompleted };
+  };
+
+  const handleTogglePartnerStatus = (companyId: string) => {
+    let nextStatus: 'active' | 'suspended' = 'active';
+    const updated = (partners || []).map((p) => {
+      if (p.companyId === companyId) {
+        nextStatus = p.status === 'active' ? 'suspended' : 'active';
+        return { ...p, status: nextStatus };
+      }
+      return p;
+    });
+    if (onUpdatePartners) onUpdatePartners(updated);
+    localStorage.setItem('super_partners_list', JSON.stringify(updated));
+    updateDoc(doc(db, 'companies', companyId), {
+      status: nextStatus,
+      updatedAt: new Date().toISOString(),
+    }).catch((err) => console.warn('Firestore status toggle failed:', err));
+  };
+
+  const handleDeletePartner = async (companyId: string, companyName: string) => {
+    if (
+      !window.confirm(
+        `⚠️ [${companyName} (${companyId})] 제휴업체를 완전히 삭제하시겠습니까?\n삭제 즉시 계정 정보가 영구 폐기되며 복구할 수 없습니다.`
+      )
+    ) {
+      return;
+    }
+
+    const nextPartners = (partners || []).filter((p) => p.companyId !== companyId);
+    const nextCompanies = (companies || []).filter((c) => c.id !== companyId);
+    if (onUpdatePartners) onUpdatePartners(nextPartners);
+    if (onUpdateCompanies) onUpdateCompanies(nextCompanies);
+    localStorage.setItem('super_partners_list', JSON.stringify(nextPartners));
+    localStorage.setItem('companies', JSON.stringify(nextCompanies));
+
+    try {
+      await deleteDoc(doc(db, 'companies', companyId));
+    } catch (err) {
+      console.warn('Firestore deleteDoc failed:', err);
+    }
+
+    try {
+      localStorage.removeItem(`${companyId}_reservations`);
+      localStorage.removeItem(`${companyId}_drivers`);
+    } catch (_) {}
+
+    if (lockedCompanyId === companyId) resetRegisterForm();
+    alert(`🏢 [${companyName}] 업체 정보가 삭제되었습니다.`);
+  };
 
   // 2. Master Account values from local storage
   const [masterEmail, setMasterEmail] = useState(() => {
@@ -503,211 +684,242 @@ export default function MasterSettingsView({
 
   // 3. Status Flags
   const [isSaved, setIsSaved] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   const handleSave = async () => {
+    if (isSaving) return;
+    setSaveError(null);
+
     const cleanName = name.trim();
     const cleanPhone = phone.trim();
     const cleanEmail = masterEmail.trim().toLowerCase();
     const cleanPassword = masterPassword.trim();
 
-    // 1. 데이터 유효성 검사
     if (!cleanName) {
-      alert('업체 명을 입력해주세요.');
+      setSaveError('업체 명을 입력해주세요.');
       return;
     }
     if (!cleanPhone) {
-      alert('대표전화 번호를 입력해주세요.');
+      setSaveError('대표전화 번호를 입력해주세요.');
       return;
     }
-    if (!cleanEmail) {
-      alert('마스터 로그인 이메일을 입력해주세요.');
+    if (!lockedCompanyId && !cleanEmail) {
+      setSaveError('마스터 로그인 이메일을 입력해주세요.');
       return;
     }
     if (!cleanPassword) {
-      alert('마스터 로그인 보안 암호를 입력해주세요.');
+      setSaveError('마스터 로그인 보안 암호를 입력해주세요.');
       return;
     }
 
-    // Generate accurate company ID
-    const generatedId = cleanName.includes('와와')
-      ? 'wawa'
-      : cleanName.includes('가유')
-      ? 'gayu'
-      : cleanName.includes('에어')
-      ? 'air25'
-      : cleanName.includes('케어')
-      ? 'care'
-      : cleanName.replace(/[^a-zA-Z0-9]/g, '').toLowerCase() || 'co_' + Math.random().toString(36).substring(2, 7);
-
-    const settlementMemo = `시설 유형: ${facilityType === 'indoor' ? '실내' : facilityType === 'outdoor' ? '실외' : '실내+실외 혼합'}`;
-
-    // 2. Local storage 전송 및 업체 추가
-    const newCompanyObj: Company = {
-      id: generatedId,
-      name: cleanName,
-      phone: cleanPhone,
-      representative: '제휴 사장님',
-      is_indoor: facilityType === 'indoor' || facilityType === 'mixed',
-      supports_indoor: facilityType === 'indoor' || facilityType === 'mixed',
-      supports_outdoor: facilityType === 'outdoor' || facilityType === 'mixed',
-      base_price: 15000,
-      extra_day_price: 5000,
-      base_days: 1,
-      rating: 4.8,
-      reviews_count: 14,
-      features: [facilityType === 'indoor' ? '실내 정식' : facilityType === 'outdoor' ? '실외 야외' : '실내+실외'],
-      image_url: 'https://images.unsplash.com/photo-1545179605-1296651e9d43?q=80&w=200&auto=format&fit=crop',
-      terminals: ['T1', 'T2'],
-      isOpen: true,
-      outdoorBasePrice: 15000,
-      outdoorBaseDays: 1,
-      outdoorExtraPrice: 5000,
-      indoorBasePrice: 30000,
-      indoorBaseDays: 1,
-      indoorExtraPrice: 10000,
-      surchargeStartTime: '20:00',
-      surchargeEndTime: '05:00',
-      surchargePrice: 10000,
-      t2Surcharge: 0,
-      peakStartTime: '',
-      peakEndTime: '',
-      peakSurcharge: 0
-    };
-
-    // Load and update companies array in localStorage
-    const savedCompaniesStr = localStorage.getItem('companies');
-    let dbCompanies: Company[] = [];
-    if (savedCompaniesStr) {
-      try {
-        dbCompanies = JSON.parse(savedCompaniesStr);
-      } catch (_) {}
-    }
-    if (!dbCompanies || dbCompanies.length === 0) {
-      dbCompanies = [...FALLBACK_COMPANIES];
+    const addressError = validateParkingLots(parkingLots);
+    if (addressError) {
+      setSaveError(addressError);
+      return;
     }
 
-    const existingIdx = dbCompanies.findIndex(c => c.id === generatedId);
-    if (existingIdx >= 0) {
-      dbCompanies[existingIdx] = newCompanyObj;
-    } else {
-      dbCompanies.push(newCompanyObj);
-    }
-    localStorage.setItem('companies', JSON.stringify(dbCompanies));
-
-    // Support partners list updates so login capability is fully integrated
-    const savedPartnersStr = localStorage.getItem('super_partners_list');
-    let dbPartners: PartnerCompany[] = [];
-    if (savedPartnersStr) {
-      try {
-        dbPartners = JSON.parse(savedPartnersStr);
-      } catch (_) {}
+    const insuranceError = validateInsurance(insurance);
+    if (insuranceError) {
+      setSaveError(insuranceError);
+      return;
     }
 
-    const newPartnerObj: PartnerCompany = {
-      companyId: generatedId,
-      password: cleanPassword,
-      name: cleanName,
-      representative: '제휴 사장님',
-      phone: cleanPhone,
-      settlementMemo,
-      status: 'active'
-    };
-
-    const extPartnerIdx = dbPartners.findIndex(p => p.companyId === generatedId);
-    const isNewPartner = extPartnerIdx < 0;
-
-    // Firestore companies/{id} — wawa·AdminDashboard 등록과 동일 경로
+    setIsSaving(true);
     try {
-      const firestorePayload: Record<string, unknown> = {
-        ...newCompanyObj,
-        facilityType,
-        password: cleanPassword,
-        masterEmail: cleanEmail,
-        settlementMemo,
-        status: 'active',
-        updatedAt: new Date().toISOString()
-      };
-      if (isNewPartner) {
-        firestorePayload.blockedDates = [];
+      const parkingAddressFields = deriveLegacyParkingFields(parkingLots);
+      const insurancePayload = normalizeInsuranceForSave(insurance);
+
+      const generatedId =
+        lockedCompanyId ||
+        (cleanName.includes('와와')
+          ? 'wawa'
+          : cleanName.includes('가유')
+          ? 'gayu'
+          : cleanName.includes('에어')
+          ? 'air25'
+          : cleanName.includes('케어')
+          ? 'care'
+          : cleanName.replace(/[^a-zA-Z0-9]/g, '').toLowerCase() || 'co_' + Math.random().toString(36).substring(2, 7));
+
+      const settlementMemo = `시설 유형: ${facilityType === 'indoor' ? '실내' : facilityType === 'outdoor' ? '실외' : '실내+실외 혼합'}`;
+
+      const savedCompaniesStr = localStorage.getItem('companies');
+      let dbCompanies: Company[] = [];
+      if (savedCompaniesStr) {
+        try {
+          dbCompanies = JSON.parse(savedCompaniesStr);
+        } catch (_) {}
       }
-      await setDoc(doc(db, 'companies', generatedId), firestorePayload, { merge: true });
-    } catch (err: unknown) {
-      handleFirestoreError(err, OperationType.WRITE, `companies/${generatedId}`);
-      alert('❌ Firebase 저장에 실패했습니다. 네트워크·권한을 확인한 뒤 다시 시도해 주세요.');
-      return;
-    }
-    if (extPartnerIdx >= 0) {
-      dbPartners[extPartnerIdx] = {
-        ...newPartnerObj,
-        employees: dbPartners[extPartnerIdx].employees || []
-      };
-    } else {
-      dbPartners.push(newPartnerObj);
-    }
-    localStorage.setItem('super_partners_list', JSON.stringify(dbPartners));
+      if (!dbCompanies || dbCompanies.length === 0) {
+        dbCompanies = [...FALLBACK_COMPANIES];
+      }
 
-    // 이와 동시에 해당 업체의 독립된 예약 사물함 키값인 `${companyId}_reservations` 와 `${companyId}_drivers` 초기화
-    const reservationsKey = `${generatedId}_reservations`;
-    if (!localStorage.getItem(reservationsKey)) {
-      localStorage.setItem(reservationsKey, JSON.stringify([]));
-    }
-    const driversKey = `${generatedId}_drivers`;
-    if (!localStorage.getItem(driversKey)) {
-      localStorage.setItem(driversKey, JSON.stringify([
-        { id: '1', name: `${cleanName} 대기기사`, phone: cleanPhone, rating: 4.8 }
-      ]));
-    }
+      const existingCompany =
+        dbCompanies.find((c) => c.id === generatedId) || resolveCompanyById(generatedId);
 
-    // Apply react state updates to trigger master table and global listings in parent
-    if (onUpdateCompanies) {
-      onUpdateCompanies(dbCompanies);
-    }
-    if (onUpdatePartners) {
-      onUpdatePartners(dbPartners);
-    }
-    if (onUpdateCompany) {
-      onUpdateCompany({
+      const newCompanyObj: Company = {
+        ...(existingCompany || {}),
         id: generatedId,
         name: cleanName,
-        region: facilityType === 'indoor' ? '실내' : facilityType === 'outdoor' ? '실외' : '실내+실외 혼합',
         phone: cleanPhone,
-        logo: '',
-        isIndoor: facilityType === 'indoor' || facilityType === 'mixed',
-        facilityType: facilityType,
-        ratePolicy: ''
-      });
+        representative: existingCompany?.representative || '제휴 사장님',
+        is_indoor: facilityType === 'indoor' || facilityType === 'mixed',
+        supports_indoor: facilityType === 'indoor' || facilityType === 'mixed',
+        supports_outdoor: facilityType === 'outdoor' || facilityType === 'mixed',
+        base_price: existingCompany?.base_price ?? 15000,
+        extra_day_price: existingCompany?.extra_day_price ?? 5000,
+        base_days: existingCompany?.base_days ?? 1,
+        rating: existingCompany?.rating ?? 4.8,
+        reviews_count: existingCompany?.reviews_count ?? 14,
+        features: existingCompany?.features?.length
+          ? existingCompany.features
+          : [facilityType === 'indoor' ? '실내 정식' : facilityType === 'outdoor' ? '실외 야외' : '실내+실외'],
+        image_url:
+          existingCompany?.image_url ||
+          'https://images.unsplash.com/photo-1545179605-1296651e9d43?q=80&w=200&auto=format&fit=crop',
+        terminals: existingCompany?.terminals || ['T1', 'T2'],
+        isOpen: existingCompany?.isOpen ?? true,
+        outdoorBasePrice: existingCompany?.outdoorBasePrice ?? existingCompany?.base_price ?? 15000,
+        outdoorBaseDays: existingCompany?.outdoorBaseDays ?? existingCompany?.base_days ?? 1,
+        outdoorExtraPrice: existingCompany?.outdoorExtraPrice ?? existingCompany?.extra_day_price ?? 5000,
+        indoorBasePrice: existingCompany?.indoorBasePrice ?? 30000,
+        indoorBaseDays: existingCompany?.indoorBaseDays ?? 1,
+        indoorExtraPrice: existingCompany?.indoorExtraPrice ?? 10000,
+        surchargeStartTime: existingCompany?.surchargeStartTime ?? '20:00',
+        surchargeEndTime: existingCompany?.surchargeEndTime ?? '05:00',
+        surchargePrice: existingCompany?.surchargePrice ?? 10000,
+        t2Surcharge: existingCompany?.t2Surcharge ?? 0,
+        peakStartTime: existingCompany?.peakStartTime ?? '',
+        peakEndTime: existingCompany?.peakEndTime ?? '',
+        peakSurcharge: existingCompany?.peakSurcharge ?? 0,
+        facilityType,
+        ...parkingAddressFields,
+        ...(insurancePayload ? { insurance: insurancePayload } : { insurance: { enrolled: false, updatedAt: new Date().toISOString() } }),
+        hasInsurance: insurancePayload?.enrolled ?? false,
+        insuranceProvider: insurancePayload?.provider,
+        insuranceLimit: insurancePayload?.coverageLimitWon,
+      };
+
+      const existingIdx = dbCompanies.findIndex((c) => c.id === generatedId);
+      if (existingIdx >= 0) {
+        dbCompanies[existingIdx] = newCompanyObj;
+      } else {
+        dbCompanies.push(newCompanyObj);
+      }
+      localStorage.setItem('companies', JSON.stringify(dbCompanies));
+
+      const savedPartnersStr = localStorage.getItem('super_partners_list');
+      let dbPartners: PartnerCompany[] = [];
+      if (savedPartnersStr) {
+        try {
+          dbPartners = JSON.parse(savedPartnersStr);
+        } catch (_) {}
+      }
+
+      const extPartnerIdx = dbPartners.findIndex((p) => p.companyId === generatedId);
+      const isNewPartner = extPartnerIdx < 0;
+      const existingPartner = extPartnerIdx >= 0 ? dbPartners[extPartnerIdx] : undefined;
+
+      const newPartnerObj: PartnerCompany = {
+        companyId: generatedId,
+        password: cleanPassword,
+        name: cleanName,
+        representative: existingPartner?.representative || '제휴 사장님',
+        phone: cleanPhone,
+        settlementMemo,
+        status: existingPartner?.status || 'active',
+        employees: existingPartner?.employees || [],
+      };
+
+      if (extPartnerIdx >= 0) {
+        dbPartners[extPartnerIdx] = newPartnerObj;
+      } else {
+        dbPartners.push(newPartnerObj);
+      }
+      localStorage.setItem('super_partners_list', JSON.stringify(dbPartners));
+
+      let firestoreSynced = true;
+      try {
+        const firestorePayload: Record<string, unknown> = {
+          ...newCompanyObj,
+          facilityType,
+          ...parkingAddressFields,
+          ...(insurancePayload
+            ? { insurance: insurancePayload }
+            : { insurance: { enrolled: false, updatedAt: new Date().toISOString() } }),
+          hasInsurance: insurancePayload?.enrolled ?? false,
+          insuranceProvider: insurancePayload?.provider ?? null,
+          insuranceLimit: insurancePayload?.coverageLimitWon ?? null,
+          password: cleanPassword,
+          ...(cleanEmail ? { masterEmail: cleanEmail } : {}),
+          settlementMemo,
+          status: newPartnerObj.status,
+          updatedAt: new Date().toISOString(),
+        };
+        if (isNewPartner) {
+          firestorePayload.blockedDates = [];
+        }
+        await setDoc(doc(db, 'companies', generatedId), firestorePayload, { merge: true });
+      } catch (err: unknown) {
+        firestoreSynced = false;
+        handleFirestoreError(err, OperationType.WRITE, `companies/${generatedId}`);
+      }
+
+      if (isNewPartner) {
+        const reservationsKey = `${generatedId}_reservations`;
+        if (!localStorage.getItem(reservationsKey)) {
+          localStorage.setItem(reservationsKey, JSON.stringify([]));
+        }
+        const driversKey = `${generatedId}_drivers`;
+        if (!localStorage.getItem(driversKey)) {
+          localStorage.setItem(driversKey, JSON.stringify([
+            { id: '1', name: `${cleanName} 대기기사`, phone: cleanPhone, rating: 4.8 },
+          ]));
+        }
+      }
+
+      if (onUpdateCompanies) onUpdateCompanies(dbCompanies);
+      if (onUpdatePartners) onUpdatePartners(dbPartners);
+      if (onUpdateCompany) {
+        onUpdateCompany({
+          id: generatedId,
+          name: cleanName,
+          region: facilityType === 'indoor' ? '실내' : facilityType === 'outdoor' ? '실외' : '실내+실외 혼합',
+          phone: cleanPhone,
+          logo: '',
+          isIndoor: facilityType === 'indoor' || facilityType === 'mixed',
+          facilityType,
+          ratePolicy: '',
+          parkingLots: parkingAddressFields.parkingLots,
+        });
+      }
+
+      if (cleanEmail) {
+        localStorage.setItem('master_account_email', cleanEmail);
+        localStorage.setItem(`master_account_email_${generatedId}`, cleanEmail);
+      }
+      localStorage.setItem('master_account_password', cleanPassword);
+
+      alert(
+        firestoreSynced
+          ? isNewPartner
+            ? `🎉 [${cleanName}] 등록이 완료되었습니다!\n아이디 '${generatedId}' 로 로그인할 수 있습니다.`
+            : `🎉 [${cleanName}] 변경 내용이 저장되었습니다.`
+          : `✅ [${cleanName}] 로컬에 저장되었습니다.\nFirebase 동기화는 연결 후 자동 반영됩니다.`
+      );
+
+      resetRegisterForm();
+      setHqTab('manage');
+      setIsSaved(true);
+      setTimeout(() => setIsSaved(false), 3000);
+    } catch (unexpectedErr: unknown) {
+      console.error('handleSave failed:', unexpectedErr);
+      setSaveError(`저장 중 오류: ${unexpectedErr instanceof Error ? unexpectedErr.message : String(unexpectedErr)}`);
+    } finally {
+      setIsSaving(false);
     }
-
-    // Save temporary fields for feedback
-    localStorage.setItem('master_account_email', cleanEmail);
-    localStorage.setItem('master_account_password', cleanPassword);
-
-    // 3. 등록 완료 알림 및 초기화
-    alert(
-      isNewPartner
-        ? `🎉 [${cleanName}] 등록이 완료되었습니다!\nFirebase companies/${generatedId} 에 저장되었으며, 아이디 '${generatedId}' 로 로그인할 수 있습니다.`
-        : `🎉 [${cleanName}] 정보가 갱신되었습니다!\nFirebase companies/${generatedId} 에 반영되었습니다.`
-    );
-
-    // Reset input fields
-    setName('');
-    setPhone('');
-    setFacilityType('indoor');
-    setMasterEmail('');
-    setMasterPassword('');
-
-    setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 3000);
   };
-
-  // Filter reservations affiliated with this master info (simulating real corporate partition isolation)
-  const matchingRes = name.trim() ? reservations.filter(r => 
-    r.companyName.toLowerCase().includes(name.toLowerCase()) || 
-    (r.companyId && r.companyId.toLowerCase().includes(name.toLowerCase().replace(/\s+/g, '_')))
-  ) : [];
-
-  // Simulate unique active drivers allocated for this specific company setup
-  const driversCount = name.trim() ? (name.includes('가유') ? 5 : 3) : 0;
 
   const surchargeTimePicker = (
     <TimePickerModal
@@ -732,7 +944,11 @@ export default function MasterSettingsView({
     />
   );
 
-  if (!isSuperAdmin) {
+  const partnerCompany = (companies || []).find((c) => c.id === companyInfo.id);
+  const partnerParkingLots = normalizeParkingLotsFromCompany(partnerCompany);
+  const partnerInsurance = parseInsuranceFromCompany(partnerCompany);
+
+  if (!isHqPartnerManagement) {
     return (
       <>
       <div className="bg-black min-h-screen text-white p-4 pb-20 selection:bg-amber-500 selection:text-neutral-950">
@@ -750,6 +966,28 @@ export default function MasterSettingsView({
         </div>
 
         <div className="space-y-6">
+          <div className="bg-neutral-900/40 p-5 rounded-3xl border border-neutral-850 space-y-3">
+            <div className="flex items-center gap-2 text-xs font-black text-amber-500 tracking-wider uppercase">
+              <MapPin size={14} />
+              <span>내 주차장 위치</span>
+            </div>
+            <p className="text-[12px] text-white/60 leading-relaxed">
+              주차장 위치는 에어픽 본사에서 등록합니다. 아래 내용만 확인할 수 있으며 직접 수정할 수 없습니다.
+            </p>
+            <ParkingLotsReadOnly lots={partnerParkingLots} />
+          </div>
+
+          <div className="bg-neutral-900/40 p-5 rounded-3xl border border-neutral-850 space-y-3">
+            <div className="flex items-center gap-2 text-xs font-black text-amber-500 tracking-wider uppercase">
+              <ShieldCheck size={14} />
+              <span>업체 보험 정보</span>
+            </div>
+            <p className="text-[12px] text-white/60 leading-relaxed">
+              보험 정보는 에어픽 본사에서만 등록·수정합니다. 아래 내용만 확인할 수 있습니다.
+            </p>
+            <InsuranceReadOnly insurance={partnerInsurance} />
+          </div>
+
           <div className="bg-neutral-900/40 p-4.5 rounded-2xl border border-neutral-850 flex items-center justify-between">
             <div>
               <span className="text-[12px] text-white/70 font-black tracking-wider block uppercase mb-0.5">정식 로그인 업체</span>
@@ -1051,7 +1289,7 @@ export default function MasterSettingsView({
 
   return (
     <>
-    <div className="bg-black min-h-screen text-zinc-100 p-4">
+    <div className="bg-black min-h-screen text-zinc-100 p-4 pb-28">
       {/* Header section */}
       <div className="flex items-center gap-3.5 mb-6 px-1">
         <div>
@@ -1061,6 +1299,33 @@ export default function MasterSettingsView({
       </div>
 
       <div className="space-y-6">
+        <div className="grid grid-cols-2 gap-2 bg-[#1C1C1E] p-1 rounded-xl border border-neutral-800">
+          <button
+            type="button"
+            onClick={() => {
+              resetRegisterForm();
+              setHqTab('register');
+            }}
+            className={`py-2.5 text-[12px] font-black rounded-lg transition-all ${
+              hqTab === 'register' ? 'bg-amber-500 text-black' : 'text-zinc-500 hover:text-zinc-300'
+            }`}
+          >
+            신규 업체 등록
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              resetRegisterForm();
+              setHqTab('manage');
+            }}
+            className={`py-2.5 text-[12px] font-black rounded-lg transition-all ${
+              hqTab === 'manage' ? 'bg-amber-500 text-black' : 'text-zinc-500 hover:text-zinc-300'
+            }`}
+          >
+            기존 업체 수정/삭제
+          </button>
+        </div>
+
         {/* Save success toast banner */}
         {isSaved && (
           <div className="bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 p-3.5 rounded-2xl flex items-center gap-2 text-xs font-semibold animate-fade-in">
@@ -1069,11 +1334,121 @@ export default function MasterSettingsView({
           </div>
         )}
 
+        {hqTab === 'manage' && !lockedCompanyId && (
+          <div className="bg-neutral-900/40 p-5 rounded-3xl border border-neutral-850 space-y-4">
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <h3 className="text-xs font-black text-white">제휴사 통합 수정/삭제 관리</h3>
+                <p className="text-[11px] text-zinc-500 mt-1">
+                  등록된 제휴업체를 수정·삭제하고, 수정 시 주차장 위치도 함께 변경할 수 있습니다.
+                </p>
+              </div>
+              <span className="text-[11px] bg-red-500/10 border border-red-500/30 text-red-400 px-2.5 py-1 rounded-xl font-bold shrink-0">
+                총 {(partners || []).length}개
+              </span>
+            </div>
+
+            <div className="border border-neutral-800 bg-[#0F0F11] rounded-2xl overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="bg-neutral-900/60 border-b border-neutral-800 text-[11px] text-zinc-500 font-extrabold">
+                      <th className="py-2.5 px-3">제휴업체</th>
+                      <th className="py-2.5 px-2 text-center">상태</th>
+                      <th className="py-2.5 px-2 text-center">통계</th>
+                      <th className="py-2.5 px-3 text-right">제어</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-neutral-800/60">
+                    {(partners || [])
+                      .filter((p) => p?.companyId)
+                      .map((p) => {
+                        const stats = computePartnerStats(p.companyId);
+                        const isSuspended = p.status === 'suspended';
+                        return (
+                          <tr
+                            key={p.companyId}
+                            className={`hover:bg-neutral-900/30 ${isSuspended ? 'text-zinc-500' : 'text-zinc-300'}`}
+                          >
+                            <td className="py-3 px-3">
+                              <div className="font-bold text-white flex items-center gap-1.5 flex-wrap">
+                                <span>{p.name}</span>
+                                <span className="text-[10px] font-mono text-amber-500/90 bg-amber-500/10 px-1.5 py-0.5 rounded font-black">
+                                  {p.companyId}
+                                </span>
+                              </div>
+                              <div className="text-[11px] text-zinc-500 mt-0.5">
+                                대표: {p.representative} · {p.phone}
+                              </div>
+                            </td>
+                            <td className="py-3 px-2 text-center align-middle">
+                              <button
+                                type="button"
+                                onClick={() => handleTogglePartnerStatus(p.companyId)}
+                                className={`px-2.5 py-1.5 text-[11px] font-extrabold rounded-lg border transition-all ${
+                                  isSuspended
+                                    ? 'bg-red-500/10 border-red-500/30 text-red-400'
+                                    : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-400'
+                                }`}
+                              >
+                                {isSuspended ? '정지' : '활성'}
+                              </button>
+                            </td>
+                            <td className="py-3 px-2 text-center align-middle font-mono text-[11px]">
+                              <div className="text-white font-black">금일 {stats.todayCompleted}건</div>
+                              <div className="text-zinc-500 mt-0.5">월간 {stats.monthlyCompleted}건</div>
+                            </td>
+                            <td className="py-3 px-3 text-right align-middle whitespace-nowrap">
+                              <button
+                                type="button"
+                                onClick={() => loadPartnerForEdit(p.companyId)}
+                                className="px-2 py-1.5 bg-neutral-900 border border-neutral-800 text-zinc-300 hover:border-amber-500/40 hover:text-amber-400 rounded-lg text-[11px] font-black inline-flex items-center gap-1 mr-1.5"
+                              >
+                                <Edit size={11} />
+                                수정
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeletePartner(p.companyId, p.name)}
+                                className="px-2 py-1.5 bg-red-950/40 border border-red-900/30 text-red-400 hover:bg-red-900/30 rounded-lg text-[11px] font-black inline-flex items-center gap-1"
+                              >
+                                <Trash2 size={11} />
+                                삭제
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {(hqTab === 'register' || (hqTab === 'manage' && lockedCompanyId)) && (
+        <>
+        {lockedCompanyId && (
+          <button
+            type="button"
+            onClick={resetRegisterForm}
+            className="w-full flex items-center gap-2 px-3 py-2.5 bg-neutral-900/60 border border-neutral-800 rounded-xl text-[12px] text-zinc-300 font-bold hover:border-amber-500/30 hover:text-amber-400 transition-all"
+          >
+            <ChevronLeft size={14} />
+            <span>목록으로 돌아가기</span>
+            <span className="ml-auto text-amber-500 font-black">{name || lockedCompanyId} 수정 중</span>
+          </button>
+        )}
+
         {/* Card 1: Company Profile Configuration */}
         <div className="bg-neutral-900/40 p-5 rounded-3xl border border-neutral-850 space-y-4">
           <div className="flex items-center gap-2 text-xs font-black text-amber-500 tracking-wider uppercase">
             <Building2 size={14} />
-            <span>[1] 제휴 업체 브랜드 등록</span>
+            <span>
+              {lockedCompanyId
+                ? `[수정] ${name || lockedCompanyId}`
+                : '[1] 제휴 업체 브랜드 등록'}
+            </span>
           </div>
 
           <div className="space-y-4 text-xs">
@@ -1133,6 +1508,46 @@ export default function MasterSettingsView({
               </div>
             </div>
 
+            {/* 2-1. 주차장 주소 — 에어픽 본사 전용 */}
+            <div className="space-y-3 p-3.5 bg-[#131315] border border-amber-500/20 rounded-xl">
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[12px] text-amber-500 font-bold block">[주차장 주소]</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-400 font-black">
+                    에어픽 본사 전용
+                  </span>
+                </div>
+                <p className="text-[11px] text-zinc-500 mt-1 leading-relaxed">
+                  실내·실외 주차장 개수를 직접 정하고, 각 주차장마다 주소와 입구·주차장 사진을 등록합니다. 저장 시 네이버 지도 링크와 사진이 B2C MY 「주차 위치」에 자동 노출됩니다. 제휴 업체는 이 항목을 수정할 수 없습니다.
+                </p>
+              </div>
+              <ParkingLotsEditor
+                value={parkingLots}
+                onChange={setParkingLots}
+                companyId={lockedCompanyId || id}
+              />
+            </div>
+
+            {/* 2-2. 업체 보험 — 에어픽 본사 전용 */}
+            <div className="space-y-3 p-3.5 bg-[#131315] border border-amber-500/20 rounded-xl">
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-[12px] text-amber-500 font-bold block">[업체 보험]</span>
+                  <span className="text-[10px] px-2 py-0.5 rounded-md bg-amber-500/10 border border-amber-500/30 text-amber-400 font-black">
+                    에어픽 본사 전용
+                  </span>
+                </div>
+                <p className="text-[11px] text-zinc-500 mt-1 leading-relaxed">
+                  보험사·상품·보장한도를 등록하면 B2C MY·비교 탭에 안내됩니다. 가입증명서는 마스터에서만 관리하며 손님 화면에는 노출되지 않습니다.
+                </p>
+              </div>
+              <InsuranceEditor
+                value={insurance}
+                onChange={setInsurance}
+                companyId={lockedCompanyId || id}
+              />
+            </div>
+
             {/* 3. 전화번호 */}
             <div>
               <label className="text-[12px] text-zinc-500 font-bold block mb-1.5 uppercase tracking-wider">
@@ -1153,11 +1568,13 @@ export default function MasterSettingsView({
         <div className="bg-neutral-900/40 p-5 rounded-3xl border border-neutral-850 space-y-4">
           <div className="flex items-center gap-2 text-xs font-black text-purple-400 tracking-wider uppercase">
             <Lock size={14} />
-            <span>[2] 마스터 관리 사장님 계정 생성</span>
+            <span>{lockedCompanyId ? '[2] 마스터 계정 정보' : '[2] 마스터 관리 사장님 계정 생성'}</span>
           </div>
 
           <p className="text-[12px] text-zinc-400/80 leading-relaxed">
-            아래 이메일과 패스워드로 로그인 시, 해당 업체의 소속 기사 목록과 주차 접수 데이터(대시보드)만 안전하게 격리 노출되는 고유 보증 주차공간 마케팅 시스템이 실행됩니다.
+            {lockedCompanyId
+              ? '해당 업체 마스터 계정의 로그인 이메일·비밀번호를 변경할 수 있습니다.'
+              : '아래 이메일과 패스워드로 로그인 시, 해당 업체의 소속 기사 목록과 주차 접수 데이터(대시보드)만 안전하게 격리 노출되는 고유 보증 주차공간 마케팅 시스템이 실행됩니다.'}
           </p>
 
           <div className="space-y-3">
@@ -1190,51 +1607,29 @@ export default function MasterSettingsView({
           </div>
         </div>
 
-        {/* Card 3: Enterprise Affiliated Database Status */}
-        <div className="bg-neutral-900/40 p-5 rounded-3xl border border-neutral-850 space-y-4">
-          <div className="flex items-center justify-between gap-2 border-b border-neutral-850 pb-3">
-            <div className="flex items-center gap-2 text-xs font-black text-zinc-400 tracking-wider uppercase">
-              <ShieldCheck size={14} className="text-[#22C55E]" />
-              <span>[3] 제휴사 데이터 연결 및 운영 현황</span>
-            </div>
-            
-            <div className="flex items-center gap-1.5 px-2 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-full text-[11px] font-black tracking-tight shrink-0">
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
-              </span>
-              데이터 서버 연결됨
-            </div>
+        {saveError && (
+          <div className="bg-red-500/10 border border-red-500/30 text-red-400 p-3 rounded-xl text-[12px] font-semibold">
+            {saveError}
           </div>
+        )}
 
-          <div className="grid grid-cols-2 gap-3.5">
-            <div className="bg-[#1C1C1E] p-4 rounded-2xl border border-neutral-800 text-center">
-              <span className="text-[12px] text-zinc-500 font-bold block mb-1">배정된 관리 기사단</span>
-              <span className="text-3xl font-black text-amber-500 font-mono tracking-tight block mt-0.5">{driversCount}명</span>
-            </div>
-
-            <div className="bg-[#1C1C1E] p-4 rounded-2xl border border-neutral-800 text-center">
-              <span className="text-[12px] text-zinc-500 font-bold block mb-1">매핑된 실시간 예약건</span>
-              <span className="text-3xl font-black text-emerald-400 font-mono tracking-tight block mt-0.5">{matchingRes.length}건</span>
-            </div>
-          </div>
-
-          <div className="p-3 bg-neutral-950/40 rounded-xl border border-neutral-850 text-center">
-            <span className="text-[11px] text-amber-500/80 font-semibold block">현재 적용된 활성 제휴점</span>
-            <span className="text-xs text-white font-extrabold block mt-0.5">
-              {name} ({facilityType === 'indoor' ? '실내' : facilityType === 'outdoor' ? '실외' : '실내+실외 혼합'})
-            </span>
-          </div>
-        </div>
-
-        {/* Actions Button */}
         <button
+          type="button"
           onClick={handleSave}
-          className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 text-neutral-950 font-black rounded-2xl border border-amber-400/40 hover:brightness-110 shadow-lg shadow-amber-500/10 transition-all flex items-center justify-center gap-2 text-xs uppercase"
+          disabled={isSaving}
+          className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 text-neutral-950 font-black rounded-2xl border border-amber-400/40 hover:brightness-110 shadow-lg shadow-amber-500/10 transition-all flex items-center justify-center gap-2 text-xs uppercase disabled:opacity-60 disabled:cursor-not-allowed"
         >
           <Save size={14} />
-          <span>보안 설정 정보 최종 갱신 및 저장하기</span>
+          <span>
+            {isSaving
+              ? '저장 중...'
+              : lockedCompanyId
+              ? '변경 내용 저장하기'
+              : '신규 업체 등록 및 저장하기'}
+          </span>
         </button>
+        </>
+        )}
       </div>
     </div>
     {surchargeTimePicker}
