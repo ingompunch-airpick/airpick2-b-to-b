@@ -7,18 +7,32 @@ import {
 } from 'lucide-react';
 import { 
   doc, 
-  updateDoc, 
-  setDoc, 
-  deleteDoc 
+  updateDoc
 } from 'firebase/firestore';
 import { db } from '../firebase';
 import { Company, Reservation, PartnerCompany } from '../types';
-
-// --- KST Date Utility Helpers ---
-const getKSTDateOnlyString = () => {
-  const kstDate = new Date(Date.now() + 9 * 60 * 60 * 1000);
-  return kstDate.toISOString().split('T')[0];
-};
+import PartnerOnboardingChecklist from './PartnerOnboardingChecklist';
+import { ensureFirestoreAuth } from '../lib/firebaseAuth';
+import { getKSTDateOnlyString } from '../utils/kstDate';
+import {
+  appendPartnerToList,
+  buildPartnerRecord,
+  createPartnerCompanySkeleton,
+  deletePartnerFromFirestore,
+  initPartnerLocalPartitions,
+  mergeCompanyIntoList,
+  removePartnerLocalPartitions,
+  sanitizePartnerCompanyId,
+  writeNewPartnerToFirestore,
+} from '../utils/partnerRegistration';
+import PartnerProfileFormFields from './PartnerProfileFormFields';
+import {
+  applyPartnerProfileToCompany,
+  DEFAULT_PARTNER_PROFILE,
+  profileExtrasForFirestore,
+  readPartnerProfileFromCompany,
+  type PartnerProfileInput,
+} from '../utils/companyProfile';
 
 const getKSTMonthOnlyString = () => {
   const kstDate = new Date(Date.now() + 9 * 60 * 60 * 1000);
@@ -58,14 +72,12 @@ const safeStorage = (() => {
 export default function AdminDashboard({ 
   onClose, 
   companies, 
-  onSync,
   partners,
   onUpdatePartners,
   onUpdateCompanies
 }: { 
   onClose: () => void; 
   companies: Company[]; 
-  onSync: () => Promise<void>;
   partners: PartnerCompany[];
   onUpdatePartners: (updated: PartnerCompany[]) => void;
   onUpdateCompanies: (updated: Company[]) => void;
@@ -79,6 +91,7 @@ export default function AdminDashboard({
   const [editPhone, setEditPhone] = useState('');
   const [editPassword, setEditPassword] = useState('');
   const [editMemo, setEditMemo] = useState('');
+  const [editProfile, setEditProfile] = useState<PartnerProfileInput>({ ...DEFAULT_PARTNER_PROFILE });
 
   const handleStartEdit = (p: PartnerCompany) => {
     setEditingPartner(p);
@@ -87,6 +100,8 @@ export default function AdminDashboard({
     setEditPhone(p.phone);
     setEditPassword(p.password || '');
     setEditMemo(p.settlementMemo || '');
+    const company = companies.find((c) => c.id === p.companyId);
+    setEditProfile(readPartnerProfileFromCompany(company));
   };
 
   const handleSaveEdit = async (e: React.FormEvent) => {
@@ -119,30 +134,35 @@ export default function AdminDashboard({
     // 2. Update in companies array
     const updatedCompanies = companies.map(c => {
       if (c.id === targetId) {
-        return {
+        const withBasics = {
           ...c,
           name: editName.trim(),
           phone: editPhone.trim(),
-          representative: editRep.trim()
+          representative: editRep.trim(),
         };
+        return applyPartnerProfileToCompany(withBasics, editProfile);
       }
       return c;
     });
     onUpdateCompanies(updatedCompanies);
     safeStorage.setItem('companies', JSON.stringify(updatedCompanies));
 
-    // 3. Update in Firestore (non-blocking background task to prevent sandboxed iframe hangs)
-    updateDoc(doc(db, 'companies', targetId), {
-      name: editName.trim(),
-      phone: editPhone.trim(),
-      representative: editRep.trim(),
-      password: editPassword,
-      settlementMemo: editMemo.trim(),
-      status: editingPartner.status || 'active',
-      updatedAt: new Date().toISOString()
-    }).catch(err => {
-      console.warn("Firestore updateDoc for partner edit failed:", err);
-    });
+    // 3. Update in Firestore
+    try {
+      await ensureFirestoreAuth();
+      await updateDoc(doc(db, 'companies', targetId), {
+        name: editName.trim(),
+        phone: editPhone.trim(),
+        representative: editRep.trim(),
+        password: editPassword,
+        settlementMemo: editMemo.trim(),
+        status: editingPartner.status || 'active',
+        ...profileExtrasForFirestore(editProfile),
+        updatedAt: new Date().toISOString()
+      });
+    } catch (err) {
+      console.warn('Firestore updateDoc for partner edit failed:', err);
+    }
 
     alert(`🏢 [${editName}] 업체 정보가 성공적으로 수정되었습니다.`);
     setEditingPartner(null);
@@ -228,6 +248,11 @@ export default function AdminDashboard({
   const [newRep, setNewRep] = useState('');
   const [newPhone, setNewPhone] = useState('');
   const [newMemo, setNewMemo] = useState('');
+  const [newProfile, setNewProfile] = useState<PartnerProfileInput>({ ...DEFAULT_PARTNER_PROFILE });
+  const [recentOnboarding, setRecentOnboarding] = useState<{
+    companyId: string;
+    companyName: string;
+  } | null>(null);
 
   const handleCreatePartner = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -236,7 +261,7 @@ export default function AdminDashboard({
       return;
     }
 
-    const cleanId = newId.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+    const cleanId = sanitizePartnerCompanyId(newId);
     if (!cleanId) {
       alert('유효하지 않은 고유 ID 형식입니다. 영문 소문자와 숫자 및 언더바(_)만 허용됩니다.');
       return;
@@ -247,79 +272,46 @@ export default function AdminDashboard({
       return;
     }
 
-    // Direct Firestore company skeleton generation
-    const newCompany: Company = {
-      id: cleanId,
-      name: newName.trim(),
-      phone: newPhone.trim(),
-      representative: newRep.trim(),
-      is_indoor: true,
-      supports_indoor: true,
-      supports_outdoor: true,
-      base_price: 15000,
-      extra_day_price: 5000,
-      base_days: 1,
-      rating: 4.8,
-      reviews_count: 12,
-      features: ['기본 자율 요금 설정 상태'],
-      image_url: 'https://images.unsplash.com/photo-1542282088-fe8426682b8f?auto=format&fit=crop&q=80',
-      terminals: ['T1', 'T2'],
-      isOpen: true,
-      outdoorBasePrice: 15000,
-      outdoorBaseDays: 1,
-      outdoorExtraPrice: 5000,
-      indoorBasePrice: 30000,
-      indoorBaseDays: 1,
-      indoorExtraPrice: 10000,
-      surchargeStartTime: '20:00',
-      surchargeEndTime: '05:00',
-      surchargePrice: 10000,
-      t2Surcharge: 0,
-      peakStartTime: '',
-      peakEndTime: '',
-      peakSurcharge: 0
-    };
-
-    // Save full credentials to Firestore in background (non-blocking to prevent iframe hangs)
-    setDoc(doc(db, 'companies', cleanId), {
-      ...newCompany,
-      password: newPassword,
-      settlementMemo: newMemo.trim() || '지급 기본 정산 기준 보류',
-      status: 'active',
-      representative: newRep.trim(),
-      phone: newPhone.trim(),
-      updatedAt: new Date().toISOString()
-    }).catch(err => {
-      console.warn("Firestore setDoc for automatic brand-new tenant registration failed:", err);
+    const skeleton = createPartnerCompanySkeleton({
+      companyId: cleanId,
+      name: newName,
+      phone: newPhone,
+      representative: newRep,
     });
+    const newCompany = applyPartnerProfileToCompany(skeleton, newProfile);
 
-    const newPartner: PartnerCompany = {
+    const newPartner = buildPartnerRecord({
       companyId: cleanId,
       password: newPassword,
-      name: newName.trim(),
-      representative: newRep.trim(),
-      phone: newPhone.trim(),
-      settlementMemo: newMemo.trim() || '지급 기본 정산 기준 보류',
-      status: 'active'
-    };
+      name: newName,
+      representative: newRep,
+      phone: newPhone,
+      settlementMemo: newMemo,
+    });
 
-    const nextList = [...partners, newPartner];
+    try {
+      await writeNewPartnerToFirestore(newCompany, newPartner);
+    } catch (err) {
+      console.warn('Firestore setDoc for brand-new tenant registration failed:', err);
+      alert('❌ Firebase 업체 등록에 실패했습니다.\n.env에 VITE_FIREBASE_ADMIN_EMAIL/PASSWORD 설정 후, Firebase Console에서 해당 계정이 등록되어 있는지 확인하세요.');
+      return;
+    }
+
+    const nextList = appendPartnerToList(partners, newPartner);
     onUpdatePartners(nextList);
     safeStorage.setItem('super_partners_list', JSON.stringify(nextList));
 
-    // Instant local companies sync for global dropdown synchronization
-    const nextCompanies = [...(companies || []).filter(c => c.id !== cleanId), newCompany];
+    const nextCompanies = mergeCompanyIntoList(companies || [], newCompany);
     onUpdateCompanies(nextCompanies);
     safeStorage.setItem('companies', JSON.stringify(nextCompanies));
 
-    // Dynamic clean isolation key initialization
-    const localKey = `${cleanId}_reservations`;
-    if (!safeStorage.getItem(localKey)) {
-      safeStorage.setItem(localKey, JSON.stringify([]));
-    }
+    initPartnerLocalPartitions(cleanId, safeStorage);
 
-    alert(`[${newName}] 신규 제휴 업체 계정 및 파이어베이스 자율 요금 템플릿 개설이 완벽히 완료되었습니다!\n이제 아이디 '${cleanId}' 로 로그인이 가능합니다.`);
-    
+    setRecentOnboarding({ companyId: cleanId, companyName: newName.trim() });
+    alert(
+      `[${newName}] 신규 제휴 업체 등록이 완료되었습니다.\n아이디 '${cleanId}' 로 로그인할 수 있습니다.\n\n아래 온보딩 체크리스트를 순서대로 확인해 주세요.`
+    );
+
     // Reset fields
     setNewId('');
     setNewPassword('');
@@ -327,6 +319,7 @@ export default function AdminDashboard({
     setNewRep('');
     setNewPhone('');
     setNewMemo('');
+    setNewProfile({ ...DEFAULT_PARTNER_PROFILE });
     setActiveTab('partners');
   };
 
@@ -345,16 +338,15 @@ export default function AdminDashboard({
 
       // 3. Delete from firestore
       try {
-        await deleteDoc(doc(db, 'companies', companyId));
-      } catch (err: any) {
-        console.warn("Firestore deleteDoc failed:", err);
+        await deletePartnerFromFirestore(companyId);
+      } catch (err: unknown) {
+        console.warn('Firestore deleteDoc failed:', err);
+        alert('❌ Firebase 업체 삭제에 실패했습니다. 플랫폼 관리자 Firebase 로그인(.env)을 확인하세요.');
+        return;
       }
 
       // 4. Clean up reservations/drivers local storage keys
-      try {
-        window.localStorage.removeItem(`${companyId}_reservations`);
-        window.localStorage.removeItem(`${companyId}_drivers`);
-      } catch (_) {}
+      removePartnerLocalPartitions(companyId, safeStorage);
 
       alert(`🏢 [${companyName}] 업체 정보가 성공적으로 영구 삭제되었습니다.`);
     }
@@ -386,6 +378,15 @@ export default function AdminDashboard({
 
       {activeTab === 'partners' && (
         <div className="space-y-3">
+          {recentOnboarding && (
+            <PartnerOnboardingChecklist
+              companyId={recentOnboarding.companyId}
+              companyName={recentOnboarding.companyName}
+              variant="light"
+              defaultExpanded
+              highlight
+            />
+          )}
           <div className="bg-white p-3.5 rounded-2xl border border-slate-100 flex items-center justify-between text-left">
             <div>
               <h4 className="text-xs font-black text-slate-900">제휴사 통합 모니터링 및 수정/삭제 관리</h4>
@@ -474,7 +475,7 @@ export default function AdminDashboard({
           {/* Edit Partner Overlay Form */}
           {editingPartner && (
             <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs select-none">
-              <div className="bg-white w-full max-w-md rounded-2xl shadow-xl overflow-hidden flex flex-col p-5 text-xs text-left">
+              <div className="bg-white w-full max-w-lg max-h-[90vh] rounded-2xl shadow-xl overflow-hidden flex flex-col p-5 text-xs text-left">
                 <div className="flex items-center justify-between pb-3 border-b border-slate-150 mb-4">
                   <div>
                     <h4 className="text-sm font-black text-slate-900">🏢 제휴 가맹점 정보 수정</h4>
@@ -489,7 +490,7 @@ export default function AdminDashboard({
                   </button>
                 </div>
                 
-                <form onSubmit={handleSaveEdit} className="space-y-3">
+                <form onSubmit={handleSaveEdit} className="space-y-3 overflow-y-auto flex-1 min-h-0 pr-1">
                   <div className="grid grid-cols-2 gap-3">
                     <div>
                       <label className="text-[12px] text-slate-500 block mb-1 font-bold">가맹사 법인명 (상호명) *</label>
@@ -545,7 +546,9 @@ export default function AdminDashboard({
                      />
                   </div>
 
-                  <div className="flex gap-2 pt-3 border-t border-slate-100">
+                  <PartnerProfileFormFields profile={editProfile} onChange={setEditProfile} />
+
+                  <div className="flex gap-2 pt-3 border-t border-slate-100 sticky bottom-0 bg-white">
                     <button 
                       type="button" 
                       onClick={() => setEditingPartner(null)}
@@ -646,6 +649,8 @@ export default function AdminDashboard({
             />
           </div>
 
+          <PartnerProfileFormFields profile={newProfile} onChange={setNewProfile} />
+
           <button
             type="submit"
             className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-black text-xs transition-all flex items-center justify-center gap-1 shadow-xs"
@@ -653,6 +658,12 @@ export default function AdminDashboard({
             <PlusCircle size={14} />
             신규 제휴 가맹점 입점 승인
           </button>
+
+          <PartnerOnboardingChecklist
+            companyId={newId.trim().toLowerCase()}
+            companyName={newName.trim() || undefined}
+            variant="light"
+          />
         </form>
       )}
     </div>

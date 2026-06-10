@@ -31,7 +31,7 @@ B2B 앱은 홈페이지 필드 별칭을 자동 매핑합니다 (`entryDate`→`
 1. **Authentication → Sign-in method → Anonymous** → 사용 설정
 2. **Authentication → Settings → Authorized domains** → `wawavalet.com` (및 로컬 테스트용 `localhost`) 추가
 3. **Firestore** → 기본 DB 사용 (앱에 `firestoreDatabaseId` 없음)
-4. 규칙: 개발용으로 `firestore.rules` 가 열려 있음. 운영 전에는 인증 기반 규칙으로 교체 권장
+4. 규칙: `firestore.rules` · `storage.rules` — 인증 필수(Anonymous 포함). 상세: [FIRESTORE_RULES.md](./FIRESTORE_RULES.md)
 
 ## 홈페이지에서 예약 저장 (필수 필드)
 
@@ -101,10 +101,20 @@ export async function submitHomepageReservation(form) {
 
 ## 마감(블록아웃) 연동
 
+**단일 소스:** `companies/{업체id}.blockedDates` (+ `isOpen`)
+
+| 업체 | Firestore 경로 |
+|------|----------------|
+| 와와 | `companies/wawa` |
+| 가유 등 제휴 | `companies/gayu` … |
+| 에어픽 본사 | `companies/airpick` |
+
+> 레거시 `system_settings/config.blockedDates` 는 B2B 첫 로그인 시 `companies/airpick` 으로 **1회 자동 이전**됩니다.
+
 앱 **예약 마감** 메뉴에서 저장하는 값:
 
-- **전체 마감**: `companies/wawa.isOpen === false`
-- **날짜별 마감**: `companies/wawa.blockedDates` → `["2026-06-01", ...]`
+- **전체 마감**: `companies/{id}.isOpen === false`
+- **날짜별 마감**: `companies/{id}.blockedDates` → `["2026-06-01", ...]`
 
 홈페이지 예약 폼 제출 **전**에 `companies/wawa` 를 읽어 동일하게 막아야 홈·앱이 일치합니다. 앱 현장 접수도 날짜별 마감을 검사합니다.
 

@@ -17,9 +17,10 @@ import { Company, Reservation, AppView, CompanyInfo } from '../types';
 import ReservationCard from './ReservationCard';
 import CustomDatePickerModal from './CustomDatePickerModal';
 import TimePickerModal from './TimePickerModal';
-import { getCalculatePrice, checkIsNightSurcharge } from '../App';
-import { mergePartnerPricing, getParkingDayCount } from '../utils/pricing';
+import { getCalculatePrice, checkIsNightSurcharge, mergePartnerPricing, getParkingDayCount } from '../utils/pricing';
+import { getKSTDateTimeLocalString } from '../utils/kstDate';
 import { formatPartnerDisplayName } from '../utils/companyDisplay';
+import { persistReservationStores } from '../utils/reservationScope';
 
 function cn(...classes: (string | boolean | undefined)[]) {
   return classes.filter(Boolean).join(' ');
@@ -35,20 +36,9 @@ function isHomepageBookingSource(createdBy?: string) {
   return createdBy === 'homepage';
 }
 
-// Helper to get KST Date time local string
-const getKSTDateTimeLocalString = (addedMs: number = 0) => {
-  const d = new Date(Date.now() + addedMs);
-  const yr = d.getFullYear();
-  const mo = String(d.getMonth() + 1).padStart(2, '0');
-  const dy = String(d.getDate()).padStart(2, '0');
-  const hr = String(d.getHours()).padStart(2, '0');
-  const mn = String(d.getMinutes()).padStart(2, '0');
-  return `${yr}-${mo}-${dy}T${hr}:${mn}`;
-};
-
 interface SearchReceptionViewProps {
   currentView: AppView;
-  setCurrentView: (view: AppView) => void;
+  onNavigate: (view: AppView) => void;
   reservations: Reservation[];
   companies: Company[];
   currentCompanyId: string;
@@ -75,7 +65,7 @@ interface SearchReceptionViewProps {
 
 export default function SearchReceptionView({
   currentView,
-  setCurrentView,
+  onNavigate,
   reservations,
   companies,
   currentCompanyId,
@@ -211,24 +201,17 @@ export default function SearchReceptionView({
     return '';
   };
 
-  // Extract active blocked dates for current company selection
-  const getActiveBlockedDates = () => {
+  // Extract active blocked dates for current company selection (companies/{id}.blockedDates)
+  const getActiveBlockedDates = (): string[] => {
     const activeCompId = selectedCompanyId || currentCompanyId || 'wawa';
-    let partnerObj = companies.find(c => c.id === activeCompId);
-    let activeBlocked: string[] = [...blockedDates];
-    if (partnerObj && Array.isArray(partnerObj.blockedDates)) {
-      activeBlocked = Array.from(new Set([...activeBlocked, ...partnerObj.blockedDates]));
+    const fromCompany = companies.find((c) => c.id === activeCompId);
+    if (fromCompany && Array.isArray(fromCompany.blockedDates)) {
+      return fromCompany.blockedDates;
     }
-    try {
-      const local = window.localStorage.getItem(`${activeCompId}_blockedDates`);
-      if (local) {
-        const parsed = JSON.parse(local);
-        if (Array.isArray(parsed)) {
-          activeBlocked = Array.from(new Set([...activeBlocked, ...parsed]));
-        }
-      }
-    } catch (_) {}
-    return activeBlocked;
+    if (activeCompId === currentCompanyId) {
+      return blockedDates;
+    }
+    return [];
   };
 
   // Submit Driver Intake Registration
@@ -374,13 +357,13 @@ export default function SearchReceptionView({
     } catch (err: any) {
       onUpdateReservations(prev => {
         const updated = [{ id, ...bookingPayload }, ...prev];
-        window.localStorage.setItem(`${currentCompanyId}_reservations`, JSON.stringify(updated));
+        persistReservationStores(window.localStorage, updated, activeCompId, { cacheFirestore: true });
         return updated;
       });
       alert(`차량 번호 ${bookingPayload.carNumber}의 구역 정보가 로컬 임시 메모리로 백업 보관되었습니다!`);
     } finally {
       setIsSubmittingBooking(false);
-      setCurrentView('timeline');
+      onNavigate('timeline');
       setUserName('');
       setCarModel('');
       setCarNumber('');
@@ -453,7 +436,7 @@ export default function SearchReceptionView({
     } catch (_) {
       onUpdateReservations(prev => {
         const updated = prev.map(r => r.id === editingSearchedRes.id ? { ...r, ...updatePayload } : r);
-        window.localStorage.setItem(`${currentCompanyId}_reservations`, JSON.stringify(updated));
+        persistReservationStores(window.localStorage, updated, activeCompId, { cacheFirestore: true });
         return updated;
       });
       alert("오프라인 상태입니다. 로컬 임시 메모리에 저장 수정 처리되었습니다.");
@@ -466,7 +449,7 @@ export default function SearchReceptionView({
     <div className="space-y-5">
       <div className="flex items-center gap-3.5">
         <button 
-          onClick={() => setCurrentView('timeline')}
+          onClick={() => onNavigate('timeline')}
           className="p-2 bg-neutral-900 border border-neutral-800 rounded-2xl text-zinc-400 hover:text-white transition-all cursor-pointer"
         >
           <ArrowLeft size={16} />

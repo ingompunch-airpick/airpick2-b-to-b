@@ -2,6 +2,7 @@
 import { Settings, CheckCircle2, X, Calendar, Clock } from 'lucide-react';
 import { db } from '../firebase';
 import { doc, updateDoc } from 'firebase/firestore';
+import { persistReservationStores } from '../utils/reservationScope';
 import { Reservation, Company } from '../types';
 
 function cn(...classes: (string | boolean | undefined)[]) {
@@ -108,7 +109,7 @@ export default function DriverReservationEditModal({
         ...r, 
         ...updatedPayload 
       } : r);
-      localStorage.setItem(`${currentCompanyId}_reservations`, JSON.stringify(updated));
+      persistReservationStores(localStorage, updated, currentCompanyId, { cacheFirestore: true });
       return updated;
     });
 

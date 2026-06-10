@@ -6,6 +6,9 @@ export function formatPartnerDisplayName(name?: string, companyId?: string): str
   if (id === 'wawa' || id === 'wawa_valet' || raw.includes('와와')) {
     return '와와';
   }
+  if (id === 'gayu' || id === 'gayu_partner' || raw.includes('가유')) {
+    return '가유';
+  }
   if (id === 'airpick') {
     return '에어픽';
   }

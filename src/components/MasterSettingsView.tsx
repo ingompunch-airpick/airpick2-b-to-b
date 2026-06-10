@@ -1,22 +1,20 @@
-﻿import React, { useState, useEffect } from 'react';
-import { CompanyInfo, Reservation, Company, PartnerCompany, Employee } from '../types';
+﻿import React, { useState, useEffect, useMemo } from 'react';
+import { CompanyInfo, Reservation, Company, PartnerCompany, Employee, FacilityType } from '../types';
 import { 
-  Building2, 
-  KeyRound, 
-  CheckCircle2, 
   Save, 
   Users, 
-  ShieldCheck,
   FileSpreadsheet,
-  Lock,
   Sliders,
   ChevronUp,
   ChevronDown
 } from 'lucide-react';
-import { FALLBACK_COMPANIES } from '../data';
 import { doc, setDoc } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../firebase';
+import { db } from '../firebase';
 import TimePickerModal from './TimePickerModal';
+import AdminDashboard from './AdminDashboard';
+import { isAirpickHeadquarters } from '../constants/platform';
+import { ensureFirestoreAuth } from '../lib/firebaseAuth';
+import { inferFacilityType } from '../utils/companyProfile';
 
 // TimeSpinner is deprecated and replaced by unified TimePickerModal with firm Confirm actions.
 
@@ -124,6 +122,73 @@ function PriceInput({
       </div>
     </div>
   );
+}
+
+function resolveLegacyPricingFields(
+  facilityType: FacilityType,
+  outdoorBasePrice: number,
+  outdoorBaseDays: number,
+  outdoorExtraPrice: number,
+  indoorBasePrice: number,
+  indoorBaseDays: number,
+  indoorExtraPrice: number
+) {
+  if (facilityType === 'indoor') {
+    return {
+      base_price: Number(indoorBasePrice) || 0,
+      extra_day_price: Number(indoorExtraPrice) || 0,
+      base_days: Number(indoorBaseDays) || 0,
+    };
+  }
+  return {
+    base_price: Number(outdoorBasePrice) || 0,
+    extra_day_price: Number(outdoorExtraPrice) || 0,
+    base_days: Number(outdoorBaseDays) || 0,
+  };
+}
+
+function buildMatrixPricingPayload(
+  facilityType: FacilityType,
+  values: {
+    outdoorBasePrice: number;
+    outdoorBaseDays: number;
+    outdoorExtraPrice: number;
+    indoorBasePrice: number;
+    indoorBaseDays: number;
+    indoorExtraPrice: number;
+    surchargeStartTime: string;
+    surchargeEndTime: string;
+    surchargePrice: number;
+    t2Surcharge: number;
+    peakStartTime: string;
+    peakEndTime: string;
+    peakSurcharge: number;
+  }
+) {
+  return {
+    ...resolveLegacyPricingFields(
+      facilityType,
+      values.outdoorBasePrice,
+      values.outdoorBaseDays,
+      values.outdoorExtraPrice,
+      values.indoorBasePrice,
+      values.indoorBaseDays,
+      values.indoorExtraPrice
+    ),
+    outdoorBasePrice: Number(values.outdoorBasePrice) || 0,
+    outdoorBaseDays: Number(values.outdoorBaseDays) || 0,
+    outdoorExtraPrice: Number(values.outdoorExtraPrice) || 0,
+    indoorBasePrice: Number(values.indoorBasePrice) || 0,
+    indoorBaseDays: Number(values.indoorBaseDays) || 0,
+    indoorExtraPrice: Number(values.indoorExtraPrice) || 0,
+    surchargeStartTime: values.surchargeStartTime || '00:00',
+    surchargeEndTime: values.surchargeEndTime || '00:00',
+    surchargePrice: Number(values.surchargePrice) || 0,
+    t2Surcharge: Number(values.t2Surcharge) || 0,
+    peakStartTime: values.peakStartTime || '',
+    peakEndTime: values.peakEndTime || '',
+    peakSurcharge: Number(values.peakSurcharge) || 0,
+  };
 }
 
 
@@ -342,6 +407,16 @@ export default function MasterSettingsView({
     }
   }, [isSuperAdmin, partners, companies, companyInfo]);
 
+  const currentCompany = useMemo(
+    () => (companies || []).find((c) => c.id === companyInfo.id),
+    [companies, companyInfo.id]
+  );
+  const facilityType = useMemo(() => inferFacilityType(currentCompany), [currentCompany]);
+  const showOutdoorMatrix = facilityType === 'outdoor' || facilityType === 'mixed';
+  const showIndoorMatrix = facilityType === 'indoor' || facilityType === 'mixed';
+  const facilityTypeLabel =
+    facilityType === 'outdoor' ? '실외 전용' : facilityType === 'indoor' ? '실내 전용' : '실내+실외';
+
   const handleSavePartnerSelf = async () => {
     try {
       const cleanPassword = (partnerPassword || '').trim() || 'master1234';
@@ -387,26 +462,27 @@ export default function MasterSettingsView({
         dbCompanies = [...(companies || [])];
       }
 
+      const pricingPayload = buildMatrixPricingPayload(facilityType, {
+        outdoorBasePrice,
+        outdoorBaseDays,
+        outdoorExtraPrice,
+        indoorBasePrice,
+        indoorBaseDays,
+        indoorExtraPrice,
+        surchargeStartTime,
+        surchargeEndTime,
+        surchargePrice,
+        t2Surcharge,
+        peakStartTime,
+        peakEndTime,
+        peakSurcharge,
+      });
+
       const updatedCompanies = dbCompanies.map(c => {
         if (c.id === companyInfo.id) {
           return {
             ...c,
-            base_price: Number(outdoorBasePrice) || 0,
-            extra_day_price: Number(outdoorExtraPrice) || 0,
-            base_days: Number(outdoorBaseDays) || 0,
-            outdoorBasePrice: Number(outdoorBasePrice) || 0,
-            outdoorBaseDays: Number(outdoorBaseDays) || 0,
-            outdoorExtraPrice: Number(outdoorExtraPrice) || 0,
-            indoorBasePrice: Number(indoorBasePrice) || 0,
-            indoorBaseDays: Number(indoorBaseDays) || 0,
-            indoorExtraPrice: Number(indoorExtraPrice) || 0,
-            surchargeStartTime: surchargeStartTime || '00:00',
-            surchargeEndTime: surchargeEndTime || '00:00',
-            surchargePrice: Number(surchargePrice) || 0,
-            t2Surcharge: Number(t2Surcharge) || 0,
-            peakStartTime: peakStartTime || '',
-            peakEndTime: peakEndTime || '',
-            peakSurcharge: Number(peakSurcharge) || 0
+            ...pricingPayload,
           };
         }
         return c;
@@ -431,22 +507,7 @@ export default function MasterSettingsView({
       try {
         const docRef = doc(db, 'companies', companyInfo.id);
         await setDoc(docRef, {
-          base_price: Number(outdoorBasePrice) || 0,
-          extra_day_price: Number(outdoorExtraPrice) || 0,
-          base_days: Number(outdoorBaseDays) || 0,
-          outdoorBasePrice: Number(outdoorBasePrice) || 0,
-          outdoorBaseDays: Number(outdoorBaseDays) || 0,
-          outdoorExtraPrice: Number(outdoorExtraPrice) || 0,
-          indoorBasePrice: Number(indoorBasePrice) || 0,
-          indoorBaseDays: Number(indoorBaseDays) || 0,
-          indoorExtraPrice: Number(indoorExtraPrice) || 0,
-          surchargeStartTime: surchargeStartTime || '00:00',
-          surchargeEndTime: surchargeEndTime || '00:00',
-          surchargePrice: Number(surchargePrice) || 0,
-          t2Surcharge: Number(t2Surcharge) || 0,
-          peakStartTime: peakStartTime || '',
-          peakEndTime: peakEndTime || '',
-          peakSurcharge: Number(peakSurcharge) || 0,
+          ...pricingPayload,
           employees: (employeeList || []).map(emp => ({
             id: emp.id || '',
             name: emp.name || '',
@@ -469,245 +530,33 @@ export default function MasterSettingsView({
     }
   };
 
-  // 1. Form fields for Company
-  const [id, setId] = useState(companyInfo.id || 'wawa');
-  const [name, setName] = useState(companyInfo.name || '');
-  const [phone, setPhone] = useState(companyInfo.phone || '');
-  const [facilityType, setFacilityType] = useState<'indoor' | 'outdoor' | 'mixed'>(() => {
-    if (companyInfo.facilityType) return companyInfo.facilityType;
-    return companyInfo.isIndoor ? 'indoor' : 'outdoor';
-  });
+  const isHqOnboardingMode = isSuperAdmin && isAirpickHeadquarters(companyInfo.id);
 
-  // Auto-generate companyId from name to support individual partition storage without exposing ID field to users
-  useEffect(() => {
-    if (!name.trim()) return;
-    const cleanId = name.trim().toLowerCase().includes('가유')
-      ? 'gayu'
-      : name.trim().toLowerCase().includes('에어') 
-      ? 'air25' 
-      : name.trim().toLowerCase().includes('케어') 
-      ? 'care' 
-      : name.trim().toLowerCase().includes('와와')
-      ? 'wawa'
-      : name.trim().toLowerCase().replace(/[^a-z0-0a-zA-Z]/g, '') || 'wawa';
-    setId(cleanId);
-  }, [name]);
-
-  // 2. Master Account values from local storage
-  const [masterEmail, setMasterEmail] = useState(() => {
-    return localStorage.getItem('master_account_email') || '';
-  });
-  const [masterPassword, setMasterPassword] = useState(() => {
-    return localStorage.getItem('master_account_password') || '';
-  });
-
-  // 3. Status Flags
-  const [isSaved, setIsSaved] = useState(false);
-
-  const handleSave = async () => {
-    const cleanName = name.trim();
-    const cleanPhone = phone.trim();
-    const cleanEmail = masterEmail.trim().toLowerCase();
-    const cleanPassword = masterPassword.trim();
-
-    // 1. 데이터 유효성 검사
-    if (!cleanName) {
-      alert('업체 명을 입력해주세요.');
-      return;
-    }
-    if (!cleanPhone) {
-      alert('대표전화 번호를 입력해주세요.');
-      return;
-    }
-    if (!cleanEmail) {
-      alert('마스터 로그인 이메일을 입력해주세요.');
-      return;
-    }
-    if (!cleanPassword) {
-      alert('마스터 로그인 보안 암호를 입력해주세요.');
-      return;
-    }
-
-    // Generate accurate company ID
-    const generatedId = cleanName.includes('와와')
-      ? 'wawa'
-      : cleanName.includes('가유')
-      ? 'gayu'
-      : cleanName.includes('에어')
-      ? 'air25'
-      : cleanName.includes('케어')
-      ? 'care'
-      : cleanName.replace(/[^a-zA-Z0-9]/g, '').toLowerCase() || 'co_' + Math.random().toString(36).substring(2, 7);
-
-    const settlementMemo = `시설 유형: ${facilityType === 'indoor' ? '실내' : facilityType === 'outdoor' ? '실외' : '실내+실외 혼합'}`;
-
-    // 2. Local storage 전송 및 업체 추가
-    const newCompanyObj: Company = {
-      id: generatedId,
-      name: cleanName,
-      phone: cleanPhone,
-      representative: '제휴 사장님',
-      is_indoor: facilityType === 'indoor' || facilityType === 'mixed',
-      supports_indoor: facilityType === 'indoor' || facilityType === 'mixed',
-      supports_outdoor: facilityType === 'outdoor' || facilityType === 'mixed',
-      base_price: 15000,
-      extra_day_price: 5000,
-      base_days: 1,
-      rating: 4.8,
-      reviews_count: 14,
-      features: [facilityType === 'indoor' ? '실내 정식' : facilityType === 'outdoor' ? '실외 야외' : '실내+실외'],
-      image_url: 'https://images.unsplash.com/photo-1545179605-1296651e9d43?q=80&w=200&auto=format&fit=crop',
-      terminals: ['T1', 'T2'],
-      isOpen: true,
-      outdoorBasePrice: 15000,
-      outdoorBaseDays: 1,
-      outdoorExtraPrice: 5000,
-      indoorBasePrice: 30000,
-      indoorBaseDays: 1,
-      indoorExtraPrice: 10000,
-      surchargeStartTime: '20:00',
-      surchargeEndTime: '05:00',
-      surchargePrice: 10000,
-      t2Surcharge: 0,
-      peakStartTime: '',
-      peakEndTime: '',
-      peakSurcharge: 0
-    };
-
-    // Load and update companies array in localStorage
-    const savedCompaniesStr = localStorage.getItem('companies');
-    let dbCompanies: Company[] = [];
-    if (savedCompaniesStr) {
-      try {
-        dbCompanies = JSON.parse(savedCompaniesStr);
-      } catch (_) {}
-    }
-    if (!dbCompanies || dbCompanies.length === 0) {
-      dbCompanies = [...FALLBACK_COMPANIES];
-    }
-
-    const existingIdx = dbCompanies.findIndex(c => c.id === generatedId);
-    if (existingIdx >= 0) {
-      dbCompanies[existingIdx] = newCompanyObj;
-    } else {
-      dbCompanies.push(newCompanyObj);
-    }
-    localStorage.setItem('companies', JSON.stringify(dbCompanies));
-
-    // Support partners list updates so login capability is fully integrated
-    const savedPartnersStr = localStorage.getItem('super_partners_list');
-    let dbPartners: PartnerCompany[] = [];
-    if (savedPartnersStr) {
-      try {
-        dbPartners = JSON.parse(savedPartnersStr);
-      } catch (_) {}
-    }
-
-    const newPartnerObj: PartnerCompany = {
-      companyId: generatedId,
-      password: cleanPassword,
-      name: cleanName,
-      representative: '제휴 사장님',
-      phone: cleanPhone,
-      settlementMemo,
-      status: 'active'
-    };
-
-    const extPartnerIdx = dbPartners.findIndex(p => p.companyId === generatedId);
-    const isNewPartner = extPartnerIdx < 0;
-
-    // Firestore companies/{id} — wawa·AdminDashboard 등록과 동일 경로
-    try {
-      const firestorePayload: Record<string, unknown> = {
-        ...newCompanyObj,
-        facilityType,
-        password: cleanPassword,
-        masterEmail: cleanEmail,
-        settlementMemo,
-        status: 'active',
-        updatedAt: new Date().toISOString()
-      };
-      if (isNewPartner) {
-        firestorePayload.blockedDates = [];
-      }
-      await setDoc(doc(db, 'companies', generatedId), firestorePayload, { merge: true });
-    } catch (err: unknown) {
-      handleFirestoreError(err, OperationType.WRITE, `companies/${generatedId}`);
-      alert('❌ Firebase 저장에 실패했습니다. 네트워크·권한을 확인한 뒤 다시 시도해 주세요.');
-      return;
-    }
-    if (extPartnerIdx >= 0) {
-      dbPartners[extPartnerIdx] = {
-        ...newPartnerObj,
-        employees: dbPartners[extPartnerIdx].employees || []
-      };
-    } else {
-      dbPartners.push(newPartnerObj);
-    }
-    localStorage.setItem('super_partners_list', JSON.stringify(dbPartners));
-
-    // 이와 동시에 해당 업체의 독립된 예약 사물함 키값인 `${companyId}_reservations` 와 `${companyId}_drivers` 초기화
-    const reservationsKey = `${generatedId}_reservations`;
-    if (!localStorage.getItem(reservationsKey)) {
-      localStorage.setItem(reservationsKey, JSON.stringify([]));
-    }
-    const driversKey = `${generatedId}_drivers`;
-    if (!localStorage.getItem(driversKey)) {
-      localStorage.setItem(driversKey, JSON.stringify([
-        { id: '1', name: `${cleanName} 대기기사`, phone: cleanPhone, rating: 4.8 }
-      ]));
-    }
-
-    // Apply react state updates to trigger master table and global listings in parent
-    if (onUpdateCompanies) {
-      onUpdateCompanies(dbCompanies);
-    }
-    if (onUpdatePartners) {
-      onUpdatePartners(dbPartners);
-    }
-    if (onUpdateCompany) {
-      onUpdateCompany({
-        id: generatedId,
-        name: cleanName,
-        region: facilityType === 'indoor' ? '실내' : facilityType === 'outdoor' ? '실외' : '실내+실외 혼합',
-        phone: cleanPhone,
-        logo: '',
-        isIndoor: facilityType === 'indoor' || facilityType === 'mixed',
-        facilityType: facilityType,
-        ratePolicy: ''
-      });
-    }
-
-    // Save temporary fields for feedback
-    localStorage.setItem('master_account_email', cleanEmail);
-    localStorage.setItem('master_account_password', cleanPassword);
-
-    // 3. 등록 완료 알림 및 초기화
-    alert(
-      isNewPartner
-        ? `🎉 [${cleanName}] 등록이 완료되었습니다!\nFirebase companies/${generatedId} 에 저장되었으며, 아이디 '${generatedId}' 로 로그인할 수 있습니다.`
-        : `🎉 [${cleanName}] 정보가 갱신되었습니다!\nFirebase companies/${generatedId} 에 반영되었습니다.`
+  if (isHqOnboardingMode) {
+    return (
+      <div className="bg-black min-h-screen text-zinc-100 p-4 pb-20">
+        <div className="mb-5 px-1">
+          <h2 className="text-sm font-black text-white">제휴업체 관리</h2>
+          <p className="text-[12px] text-zinc-500 font-bold uppercase tracking-wider mt-0.5">
+            신규 제휴사 등록 · 기존 업체 수정/삭제
+          </p>
+        </div>
+        <AdminDashboard
+          onClose={() => onBack?.()}
+          companies={companies || []}
+          partners={partners || []}
+          onUpdatePartners={(updated) => {
+            onUpdatePartners?.(updated);
+            localStorage.setItem('super_partners_list', JSON.stringify(updated));
+          }}
+          onUpdateCompanies={(updated) => {
+            onUpdateCompanies?.(updated);
+            localStorage.setItem('companies', JSON.stringify(updated));
+          }}
+        />
+      </div>
     );
-
-    // Reset input fields
-    setName('');
-    setPhone('');
-    setFacilityType('indoor');
-    setMasterEmail('');
-    setMasterPassword('');
-
-    setIsSaved(true);
-    setTimeout(() => setIsSaved(false), 3000);
-  };
-
-  // Filter reservations affiliated with this master info (simulating real corporate partition isolation)
-  const matchingRes = name.trim() ? reservations.filter(r => 
-    r.companyName.toLowerCase().includes(name.toLowerCase()) || 
-    (r.companyId && r.companyId.toLowerCase().includes(name.toLowerCase().replace(/\s+/g, '_')))
-  ) : [];
-
-  // Simulate unique active drivers allocated for this specific company setup
-  const driversCount = name.trim() ? (name.includes('가유') ? 5 : 3) : 0;
+  }
 
   const surchargeTimePicker = (
     <TimePickerModal
@@ -732,8 +581,7 @@ export default function MasterSettingsView({
     />
   );
 
-  if (!isSuperAdmin) {
-    return (
+  return (
       <>
       <div className="bg-black min-h-screen text-white p-4 pb-20 selection:bg-amber-500 selection:text-neutral-950">
         {/* Header section */}
@@ -767,11 +615,19 @@ export default function MasterSettingsView({
               <span>[1] 인천공항 세부 요금제 매트릭스 설정</span>
             </div>
             <p className="text-[12.5px] text-white/80 leading-relaxed mb-1">
-              공항 현장 실정에 맞춘 실외/실내 차등 요금제 및 야간 입출고 할증 기준표입니다.
+              {facilityType === 'mixed'
+                ? '공항 현장 실정에 맞춘 실외/실내 차등 요금제 및 야간 입출고 할증 기준표입니다.'
+                : facilityType === 'outdoor'
+                  ? '실외 주차 요금 및 야간 입출고 할증 기준표입니다.'
+                  : '실내 주차 요금 및 야간 입출고 할증 기준표입니다.'}
+            </p>
+            <p className="text-[11px] text-amber-500/90 font-bold">
+              현재 시설 유형: {facilityTypeLabel}
+              {!isSuperAdmin && ' · 시설 유형은 최고관리자(제휴 가맹점 수정)에서 변경'}
             </p>
             
             <div className="space-y-4">
-              {/* 실외 주차 요금 */}
+              {showOutdoorMatrix && (
               <div className="p-3 bg-[#131315] border border-neutral-850 rounded-xl space-y-3">
                 <span className="text-[12px] text-white font-bold block">● 실외 주차 요금 (Outdoor Matrix)</span>
                 <div className="grid grid-cols-3 gap-2">
@@ -798,8 +654,9 @@ export default function MasterSettingsView({
                   />
                 </div>
               </div>
+              )}
 
-              {/* 실내 주차 요금 */}
+              {showIndoorMatrix && (
               <div className="p-3 bg-[#131315] border border-neutral-850 rounded-xl space-y-3">
                 <span className="text-[12px] text-white font-bold block">● 실내 주차 요금 (Indoor Matrix)</span>
                 <div className="grid grid-cols-3 gap-2">
@@ -826,6 +683,7 @@ export default function MasterSettingsView({
                   />
                 </div>
               </div>
+              )}
 
               {/* 야간/새벽 입출고 할증 */}
               <div className="p-3 bg-[#131315] border border-neutral-850 rounded-xl space-y-3">
@@ -1047,197 +905,4 @@ export default function MasterSettingsView({
       {surchargeTimePicker}
       </>
     );
-  }
-
-  return (
-    <>
-    <div className="bg-black min-h-screen text-zinc-100 p-4">
-      {/* Header section */}
-      <div className="flex items-center gap-3.5 mb-6 px-1">
-        <div>
-          <h2 className="text-sm font-black tracking-tight text-white">마스터 업체 및 계정 설정</h2>
-          <p className="text-[12px] text-zinc-500 font-bold uppercase">Master Company & Core Authorization</p>
-        </div>
-      </div>
-
-      <div className="space-y-6">
-        {/* Save success toast banner */}
-        {isSaved && (
-          <div className="bg-emerald-500/15 border border-emerald-500/30 text-emerald-400 p-3.5 rounded-2xl flex items-center gap-2 text-xs font-semibold animate-fade-in">
-            <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />
-            <span>업체 정보 및 마스터 계정 자격 규정이 성공적으로 갱신 보존되었습니다!</span>
-          </div>
-        )}
-
-        {/* Card 1: Company Profile Configuration */}
-        <div className="bg-neutral-900/40 p-5 rounded-3xl border border-neutral-850 space-y-4">
-          <div className="flex items-center gap-2 text-xs font-black text-amber-500 tracking-wider uppercase">
-            <Building2 size={14} />
-            <span>[1] 제휴 업체 브랜드 등록</span>
-          </div>
-
-          <div className="space-y-4 text-xs">
-            {/* 1. 업체 명 */}
-            <div>
-              <label className="text-[12px] text-zinc-500 font-bold block mb-1.5 uppercase tracking-wider">
-                [업체 명]
-              </label>
-              <input 
-                type="text" 
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full bg-[#1C1C1E] border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-500 font-bold" 
-                placeholder="업체 이름을 입력하세요" 
-              />
-            </div>
-
-            {/* 2. 시설 유형 */}
-            <div>
-              <label className="text-[12px] text-zinc-500 font-bold block mb-1.5 uppercase tracking-wider">
-                [시설 유형]
-              </label>
-              <div className="grid grid-cols-3 gap-2 bg-[#1C1C1E] p-1 rounded-xl border border-neutral-800 select-none">
-                <button
-                  type="button"
-                  onClick={() => setFacilityType('indoor')}
-                  className={`py-2 text-[13px] font-bold rounded-lg transition-all ${
-                    facilityType === 'indoor' 
-                      ? 'bg-amber-500 text-black shadow-xs' 
-                      : 'text-zinc-500 hover:text-zinc-300'
-                  }`}
-                >
-                  실내
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFacilityType('outdoor')}
-                  className={`py-2 text-[13px] font-bold rounded-lg transition-all ${
-                    facilityType === 'outdoor' 
-                      ? 'bg-amber-500 text-black shadow-xs' 
-                      : 'text-zinc-500 hover:text-zinc-300'
-                  }`}
-                >
-                  실외
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setFacilityType('mixed')}
-                  className={`py-2 text-[13px] font-bold rounded-lg transition-all ${
-                    facilityType === 'mixed' 
-                      ? 'bg-amber-500 text-black shadow-xs' 
-                      : 'text-zinc-500 hover:text-zinc-300'
-                  }`}
-                >
-                  실내+실외 혼합
-                </button>
-              </div>
-            </div>
-
-            {/* 3. 전화번호 */}
-            <div>
-              <label className="text-[12px] text-zinc-500 font-bold block mb-1.5 uppercase tracking-wider">
-                [전화번호]
-              </label>
-              <input 
-                type="text" 
-                value={phone}
-                onChange={(e) => setPhone(e.target.value)}
-                className="w-full bg-[#1C1C1E] border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-amber-500 font-mono" 
-                placeholder="대표 번호를 입력하세요" 
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Card 2: Master Authorization Link (Account Association) */}
-        <div className="bg-neutral-900/40 p-5 rounded-3xl border border-neutral-850 space-y-4">
-          <div className="flex items-center gap-2 text-xs font-black text-purple-400 tracking-wider uppercase">
-            <Lock size={14} />
-            <span>[2] 마스터 관리 사장님 계정 생성</span>
-          </div>
-
-          <p className="text-[12px] text-zinc-400/80 leading-relaxed">
-            아래 이메일과 패스워드로 로그인 시, 해당 업체의 소속 기사 목록과 주차 접수 데이터(대시보드)만 안전하게 격리 노출되는 고유 보증 주차공간 마케팅 시스템이 실행됩니다.
-          </p>
-
-          <div className="space-y-3">
-            <div>
-              <label className="text-[12px] text-zinc-500 font-bold block mb-1">마스터 로그인 이메일 (Master ID)</label>
-              <div className="relative">
-                <input 
-                  type="email" 
-                  value={masterEmail}
-                  onChange={(e) => setMasterEmail(e.target.value)}
-                  className="w-full bg-[#1C1C1E] border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-white focus:outline-none focus:border-purple-500 font-mono" 
-                  placeholder="예: master@gayoo.com" 
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="text-[12px] text-zinc-500 font-bold block mb-1">보안 암호 (Master Secret Pin)</label>
-              <div className="relative">
-                <input 
-                  type="text" 
-                  value={masterPassword}
-                  onChange={(e) => setMasterPassword(e.target.value)}
-                  className="w-full bg-[#1C1C1E] border border-neutral-800 rounded-xl px-3.5 py-2.5 text-xs text-zinc-300 focus:outline-none focus:border-purple-500 font-mono" 
-                  placeholder="예: master1234" 
-                />
-                <KeyRound size={12} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-zinc-600" />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Card 3: Enterprise Affiliated Database Status */}
-        <div className="bg-neutral-900/40 p-5 rounded-3xl border border-neutral-850 space-y-4">
-          <div className="flex items-center justify-between gap-2 border-b border-neutral-850 pb-3">
-            <div className="flex items-center gap-2 text-xs font-black text-zinc-400 tracking-wider uppercase">
-              <ShieldCheck size={14} className="text-[#22C55E]" />
-              <span>[3] 제휴사 데이터 연결 및 운영 현황</span>
-            </div>
-            
-            <div className="flex items-center gap-1.5 px-2 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-full text-[11px] font-black tracking-tight shrink-0">
-              <span className="relative flex h-1.5 w-1.5">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
-              </span>
-              데이터 서버 연결됨
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3.5">
-            <div className="bg-[#1C1C1E] p-4 rounded-2xl border border-neutral-800 text-center">
-              <span className="text-[12px] text-zinc-500 font-bold block mb-1">배정된 관리 기사단</span>
-              <span className="text-3xl font-black text-amber-500 font-mono tracking-tight block mt-0.5">{driversCount}명</span>
-            </div>
-
-            <div className="bg-[#1C1C1E] p-4 rounded-2xl border border-neutral-800 text-center">
-              <span className="text-[12px] text-zinc-500 font-bold block mb-1">매핑된 실시간 예약건</span>
-              <span className="text-3xl font-black text-emerald-400 font-mono tracking-tight block mt-0.5">{matchingRes.length}건</span>
-            </div>
-          </div>
-
-          <div className="p-3 bg-neutral-950/40 rounded-xl border border-neutral-850 text-center">
-            <span className="text-[11px] text-amber-500/80 font-semibold block">현재 적용된 활성 제휴점</span>
-            <span className="text-xs text-white font-extrabold block mt-0.5">
-              {name} ({facilityType === 'indoor' ? '실내' : facilityType === 'outdoor' ? '실외' : '실내+실외 혼합'})
-            </span>
-          </div>
-        </div>
-
-        {/* Actions Button */}
-        <button
-          onClick={handleSave}
-          className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 text-neutral-950 font-black rounded-2xl border border-amber-400/40 hover:brightness-110 shadow-lg shadow-amber-500/10 transition-all flex items-center justify-center gap-2 text-xs uppercase"
-        >
-          <Save size={14} />
-          <span>보안 설정 정보 최종 갱신 및 저장하기</span>
-        </button>
-      </div>
-    </div>
-    {surchargeTimePicker}
-    </>
-  );
 }

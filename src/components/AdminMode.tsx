@@ -1,8 +1,6 @@
 import React from 'react';
 import { Reservation, AppView, CompanyInfo, Company, PartnerCompany } from '../types';
-import { Lock } from 'lucide-react';
 import StatisticsView from './StatisticsView';
-import ParkingRegisterView from './ParkingRegisterView';
 import CancelledListView from './CancelledListView';
 import MasterSettingsView from './MasterSettingsView';
 
@@ -21,12 +19,14 @@ interface AdminModeProps {
   isSuperAdmin?: boolean;
   isEmployee?: boolean;
   employeeRole?: 'admin' | 'driver';
-  
-  // Real-time globally synced states & controls for the HQ dashboard
   currentCompanyId?: string;
-  onCompanySwitch?: (id: string) => void;
   blockedDates?: string[];
   onSaveBlockedDates?: (dates: string[]) => void;
+}
+
+function resolveAdminView(view: AppView | string): AppView {
+  if (view === 'parkingRegister') return 'statistics';
+  return view as AppView;
 }
 
 export default function AdminMode({
@@ -45,30 +45,27 @@ export default function AdminMode({
   isEmployee = false,
   employeeRole = 'driver',
   currentCompanyId = 'airpick',
-  onCompanySwitch,
   blockedDates = [],
   onSaveBlockedDates
 }: AdminModeProps) {
-  // Render sub-views dynamically based on the current active admin view
-  switch (currentView) {
+  const adminView = resolveAdminView(currentView);
+
+  const statisticsPanel = (
+    <StatisticsView
+      reservations={reservations}
+      allReservations={allReservations}
+      companyName={companyInfo.name}
+      isSuperAdmin={isSuperAdmin}
+      currentCompanyId={currentCompanyId}
+      blockedDates={blockedDates}
+      onSaveBlockedDates={onSaveBlockedDates}
+      onUpdateValetStatus={onUpdateValetStatus}
+    />
+  );
+
+  switch (adminView) {
     case 'statistics':
-    case 'parkingRegister':
-      return (
-        <StatisticsView 
-          reservations={reservations} 
-          allReservations={allReservations}
-          companyName={companyInfo.name} 
-          isSuperAdmin={isSuperAdmin}
-          companies={companies}
-          partners={partners}
-          onCompanySwitch={onCompanySwitch}
-          currentCompanyId={currentCompanyId}
-          blockedDates={blockedDates}
-          onSaveBlockedDates={onSaveBlockedDates}
-          setCurrentView={setCurrentView}
-          onUpdateValetStatus={onUpdateValetStatus}
-        />
-      );
+      return statisticsPanel;
 
     case 'cancelled_list':
       return (
@@ -97,6 +94,6 @@ export default function AdminMode({
       );
 
     default:
-      return <StatisticsView reservations={reservations} companyName={companyInfo.name} onUpdateValetStatus={onUpdateValetStatus} />;
+      return statisticsPanel;
   }
 }

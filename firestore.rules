@@ -1,31 +1,96 @@
 rules_version = '2';
+
 service cloud.firestore {
   match /databases/{database}/documents {
-    
-    // --- Safe Sandboxed Environment Configuration ---
-    // In sandboxed webviews and preview iframes, cookie and state storage is often blocked.
-    // To prevent "Missing or insufficient permissions" errors and ensure all operations
-    // (reservations, calendar blockouts, partner management, settings) work flawlessly,
-    // we grant permissive read/write access.
-    
-    // companies
-    match /companies/{companyId} {
-      allow read, write: if true;
+
+    // ── Helpers ─────────────────────────────────────────────────────────────
+
+    function isSignedIn() {
+      return request.auth != null;
     }
 
-    // reservations
+    /** B2B 본사 Firebase Auth 계정 (Anonymous 아님) */
+    function isPlatformAdmin() {
+      return isSignedIn()
+        && request.auth.token.email != null
+        && request.auth.token.email in [
+          'drive5746@gmail.com',
+          'ingompunch@gmail.com'
+        ];
+    }
+
+    function isValidCompanyId(companyId) {
+      return companyId.matches('^[a-z0-9_]{1,64}$');
+    }
+
+    function isValidReservationId(reservationId) {
+      return reservationId.matches('^[a-zA-Z0-9_-]{1,128}$');
+    }
+
+    function reservationCoreFieldsValid(data) {
+      return data.keys().hasAll(['status', 'createdAt'])
+        && data.status is string
+        && data.status.size() > 0
+        && data.status.size() <= 64
+        && data.createdAt is string
+        && data.createdAt.size() > 0
+        && data.createdAt.size() <= 40;
+    }
+
+    function reservationCompanyIdValid(data) {
+      return !('companyId' in data)
+        || (data.companyId is string
+            && data.companyId.size() > 0
+            && data.companyId.size() <= 64);
+    }
+
+    function reservationTotalPriceValid(data) {
+      return !('totalPrice' in data)
+        || (data.totalPrice is number && data.totalPrice >= 0);
+    }
+
+    function validReservationWrite() {
+      return reservationCoreFieldsValid(request.resource.data)
+        && reservationCompanyIdValid(request.resource.data)
+        && reservationTotalPriceValid(request.resource.data);
+    }
+
+    // ── reservations (홈페이지 · B2C · B2B 공유) ───────────────────────────
+
     match /reservations/{reservationId} {
-      allow read, write: if true;
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && isValidReservationId(reservationId)
+        && validReservationWrite();
+      allow update: if isSignedIn()
+        && isValidReservationId(reservationId)
+        && validReservationWrite();
+      allow delete: if isPlatformAdmin();
     }
 
-    // parking_lots
-    match /parking_lots/{parkingLotId} {
-      allow read, write: if true;
+    // ── companies (요금·마감 — B2C/홈 read, B2B write) ─────────────────────
+
+    match /companies/{companyId} {
+      // 요금·마감 조회: 로그인 전에도 B2C/홈에서 읽을 수 있도록 공개 read
+      allow read: if true;
+      allow create: if isPlatformAdmin() && isValidCompanyId(companyId);
+      // blockedDates·isOpen·요금 등 — Anonymous 로그인 후 제휴업체 B2B 수정
+      allow update: if isSignedIn() && isValidCompanyId(companyId);
+      allow delete: if isPlatformAdmin() && isValidCompanyId(companyId);
     }
 
-    // system_settings
+    // ── system_settings (본사 레거시 마감) ────────────────────────────────
+
     match /system_settings/{settingId} {
-      allow read, write: if true;
+      allow read: if isSignedIn();
+      allow write: if isPlatformAdmin();
+    }
+
+    // ── parking_lots (미사용 컬렉션 — 관리자만) ───────────────────────────
+
+    match /parking_lots/{lotId} {
+      allow read: if true;
+      allow write: if isPlatformAdmin();
     }
   }
 }

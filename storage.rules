@@ -1,8 +1,27 @@
 rules_version = '2';
+
 service firebase.storage {
   match /b/{bucket}/o {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isValidCompanyId(companyId) {
+      return companyId.matches('^[a-z0-9_]{1,64}$');
+    }
+
+    function isValidReservationId(reservationId) {
+      return reservationId.matches('^[a-zA-Z0-9_-]{1,128}$');
+    }
+
+    // 차량 사진: reservations/{companyId}/{reservationId}/images/…
     match /reservations/{companyId}/{reservationId}/{allPaths=**} {
-      allow read, write: if true;
+      allow read: if isSignedIn();
+      allow write: if isSignedIn()
+        && isValidCompanyId(companyId)
+        && isValidReservationId(reservationId)
+        && request.resource.size < 15 * 1024 * 1024;
     }
   }
 }

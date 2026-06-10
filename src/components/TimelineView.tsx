@@ -2,7 +2,7 @@
 import { Search, Calendar, X, RefreshCw, Car, FileText } from 'lucide-react';
 import { Reservation, ReservationStatus, AppView } from '../types';
 import ReservationCard from './ReservationCard';
-import { normalizeDateString } from '../App';
+import { normalizeDateString } from '../utils/reservationNormalize';
 import { isDriverTimelineHidden, matchesDriverTab } from '../utils/reservationStatus';
 
 function cn(...classes: (string | boolean | undefined)[]) {
@@ -17,8 +17,8 @@ interface TimelineViewProps {
   activeCounterTab: ReservationStatus;
   loadingReservations: boolean;
   
-  // Navigation
-  setCurrentView: (view: AppView) => void;
+  // Navigation (handleNavigate 로 view 가드 통과)
+  onNavigate: (view: AppView) => void;
   setReceptionSubMode: (mode: 'search' | 'new_contract') => void;
 
   // Actions for card
@@ -38,7 +38,7 @@ export default function TimelineView({
   setDatePickerTarget,
   activeCounterTab,
   loadingReservations,
-  setCurrentView,
+  onNavigate,
   setReceptionSubMode,
   setDriverDetailRes,
   setAdminEditingReservationId,
@@ -254,7 +254,7 @@ export default function TimelineView({
             type="button"
             onClick={() => {
               setReceptionSubMode('search');
-              setCurrentView('search_reception');
+              onNavigate('search_reception');
             }}
             className="flex-1 py-4 bg-[#1C1C1E] border border-neutral-800 hover:border-neutral-700 text-amber-500 rounded-[22px] text-center text-sm font-black tracking-tight shadow-md hover:bg-neutral-900 active:scale-[0.98] duration-100 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
             id="bottom-search-edit-button"
@@ -266,7 +266,7 @@ export default function TimelineView({
             type="button"
             onClick={() => {
               setReceptionSubMode('new_contract');
-              setCurrentView('search_reception');
+              onNavigate('search_reception');
             }}
             className="flex-1 py-4 bg-amber-500 text-neutral-950 rounded-[22px] text-center text-sm font-black tracking-tight shadow-lg shadow-amber-500/10 hover:bg-amber-440 active:scale-[0.98] duration-100 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
             id="bottom-new-contract-button"

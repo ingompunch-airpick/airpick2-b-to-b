@@ -12,8 +12,8 @@ import {
   onSnapshot, 
   doc, 
   setDoc, 
-  getDocs, 
-  deleteDoc,
+  getDoc,
+  getDocs,
   updateDoc,
   query
 } from 'firebase/firestore';
@@ -29,12 +29,20 @@ import { motion, AnimatePresence } from 'motion/react';
 
 // --- Modular Typed Constants and Data ---
 import { Company, Reservation, ReservationStatus, PaymentMethod, ScratchPhotoSet, AppView, CompanyInfo, PartnerCompany } from './types';
-import { SEED_RESERVATIONS } from './data';
 import { formatPartnerDisplayName } from './utils/companyDisplay';
-import { getParkingDayCount, mergePartnerPricing } from './utils/pricing';
+import { filterReservationsForCompany, persistReservationStores } from './utils/reservationScope';
+import {
+  mergePartnersFromFirestore,
+  readPartnersFromStorage,
+  resolveBlockedDatesForCompany,
+} from './utils/partnerSync';
+import { getCalculatePrice } from './utils/pricing';
+import { getKSTDateOnlyString, getKSTDateTimeString } from './utils/kstDate';
+import { normalizeDateString, normalizeDocsArray } from './utils/reservationNormalize';
 import { AIRPICK_HQ_ID, isAirpickHeadquarters, normalizePlatformCompanyId } from './constants/platform';
-import { ensureFirestoreAuth } from './lib/reservationFirestore';
+import { ensureFirestoreAuth, ensurePlatformAdminAuth, tryPlatformAdminAuthFallback } from './lib/firebaseAuth';
 import { isPending, normalizeReservationStatus } from './utils/reservationStatus';
+import { cn } from './lib/utils';
 
 // --- Sub-views Imports ---
 import Sidebar from './components/Sidebar';
@@ -56,22 +64,8 @@ import TimelineView from './components/TimelineView';
 import AdminReservationEditModal from './components/AdminReservationEditModal';
 import DriverReservationEditModal from './components/DriverReservationEditModal';
 
-// --- KST Date Utility Helpers ---
-export const getKSTDateOnlyString = () => {
-  const kstDate = new Date(Date.now() + 9 * 60 * 60 * 1000);
-  return kstDate.toISOString().split('T')[0];
-};
-
-// --- Utility: cn ---
-const isDummyCompany = (id?: string, name?: string) => {
-  return false;
-};
-function cn(...classes: (string | boolean | undefined)[]) {
-  return classes.filter(Boolean).join(' ');
-}
-
 /** 관리자 모드 전용 화면 — 기사 모드에서 진입 시 timeline으로 보냄 */
-const ADMIN_ONLY_VIEWS: AppView[] = ['statistics', 'parkingRegister', 'master_settings'];
+const ADMIN_ONLY_VIEWS: AppView[] = ['statistics', 'master_settings'];
 /** 기사 모드 전용 화면 — 관리자 모드에서 진입 시 statistics로 보냄 */
 const DRIVER_ONLY_VIEWS: AppView[] = [
   'timeline',
@@ -83,6 +77,20 @@ const DRIVER_ONLY_VIEWS: AppView[] = [
   'cancelled_list',
 ];
 const HQ_ADMIN_VIEWS: AppView[] = ['statistics', 'master_settings'];
+
+/** dead code 정리 전 localStorage·history에 남을 수 있는 레거시 화면 */
+function resolveLegacyAppView(view: AppView | string): AppView {
+  if (view === 'parkingRegister') return 'statistics';
+  return view as AppView;
+}
+
+function isLegacyAdminOnlyView(view: AppView | string): boolean {
+  return ADMIN_ONLY_VIEWS.includes(resolveLegacyAppView(view));
+}
+
+function isPartnerDriverContext(companyId: string, adminModeActive: boolean): boolean {
+  return !adminModeActive && !isAirpickHeadquarters(companyId);
+}
 
 // --- Safe Storage Fallback for Sandboxed Web Views & Private Browsing Mode ---
 const safeStorage = (() => {
@@ -154,14 +162,12 @@ const DEFAULT_PARTNERS: PartnerCompany[] = [];
 function AdminDashboard({ 
   onClose, 
   companies, 
-  onSync,
   partners,
   onUpdatePartners,
   onUpdateCompanies
 }: { 
   onClose: () => void; 
   companies: Company[]; 
-  onSync: () => Promise<void>;
   partners: PartnerCompany[];
   onUpdatePartners: (updated: PartnerCompany[]) => void;
   onUpdateCompanies: (updated: Company[]) => void;
@@ -170,7 +176,6 @@ function AdminDashboard({
     <AdminDashboardComponent
       onClose={onClose}
       companies={companies}
-      onSync={onSync}
       partners={partners}
       onUpdatePartners={onUpdatePartners}
       onUpdateCompanies={onUpdateCompanies}
@@ -190,228 +195,6 @@ const SPOT_SEQUENCE = [
   'rear_wheel_r'
 ];
 
-// --- Helper: Check if time is within Night Surcharge range ---
-export const checkIsNightSurcharge = (timeStr: string, startTime: string, endTime: string): boolean => {
-  try {
-    if (!timeStr || !startTime || !endTime) return false;
-    
-    let timePart = "";
-    if (timeStr.includes('T')) {
-      timePart = timeStr.split('T')[1];
-    } else if (timeStr.includes(' ')) {
-      timePart = timeStr.trim().split(/\s+/)[1] || "";
-    } else if (timeStr.includes(':')) {
-      timePart = timeStr;
-    }
-
-    if (!timePart) return false;
-    
-    const hourStr = timePart.substring(0, 5); // "HH:MM"
-    const [h, m] = hourStr.split(':').map(Number);
-    if (isNaN(h) || isNaN(m)) return false;
-    const currentMinutes = h * 60 + m;
-
-    const [sth, stm] = startTime.split(':').map(Number);
-    const startTimeMinutes = sth * 60 + stm;
-
-    const [eth, etm] = endTime.split(':').map(Number);
-    const endTimeMinutes = eth * 60 + etm;
-
-    if (isNaN(startTimeMinutes) || isNaN(endTimeMinutes)) return false;
-
-    if (startTimeMinutes > endTimeMinutes) {
-      // Cross-midnight range (e.g. 19:00 ~ 05:00)
-      return currentMinutes >= startTimeMinutes || currentMinutes < endTimeMinutes;
-    } else {
-      // Standard range (e.g. 00:00 ~ 05:00)
-      return currentMinutes >= startTimeMinutes && currentMinutes < endTimeMinutes;
-    }
-  } catch (err) {
-    console.warn("Time boundaries evaluation error:", err);
-    return false;
-  }
-};
-
-// --- Helper: Calculate dynamic pricing for a given reservation duration and tier ---
-export const getCalculatePrice = (company: Company, start: string, end: string, indoor: boolean = true, isT2: boolean = false) => {
-  if (!company) return 0;
-  const priced = mergePartnerPricing(company as Record<string, unknown>, company.id) as Company;
-  const diffDays = getParkingDayCount(start, end);
-  
-  let basePrice = 0;
-  let extraPrice = 0;
-  let baseDays = 0;
-
-  if (indoor) {
-    basePrice = priced.indoorBasePrice ?? priced.base_price ?? 0;
-    baseDays = priced.indoorBaseDays ?? priced.base_days ?? 0;
-    extraPrice = priced.indoorExtraPrice ?? priced.extra_day_price ?? 0;
-  } else {
-    basePrice = priced.outdoorBasePrice ?? priced.base_price ?? 0;
-    baseDays = priced.outdoorBaseDays ?? priced.base_days ?? 0;
-    extraPrice = priced.outdoorExtraPrice ?? priced.extra_day_price ?? 0;
-  }
-
-  let calculated = Number(basePrice) || 0;
-  const cleanBaseDays = Number(baseDays) || 0;
-  const cleanExtraPrice = Number(extraPrice) || 0;
-
-  if (diffDays > cleanBaseDays) {
-    calculated += (diffDays - cleanBaseDays) * cleanExtraPrice;
-  }
-
-  if (isT2 && priced.t2Surcharge) {
-    calculated += Number(priced.t2Surcharge) || 0;
-  }
-
-  if (priced.surchargePrice && priced.surchargeStartTime && priced.surchargeEndTime) {
-    const charge = Number(priced.surchargePrice) || 0;
-    
-    const isStartNight = checkIsNightSurcharge(start, priced.surchargeStartTime, priced.surchargeEndTime);
-    const isEndNight = checkIsNightSurcharge(end, priced.surchargeStartTime, priced.surchargeEndTime);
-
-    if (isStartNight) {
-      calculated += charge;
-    }
-    if (isEndNight) {
-      calculated += charge;
-    }
-  }
-
-  // Dynamic Peak Season check (MM-DD date boundaries)
-  if (priced.peakSurcharge && priced.peakStartTime && priced.peakEndTime) {
-    try {
-      const checkInDateObj = new Date(start);
-      const mm = String(checkInDateObj.getMonth() + 1).padStart(2, '0');
-      const dd = String(checkInDateObj.getDate()).padStart(2, '0');
-      const checkInMD = `${mm}-${dd}`; // e.g., "07-20"
-
-      let isPeak = false;
-      if (priced.peakStartTime > priced.peakEndTime) {
-        // Cross-year peak season (e.g., "12-15" to "02-15")
-        if (checkInMD >= priced.peakStartTime || checkInMD <= priced.peakEndTime) {
-          isPeak = true;
-        }
-      } else {
-        // Same-year peak season (e.g., "07-15" to "08-31")
-        if (checkInMD >= priced.peakStartTime && checkInMD <= priced.peakEndTime) {
-          isPeak = true;
-        }
-      }
-
-      if (isPeak) {
-        calculated += Number(priced.peakSurcharge) || 0;
-      }
-    } catch (err) {
-      console.warn("Peak surcharge calculation failed:", err);
-    }
-  }
-
-  return calculated;
-};
-
-// --- Normalization Utility to Synchronize Web Submission and Dashboard Specifications ---
-export const getSafeDateString = (val: any): string => {
-  if (!val) return new Date().toISOString();
-  if (typeof val === 'string') return val;
-  if (val instanceof Date) return val.toISOString();
-  if (typeof val === 'object') {
-    if (typeof val.toDate === 'function') {
-      try {
-        return val.toDate().toISOString();
-      } catch (_) {}
-    }
-    if (val.seconds !== undefined) {
-      try {
-        return new Date(val.seconds * 1000).toISOString();
-      } catch (_) {}
-    }
-  }
-  try {
-    const d = new Date(val);
-    if (!isNaN(d.getTime())) return d.toISOString();
-  } catch (_) {}
-  return new Date().toISOString();
-};
-
-export const normalizeDateString = (dStr: string | undefined | null): string => {
-  if (!dStr) return '';
-  // Clean up and convert to YYYY-MM-DD
-  let clean = dStr.trim().replace(/[\.\/]/g, '-');
-  
-  // if format contains date and time, take the first part
-  if (clean.includes(' ')) {
-    clean = clean.split(' ')[0];
-  }
-  if (clean.includes('T')) {
-    clean = clean.split('T')[0];
-  }
-
-  const parts = clean.split('-');
-  if (parts.length === 3) {
-    const y = parts[0];
-    const m = parts[1].padStart(2, '0');
-    const d = parts[2].padStart(2, '0');
-    return `${y}-${m}-${d}`;
-  }
-  return clean;
-};
-
-export const normalizeDocsArray = (items: any[]): Reservation[] => {
-  if (!items || !Array.isArray(items)) return [];
-  return items.map((r): Reservation => {
-    const finalName = r.name || r.userName || "미지정";
-    const finalDate = normalizeDateString(r.entryDate || r.departureDate || "");
-    const arrivalDate = normalizeDateString(r.exitDate || r.arrivalDate || '');
-    const departureTime = r.entryTime || r.departureTime || '';
-    const arrivalTime = r.exitTime || r.arrivalTime || '';
-    
-    const statusNorm = normalizeReservationStatus(r.status);
-
-    const createdAtStr = getSafeDateString(r.createdAt);
-    const updatedAtStr = r.updatedAt ? getSafeDateString(r.updatedAt) : undefined;
-
-    const finalCarNumber = r.carNumber || r.carNo || r.vehicleNo || r.car_number || '';
-    const finalPrice = typeof r.totalPrice === 'number' ? r.totalPrice : (Number(r.totalPrice) || 0);
-
-    return {
-      ...r,
-      userId: r.userId || r.uid || 'external_system',
-      phone: r.phone || r.userPhone || '',
-      carNumber: finalCarNumber,
-      departureTerminal: r.departureTerminal || r.entryTerminal || 'T1',
-      arrivalTerminal: r.arrivalTerminal || r.exitTerminal || 'T1',
-      totalPrice: finalPrice,
-      departureDate: finalDate,
-      arrivalDate,
-      departureTime,
-      arrivalTime,
-      userName: finalName,
-      status: statusNorm,
-      createdAt: createdAtStr,
-      updatedAt: updatedAtStr,
-      companyId: (() => {
-        const rawCompId = String(r.companyId || r.company || '').trim();
-        const isWawa = !rawCompId || 
-                       rawCompId === 'wawa' || 
-                       rawCompId === 'wawa_valet' || 
-                       rawCompId === '와와발렛' || 
-                       rawCompId === '와와';
-        return isWawa ? 'wawa' : rawCompId;
-      })(),
-      companyName: (() => {
-        const rawCompId = String(r.companyId || r.company || '').trim();
-        const isWawa = !rawCompId || 
-                       rawCompId === 'wawa' || 
-                       rawCompId === 'wawa_valet' || 
-                       rawCompId === '와와발렛' || 
-                       rawCompId === '와와';
-        return isWawa ? '와와' : (r.companyName || r.company || '');
-      })()
-    };
-  });
-};
-
 // --- Main Core App Component ---
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
@@ -421,7 +204,7 @@ export default function App() {
       try {
         const parsed = JSON.parse(saved);
         if (parsed && Array.isArray(parsed)) {
-          return parsed.filter(c => !isDummyCompany(c.id, c.name));
+          return parsed;
         }
       } catch (_) {}
     }
@@ -497,7 +280,7 @@ export default function App() {
         }
       });
       if (allRes.length > 0) return normalizeDocsArray(allRes);
-      return normalizeDocsArray(SEED_RESERVATIONS);
+      return [];
     }
 
     const local = localStorage.getItem(`${compId}_reservations`);
@@ -508,20 +291,7 @@ export default function App() {
       } catch (_) {}
     }
 
-    // Find matching template based on saved company name or id
-    const saved = localStorage.getItem('master_company_info');
-    let compName = '';
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        compName = parsed.name || '';
-      } catch (_) {}
-    }
-    const filtered = SEED_RESERVATIONS.filter(r => 
-      (r.companyId && r.companyId.toLowerCase().includes(compId.toLowerCase())) ||
-      (r.companyName && r.companyName.toLowerCase().includes(compName.toLowerCase()))
-    );
-    return normalizeDocsArray(filtered.length > 0 ? filtered : []);
+    return [];
   });
 
   const getDropdownOptions = () => {
@@ -556,6 +326,9 @@ export default function App() {
 
     if (isAirpickHeadquarters(selectedId)) {
       targetCompanyInfo.name = '에어픽';
+      // 본사는 기사 타임라인이 아닌 통합 관제(관리자) 화면만 허용
+      setIsAdminModeActive(true);
+      localStorage.setItem('local_is_admin_mode_active', 'true');
       setCurrentView('statistics');
     } else {
       const foundComp = (companies || []).find(c => c.id === selectedId);
@@ -565,6 +338,10 @@ export default function App() {
         targetCompanyInfo.logo = foundComp.image_url || '';
       } else {
         targetCompanyInfo.name = selectedId;
+      }
+      // 본사 전용 화면에서 제휴업체로 전환 시 허용되지 않는 view 정리
+      if (isSuperAdmin && HQ_ADMIN_VIEWS.includes(currentView) && currentView !== 'statistics') {
+        setCurrentView('statistics');
       }
     }
 
@@ -577,27 +354,6 @@ export default function App() {
     localStorage.setItem('master_company_info', JSON.stringify(targetCompanyInfo));
   };
 
-  // 레거시: gayu를 본사 ID로 저장해 둔 브라우저 → airpick 본사로 교정
-  useEffect(() => {
-    const stored = localStorage.getItem('current_company_id');
-    const normalized = normalizePlatformCompanyId(stored);
-    if (stored && normalized !== stored) {
-      localStorage.setItem('current_company_id', normalized);
-      setCurrentCompanyId(normalized);
-      if (normalized === AIRPICK_HQ_ID) {
-        const hqInfo: CompanyInfo = {
-          id: AIRPICK_HQ_ID,
-          name: '에어픽',
-          region: '플랫폼 본사',
-          phone: '1545-5746',
-          logo: '',
-        };
-        localStorage.setItem('master_company_info', JSON.stringify(hqInfo));
-        setCompanyInfo(hqInfo);
-      }
-    }
-  }, []);
-  
   // Custom navigation structure: 'timeline' serves as the default driver dashboard (WORKER)
   const [currentView, setCurrentView] = useState<AppView>('timeline');
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
@@ -676,8 +432,16 @@ export default function App() {
     }
 
     const handlePopState = () => {
+      if (isSuperAdmin && isAirpickHeadquarters(currentCompanyId)) {
+        if (currentView !== 'statistics') {
+          setCurrentView('statistics');
+          window.history.pushState({ view: 'statistics', controlled: true }, '');
+        }
+        return;
+      }
+
       if (isAdminModeActive && isAdmin) {
-        // If they are inside Admin Mode, and on any sub-views (like master_settings, parkingRegister, cancelled_list),
+        // If they are inside Admin Mode, and on any sub-views (like master_settings, cancelled_list),
         // they must return to 'statistics' (the primary Dashboard).
         if (currentView !== 'statistics') {
           setCurrentView('statistics');
@@ -700,7 +464,7 @@ export default function App() {
     return () => {
       window.removeEventListener('popstate', handlePopState);
     };
-  }, [currentView, isAdminModeActive, isAdmin]);
+  }, [currentView, isAdminModeActive, isAdmin, isSuperAdmin, currentCompanyId]);
 
   // Keep pushing view state changes into standard history tracking
   useEffect(() => {
@@ -736,7 +500,7 @@ export default function App() {
         if (allRes.length > 0) {
           setReservations(normalizeDocsArray(allRes));
         } else {
-          setReservations(normalizeDocsArray(SEED_RESERVATIONS));
+          setReservations([]);
         }
       } else {
         const cached = localStorage.getItem('firestore_reservations_cache');
@@ -775,6 +539,23 @@ export default function App() {
   useEffect(() => {
     if (!isLoggedIn) return;
 
+    if ((currentView as string) === 'parkingRegister') {
+      setCurrentView(isAdminModeActive && isAdmin ? 'statistics' : 'timeline');
+      return;
+    }
+
+    // 슈퍼관리자 + 에어픽 본사: 기사 타임라인 등 제휴업체 전용 화면 차단
+    if (isSuperAdmin && isAirpickHeadquarters(currentCompanyId)) {
+      if (!isAdminModeActive) {
+        setIsAdminModeActive(true);
+        localStorage.setItem('local_is_admin_mode_active', 'true');
+      }
+      if (!HQ_ADMIN_VIEWS.includes(currentView)) {
+        setCurrentView('statistics');
+      }
+      return;
+    }
+
     if (isAdminModeActive && isAdmin) {
       if (isAirpickHeadquarters(currentCompanyId) && !HQ_ADMIN_VIEWS.includes(currentView)) {
         setCurrentView('statistics');
@@ -783,38 +564,16 @@ export default function App() {
       if (DRIVER_ONLY_VIEWS.includes(currentView)) {
         setCurrentView('statistics');
       }
-    } else if (ADMIN_ONLY_VIEWS.includes(currentView)) {
+    } else if (isLegacyAdminOnlyView(currentView)) {
       setCurrentView('timeline');
     }
-  }, [isLoggedIn, isAdminModeActive, isAdmin, currentView, currentCompanyId]);
+  }, [isLoggedIn, isAdminModeActive, isAdmin, isSuperAdmin, currentView, currentCompanyId]);
 
   // Filter core reservations array based on active companyInfo depending on whether user is Master or B2B Partner
-  const visibleReservations = useMemo(() => {
-    const normalizedDocs = normalizeDocsArray(reservations);
-    
-    if (isAirpickHeadquarters(currentCompanyId)) {
-      return normalizedDocs;
-    }
-
-    const targetCompId = (currentCompanyId || '').trim().toLowerCase();
-
-    return normalizedDocs.filter(r => {
-      const rCompId = (r.companyId || '').trim().toLowerCase();
-      
-      // Fallback matching for wawa
-      const belongsToWawa = !rCompId || 
-                            rCompId === 'wawa' || 
-                            rCompId === 'wawa_valet' || 
-                            rCompId === '와와발렛' || 
-                            rCompId === '와와';
-                            
-      if (targetCompId === 'wawa' || targetCompId === 'wawa_valet') {
-        return belongsToWawa;
-      }
-
-      return rCompId === targetCompId;
-    });
-  }, [reservations, currentCompanyId]);
+  const visibleReservations = useMemo(
+    () => filterReservationsForCompany(normalizeDocsArray(reservations), currentCompanyId),
+    [reservations, currentCompanyId]
+  );
 
   // Itcha style real-time filter states
   const [filterType, setFilterType] = useState<'주/출차일자' | '주차예약' | '출차예약' | '등록일시'>('주/출차일자');
@@ -853,33 +612,11 @@ export default function App() {
   const [loadingCompanies, setLoadingCompanies] = useState(true);
   const [loadingReservations, setLoadingReservations] = useState(false);
 
-  // Business configuration and system_settings state
-  const [blockedDates, setBlockedDates] = useState<string[]>(() => {
-    try {
-      const saved = localStorage.getItem('blockedDates');
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
-
-  // Dynamically resolve active blocked dates based on selected dropdown partner/company
-  const activeBlockedDates = useMemo(() => {
-    if (currentCompanyId && !isAirpickHeadquarters(currentCompanyId)) {
-      const matched = companies.find(c => c.id === currentCompanyId);
-      if (matched && Array.isArray(matched.blockedDates)) {
-        return matched.blockedDates;
-      }
-      try {
-        const local = localStorage.getItem(`${currentCompanyId}_blockedDates`);
-        if (local) {
-          const parsed = JSON.parse(local);
-          if (Array.isArray(parsed)) return parsed;
-        }
-      } catch (_) {}
-    }
-    return blockedDates;
-  }, [currentCompanyId, companies, blockedDates]);
+  // Business configuration — blockedDates는 companies/{id}.blockedDates 단일 소스
+  const activeBlockedDates = useMemo(
+    () => resolveBlockedDatesForCompany(currentCompanyId, companies, (key) => localStorage.getItem(key)),
+    [currentCompanyId, companies]
+  );
 
   const [showBlockoutModal, setShowBlockoutModal] = useState<boolean>(false);
 
@@ -901,7 +638,7 @@ export default function App() {
 
     setReservations(prev => {
       const updated = prev.map(r => r.id === driverDetailRes.id ? { ...r, ...updateData } : r);
-      localStorage.setItem(`${currentCompanyId}_reservations`, JSON.stringify(updated));
+      persistReservationStores(localStorage, updated, currentCompanyId, { cacheFirestore: true });
       return updated;
     });
 
@@ -961,64 +698,95 @@ export default function App() {
     return () => unsub();
   }, []);
 
-  // Real-time synchronization of system_settings/config (Business Operation Status)
+  // 레거시 system_settings/config.blockedDates → companies/airpick 1회 이전
   useEffect(() => {
-    const docRef = doc(db, 'system_settings', 'config');
-    const unsub = onSnapshot(docRef, (docSnap) => {
-      if (docSnap.exists()) {
-        const snapData = docSnap.data();
-        if (Array.isArray(snapData.blockedDates)) {
-          setBlockedDates(snapData.blockedDates);
-          localStorage.setItem('blockedDates', JSON.stringify(snapData.blockedDates));
-        }
+    if (!isLoggedIn) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        await ensureFirestoreAuth();
+        const legacySnap = await getDoc(doc(db, 'system_settings', 'config'));
+        const legacyDates = legacySnap.data()?.blockedDates;
+        if (!Array.isArray(legacyDates) || legacyDates.length === 0) return;
+
+        const airpickSnap = await getDoc(doc(db, 'companies', AIRPICK_HQ_ID));
+        const current = airpickSnap.data()?.blockedDates;
+        if (Array.isArray(current) && current.length > 0) return;
+
+        await setDoc(
+          doc(db, 'companies', AIRPICK_HQ_ID),
+          {
+            id: AIRPICK_HQ_ID,
+            name: '에어픽',
+            blockedDates: legacyDates,
+            updatedAt: new Date().toISOString(),
+          },
+          { merge: true }
+        );
+
+        if (cancelled) return;
+        localStorage.setItem(`${AIRPICK_HQ_ID}_blockedDates`, JSON.stringify(legacyDates));
+        setCompanies((prev) => {
+          const idx = prev.findIndex((c) => c.id === AIRPICK_HQ_ID);
+          if (idx >= 0) {
+            return prev.map((c) =>
+              c.id === AIRPICK_HQ_ID ? { ...c, blockedDates: legacyDates } : c
+            );
+          }
+          return [
+            ...prev,
+            { id: AIRPICK_HQ_ID, name: '에어픽', blockedDates: legacyDates } as Company,
+          ];
+        });
+      } catch (err) {
+        console.warn('blockedDates legacy migration skipped:', err);
       }
-    }, (error) => {
-      console.warn("Firestore system_settings/config sub failed:", error);
-    });
-    return () => unsub();
-  }, []);
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isLoggedIn]);
 
   const handleSaveBlockedDates = async (newBlockedDates: string[]) => {
-    if (currentCompanyId && !isAirpickHeadquarters(currentCompanyId)) {
-      // 1. Company-specific save
-      localStorage.setItem(`${currentCompanyId}_blockedDates`, JSON.stringify(newBlockedDates));
-      
-      // Update local state in companies list optimistically
-      setCompanies(prev => prev.map(c => c.id === currentCompanyId ? { ...c, blockedDates: newBlockedDates } : c));
+    const targetId = isAirpickHeadquarters(currentCompanyId)
+      ? AIRPICK_HQ_ID
+      : (currentCompanyId || '').trim();
+    if (!targetId) return;
 
-      try {
-        const docRef = doc(db, 'companies', currentCompanyId);
-        await updateDoc(docRef, {
-          blockedDates: newBlockedDates,
-          updatedAt: new Date().toISOString()
-        });
-      } catch (err: any) {
-        console.warn(`Firestore update for companies/${currentCompanyId} blockedDates failed, trying setDoc fallback:`, err);
-        try {
-          const docRef = doc(db, 'companies', currentCompanyId);
-          await setDoc(docRef, {
-            id: currentCompanyId,
-            blockedDates: newBlockedDates,
-            updatedAt: new Date().toISOString()
-          }, { merge: true });
-        } catch (innerErr: any) {
-          console.warn("Firestore fallback setDoc failed:", innerErr);
-        }
+    localStorage.setItem(`${targetId}_blockedDates`, JSON.stringify(newBlockedDates));
+    setCompanies((prev) => {
+      const idx = prev.findIndex((c) => c.id === targetId);
+      if (idx >= 0) {
+        return prev.map((c) =>
+          c.id === targetId ? { ...c, blockedDates: newBlockedDates } : c
+        );
       }
-    } else {
-      // 2. Global fallback save
-      setBlockedDates(newBlockedDates);
-      localStorage.setItem('blockedDates', JSON.stringify(newBlockedDates));
-      try {
-        const docRef = doc(db, 'system_settings', 'config');
-        await setDoc(docRef, {
-          blockedDates: newBlockedDates,
-          updatedAt: new Date().toISOString()
-        }, { merge: true });
-      } catch (err: any) {
-        console.warn("Firestore setDoc for blockedDates failed:", err);
-        throw err;
+      const fallbackName = isAirpickHeadquarters(targetId)
+        ? '에어픽'
+        : formatPartnerDisplayName(companyInfo?.name, targetId) || targetId;
+      return [...prev, { id: targetId, name: fallbackName, blockedDates: newBlockedDates } as Company];
+    });
+
+    try {
+      if (isAirpickHeadquarters(targetId)) {
+        await ensurePlatformAdminAuth();
+      } else {
+        await ensureFirestoreAuth();
       }
+      await setDoc(
+        doc(db, 'companies', targetId),
+        {
+          id: targetId,
+          blockedDates: newBlockedDates,
+          updatedAt: new Date().toISOString(),
+        },
+        { merge: true }
+      );
+    } catch (err: unknown) {
+      console.warn(`Firestore blockedDates save failed for companies/${targetId}:`, err);
+      throw err;
     }
   };
 
@@ -1037,6 +805,7 @@ export default function App() {
     });
 
     try {
+      await ensureFirestoreAuth();
       const docRef = doc(db, 'companies', companyId);
       await setDoc(docRef, { isOpen }, { merge: true });
     } catch (err: any) {
@@ -1053,11 +822,7 @@ export default function App() {
         } catch (e: any) {
           console.warn("Anonymous auth restricted or disabled (safe to ignore offline):", e);
           if (e && (e.code === 'auth/admin-restricted-operation' || e.message?.includes('admin-restricted-operation'))) {
-            try {
-              await signInWithEmailAndPassword(auth, 'ingompunch@gmail.com', 'admin1234');
-            } catch (autoErr) {
-              console.warn("Auto admin logging bypassed:", autoErr);
-            }
+            await tryPlatformAdminAuthFallback();
           }
         }
       }
@@ -1112,28 +877,17 @@ export default function App() {
     setLoadingCompanies(true);
     const unsub = onSnapshot(collection(db, 'companies'), (snap) => {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Company));
-      const filtered = data.filter(c => {
-        const dummy = isDummyCompany(c.id, c.name);
-        if (dummy) {
-          deleteDoc(doc(db, 'companies', c.id)).catch(err => {
-            console.warn("Purge dummy company from Firestore failed:", err);
-          });
-          return false;
-        }
-        return true;
-      });
 
-      if (filtered.length > 0) {
-        setCompanies(filtered);
-        localStorage.setItem('companies', JSON.stringify(filtered));
+      if (data.length > 0) {
+        setCompanies(data);
+        localStorage.setItem('companies', JSON.stringify(data));
       } else {
         const saved = localStorage.getItem('companies');
         if (saved) {
           try {
             const parsed = JSON.parse(saved);
             if (parsed && Array.isArray(parsed)) {
-              const cleanSaved = parsed.filter(c => !isDummyCompany(c.id, c.name));
-              setCompanies(cleanSaved);
+              setCompanies(parsed);
               setLoadingCompanies(false);
               return;
             }
@@ -1142,51 +896,10 @@ export default function App() {
         setCompanies([]);
       }
 
-      // Automatically compile partner accounts from the dynamic companies fetched from Firestore
-      const dynamicPartners: PartnerCompany[] = filtered
-        .filter(c => !isAirpickHeadquarters(c.id))
-        .map(c => {
-          const rawCompanyData = c as any;
-          return {
-            companyId: c.id,
-            password: rawCompanyData.password || '1234',
-            name: c.name,
-            representative: c.representative || '',
-            phone: c.phone || '',
-            settlementMemo: rawCompanyData.settlementMemo || '지급 기본 정산 기준 보류',
-            status: rawCompanyData.status || 'active',
-            employees: rawCompanyData.employees || []
-          };
-        });
-
-      // Merge with any local partner data to avoid clearing passwords or employees that were local-only
-      setPartners(prev => {
-        const mergedMap = new Map<string, PartnerCompany>();
-        
-        // 1. Put local memory items in
-        prev.forEach(p => mergedMap.set(p.companyId, p));
-        
-        // 2. Put local storage items in
-        const saved = localStorage.getItem('super_partners_list');
-        if (saved) {
-          try {
-            const parsed = JSON.parse(saved);
-            if (Array.isArray(parsed)) {
-              parsed.forEach((p: PartnerCompany) => mergedMap.set(p.companyId, p));
-            }
-          } catch (_) {}
-        }
-        
-        // 3. Put dynamic db items in, overwriting/updating values from Firestore
-        dynamicPartners.forEach(p => {
-          const existing = mergedMap.get(p.companyId);
-          mergedMap.set(p.companyId, {
-            ...p,
-            employees: existing?.employees || p.employees || []
-          });
-        });
-
-        const mergedList = Array.from(mergedMap.values());
+      // Firestore companies → super_partners_list (password 덮어쓰기 방지)
+      setPartners((prev) => {
+        const storedPartners = readPartnersFromStorage((key) => localStorage.getItem(key));
+        const mergedList = mergePartnersFromFirestore(data, prev, storedPartners);
         localStorage.setItem('super_partners_list', JSON.stringify(mergedList));
         return mergedList;
       });
@@ -1198,9 +911,8 @@ export default function App() {
       if (saved) {
         try {
           const parsed = JSON.parse(saved);
-          if (parsed && Array.isArray(parsed)) {
-            const cleanSaved = parsed.filter(c => !isDummyCompany(c.id, c.name));
-            setCompanies(cleanSaved);
+            if (parsed && Array.isArray(parsed)) {
+              setCompanies(parsed);
             setLoadingCompanies(false);
             return;
           }
@@ -1237,11 +949,7 @@ export default function App() {
         } catch (e: any) {
           console.warn('Anonymous auth before reservations sync:', e);
           if (e?.code === 'auth/admin-restricted-operation') {
-            try {
-              await signInWithEmailAndPassword(auth, 'ingompunch@gmail.com', 'admin1234');
-            } catch (autoErr) {
-              console.warn('Fallback email auth before reservations sync:', autoErr);
-            }
+            await tryPlatformAdminAuthFallback();
           }
         }
       }
@@ -1281,57 +989,6 @@ export default function App() {
       unsub?.();
     };
   }, [isLoggedIn]);
-
-  // Deep/Master Purge Database handler (Clean and secure DB RESET)
-  const seedData = async () => {
-    try {
-      console.log("Wiping dummy data & purges...");
-      // 1. Purge all reservations from Firestore
-      const resSnap = await getDocs(collection(db, 'reservations'));
-      for (const d of resSnap.docs) {
-        await deleteDoc(doc(db, 'reservations', d.id));
-      }
-      
-      // 2. Purge all other companies from Firestore except 'wawa'
-      const snap = await getDocs(collection(db, 'companies'));
-      let wawaDocExists = false;
-      for (const d of snap.docs) {
-        if (d.id === 'wawa') {
-          wawaDocExists = true;
-          continue;
-        }
-        await deleteDoc(doc(db, 'companies', d.id));
-      }
-
-      // Ensure 'wawa' exists in DB (첫 제휴 업체)
-      if (!wawaDocExists) {
-        await setDoc(doc(db, 'companies', 'wawa'), {
-          id: 'wawa',
-          name: '와와',
-          is_indoor: true,
-          supports_indoor: true,
-          supports_outdoor: true,
-          phone: '1545-5746',
-          isOpen: true,
-          blockedDates: [],
-          updatedAt: new Date().toISOString()
-        });
-      }
-
-      // 3. Clear local caching states so that the user's dashboard refreshes beautifully
-      localStorage.removeItem('companies');
-      for (const key of Object.keys(localStorage)) {
-        if (key.endsWith('_reservations') || key.endsWith('_blockedDates')) {
-          localStorage.removeItem(key);
-        }
-      }
-      
-      setReservations([]);
-      alert("✅ 모든 가짜 데이터, 매출, 제휴업체가 성공적으로 영구 삭제되었습니다.");
-    } catch (e: any) {
-      handleFirestoreError(e, OperationType.WRITE, 'companies');
-    }
-  };
 
   // Login handler
   const handleCredentialLogin = async (e: React.FormEvent) => {
@@ -1378,11 +1035,14 @@ export default function App() {
         logo: ''
       };
       setCompanyInfo(brandInfo);
+      setIsAdminModeActive(true);
+      setCurrentView('statistics');
       localStorage.setItem('master_company_info', JSON.stringify(brandInfo));
       localStorage.setItem('current_company_id', matchedPartner.companyId);
       localStorage.setItem('local_is_super_admin', 'false');
       localStorage.setItem('local_is_admin', 'true');
       localStorage.setItem('local_is_master_admin', 'true');
+      localStorage.setItem('local_is_admin_mode_active', 'true');
       setShowLoginModal(false);
       alert(`제휴업체 [${matchedPartner.name}]의 마스터 관리자 인증이 성공 통과하여 관리자 모드가 활성화되었습니다!`);
       return;
@@ -1419,19 +1079,29 @@ export default function App() {
       setIsSuperAdmin(false);
       setIsLocalAdmin(true);
       setIsMasterAdmin(true);
-      setCurrentCompanyId(companyInfo.id || 'wawa');
+      setIsAdminModeActive(true);
+      const partnerId = companyInfo.id || currentCompanyId || 'wawa';
+      setCurrentCompanyId(partnerId);
+      localStorage.setItem('current_company_id', partnerId);
       localStorage.setItem('local_is_super_admin', 'false');
       localStorage.setItem('local_is_admin', 'true');
       localStorage.setItem('local_is_master_admin', 'true');
+      localStorage.setItem('local_is_admin_mode_active', 'true');
+      setCurrentView('statistics');
       setShowLoginModal(false);
       alert(`제휴업체 [${companyInfo.name}]의 마스터 관리자 인증이 성공 통과하여 관리자 모드가 활성화되었습니다!`);
     } else if (loginPassword === 'admin1234') {
       setIsSuperAdmin(false);
       setIsLocalAdmin(true);
       setIsMasterAdmin(false);
+      setIsAdminModeActive(true);
       localStorage.setItem('local_is_super_admin', 'false');
       localStorage.setItem('local_is_admin', 'true');
       localStorage.setItem('local_is_master_admin', 'false');
+      localStorage.setItem('local_is_admin_mode_active', 'true');
+      if (isLegacyAdminOnlyView(currentView)) {
+        setCurrentView('statistics');
+      }
       setShowLoginModal(false);
       alert(`${loginEmail} 님 서명이 성공 통과하여 업체 관리자 모드가 승인되었습니다!`);
     } else {
@@ -1456,12 +1126,12 @@ export default function App() {
     setIsLocalAdmin(roles.isLocalAdmin);
     setIsMasterAdmin(roles.isMasterAdmin);
     setIsAdminModeActive(roles.isAdminModeActive);
-    const normalizedCompanyId = normalizePlatformCompanyId(roles.companyId) || roles.companyId;
+    const companyId = normalizePlatformCompanyId(roles.companyId) || roles.companyId;
     const normalizedInfo =
-      normalizedCompanyId === AIRPICK_HQ_ID
+      isAirpickHeadquarters(companyId)
         ? { ...roles.companyInfo, id: AIRPICK_HQ_ID, name: '에어픽', region: '플랫폼 본사' }
         : roles.companyInfo;
-    setCurrentCompanyId(normalizedCompanyId);
+    setCurrentCompanyId(companyId);
     setCompanyInfo(normalizedInfo);
     setIsEmployee(roles.isEmployee || false);
     setEmployeeName(roles.employeeName || '');
@@ -1472,7 +1142,7 @@ export default function App() {
     localStorage.setItem('local_is_admin', roles.isLocalAdmin ? 'true' : 'false');
     localStorage.setItem('local_is_master_admin', roles.isMasterAdmin ? 'true' : 'false');
     localStorage.setItem('local_is_admin_mode_active', roles.isAdminModeActive ? 'true' : 'false');
-    localStorage.setItem('current_company_id', normalizedCompanyId);
+    localStorage.setItem('current_company_id', companyId);
     localStorage.setItem('master_company_info', JSON.stringify(normalizedInfo));
     localStorage.setItem('local_is_employee', roles.isEmployee ? 'true' : 'false');
     localStorage.setItem('local_employee_name', roles.employeeName || '');
@@ -1499,6 +1169,15 @@ export default function App() {
       setIsEmployee(false);
       setEmployeeName('');
       setEmployeeRole('driver');
+      setCurrentCompanyId('wawa');
+      setCurrentView('timeline');
+      setCompanyInfo({
+        id: 'wawa',
+        name: '와와',
+        region: '인천공항 1터미널',
+        phone: '1545-5746',
+        logo: '',
+      });
       
       localStorage.removeItem('is_logged_in');
       localStorage.removeItem('local_is_super_admin');
@@ -1508,6 +1187,9 @@ export default function App() {
       localStorage.removeItem('local_is_employee');
       localStorage.removeItem('local_employee_name');
       localStorage.removeItem('local_employee_role');
+      localStorage.removeItem('current_company_id');
+      localStorage.removeItem('master_company_info');
+      localStorage.removeItem('firestore_reservations_cache');
       
       await signOut(auth);
       try {
@@ -1522,12 +1204,23 @@ export default function App() {
       setIsLocalAdmin(false);
       setIsMasterAdmin(false);
       setIsAdminModeActive(false);
+      setIsEmployee(false);
+      setEmployeeName('');
+      setEmployeeRole('driver');
+      setCurrentCompanyId('wawa');
+      setCurrentView('timeline');
       
       localStorage.removeItem('is_logged_in');
       localStorage.removeItem('local_is_super_admin');
       localStorage.removeItem('local_is_admin');
       localStorage.removeItem('local_is_master_admin');
       localStorage.removeItem('local_is_admin_mode_active');
+      localStorage.removeItem('local_is_employee');
+      localStorage.removeItem('local_employee_name');
+      localStorage.removeItem('local_employee_role');
+      localStorage.removeItem('current_company_id');
+      localStorage.removeItem('master_company_info');
+      localStorage.removeItem('firestore_reservations_cache');
       console.error(err);
     }
   };
@@ -1550,7 +1243,7 @@ export default function App() {
         updatedBy: operatorName,
         updatedAt: new Date().toISOString() 
       } : r);
-      localStorage.setItem(`${currentCompanyId}_reservations`, JSON.stringify(updated));
+      persistReservationStores(localStorage, updated, currentCompanyId, { cacheFirestore: true });
       return updated;
     });
 
@@ -1579,13 +1272,13 @@ export default function App() {
       });
       setReservations(prev => {
         const updated = prev.map(r => r.id === resId ? { ...r, paymentMethod: method, updatedBy: operatorName, updatedAt: new Date().toISOString() } : r);
-        localStorage.setItem(`${currentCompanyId}_reservations`, JSON.stringify(updated));
+        persistReservationStores(localStorage, updated, currentCompanyId, { cacheFirestore: true });
         return updated;
       });
     } catch (err: any) {
       setReservations(prev => {
         const updated = prev.map(r => r.id === resId ? { ...r, paymentMethod: method, updatedBy: operatorName, updatedAt: new Date().toISOString() } : r);
-        localStorage.setItem(`${currentCompanyId}_reservations`, JSON.stringify(updated));
+        persistReservationStores(localStorage, updated, currentCompanyId, { cacheFirestore: true });
         return updated;
       });
     }
@@ -1613,8 +1306,7 @@ export default function App() {
       const updated = prev.map((r) =>
         r.id === resId ? { ...r, scratchPhotos: photos, updatedBy: operatorName, updatedAt: new Date().toISOString() } : r
       );
-      localStorage.setItem(`${currentCompanyId}_reservations`, JSON.stringify(updated));
-      localStorage.setItem('firestore_reservations_cache', JSON.stringify(updated));
+      persistReservationStores(localStorage, updated, currentCompanyId, { cacheFirestore: true });
       return updated;
     });
   };
@@ -1640,8 +1332,7 @@ export default function App() {
       const updated = prev.map((r) =>
         r.id === resId ? { ...r, images: imageUrls, updatedBy: operatorName, updatedAt: new Date().toISOString() } : r
       );
-      localStorage.setItem(`${currentCompanyId}_reservations`, JSON.stringify(updated));
-      localStorage.setItem('firestore_reservations_cache', JSON.stringify(updated));
+      persistReservationStores(localStorage, updated, currentCompanyId, { cacheFirestore: true });
       return updated;
     });
   };
@@ -1734,11 +1425,6 @@ export default function App() {
       }
       return nextSpots;
     });
-  };
-
-  const getKSTDateTimeString = () => {
-    const kstDate = new Date(Date.now() + 9 * 60 * 60 * 1000);
-    return kstDate.toISOString().replace('T', ' ').substring(0, 19);
   };
 
   // 4-step counters and counts
@@ -1864,8 +1550,18 @@ export default function App() {
   }, [visibleReservations, activeCounterTab, filterType, selectedDate, searchKeyword, isAdminModeActive]);
 
   const activeTimelineReservations = computedList;
+  const showPartnerDriverView = isPartnerDriverContext(currentCompanyId, isAdminModeActive);
 
   const handleNavigate = (view: AppView) => {
+    if (isSuperAdmin && isAirpickHeadquarters(currentCompanyId)) {
+      if (HQ_ADMIN_VIEWS.includes(view)) {
+        setCurrentView(view);
+      } else {
+        setCurrentView('statistics');
+      }
+      return;
+    }
+
     if (isAdminModeActive && isAdmin) {
       if (isAirpickHeadquarters(currentCompanyId) && !HQ_ADMIN_VIEWS.includes(view)) {
         setCurrentView('statistics');
@@ -1875,7 +1571,7 @@ export default function App() {
         setCurrentView('statistics');
         return;
       }
-    } else if (ADMIN_ONLY_VIEWS.includes(view)) {
+    } else if (isLegacyAdminOnlyView(view)) {
       setCurrentView('timeline');
       return;
     }
@@ -1985,7 +1681,7 @@ export default function App() {
                       onClick={() => {
                         setIsAdminModeActive(false);
                         localStorage.setItem('local_is_admin_mode_active', 'false');
-                        if (ADMIN_ONLY_VIEWS.includes(currentView)) {
+                        if (isLegacyAdminOnlyView(currentView)) {
                           setCurrentView('timeline');
                         }
                       }}
@@ -2026,7 +1722,7 @@ export default function App() {
         </header>
 
         {/* 2. TOP 4-Step Status tab counters integrated directly into header */}
-        {currentView === 'timeline' && !isAdminModeActive && (
+        {currentView === 'timeline' && showPartnerDriverView && (
           <div className="mx-4 mb-3 bg-[#1C1C1E] rounded-[22px] p-1 grid grid-cols-4 gap-1 border border-neutral-900/30">
             {[
               { key: 'pending' as ReservationStatus, label: '입고예정', count: countPending, color: 'text-amber-400' },
@@ -2084,13 +1780,13 @@ export default function App() {
 
       {/* 3. Core Workspace Content Switcher - Dynamically widened for Timeline & Dashboards */}
       {(() => {
-        const isWideView = ['timeline', 'statistics', 'cancelled_list', 'parkingRegister', 'master_settings', 'service_history', 'parking_departure', 'payment_change'].includes(currentView);
+        const isWideView = ['timeline', 'statistics', 'cancelled_list', 'master_settings', 'service_history', 'parking_departure', 'payment_change'].includes(currentView);
         return (
           <main className={cn("mx-auto p-4 mt-2 transition-all duration-200", isWideView ? "max-w-4xl" : "max-w-md")}>
             <AnimatePresence mode="wait">
               
               {/* VIEW A: Main Driver Valet Timeline */}
-              {currentView === 'timeline' && !isAdminModeActive && (
+              {currentView === 'timeline' && showPartnerDriverView && (
                 <motion.div
                   key="timeline_view"
                   initial={{ opacity: 0, scale: 0.98 }}
@@ -2100,12 +1796,12 @@ export default function App() {
                 >
                   <TimelineView
                     isAdminModeActive={isAdminModeActive}
-                    reservations={reservations}
+                    reservations={visibleReservations}
                     selectedDate={selectedDate}
                     setDatePickerTarget={setDatePickerTarget}
                     activeCounterTab={activeCounterTab}
                     loadingReservations={loadingReservations}
-                    setCurrentView={setCurrentView}
+                    onNavigate={handleNavigate}
                     setReceptionSubMode={setReceptionSubMode}
                     setDriverDetailRes={setDriverDetailRes}
                     setAdminEditingReservationId={setAdminEditingReservationId}
@@ -2119,7 +1815,7 @@ export default function App() {
               )}
 
               {/* VIEW B: Vehicle Searching & Reception Desk */}
-              {currentView === 'search_reception' && !isAdminModeActive && (
+              {currentView === 'search_reception' && showPartnerDriverView && (
                 <motion.div
                   key="search_reception_view"
                   initial={{ opacity: 0, scale: 0.98 }}
@@ -2130,8 +1826,8 @@ export default function App() {
                 >
                   <SearchReceptionView
                     currentView={currentView}
-                    setCurrentView={setCurrentView}
-                    reservations={reservations}
+                    onNavigate={handleNavigate}
+                    reservations={visibleReservations}
                     companies={companies}
                     currentCompanyId={currentCompanyId}
                     companyInfo={companyInfo}
@@ -2189,7 +1885,6 @@ export default function App() {
                     isEmployee={isEmployee}
                     employeeRole={employeeRole}
                     currentCompanyId={currentCompanyId}
-                    onCompanySwitch={handleCompanySwitch}
                     blockedDates={activeBlockedDates}
                     onSaveBlockedDates={handleSaveBlockedDates}
                   />
@@ -2197,7 +1892,7 @@ export default function App() {
               )}
 
               {/* VIEW D: Offline-first payment changer */}
-              {currentView === 'payment_change' && !isAdminModeActive && (
+              {currentView === 'payment_change' && showPartnerDriverView && (
                 <motion.div
                   key="payment_change_view"
                   initial={{ opacity: 0, scale: 0.98 }}
@@ -2206,7 +1901,7 @@ export default function App() {
                   transition={{ duration: 0.15 }}
                 >
                   <PaymentChangeView 
-                    onBack={() => setCurrentView('timeline')}
+                    onBack={() => handleNavigate('timeline')}
                     reservations={visibleReservations}
                     onUpdatePayment={handleUpdatePaymentMethod}
                   />
@@ -2214,7 +1909,7 @@ export default function App() {
               )}
 
               {/* VIEW E: Vehicle scratch camera reporter */}
-              {currentView === 'scratch_images' && !isAdminModeActive && (
+              {currentView === 'scratch_images' && showPartnerDriverView && (
                 <motion.div
                   key="scratch_images_view"
                   initial={{ opacity: 0, scale: 0.98 }}
@@ -2223,7 +1918,7 @@ export default function App() {
                   transition={{ duration: 0.15 }}
                 >
                   <VehiclePhotosView
-                    onBack={() => setCurrentView('timeline')}
+                    onBack={() => handleNavigate('timeline')}
                     reservations={visibleReservations}
                     onUpdateImages={handleUpdateReservationImages}
                   />
@@ -2231,7 +1926,7 @@ export default function App() {
               )}
 
               {/* VIEW F: Historic completed log logs */}
-              {currentView === 'service_history' && !isAdminModeActive && (
+              {currentView === 'service_history' && showPartnerDriverView && (
                 <motion.div
                   key="service_history_view"
                   initial={{ opacity: 0, scale: 0.98 }}
@@ -2240,14 +1935,14 @@ export default function App() {
                   transition={{ duration: 0.15 }}
                 >
                   <ServiceHistoryView 
-                    onBack={() => setCurrentView('timeline')}
+                    onBack={() => handleNavigate('timeline')}
                     reservations={visibleReservations}
                   />
                 </motion.div>
               )}
 
               {/* VIEW G: Calendar timeline query searcher */}
-              {currentView === 'parking_departure' && !isAdminModeActive && (
+              {currentView === 'parking_departure' && showPartnerDriverView && (
                 <motion.div
                   key="parking_departure_view"
                   initial={{ opacity: 0, scale: 0.98 }}
@@ -2256,7 +1951,7 @@ export default function App() {
                   transition={{ duration: 0.15 }}
                 >
                   <ParkingDepartureView 
-                    onBack={() => setCurrentView('timeline')}
+                    onBack={() => handleNavigate('timeline')}
                     reservations={visibleReservations}
                     companies={companies}
                     getCalculatePrice={getCalculatePrice}
@@ -2265,10 +1960,7 @@ export default function App() {
                         const updated = prev.map(r =>
                           r.id === resId ? { ...r, ...patch } : r
                         );
-                        localStorage.setItem(
-                          `${currentCompanyId}_reservations`,
-                          JSON.stringify(updated)
-                        );
+                        persistReservationStores(localStorage, updated, currentCompanyId, { cacheFirestore: true });
                         return updated;
                       });
                     }}
@@ -2277,7 +1969,7 @@ export default function App() {
               )}
 
               {/* VIEW H: Cancelled reception ledger (moved into driver menu) */}
-              {currentView === 'cancelled_list' && !isAdminModeActive && (
+              {currentView === 'cancelled_list' && showPartnerDriverView && (
                 <motion.div
                   key="cancelled_list_view"
                   initial={{ opacity: 0, scale: 0.98 }}
@@ -2288,7 +1980,7 @@ export default function App() {
                   <CancelledListView
                     reservations={visibleReservations}
                     onUpdateStatus={handleUpdateValetStatus}
-                    onBack={() => setCurrentView('timeline')}
+                    onBack={() => handleNavigate('timeline')}
                   />
                 </motion.div>
               )}
@@ -2335,7 +2027,6 @@ export default function App() {
                 <AdminDashboard 
                   onClose={() => setShowAdminModal(false)} 
                   companies={companies} 
-                  onSync={seedData} 
                   partners={partners}
                   onUpdatePartners={(updatedPartners) => {
                     setPartners(updatedPartners);

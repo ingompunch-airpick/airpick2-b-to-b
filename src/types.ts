@@ -33,6 +33,26 @@ export interface Company {
   peakStartTime?: string;
   peakEndTime?: string;
   peakSurcharge?: number;
+  /** B2B 마스터 — 시설 유형 */
+  facilityType?: 'indoor' | 'outdoor' | 'mixed';
+  /** B2C 손님 MY · 실내 주차장 도로명 주소 */
+  indoorParkingAddress?: string;
+  /** B2C 손님 MY · 실외 주차장 도로명 주소 */
+  outdoorParkingAddress?: string;
+  parkingLots?: Array<{ type: 'indoor' | 'outdoor'; parkingAddress: string }>;
+  insurance?: CompanyInsurance;
+  hasInsurance?: boolean;
+  insuranceProvider?: string;
+  insuranceLimit?: number;
+  sharesInsurance?: boolean;
+}
+
+export interface CompanyInsurance {
+  enrolled: boolean;
+  provider?: string;
+  productName?: string;
+  coverageLimitWon?: number;
+  updatedAt?: string;
 }
 
 export interface CompanyInfo {
@@ -45,6 +65,8 @@ export interface CompanyInfo {
   facilityType?: 'indoor' | 'outdoor' | 'mixed';
   ratePolicy?: string;
 }
+
+export type FacilityType = 'indoor' | 'outdoor' | 'mixed';
 
 export interface Employee {
   id: string;
@@ -160,5 +182,4 @@ export type AppView =
   | 'service_history'
   | 'parking_departure'
   | 'cancelled_list'
-  | 'parkingRegister'
   | 'master_settings';

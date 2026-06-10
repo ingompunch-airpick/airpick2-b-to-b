@@ -25,7 +25,7 @@ import {
   Award
 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { Reservation, Company, PartnerCompany, AppView } from '../types';
+import { Reservation } from '../types';
 import { AIRPICK_HQ_ID, isAirpickHeadquarters } from '../constants/platform';
 import { adminStatusBadgeClass, isAdmitted, isCompletedOut, isParked, statusToLabel } from '../utils/reservationStatus';
 
@@ -34,13 +34,9 @@ interface StatisticsViewProps {
   allReservations?: Reservation[];
   companyName?: string;
   isSuperAdmin?: boolean;
-  companies?: Company[];
-  partners?: PartnerCompany[];
-  onCompanySwitch?: (id: string) => void;
   currentCompanyId?: string;
   blockedDates?: string[];
   onSaveBlockedDates?: (dates: string[]) => void;
-  setCurrentView?: (view: AppView) => void;
   onUpdateValetStatus?: (resId: string, nextStatus: any, extraFields?: any) => Promise<void> | void;
 }
 
@@ -49,13 +45,9 @@ export default function StatisticsView({
   allReservations = [],
   companyName = '와와주차장',
   isSuperAdmin = false,
-  companies = [],
-  partners = [],
-  onCompanySwitch,
   currentCompanyId = AIRPICK_HQ_ID,
   blockedDates = [],
   onSaveBlockedDates,
-  setCurrentView,
   onUpdateValetStatus,
 }: StatisticsViewProps) {
   // ── 접수내역 CRM 상태 (합친 섹션) ──────────────────────────
@@ -183,19 +175,6 @@ export default function StatisticsView({
       r.arrivalDate === todayStr && 
       r.status === 'completed_out'
     ).length;
-
-    // Determine registered companies for the Multi-Lot Grid
-    const displayCompanies = (companies || []).filter((c) => c && c.id && !isAirpickHeadquarters(c.id));
-
-    // Switching company focus handler & jumping straight to reservations view
-    const handleGoToPartnerLedger = (id: string) => {
-      if (onCompanySwitch) {
-        onCompanySwitch(id);
-      }
-      if (setCurrentView) {
-        setCurrentView('parkingRegister');
-      }
-    };
 
     return (
       <div className="min-h-screen bg-neutral-950 text-white p-4 pb-24 font-sans space-y-6 animate-fade-in">
