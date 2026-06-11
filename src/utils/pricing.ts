@@ -1,19 +1,19 @@
 import type { Company } from '../types';
 
-/** wawavalet.com 과 동일한 와와 요금 (실외·실내 기본 4만 / 초과일 실외 5천·실내 1만 / 야간 1만 20~04) */
+/** wawavalet.com 과 동일한 와와 요금 (기본 4만 = 2일까지 / 3일째부터 실외 5천·실내 1만 / 야간 입·출고 각 2만 19~05) */
 export const WAWA_FEE_DEFAULTS: Partial<Company> = {
   outdoorBasePrice: 40000,
-  outdoorBaseDays: 1,
+  outdoorBaseDays: 2,
   outdoorExtraPrice: 5000,
   indoorBasePrice: 40000,
-  indoorBaseDays: 1,
+  indoorBaseDays: 2,
   indoorExtraPrice: 10000,
   base_price: 40000,
-  base_days: 1,
+  base_days: 2,
   extra_day_price: 5000,
-  surchargePrice: 10000,
-  surchargeStartTime: '20:00',
-  surchargeEndTime: '04:00',
+  surchargePrice: 20000,
+  surchargeStartTime: '19:00',
+  surchargeEndTime: '05:00',
   t2Surcharge: 0,
 };
 

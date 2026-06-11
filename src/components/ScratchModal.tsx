@@ -8,6 +8,7 @@ import {
 } from '../utils/paymentStatus';
 import { uploadReservationImages } from '../lib/reservationPhotos';
 import { ensureFirestoreAuth } from '../lib/reservationFirestore';
+import InlineVehicleCamera from './InlineVehicleCamera';
 
 // Standalone class-combiner utility for safe use within components
 function cn(...classes: (string | boolean | undefined | null)[]) {
@@ -44,7 +45,48 @@ export default function ScratchModal({
   const [uploadedPhotos, setUploadedPhotos] = useState<string[]>([]);
   const [paymentChoice, setPaymentChoice] = useState<'unpaid' | 'paid'>('unpaid');
   const [isUploading, setIsUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [inlineCameraOpen, setInlineCameraOpen] = useState(false);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+
+  const addImageFiles = async (files: FileList | null) => {
+    if (!files?.length) return;
+
+    const imageFiles = Array.from(files).filter(
+      (f) => f.type.startsWith('image/') || /\.(jpe?g|png|webp|heic|gif)$/i.test(f.name)
+    );
+    if (!imageFiles.length) {
+      alert('이미지 파일(JPG·PNG 등)만 선택할 수 있습니다.');
+      return;
+    }
+
+    const dataUrls = await Promise.all(
+      imageFiles.map(
+        (file) =>
+          new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onloadend = () =>
+              typeof reader.result === 'string'
+                ? resolve(reader.result)
+                : reject(new Error('읽기 실패'));
+            reader.onerror = () => reject(new Error('파일 읽기 오류'));
+            reader.readAsDataURL(file);
+          })
+      )
+    );
+
+    setUploadedPhotos((prev) => [...prev, ...dataUrls]);
+  };
+
+  const handleCameraChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    await addImageFiles(e.target.files);
+    if (e.target) e.target.value = '';
+  };
+
+  const handleGalleryChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    await addImageFiles(e.target.files);
+    if (e.target) e.target.value = '';
+  };
 
   // 사진 업로드 전 Firebase Auth(익명) 선연결 — 앱 로그인만 하고 Auth 없을 때 Storage 멈춤 방지
   useEffect(() => {
@@ -72,6 +114,7 @@ export default function ScratchModal({
       setUploadedPhotos(targetReservationForScratch.images || []);
     } else {
       setUploadedPhotos([]);
+      setInlineCameraOpen(false);
     }
   }, [scratchModalTargetId, targetReservationForScratch]);
 
@@ -87,36 +130,45 @@ export default function ScratchModal({
     }
   }, [uploadedPhotos, scratchModalTargetId]);
 
-  // Handle native file or camera upload
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files) return;
-    
-    Array.from(files).forEach((file) => {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        if (typeof reader.result === 'string') {
-          const base64Str = reader.result;
-          setUploadedPhotos(prev => [...prev, base64Str]);
-        }
-      };
-      reader.readAsDataURL(file);
-    });
-    
-    // Clear the input value so the same files can be selected again
-    if (e.target) {
-      e.target.value = '';
-    }
-  };
-
   // Remove a photo from list
   const handleRemovePhoto = (indexToRemove: number) => {
     setUploadedPhotos(prev => prev.filter((_, idx) => idx !== indexToRemove));
   };
 
-  const triggerFileInput = () => {
-    fileInputRef.current?.click();
-  };
+  const PhotoCaptureButtons = ({ compact = false }: { compact?: boolean }) => (
+    <div className={cn('grid grid-cols-2 gap-2', compact ? '' : 'mt-1')}>
+      <button
+        type="button"
+        onClick={() => setInlineCameraOpen(true)}
+        className={cn(
+          'rounded-xl border font-black transition-all active:scale-[0.98] flex flex-col items-center justify-center gap-1',
+          compact ? 'py-2.5 px-2' : 'py-4 px-3',
+          'bg-neutral-950 border-amber-500/40 text-amber-400 hover:bg-amber-500/10'
+        )}
+      >
+        <Camera size={compact ? 16 : 22} />
+        <span className={compact ? 'text-[11px]' : 'text-xs'}>연속 촬영</span>
+        {!compact && (
+          <span className="text-[10px] text-zinc-550 font-medium">앱 안에서 바로바로 여러 장</span>
+        )}
+      </button>
+      <button
+        type="button"
+        onClick={() => galleryInputRef.current?.click()}
+        className={cn(
+          'rounded-xl border font-black transition-all active:scale-[0.98] flex flex-col items-center justify-center gap-1',
+          compact ? 'py-2.5 px-2' : 'py-4 px-3',
+          'bg-neutral-950 border-sky-500/35 text-sky-400 hover:bg-sky-500/10'
+        )}
+      >
+        <span className={compact ? 'text-base leading-none' : 'text-xl leading-none'}>🖼</span>
+        <span className={compact ? 'text-[11px]' : 'text-xs'}>앨범 여러 장</span>
+        {!compact && (
+          <span className="text-[10px] text-zinc-550 font-medium">한 번에 여러 장 선택</span>
+        )}
+      </button>
+    </div>
+  );
 
   return (
     <AnimatePresence>
@@ -162,9 +214,28 @@ export default function ScratchModal({
             <div className="overflow-y-auto p-5 space-y-4 select-none scrollbar-thin">
               <div className="bg-neutral-950 border border-neutral-850 p-3 rounded-xl">
                 <p className="text-[12.5px] text-zinc-400 font-sans leading-relaxed">
-                  차량 인계를 접수하기 전 손상 발생 방지를 위해 사진 촬영을 실시합니다. 만족할 때까지 자유롭게 촬영하십시오.
+                  <strong className="text-zinc-300">연속 촬영</strong>은 카메라를 켠 채 셔터만 연타하면 됩니다. <strong className="text-zinc-300">앨범</strong>은 저장된 사진을 여러 장 한 번에 고를 수 있습니다.
                 </p>
               </div>
+
+              <input
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handleCameraChange}
+                className="hidden"
+                ref={cameraInputRef}
+              />
+              <input
+                type="file"
+                multiple
+                accept="image/*"
+                onChange={handleGalleryChange}
+                className="hidden"
+                ref={galleryInputRef}
+              />
+
+              <PhotoCaptureButtons />
 
               <div className="space-y-2">
                 <p className="text-[12px] font-black uppercase text-zinc-500 tracking-wider">수납 상태</p>
@@ -199,26 +270,6 @@ export default function ScratchModal({
                 </p>
               </div>
 
-              {/* Free Shooting Zone */}
-              <div 
-                onClick={triggerFileInput}
-                className="relative border-2 border-dashed border-neutral-750 hover:border-amber-500/50 hover:bg-neutral-950 bg-neutral-950/60 rounded-2xl p-6 transition-all duration-150 cursor-pointer text-center flex flex-col items-center justify-center min-h-[140px] group select-none"
-              >
-                <input
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  capture="environment"
-                  onChange={handleFileChange}
-                  className="hidden"
-                  ref={fileInputRef}
-                />
-                
-                <Camera className="text-neutral-500 group-hover:text-amber-500 transition-colors mb-2.5" size={28} />
-                <span className="text-xs font-black text-zinc-200">📸 사진 촬영 및 추가하기</span>
-                <span className="text-[11px] text-zinc-550 mt-1">파일 선택창 개방 또는 카메라 촬영 개시</span>
-              </div>
-
               {/* Real-time photo counter info line */}
               <div className="flex items-center justify-between text-[12.5px] font-mono border-t border-neutral-850/60 pt-2.5 text-zinc-400">
                 <div className="flex items-center gap-1.5">
@@ -226,8 +277,14 @@ export default function ScratchModal({
                   <span>등록된 사진 수 :</span>
                   <span className="text-amber-500/90 font-black">{uploadedPhotos.length}장</span>
                 </div>
-                <span className="text-[10.5px] text-zinc-550">제한 없이 만족할 때까지 촬영하십시오</span>
               </div>
+
+              {uploadedPhotos.length > 0 && (
+                <div className="space-y-2 rounded-xl border border-amber-500/25 bg-amber-500/5 p-3">
+                  <p className="text-[11px] font-bold text-amber-400/90">➕ 한 장 더 추가</p>
+                  <PhotoCaptureButtons compact />
+                </div>
+              )}
 
               {/* Render lists of thumbnails */}
               {uploadedPhotos.length > 0 && (
@@ -327,6 +384,16 @@ export default function ScratchModal({
           </motion.div>
         </div>
       )}
+      <InlineVehicleCamera
+        isOpen={!!scratchModalTargetId && inlineCameraOpen}
+        onClose={() => setInlineCameraOpen(false)}
+        onCapture={(dataUrl) => setUploadedPhotos((prev) => [...prev, dataUrl])}
+        sessionPhotos={uploadedPhotos}
+        onFallbackNativeCamera={() => {
+          setInlineCameraOpen(false);
+          cameraInputRef.current?.click();
+        }}
+      />
     </AnimatePresence>
   );
 }
