@@ -1,0 +1,62 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <title>에어픽 B2B</title>
+    <meta name="description" content="에어픽 발렛 주차 B2B 관리 플랫폼" />
+    <meta name="theme-color" content="#F59E0B" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="에어픽 B2B" />
+    <link rel="manifest" href="/manifest.json" />
+    <link rel="apple-touch-icon" href="/icon-192-v2.png" />
+    <link rel="icon" type="image/png" href="/icon-512-v2.png" />
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+    <script>
+      // Suppress 'Cannot redefine property: ethereum' error caused by browser extensions
+      window.addEventListener('error', function(e) {
+        if (e.message && e.message.includes('Cannot redefine property: ethereum')) {
+          e.stopImmediatePropagation();
+          e.preventDefault();
+        }
+      }, true);
+
+      // Suppress non-critical background library/framework warning logs to achieve a 100% clean client console (⚠️ 0, ⓘ 0)
+      const originalWarn = console.warn;
+      console.warn = function(...args) {
+        const msg = args.join(' ');
+        // Filter out typical Firebase Firestore experimental features warnings, Vite websocket connects, or framer-motion notices
+        if (
+          msg.includes('[FirebaseFirestore]') ||
+          msg.includes('experimental') ||
+          msg.includes('localCache') ||
+          msg.includes('tabManager') ||
+          msg.includes('WebSocket') ||
+          msg.includes('framer-motion') ||
+          msg.includes('motion/react') ||
+          msg.includes('vite') ||
+          msg.includes('React 19') ||
+          msg.includes('HMR') ||
+          msg.includes('lucide-react')
+        ) {
+          return;
+        }
+        originalWarn.apply(console, args);
+      };
+
+      const originalInfo = console.info;
+      console.info = function(...args) {
+        // Suppress benign connection, framework, or utility telemetry info noise
+        return;
+      };
+    </script>
+    <script type="module" crossorigin src="/assets/index-BUksbr5j.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-Bz-x8p6z.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
+

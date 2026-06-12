@@ -134,3 +134,14 @@ dist
 .yarn/build-state.yml
 .yarn/install-state.gz
 .pnp.*
+
+# Capacitor / Android (빌드 캐시·로컬 설정 — 커밋 금지)
+android/.gradle/
+android/app/build/
+android/build/
+android/local.properties
+android/capacitor-cordova-android-plugins/
+android/.idea/
+*.jks
+*.keystore
+keystore.properties

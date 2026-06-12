@@ -157,7 +157,7 @@ export default function InlineVehicleCamera({
 
             <div className="absolute top-0 inset-x-0 p-4 flex items-center justify-between bg-gradient-to-b from-black/70 to-transparent">
               <div className="text-xs font-black text-white">
-                연속 촬영 · {sessionPhotos.length}장
+                촬영 · {sessionPhotos.length}장
               </div>
               <button
                 type="button"
