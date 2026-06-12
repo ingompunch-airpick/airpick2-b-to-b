@@ -27,7 +27,31 @@ import {
 import { motion } from 'motion/react';
 import { Reservation } from '../types';
 import { AIRPICK_HQ_ID, isAirpickHeadquarters } from '../constants/platform';
-import { adminStatusBadgeClass, isAdmitted, isCompletedOut, isParked, statusToLabel } from '../utils/reservationStatus';
+import {
+  adminStatusBadgeClass,
+  isAdmitted,
+  isCompletedOut,
+  isParked,
+  statusToLabel,
+} from '../utils/reservationStatus';
+import { normalizeDateString } from '../utils/reservationNormalize';
+import { getKSTDateOnlyString, toKSTDateOnlyString } from '../utils/kstDate';
+
+function reservationDepartureOn(r: Reservation, ymd: string): boolean {
+  return normalizeDateString(r.departureDate) === ymd;
+}
+
+function reservationExitOn(r: Reservation, ymd: string): boolean {
+  const exitDate = r.actualExitTime
+    ? normalizeDateString(r.actualExitTime.slice(0, 10))
+    : normalizeDateString(r.arrivalDate);
+  return exitDate === ymd;
+}
+
+/** 당일 예약 = 오늘(KST) 접수(createdAt)한 건 */
+function isTodayReserveRow(r: Reservation, ymd: string): boolean {
+  return toKSTDateOnlyString(r.createdAt) === ymd;
+}
 
 interface StatisticsViewProps {
   reservations: Reservation[];
@@ -73,9 +97,7 @@ export default function StatisticsView({
   ];
 
   // KST Date string helper
-  const getKSTDateString = () => {
-    return new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().split('T')[0];
-  };
+  const getKSTDateString = () => getKSTDateOnlyString();
 
   const [todayStr, setTodayStr] = useState(() => getKSTDateString());
   const currentMonthPrefix = todayStr.substring(0, 7); // "2026-05"
@@ -157,23 +179,22 @@ export default function StatisticsView({
 
     // Sum today's total revenue
     const masterTodaySales = masterActiveRes
-      .filter(r => r.departureDate === todayStr)
+      .filter(r => reservationDepartureOn(r, todayStr))
       .reduce((sum, r) => sum + (r.totalPrice || 0), 0);
 
     // Sum today's total reservations
-    const masterTodayReservations = masterActiveRes.filter(r => 
-      r.departureDate === todayStr
+    const masterTodayReservations = masterActiveRes.filter(r =>
+      toKSTDateOnlyString(r.createdAt) === todayStr
     ).length;
 
     // Sum today's total check-in count
-    const masterTodayAdmitted = masterActiveRes.filter(r => 
-      r.departureDate === todayStr && isAdmitted(r.status)
+    const masterTodayAdmitted = masterActiveRes.filter(r =>
+      reservationDepartureOn(r, todayStr) && isAdmitted(r.status)
     ).length;
 
     // Sum today's total check-out count
-    const masterTodayExited = masterActiveRes.filter(r => 
-      r.arrivalDate === todayStr && 
-      r.status === 'completed_out'
+    const masterTodayExited = masterActiveRes.filter(r =>
+      reservationExitOn(r, todayStr) && r.status === 'completed_out'
     ).length;
 
     return (
@@ -187,23 +208,21 @@ export default function StatisticsView({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-sm font-black tracking-tight text-white">에어픽 (airpick)</h2>
-                <span className="text-[12px] bg-amber-500/10 text-amber-500 border border-amber-500/20 px-2 py-0.5 rounded-lg font-black animate-pulse">본사 플랫폼 통합 관제</span>
+                <h2 className="text-sm font-black tracking-tight text-white">에어픽</h2>
+                <span className="text-[12px] bg-amber-500/10 text-amber-500 border border-amber-500/20 px-2 py-0.5 rounded-lg font-black">본사</span>
               </div>
-              <p className="text-[12px] text-zinc-500 font-bold uppercase tracking-widest mt-0.5">AIRPICK HEADQUARTERS INTEGRATED CONTROL CENTER</p>
             </div>
           </div>
           
           <div className="text-[12.5px] text-zinc-400 font-mono font-bold bg-[#1C1C1E] px-3.5 py-1.5 rounded-xl border border-neutral-800 text-center md:text-right">
-            <span>오늘 기준일: {todayStr} • </span>
-            <span className="text-amber-500">LIVE SYNCED</span>
+            오늘 기준일: {todayStr}
           </div>
         </div>
 
         {/* 1. 업체들 총 현황 (Scoreboard Bento Boards) */}
         <div>
-          <h3 className="text-xs font-black text-zinc-400 uppercase tracking-widest px-1 mb-3">
-            📊 플랫폼 입출차 총 현황 (Today's Total Platform Activity)
+          <h3 className="text-xs font-black text-zinc-400 px-1 mb-3">
+            📊 플랫폼 입출차 총 현황
           </h3>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             
@@ -212,12 +231,11 @@ export default function StatisticsView({
               <div className="absolute right-3.5 top-3.5 bg-amber-500/10 p-1.5 rounded-lg text-amber-500">
                 <CalendarRange size={14} />
               </div>
-              <span className="text-[11.5px] text-zinc-500 font-bold tracking-widest uppercase">오늘 총 예약 접수</span>
+              <span className="text-[11.5px] text-zinc-500 font-bold">오늘 총 예약 접수</span>
               <div className="space-y-0.5">
                 <div className="text-xl sm:text-2xl font-black text-amber-500 tracking-tight font-mono">
                   {masterTodayReservations}건
                 </div>
-                <p className="text-[11px] text-zinc-600 font-medium">당일 예약 접수 완료건 총합</p>
               </div>
             </div>
 
@@ -226,12 +244,11 @@ export default function StatisticsView({
               <div className="absolute right-3.5 top-3.5 bg-amber-500/10 p-1.5 rounded-lg text-amber-500">
                 <Car size={14} />
               </div>
-              <span className="text-[11.5px] text-zinc-500 font-bold tracking-widest uppercase">오늘 총 입차 완료</span>
+              <span className="text-[11.5px] text-zinc-500 font-bold">오늘 총 입차 완료</span>
               <div className="space-y-0.5">
                 <div className="text-xl sm:text-2xl font-black text-amber-500 tracking-tight font-mono">
                   {masterTodayAdmitted}대
                 </div>
-                <p className="text-[11px] text-zinc-600 font-medium">입고 처리 완료 누적 집계</p>
               </div>
             </div>
 
@@ -240,12 +257,11 @@ export default function StatisticsView({
               <div className="absolute right-3.5 top-3.5 bg-amber-500/10 p-1.5 rounded-lg text-amber-500">
                 <ArrowRight size={14} />
               </div>
-              <span className="text-[11.5px] text-zinc-500 font-bold tracking-widest uppercase">오늘 총 출차 완료</span>
+              <span className="text-[11.5px] text-zinc-500 font-bold">오늘 총 출차 완료</span>
               <div className="space-y-0.5">
                 <div className="text-xl sm:text-2xl font-black text-amber-500 tracking-tight font-mono">
                   {masterTodayExited}대
                 </div>
-                <p className="text-[11px] text-zinc-600 font-medium">출고 반납 완료 누적 집계</p>
               </div>
             </div>
 
@@ -254,28 +270,15 @@ export default function StatisticsView({
               <div className="absolute right-3.5 top-3.5 bg-amber-500/10 p-1.5 rounded-lg text-amber-500">
                 <Coins size={14} />
               </div>
-              <span className="text-[11.5px] text-zinc-500 font-bold tracking-widest uppercase">오늘 총 결제 금액</span>
+              <span className="text-[11.5px] text-zinc-500 font-bold">오늘 총 결제 금액</span>
               <div className="space-y-0.5">
                 <div className="text-xl sm:text-2xl font-black text-amber-500 tracking-tight font-mono">
                   {masterTodaySales.toLocaleString()}원
                 </div>
-                <p className="text-[11px] text-zinc-600 font-medium font-sans">제휴사 매출 포함 플랫폼 총 거래</p>
               </div>
             </div>
 
           </div>
-        </div>
-
-        {/* Clean Center HUB Heartbeat indicator */}
-        <div className="pt-8 pb-4 flex flex-col items-center justify-center text-center space-y-2 select-none">
-          <div className="flex items-center gap-2 px-4 py-2 bg-neutral-900/60 border border-neutral-850 rounded-full shadow-lg">
-            <span className="relative flex h-2.5 w-2.5">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
-            </span>
-            <span className="text-[12px] text-zinc-300 font-bold uppercase tracking-widest font-mono">에어픽 플랫폼 통합 관제 엔진 실시간 클라우드 연동중</span>
-          </div>
-          <p className="text-[11.5px] text-neutral-600 font-bold font-mono uppercase tracking-wider">ALL SYSTEMS NOMINAL • SECURE FIREBASE CONNECTION ACTIVE</p>
         </div>
 
       </div>
@@ -287,11 +290,11 @@ export default function StatisticsView({
 
   // Real-time calculated statistics from active reservations
   const realTodaySales = activeReservations
-    .filter(r => r.departureDate === todayStr)
+    .filter(r => reservationDepartureOn(r, todayStr))
     .reduce((sum, r) => sum + (r.totalPrice || 0), 0);
 
   const realMonthSales = activeReservations
-    .filter(r => r.departureDate?.startsWith(currentMonthPrefix))
+    .filter(r => normalizeDateString(r.departureDate).startsWith(currentMonthPrefix))
     .reduce((sum, r) => sum + (r.totalPrice || 0), 0);
 
   const todaySales = realTodaySales;
@@ -330,12 +333,11 @@ export default function StatisticsView({
   // --- Daily flow data (A+C: 월 요약 + 미니 막대 + 현재 재차) ---
   const dailyFlow = datesRange.map((date) => {
     const admittedCount = activeReservations.filter(r =>
-      r.departureDate === date && isAdmitted(r.status)
+      reservationDepartureOn(r, date) && isAdmitted(r.status)
     ).length;
-    const exitedCount = activeReservations.filter(r => {
-      const exitDate = r.actualExitTime ? r.actualExitTime.slice(0, 10) : r.arrivalDate;
-      return isCompletedOut(r.status) && exitDate === date;
-    }).length;
+    const exitedCount = activeReservations.filter(r =>
+      isCompletedOut(r.status) && reservationExitOn(r, date)
+    ).length;
     return { date, admittedCount, exitedCount };
   });
 
@@ -414,19 +416,15 @@ export default function StatisticsView({
         </div>
         <div>
           <h2 className="text-sm font-black tracking-tight text-white">{companyName} 매장 대시보드</h2>
-          <p className="text-[12px] text-zinc-500 font-bold uppercase tracking-wider">Store Statistics & Closed Calendar</p>
         </div>
       </div>
 
       {/* 💳 Sales Statistics Card */}
       <div className="bg-gradient-to-br from-[#121214] via-[#121214] to-[#1C1C1F] p-4.5 rounded-[22px] border border-neutral-800/80 shadow-lg space-y-4">
         <div className="flex items-center justify-between">
-          <span className="text-[12.5px] font-black text-zinc-400 tracking-wider flex items-center gap-1.5 uppercase">
+          <span className="text-[12.5px] font-black text-zinc-400 tracking-wider flex items-center gap-1.5">
             <Coins size={14} className="text-amber-500 animate-pulse animate-duration-1000" />
             매출 통계
-          </span>
-          <span className="text-[11.5px] px-2.5 py-0.5 rounded-lg font-bold bg-[#1C1C1E]/90 border border-neutral-800 text-zinc-400 font-mono">
-            SECURE LIVE
           </span>
         </div>
 
@@ -455,20 +453,17 @@ export default function StatisticsView({
       {(() => {
         const activeRes = reservations.filter(r => r.status !== 'cancelled');
         const crmCounts = {
-          today_reserve: activeRes.filter(r => r.departureDate === todayStr && (r.status === 'pending' || r.status === 'pending_in')).length,
-          today_parked:  activeRes.filter(r => r.departureDate === todayStr && r.status === 'completed_in').length,
-          today_released: activeRes.filter(r => {
-            if (r.status !== 'completed_out') return false;
-            const exitDate = r.actualExitTime ? r.actualExitTime.slice(0, 10) : r.arrivalDate;
-            return exitDate === todayStr;
-          }).length,
+          today_reserve: activeRes.filter(r => isTodayReserveRow(r, todayStr)).length,
+          today_parked: activeRes.filter(r => reservationDepartureOn(r, todayStr) && isParked(r.status)).length,
+          today_released: activeRes.filter(r =>
+            r.status === 'completed_out' && reservationExitOn(r, todayStr)
+          ).length,
         };
         const todayTotal = activeRes.filter(r => {
-          const isReserve = r.departureDate === todayStr && (r.status === 'pending' || r.status === 'pending_in');
-          const isParked  = r.departureDate === todayStr && r.status === 'completed_in';
-          const exitDate  = r.actualExitTime ? r.actualExitTime.slice(0, 10) : r.arrivalDate;
-          const isOut     = r.status === 'completed_out' && exitDate === todayStr;
-          return isReserve || isParked || isOut;
+          const isReserve = isTodayReserveRow(r, todayStr);
+          const isParkedRow = reservationDepartureOn(r, todayStr) && isParked(r.status);
+          const isOut = r.status === 'completed_out' && reservationExitOn(r, todayStr);
+          return isReserve || isParkedRow || isOut;
         });
         const todayRevenue = todayTotal.reduce((s, r) => s + (r.totalPrice || 0), 0);
 
@@ -481,11 +476,10 @@ export default function StatisticsView({
             );
           }
           return activeRes.filter(r => {
-            if (crmTab === 'today_reserve') return r.departureDate === todayStr && (r.status === 'pending' || r.status === 'pending_in');
-            if (crmTab === 'today_parked')  return r.departureDate === todayStr && r.status === 'completed_in';
+            if (crmTab === 'today_reserve') return isTodayReserveRow(r, todayStr);
+            if (crmTab === 'today_parked') return reservationDepartureOn(r, todayStr) && isParked(r.status);
             if (crmTab === 'today_released') {
-              const exitDate = r.actualExitTime ? r.actualExitTime.slice(0, 10) : r.arrivalDate;
-              return r.status === 'completed_out' && exitDate === todayStr;
+              return r.status === 'completed_out' && reservationExitOn(r, todayStr);
             }
             return false;
           });
@@ -500,9 +494,9 @@ export default function StatisticsView({
         return (
           <div className="space-y-3 pt-1 border-t border-neutral-800/60">
             <div className="flex items-center justify-between px-0.5">
-              <h3 className="text-[12.5px] text-zinc-400 font-black tracking-wider uppercase flex items-center gap-1.5">
+              <h3 className="text-[12.5px] text-zinc-400 font-black tracking-wider flex items-center gap-1.5">
                 <ClipboardList size={13} className="text-amber-500" />
-                주차접수 현황 (CRM)
+                주차접수 현황
               </h3>
               <div className="flex items-center gap-2 text-[12px] font-mono text-zinc-500">
                 <span className="text-amber-500 font-bold">{todayTotal.length}건</span>

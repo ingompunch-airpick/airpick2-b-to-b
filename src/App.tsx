@@ -43,6 +43,15 @@ import { AIRPICK_HQ_ID, isAirpickHeadquarters, normalizePlatformCompanyId } from
 import { ensureFirestoreAuth, ensurePlatformAdminAuth, tryPlatformAdminAuthFallback } from './lib/firebaseAuth';
 import { isPending, normalizeReservationStatus } from './utils/reservationStatus';
 import { cn } from './lib/utils';
+import {
+  areReservationAlertsEnabled,
+  findNewIncomingReservations,
+  notifyNewReservation,
+  requestReservationNotificationPermission,
+  setReservationAlertsEnabled,
+  wasNotificationPermissionAsked,
+  markNotificationPermissionAsked,
+} from './utils/reservationNotifications';
 
 // --- Sub-views Imports ---
 import Sidebar from './components/Sidebar';
@@ -591,6 +600,43 @@ export default function App() {
   // Continuous shooting (Auto-Advance) states
   const [activeSpotKey, setActiveSpotKey] = useState<string>('front');
   const autoShootTimeoutRef = useRef<any>(null);
+  const reservationsBootstrappedRef = useRef(false);
+  const reservationsPrevRef = useRef<Reservation[]>([]);
+  const currentCompanyIdRef = useRef(currentCompanyId);
+  const companyAlertLabelRef = useRef(
+    formatPartnerDisplayName(companyInfo.name, companyInfo.id) || currentCompanyId
+  );
+  const [incomingReservationToast, setIncomingReservationToast] = useState<{
+    id: string;
+    carNumber: string;
+    userName: string;
+  } | null>(null);
+  const [showAlertPermissionBanner, setShowAlertPermissionBanner] = useState(false);
+
+  useEffect(() => {
+    currentCompanyIdRef.current = currentCompanyId;
+    companyAlertLabelRef.current =
+      formatPartnerDisplayName(companyInfo.name, companyInfo.id) || currentCompanyId;
+  }, [currentCompanyId, companyInfo.name, companyInfo.id]);
+
+  useEffect(() => {
+    if (!incomingReservationToast) return;
+    const timer = window.setTimeout(() => setIncomingReservationToast(null), 6000);
+    return () => window.clearTimeout(timer);
+  }, [incomingReservationToast]);
+
+  useEffect(() => {
+    if (!isLoggedIn) {
+      reservationsBootstrappedRef.current = false;
+      reservationsPrevRef.current = [];
+      setShowAlertPermissionBanner(false);
+      return;
+    }
+    if (typeof Notification === 'undefined') return;
+    if (Notification.permission !== 'default') return;
+    if (wasNotificationPermissionAsked()) return;
+    setShowAlertPermissionBanner(true);
+  }, [isLoggedIn]);
 
   useEffect(() => {
     if (scratchModalTargetId) {
@@ -936,6 +982,27 @@ export default function App() {
     const applySnapshot = (rawData: Record<string, unknown>[]) => {
       if (cancelled) return;
       const data = normalizeDocsArray(rawData).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
+
+      if (reservationsBootstrappedRef.current && areReservationAlertsEnabled()) {
+        const incoming = findNewIncomingReservations(
+          reservationsPrevRef.current,
+          data,
+          currentCompanyIdRef.current
+        );
+        for (const res of incoming) {
+          if (!res.id) continue;
+          notifyNewReservation(res, companyAlertLabelRef.current);
+          setIncomingReservationToast({
+            id: res.id,
+            carNumber: res.carNumber || '차량미상',
+            userName: res.userName || '',
+          });
+        }
+      } else {
+        reservationsBootstrappedRef.current = true;
+      }
+      reservationsPrevRef.current = data;
+
       setReservations(data);
       localStorage.setItem('firestore_reservations_cache', JSON.stringify(data));
       setLoadingReservations(false);
@@ -1590,6 +1657,61 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-black font-sans text-white pb-24 selection:bg-amber-500 selection:text-neutral-950 antialiased">
+
+      {showAlertPermissionBanner && (
+        <div className="fixed top-0 inset-x-0 z-[100] px-3 pt-3">
+          <div className="mx-auto max-w-md rounded-2xl border border-amber-500/30 bg-neutral-900/95 backdrop-blur-md p-3 shadow-xl flex items-start gap-3">
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-black text-amber-400">신규 예약 알림</p>
+              <p className="text-[11px] text-zinc-400 mt-1 leading-relaxed">
+                홈페이지·앱 접수 시 소리와 푸시 알림을 받을 수 있습니다. (앱을 켜 두거나 홈 화면에 추가한 상태)
+              </p>
+            </div>
+            <div className="flex flex-col gap-1 shrink-0">
+              <button
+                type="button"
+                onClick={async () => {
+                  await requestReservationNotificationPermission();
+                  setShowAlertPermissionBanner(false);
+                }}
+                className="px-3 py-1.5 rounded-lg bg-amber-500 text-neutral-950 text-[11px] font-black"
+              >
+                알림 켜기
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setReservationAlertsEnabled(false);
+                  markNotificationPermissionAsked();
+                  setShowAlertPermissionBanner(false);
+                }}
+                className="px-3 py-1.5 rounded-lg text-zinc-500 text-[10px] font-bold"
+              >
+                나중에
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <AnimatePresence>
+        {incomingReservationToast && (
+          <motion.div
+            initial={{ opacity: 0, y: 40 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 40 }}
+            className="fixed bottom-24 inset-x-0 z-[100] px-4 pointer-events-none"
+          >
+            <div className="mx-auto max-w-md rounded-2xl border border-sky-500/40 bg-neutral-900/95 backdrop-blur-md px-4 py-3 shadow-2xl pointer-events-auto">
+              <p className="text-xs font-black text-sky-400">📥 신규 입고예정</p>
+              <p className="text-sm font-bold text-white mt-1">
+                {incomingReservationToast.carNumber}
+                {incomingReservationToast.userName ? ` · ${incomingReservationToast.userName}` : ''}
+              </p>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
       
       {/* 1. Header with Sidebar Trigger Button & Embedded Status Tabs */}
       <div className="sticky top-0 z-40 bg-black/95 backdrop-blur-md border-b border-neutral-900/30">
@@ -1632,7 +1754,6 @@ export default function App() {
                   </span>
                 </h1>
               )}
-              <p className="text-toss-caption mt-1 mb-0">인천공항 발렛 B2B</p>
             </div>
           </div>
 

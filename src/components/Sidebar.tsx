@@ -16,10 +16,17 @@ import {
   Play,
   TrendingUp,
   ClipboardList,
-  FileX
+  FileX,
+  Bell,
+  BellOff,
 } from 'lucide-react';
 import { AppView } from '../types';
 import { isAirpickHeadquarters } from '../constants/platform';
+import {
+  areReservationAlertsEnabled,
+  requestReservationNotificationPermission,
+  setReservationAlertsEnabled,
+} from '../utils/reservationNotifications';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -66,6 +73,17 @@ export default function Sidebar({
   currentCompanyId,
   companyInfo
 }: SidebarProps) {
+  const [alertsEnabled, setAlertsEnabled] = React.useState(() => areReservationAlertsEnabled());
+
+  const toggleAlerts = async () => {
+    const next = !alertsEnabled;
+    if (next && typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      await requestReservationNotificationPermission();
+    }
+    setReservationAlertsEnabled(next);
+    setAlertsEnabled(next);
+  };
+
   if (!isOpen) return null;
 
   const safeCompanyInfo = {
@@ -77,20 +95,20 @@ export default function Sidebar({
 
   const menuItems = isAirpickHeadquarters(currentCompanyId)
     ? [
-        { id: 'admin_statistics', label: '① 대시보드 (통계)', desc: '제휴업체 총 예약 및 운영 현황 분석', icon: TrendingUp, view: 'statistics' as AppView },
-        { id: 'admin_master_settings', label: '② 제휴업체 관리', desc: '신규 제휴사 등록 및 기존 업체 수정/삭제', icon: Settings, view: 'master_settings' as AppView }
+        { id: 'admin_statistics', label: '① 대시보드 (통계)', icon: TrendingUp, view: 'statistics' as AppView },
+        { id: 'admin_master_settings', label: '② 제휴업체 관리', icon: Settings, view: 'master_settings' as AppView }
       ]
     : isAdminModeActive
     ? [
-        { id: 'admin_statistics', label: '① 대시보드', desc: '매출 통계 · 접수현황 · 일별 흐름 통합', icon: TrendingUp, view: 'statistics' as AppView },
-        { id: 'admin_master_settings', label: '② 업체 정보 설정', desc: '본인 계정 비밀번호 변경 및 자율 주차 요금 설정', icon: Settings, view: 'master_settings' as AppView }
+        { id: 'admin_statistics', label: '① 대시보드', icon: TrendingUp, view: 'statistics' as AppView },
+        { id: 'admin_master_settings', label: '② 업체 정보 설정', icon: Settings, view: 'master_settings' as AppView }
       ]
     : [
-        { id: 'service_history', label: '① 나의 서비스 기록', desc: '당일 총 운행시간 요약 및 입출차 완료 로그', icon: History, view: 'service_history' as AppView },
-        { id: 'payment_change', label: '② 결제 변경', desc: '결제수단 사후 수정', icon: CreditCard, view: 'payment_change' as AppView },
-        { id: 'scratch_images', label: '③ 차량 사진', desc: '미등록 사진 올리기 · 차량번호로 조회', icon: Camera, view: 'scratch_images' as AppView },
-        { id: 'parking_departure', label: '④ 주차장별 현황', desc: '실내외 실시간 차량 분류 현황', icon: Calendar, view: 'parking_departure' as AppView },
-        { id: 'cancelled_list', label: '⑤ 접수취소 내역', desc: '취소된 예약 건 조회', icon: FileX, view: 'cancelled_list' as AppView },
+        { id: 'service_history', label: '① 나의 서비스 기록', icon: History, view: 'service_history' as AppView },
+        { id: 'payment_change', label: '② 결제 변경', icon: CreditCard, view: 'payment_change' as AppView },
+        { id: 'scratch_images', label: '③ 차량 사진', icon: Camera, view: 'scratch_images' as AppView },
+        { id: 'parking_departure', label: '④ 주차장별 현황', icon: Calendar, view: 'parking_departure' as AppView },
+        { id: 'cancelled_list', label: '⑤ 접수취소 내역', icon: FileX, view: 'cancelled_list' as AppView },
       ];
 
   return (
@@ -119,16 +137,16 @@ export default function Sidebar({
               )}
               <div>
                 <h3 className="font-bold text-sm tracking-tight text-white flex items-center gap-1.5">
-                  {isAirpickHeadquarters(currentCompanyId) ? '에어픽 (airpick) 본사' : (isSuperAdmin ? '김인원' : (isEmployee ? (employeeRole === 'admin' ? `${employeeName} 부관리자` : `${employeeName} 기사`) : `${safeCompanyInfo.name} 관리자`))} 
+                  {isAirpickHeadquarters(currentCompanyId) ? '에어픽 본사' : (isSuperAdmin ? '김인원' : (isEmployee ? (employeeRole === 'admin' ? `${employeeName} 부관리자` : `${employeeName} 기사`) : `${safeCompanyInfo.name} 관리자`))} 
                   <span className="text-[12px] text-amber-500 font-bold bg-amber-500/10 px-1.5 py-0.5 rounded font-sans shrink-0">
                     {isAirpickHeadquarters(currentCompanyId) ? '본사' : (isAdminModeActive ? '관리자' : (isEmployee ? (employeeRole === 'admin' ? '부관리자' : '직원기사') : '기사'))}
                   </span>
                 </h3>
-                <p className="text-[12px] text-zinc-400 font-mono mt-0.5 truncate max-w-[150px]">
-                  {isAirpickHeadquarters(currentCompanyId) 
-                    ? '통합 예약 중개 서비스 본사' 
-                    : (isAdminModeActive ? (isSuperAdmin ? '최고 관리자 계정' : (isEmployee && employeeRole === 'admin' ? `소속 부관리자: ${employeeName}` : `${safeCompanyInfo.name} 관리자 계정`)) : (isEmployee ? (employeeRole === 'admin' ? `소속 부관리자: ${employeeName}` : `소속 직원: ${employeeName}`) : (isAnonymous ? `익명 ${safeCompanyInfo.name.substring(0, 2)} 기사` : userEmail)))}
-                </p>
+                {!isAirpickHeadquarters(currentCompanyId) && (
+                  <p className="text-[12px] text-zinc-400 font-mono mt-0.5 truncate max-w-[150px]">
+                    {isAdminModeActive ? (isSuperAdmin ? '최고 관리자 계정' : (isEmployee && employeeRole === 'admin' ? `소속 부관리자: ${employeeName}` : `${safeCompanyInfo.name} 관리자 계정`)) : (isEmployee ? (employeeRole === 'admin' ? `소속 부관리자: ${employeeName}` : `소속 직원: ${employeeName}`) : (isAnonymous ? `익명 ${safeCompanyInfo.name.substring(0, 2)} 기사` : userEmail))}
+                  </p>
+                )}
               </div>
             </div>
             <button 
@@ -182,9 +200,6 @@ export default function Sidebar({
                     </div>
                     <div>
                       <h4 className="text-xs font-bold tracking-tight">{item.label}</h4>
-                      <p className={`text-[12px] mt-0.5 ${isActive ? 'text-neutral-850 font-medium' : 'text-zinc-500'}`}>
-                        {item.desc}
-                      </p>
                     </div>
                   </div>
                 </button>
@@ -216,6 +231,22 @@ export default function Sidebar({
 
         {/* Footer with logout and navigation */}
         <div className="p-4 bg-neutral-950/80 border-t border-neutral-800">
+          <button
+            type="button"
+            onClick={toggleAlerts}
+            className={`w-full mb-3 py-2.5 px-3 rounded-xl border text-left flex items-center gap-2 transition-all ${
+              alertsEnabled
+                ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                : 'bg-neutral-900 border-neutral-800 text-zinc-500'
+            }`}
+          >
+            {alertsEnabled ? <Bell size={16} /> : <BellOff size={16} />}
+            <div>
+              <span className="text-xs font-black block">신규 예약 알림</span>
+              <span className="text-[10px] opacity-80">{alertsEnabled ? '켜짐 · 소리+푸시' : '꺼짐'}</span>
+            </div>
+          </button>
+
           <div className="flex gap-2">
             <button
               onClick={() => {
@@ -241,7 +272,7 @@ export default function Sidebar({
           </div>
 
           <p className="text-[11px] text-zinc-650 font-mono text-center mt-3">
-            AirPick B2B v2.2.0 • © AirPick Corp.
+            에어픽 v2.2.0
           </p>
         </div>
 
