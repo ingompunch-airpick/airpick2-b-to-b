@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect, useRef } from 'react';
-import { Camera, X, CheckCircle2 } from 'lucide-react';
+import { Camera, Images, X, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Reservation } from '../types';
 import {
@@ -135,37 +135,23 @@ export default function ScratchModal({
     setUploadedPhotos(prev => prev.filter((_, idx) => idx !== indexToRemove));
   };
 
-  const PhotoCaptureButtons = ({ compact = false }: { compact?: boolean }) => (
-    <div className={cn('grid grid-cols-2 gap-2', compact ? '' : 'mt-1')}>
+  const PhotoCaptureButtons = () => (
+    <div className="grid grid-cols-2 gap-2 mt-1">
       <button
         type="button"
         onClick={() => setInlineCameraOpen(true)}
-        className={cn(
-          'rounded-xl border font-black transition-all active:scale-[0.98] flex flex-col items-center justify-center gap-1',
-          compact ? 'py-2.5 px-2' : 'py-4 px-3',
-          'bg-neutral-950 border-amber-500/40 text-amber-400 hover:bg-amber-500/10'
-        )}
+        className="rounded-xl border font-black transition-all active:scale-[0.98] flex flex-col items-center justify-center gap-1.5 py-4 px-3 bg-neutral-950 border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
       >
-        <Camera size={compact ? 16 : 22} />
-        <span className={compact ? 'text-[11px]' : 'text-xs'}>연속 촬영</span>
-        {!compact && (
-          <span className="text-[10px] text-zinc-550 font-medium">앱 안에서 바로바로 여러 장</span>
-        )}
+        <Camera size={22} />
+        <span className="text-xs">촬영</span>
       </button>
       <button
         type="button"
         onClick={() => galleryInputRef.current?.click()}
-        className={cn(
-          'rounded-xl border font-black transition-all active:scale-[0.98] flex flex-col items-center justify-center gap-1',
-          compact ? 'py-2.5 px-2' : 'py-4 px-3',
-          'bg-neutral-950 border-sky-500/35 text-sky-400 hover:bg-sky-500/10'
-        )}
+        className="rounded-xl border font-black transition-all active:scale-[0.98] flex flex-col items-center justify-center gap-1.5 py-4 px-3 bg-neutral-950 border-sky-500/35 text-sky-400 hover:bg-sky-500/10"
       >
-        <span className={compact ? 'text-base leading-none' : 'text-xl leading-none'}>🖼</span>
-        <span className={compact ? 'text-[11px]' : 'text-xs'}>앨범 여러 장</span>
-        {!compact && (
-          <span className="text-[10px] text-zinc-550 font-medium">한 번에 여러 장 선택</span>
-        )}
+        <Images size={22} />
+        <span className="text-xs">앨범</span>
       </button>
     </div>
   );
@@ -212,12 +198,6 @@ export default function ScratchModal({
 
             {/* Body */}
             <div className="overflow-y-auto p-5 space-y-4 select-none scrollbar-thin">
-              <div className="bg-neutral-950 border border-neutral-850 p-3 rounded-xl">
-                <p className="text-[12.5px] text-zinc-400 font-sans leading-relaxed">
-                  <strong className="text-zinc-300">연속 촬영</strong>은 카메라를 켠 채 셔터만 연타하면 됩니다. <strong className="text-zinc-300">앨범</strong>은 저장된 사진을 여러 장 한 번에 고를 수 있습니다.
-                </p>
-              </div>
-
               <input
                 type="file"
                 accept="image/*"
@@ -278,13 +258,6 @@ export default function ScratchModal({
                   <span className="text-amber-500/90 font-black">{uploadedPhotos.length}장</span>
                 </div>
               </div>
-
-              {uploadedPhotos.length > 0 && (
-                <div className="space-y-2 rounded-xl border border-amber-500/25 bg-amber-500/5 p-3">
-                  <p className="text-[11px] font-bold text-amber-400/90">➕ 한 장 더 추가</p>
-                  <PhotoCaptureButtons compact />
-                </div>
-              )}
 
               {/* Render lists of thumbnails */}
               {uploadedPhotos.length > 0 && (
