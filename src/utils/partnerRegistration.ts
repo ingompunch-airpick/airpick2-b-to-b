@@ -1,12 +1,29 @@
 import { doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import type { Company, PartnerCompany } from '../types';
-import { ensurePlatformAdminAuth } from '../lib/firebaseAuth';
+import { ensureFirestoreAuth, ensurePlatformAdminAuth } from '../lib/firebaseAuth';
 
 export const DEFAULT_SETTLEMENT_MEMO = '지급 기본 정산 기준 보류';
 
 export function sanitizePartnerCompanyId(raw: string): string {
   return raw.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
+}
+
+/** Firestore setDoc — undefined 필드는 거부되므로 제거 */
+function omitUndefinedDeep<T>(value: T): T {
+  if (value === null || value === undefined) return value;
+  if (Array.isArray(value)) {
+    return value.map((item) => omitUndefinedDeep(item)) as T;
+  }
+  if (typeof value === 'object') {
+    const out: Record<string, unknown> = {};
+    for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
+      if (nested === undefined) continue;
+      out[key] = omitUndefinedDeep(nested);
+    }
+    return out as T;
+  }
+  return value;
 }
 
 export interface CreatePartnerCompanyInput {
@@ -78,15 +95,18 @@ export async function writeNewPartnerToFirestore(
   partner: PartnerCompany
 ): Promise<void> {
   await ensurePlatformAdminAuth();
-  await setDoc(doc(db, 'companies', company.id), {
-    ...company,
-    isOperatorPrimary: company.isOperatorPrimary ?? true,
-    password: partner.password,
-    settlementMemo: partner.settlementMemo,
-    status: 'active',
-    blockedDates: [],
-    updatedAt: new Date().toISOString(),
-  });
+  await setDoc(
+    doc(db, 'companies', company.id),
+    omitUndefinedDeep({
+      ...company,
+      isOperatorPrimary: company.isOperatorPrimary ?? true,
+      password: partner.password,
+      settlementMemo: partner.settlementMemo,
+      status: 'active',
+      blockedDates: [],
+      updatedAt: new Date().toISOString(),
+    })
+  );
 }
 
 export interface CreateSubOperatorInput {
@@ -113,19 +133,30 @@ export function createSubOperatorSkeleton(input: CreateSubOperatorInput): Compan
 }
 
 export async function writeSubOperatorToFirestore(company: Company): Promise<void> {
-  await ensurePlatformAdminAuth();
-  await setDoc(doc(db, 'companies', company.id), {
-    ...company,
-    parentCompanyId: company.parentCompanyId,
-    isOperatorPrimary: false,
-    status: 'active',
-    blockedDates: company.blockedDates ?? [],
-    updatedAt: new Date().toISOString(),
-  });
+  // 하위 업체 수정(update)과 동일 — Anonymous 로그인 (플랫폼 관리자 .env 불필요)
+  await ensureFirestoreAuth();
+  await setDoc(
+    doc(db, 'companies', company.id),
+    omitUndefinedDeep({
+      ...company,
+      parentCompanyId: company.parentCompanyId,
+      isOperatorPrimary: false,
+      status: 'active',
+      blockedDates: company.blockedDates ?? [],
+      updatedAt: new Date().toISOString(),
+    })
+  );
 }
 
-export async function deletePartnerFromFirestore(companyId: string): Promise<void> {
-  await ensurePlatformAdminAuth();
+export async function deletePartnerFromFirestore(
+  companyId: string,
+  options?: { isSubOperator?: boolean }
+): Promise<void> {
+  if (options?.isSubOperator) {
+    await ensureFirestoreAuth();
+  } else {
+    await ensurePlatformAdminAuth();
+  }
   await deleteDoc(doc(db, 'companies', companyId));
 }
 

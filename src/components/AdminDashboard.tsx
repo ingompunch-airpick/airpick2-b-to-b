@@ -107,8 +107,14 @@ export default function AdminDashboard({
   const [editMemo, setEditMemo] = useState('');
   const [editProfile, setEditProfile] = useState<PartnerProfileInput>({ ...DEFAULT_PARTNER_PROFILE });
 
-  const primaryCandidates = getPrimaryOperatorCandidates(companies || []);
+  const primaryPartners = (partners || []).filter((p) => {
+    if (!p?.companyId) return false;
+    const company = companies.find((c) => c.id === p.companyId);
+    return !isSubOperatorCompany(company);
+  });
+  const primaryCandidates = getPrimaryOperatorCandidates(companies || [], primaryPartners);
   const subCompanies = (companies || []).filter((c) => isSubOperatorCompany(c));
+  const canRegisterSub = primaryCandidates.length > 0;
 
   const handleStartEditSub = (c: Company) => {
     setEditingSubCompany(c);
@@ -165,7 +171,7 @@ export default function AdminDashboard({
     safeStorage.setItem('companies', JSON.stringify(nextCompanies));
 
     try {
-      await deletePartnerFromFirestore(companyId);
+      await deletePartnerFromFirestore(companyId, { isSubOperator: true });
     } catch (err) {
       console.warn('Firestore sub delete failed:', err);
       alert('❌ Firebase 하위 업체 삭제에 실패했습니다.');
@@ -465,7 +471,10 @@ export default function AdminDashboard({
       await writeSubOperatorToFirestore(newCompany);
     } catch (err) {
       console.warn('Firestore sub-operator registration failed:', err);
-      alert('❌ Firebase 하위 업체 등록에 실패했습니다.');
+      const detail = err instanceof Error ? err.message : String(err);
+      alert(
+        `❌ Firebase 하위 업체 등록에 실패했습니다.\n\n${detail}\n\n대표 업체가 Firestore companies에 등록되어 있는지, Firebase Console → Authentication → Anonymous 사용 설정이 켜져 있는지 확인하세요.`
+      );
       return;
     }
 
@@ -557,7 +566,7 @@ export default function AdminDashboard({
               <p className="text-[12px] text-slate-450 mt-0.5">시스템에 등록된 제휴 대행사들을 검토하고 요율 및 계약 조건을 수정하거나 불필요한 업체를 파기합니다.</p>
             </div>
             <span className="text-[12px] bg-red-50 text-red-700 px-2.5 py-1 rounded-xl font-bold font-mono shrink-0">
-              총 {(partners || []).length} 대표 · {subCompanies.length} 하위
+              총 {primaryPartners.length} 대표 · {subCompanies.length} 하위
             </span>
           </div>
 
@@ -573,7 +582,7 @@ export default function AdminDashboard({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {(partners || []).filter(p => p && p.companyId).map(p => {
+                  {primaryPartners.map((p) => {
                     const stats = computeStats(p.companyId);
                     const isSuspended = p.status === 'suspended';
                     const company = companies.find((c) => c.id === p.companyId);
@@ -850,9 +859,20 @@ export default function AdminDashboard({
             </button>
             <button
               type="button"
-              onClick={() => setRegisterKind('sub')}
+              onClick={() => {
+                if (!canRegisterSub) {
+                  alert('하위 업체를 등록하려면 먼저 「대표 업체」를 등록해 주세요.');
+                  return;
+                }
+                setRegisterKind('sub');
+              }}
+              disabled={!canRegisterSub}
               className={`py-2 rounded-lg text-[12px] font-black transition-all ${
-                registerKind === 'sub' ? 'bg-white text-violet-900 shadow-xs' : 'text-slate-500'
+                registerKind === 'sub'
+                  ? 'bg-white text-violet-900 shadow-xs'
+                  : canRegisterSub
+                    ? 'text-slate-500'
+                    : 'text-slate-300 cursor-not-allowed'
               }`}
             >
               하위 업체 (B2C만)
@@ -862,25 +882,33 @@ export default function AdminDashboard({
           {registerKind === 'sub' && (
             <div>
               <label className="text-[12px] text-slate-800 block mb-1 font-extrabold">소속 대표 업체 *</label>
-              <select
-                required
-                value={newParentId}
-                onChange={(e) => setNewParentId(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-violet-500 font-bold text-slate-900"
-              >
-                <option value="">대표 업체 선택</option>
-                {primaryCandidates.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name} ({c.id})
-                  </option>
-                ))}
-              </select>
+              {!canRegisterSub ? (
+                <p className="text-[12px] text-rose-600 font-bold py-2">
+                  등록된 대표 업체가 없습니다. 먼저 「대표 업체 (B2B 로그인)」 탭에서 대표를 등록하세요.
+                </p>
+              ) : (
+                <select
+                  required
+                  value={newParentId}
+                  onChange={(e) => setNewParentId(e.target.value)}
+                  className="w-full px-3 py-2 border border-slate-200 rounded-xl focus:outline-none focus:ring-1 focus:ring-violet-500 font-bold text-slate-900"
+                >
+                  <option value="">대표 업체 선택</option>
+                  {primaryCandidates.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name} ({c.id})
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
           )}
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-[12px] text-slate-800 block mb-1 font-extrabold">가맹점 고유 식별 코드 (companyId) *</label>
+              <label className="text-[12px] text-slate-800 block mb-1 font-extrabold">
+                {registerKind === 'sub' ? 'B2C 노출용 ID (로그인 없음) *' : '가맹점 고유 식별 코드 (companyId) *'}
+              </label>
               <input
                 type="text"
                 required
@@ -958,7 +986,8 @@ export default function AdminDashboard({
 
           <button
             type="submit"
-            className={`w-full py-2.5 text-white rounded-xl font-black text-xs transition-all flex items-center justify-center gap-1 shadow-xs ${
+            disabled={registerKind === 'sub' && !canRegisterSub}
+            className={`w-full py-2.5 text-white rounded-xl font-black text-xs transition-all flex items-center justify-center gap-1 shadow-xs disabled:opacity-40 disabled:cursor-not-allowed ${
               registerKind === 'sub'
                 ? 'bg-violet-600 hover:bg-violet-700'
                 : 'bg-indigo-600 hover:bg-indigo-700'
@@ -968,11 +997,18 @@ export default function AdminDashboard({
             {registerKind === 'sub' ? '하위 업체 등록' : '신규 대표 업체 입점 승인'}
           </button>
 
-          <PartnerOnboardingChecklist
-            companyId={newId.trim().toLowerCase()}
-            companyName={newName.trim() || undefined}
-            variant="light"
-          />
+          {registerKind === 'primary' && (
+            <PartnerOnboardingChecklist
+              companyId={newId.trim().toLowerCase()}
+              companyName={newName.trim() || undefined}
+              variant="light"
+            />
+          )}
+          {registerKind === 'primary' && (
+            <p className="text-[11px] text-slate-400 text-center">
+              온보딩 체크리스트는 등록 필수가 아닙니다. (운영 메모용)
+            </p>
+          )}
         </form>
       )}
     </div>

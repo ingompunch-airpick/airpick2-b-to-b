@@ -96,9 +96,32 @@ export function getOperatorIntakeCompanyOptions(
   });
 }
 
-/** 대표 업체 후보 (하위 등록 시 선택) */
-export function getPrimaryOperatorCandidates(companies: Company[]): Company[] {
-  return companies.filter(
-    (c) => c?.id && !isSubOperatorCompany(c) && (c.isOperatorPrimary || !c.parentCompanyId)
-  );
+/** 대표 업체 후보 (하위 등록 시 선택) — partners(B2B) 기준 + isOperatorPrimary */
+export function getPrimaryOperatorCandidates(
+  companies: Company[],
+  partners?: Array<{ companyId: string; name: string }>
+): Array<{ id: string; name: string }> {
+  const result: Array<{ id: string; name: string }> = [];
+  const seen = new Set<string>();
+
+  for (const p of partners || []) {
+    const id = normId(p.companyId);
+    if (!id || seen.has(id)) continue;
+    const c = companies.find((x) => normId(x.id) === id);
+    if (c && isSubOperatorCompany(c)) continue;
+    seen.add(id);
+    result.push({ id, name: (c?.name || p.name || id).trim() });
+  }
+
+  for (const c of companies) {
+    if (!c?.id || isSubOperatorCompany(c)) continue;
+    const id = normId(c.id);
+    if (seen.has(id)) continue;
+    if (c.isOperatorPrimary) {
+      seen.add(id);
+      result.push({ id, name: (c.name || id).trim() });
+    }
+  }
+
+  return result.sort((a, b) => a.name.localeCompare(b.name, 'ko'));
 }
