@@ -14,6 +14,8 @@ interface ReservationCardProps {
   isAdminModeActive: boolean;
   /** 타임라인 탭과 동일한 상태면 뱃지 생략 (기사 모드) */
   activeCounterTab?: ReservationStatus;
+  /** 대표+하위 통합 관리 시 업체 구분 라벨 */
+  showCompanyLabel?: boolean;
   setAdminEditingReservationId: (id: string) => void;
   setDriverDetailRes: (res: Reservation) => void;
   handleUpdateValetStatus: (id: string, status: ReservationStatus, extra?: any) => void;
@@ -28,6 +30,7 @@ export default function ReservationCard({
   idx,
   isAdminModeActive,
   activeCounterTab,
+  showCompanyLabel = false,
   setAdminEditingReservationId,
   setDriverDetailRes,
   handleUpdateValetStatus,
@@ -106,6 +109,12 @@ export default function ReservationCard({
           {isHomepageBooking && (
             <span className="text-[13px] px-2 py-0.5 rounded-[6px] font-semibold bg-sky-500/15 text-sky-400 border border-sky-500/25 shrink-0">
               홈페이지
+            </span>
+          )}
+
+          {showCompanyLabel && res.companyName && (
+            <span className="text-[13px] px-2 py-0.5 rounded-[6px] font-semibold bg-indigo-500/15 text-indigo-300 border border-indigo-500/25 shrink-0">
+              {res.companyName}
             </span>
           )}
         </div>

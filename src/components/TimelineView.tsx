@@ -29,6 +29,7 @@ interface TimelineViewProps {
   setScratchModalTargetId: (id: string | null) => void;
   setUploadedSpots: (spots: any) => void;
   setSelectedParkingSpace: (space: string) => void;
+  showCompanyLabel?: boolean;
 }
 
 export default function TimelineView({
@@ -46,7 +47,8 @@ export default function TimelineView({
   getKSTDateTimeString,
   setScratchModalTargetId,
   setUploadedSpots,
-  setSelectedParkingSpace
+  setSelectedParkingSpace,
+  showCompanyLabel = false,
 }: TimelineViewProps) {
   // Local UI filters
   const [searchKeyword, setSearchKeyword] = useState('');
@@ -235,6 +237,7 @@ export default function TimelineView({
                 setScratchModalTargetId={setScratchModalTargetId}
                 setUploadedSpots={setUploadedSpots}
                 setSelectedParkingSpace={setSelectedParkingSpace}
+                showCompanyLabel={showCompanyLabel}
               />
             ))}
           </div>

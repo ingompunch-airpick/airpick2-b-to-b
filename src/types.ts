@@ -45,6 +45,27 @@ export interface Company {
   insuranceProvider?: string;
   insuranceLimit?: number;
   sharesInsurance?: boolean;
+  /** B2C 거리순 정렬 — 터미널별 주차장 거리 (companies/{id} 단일 소스) */
+  parkingDistances?: ParkingDistances;
+  /** 대표 업체 — B2B 통합 로그인·예약 통합 관리 */
+  isOperatorPrimary?: boolean;
+  /** 하위 업체 — B2C만, parentCompanyId로 대표에 연결 */
+  parentCompanyId?: string;
+}
+
+/** 터미널(T1/T2)별 주차장 ↔ 공항 거리 */
+export interface ParkingDistanceEntry {
+  distanceKm: number;
+  driveMinutes?: number;
+  parkingLotName?: string;
+  parkingLotAddress?: string;
+  effectiveFrom?: string;
+  updatedAt?: string;
+}
+
+export interface ParkingDistances {
+  T1?: ParkingDistanceEntry;
+  T2?: ParkingDistanceEntry;
 }
 
 export interface CompanyInsurance {

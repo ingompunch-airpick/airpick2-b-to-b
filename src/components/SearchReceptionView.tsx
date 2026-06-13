@@ -21,6 +21,7 @@ import { getCalculatePrice, checkIsNightSurcharge, mergePartnerPricing, getParki
 import { getKSTDateTimeLocalString } from '../utils/kstDate';
 import { formatPartnerDisplayName } from '../utils/companyDisplay';
 import { persistReservationStores } from '../utils/reservationScope';
+import { getOperatorIntakeCompanyOptions } from '../utils/operatorHierarchy';
 
 function cn(...classes: (string | boolean | undefined)[]) {
   return classes.filter(Boolean).join(' ');
@@ -61,6 +62,8 @@ interface SearchReceptionViewProps {
   setScratchModalTargetId: (id: string | null) => void;
   setUploadedSpots: (spots: any) => void;
   setSelectedParkingSpace: (space: string) => void;
+  operatorCompanyIds?: string[];
+  showCompanyLabel?: boolean;
 }
 
 export default function SearchReceptionView({
@@ -85,7 +88,9 @@ export default function SearchReceptionView({
   getKSTDateTimeString,
   setScratchModalTargetId,
   setUploadedSpots,
-  setSelectedParkingSpace
+  setSelectedParkingSpace,
+  operatorCompanyIds = [],
+  showCompanyLabel = false,
 }: SearchReceptionViewProps) {
   // Search input state
   const [receptionSearchText, setReceptionSearchText] = useState('');
@@ -112,6 +117,21 @@ export default function SearchReceptionView({
   const [editSearchedReservationPassword, setEditSearchedReservationPassword] = useState('');
   // New Contract Intake Form states
   const [selectedCompanyId, setSelectedCompanyId] = useState('');
+
+  const intakeCompanyOptions = useMemo(
+    () => getOperatorIntakeCompanyOptions(currentCompanyId, companies),
+    [currentCompanyId, companies]
+  );
+
+  useEffect(() => {
+    if (intakeCompanyOptions.length > 1) {
+      setSelectedCompanyId((prev) =>
+        prev && intakeCompanyOptions.some((o) => o.id === prev) ? prev : currentCompanyId
+      );
+    } else {
+      setSelectedCompanyId('');
+    }
+  }, [intakeCompanyOptions, currentCompanyId, receptionSubMode]);
   const [userName, setUserName] = useState('');
   const [carModel, setCarModel] = useState('');
   const [carNumber, setCarNumber] = useState('');
@@ -235,7 +255,7 @@ export default function SearchReceptionView({
 
     let partner: any = mergePartnerPricing({
       id: activeCompId,
-      name: formatPartnerDisplayName(companyInfo.name, activeCompId) || activeCompId,
+      name: partnerObj?.name || formatPartnerDisplayName(companyInfo.name, activeCompId) || activeCompId,
       isOpen: true,
       outdoorExtraPrice: 5000,
       outdoorBasePrice: 10000,
@@ -357,7 +377,10 @@ export default function SearchReceptionView({
     } catch (err: any) {
       onUpdateReservations(prev => {
         const updated = [{ id, ...bookingPayload }, ...prev];
-        persistReservationStores(window.localStorage, updated, activeCompId, { cacheFirestore: true });
+        persistReservationStores(window.localStorage, updated, currentCompanyId, {
+          cacheFirestore: true,
+          operatorCompanyIds,
+        });
         return updated;
       });
       alert(`차량 번호 ${bookingPayload.carNumber}의 구역 정보가 로컬 임시 메모리로 백업 보관되었습니다!`);
@@ -595,6 +618,7 @@ export default function SearchReceptionView({
                       setScratchModalTargetId={setScratchModalTargetId}
                       setUploadedSpots={setUploadedSpots}
                       setSelectedParkingSpace={setSelectedParkingSpace}
+                      showCompanyLabel={showCompanyLabel}
                     />
                   ))}
                 </div>
@@ -611,6 +635,24 @@ export default function SearchReceptionView({
             <PlusCircle size={14} className="text-amber-500" />
             <span className="text-[13px] font-black text-white uppercase tracking-wider">신규 대행 위탁 현장 수납계약서</span>
           </div>
+
+          {intakeCompanyOptions.length > 1 && (
+            <div>
+              <label className="text-[12px] block mb-1 font-black text-zinc-500">접수 업체 *</label>
+              <select
+                required
+                value={selectedCompanyId || currentCompanyId}
+                onChange={(e) => setSelectedCompanyId(e.target.value)}
+                className="w-full px-3 py-2 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-100 outline-none focus:border-amber-500 text-xs font-bold"
+              >
+                {intakeCompanyOptions.map((opt) => (
+                  <option key={opt.id} value={opt.id}>
+                    {opt.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="grid grid-cols-2 gap-3 text-xs">
             <div>

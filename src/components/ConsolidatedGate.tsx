@@ -2,6 +2,7 @@
 import { Lock, Shuffle, AlertCircle, Sparkles, Building2, Eye, EyeOff } from 'lucide-react';
 import { PartnerCompany, Company, CompanyInfo } from '../types';
 import { AIRPICK_HQ_ID } from '../constants/platform';
+import { isSubOperatorLoginBlocked } from '../utils/operatorHierarchy';
 
 interface ConsolidatedGateProps {
   onLoginSuccess: (roles: {
@@ -217,6 +218,11 @@ export default function ConsolidatedGate({ onLoginSuccess, partners, companies }
         } catch (_) {}
       }
 
+      if (isSubOperatorLoginBlocked(matchedPartner.companyId, dbCompanies)) {
+        setError('하위 업체는 B2B 로그인할 수 없습니다. 대표 업체 계정을 사용하세요.');
+        return;
+      }
+
       const matchingCompany = dbCompanies.find(c => c.id === matchedPartner.companyId);
       const isIndoor = matchingCompany ? matchingCompany.is_indoor : true;
 
@@ -271,6 +277,11 @@ export default function ConsolidatedGate({ onLoginSuccess, partners, companies }
     );
 
     if (matchedCompanyInList) {
+      if (isSubOperatorLoginBlocked(matchedCompanyInList.id, dbCompaniesFallback)) {
+        setError('하위 업체는 B2B 로그인할 수 없습니다. 대표 업체 계정을 사용하세요.');
+        return;
+      }
+
       // For fallback user accounts, require a default password (the id itself) or standard testing master password
       const expectedPassword = matchedCompanyInList.id.toLowerCase(); // e.g. kakao, care, gayu
       if (cleanPassword === expectedPassword || cleanPassword === 'admin1234' || cleanPassword === 'master1234') {

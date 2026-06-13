@@ -80,10 +80,46 @@ export async function writeNewPartnerToFirestore(
   await ensurePlatformAdminAuth();
   await setDoc(doc(db, 'companies', company.id), {
     ...company,
+    isOperatorPrimary: company.isOperatorPrimary ?? true,
     password: partner.password,
     settlementMemo: partner.settlementMemo,
     status: 'active',
     blockedDates: [],
+    updatedAt: new Date().toISOString(),
+  });
+}
+
+export interface CreateSubOperatorInput {
+  companyId: string;
+  name: string;
+  phone: string;
+  representative: string;
+  parentCompanyId: string;
+}
+
+/** 하위 업체 — B2C 전용, partners/비밀번호 없음 */
+export function createSubOperatorSkeleton(input: CreateSubOperatorInput): Company {
+  const base = createPartnerCompanySkeleton({
+    companyId: input.companyId,
+    name: input.name,
+    phone: input.phone,
+    representative: input.representative,
+  });
+  return {
+    ...base,
+    parentCompanyId: sanitizePartnerCompanyId(input.parentCompanyId),
+    isOperatorPrimary: false,
+  };
+}
+
+export async function writeSubOperatorToFirestore(company: Company): Promise<void> {
+  await ensurePlatformAdminAuth();
+  await setDoc(doc(db, 'companies', company.id), {
+    ...company,
+    parentCompanyId: company.parentCompanyId,
+    isOperatorPrimary: false,
+    status: 'active',
+    blockedDates: company.blockedDates ?? [],
     updatedAt: new Date().toISOString(),
   });
 }
