@@ -348,9 +348,8 @@ export default function App() {
       } else {
         targetCompanyInfo.name = selectedId;
       }
-      // 본사 전용 화면에서 제휴업체로 전환 시 허용되지 않는 view 정리
-      if (isSuperAdmin && HQ_ADMIN_VIEWS.includes(currentView) && currentView !== 'statistics') {
-        setCurrentView('statistics');
+      if (isSuperAdmin) {
+        setCurrentView(isAdminModeActive ? 'statistics' : 'timeline');
       }
     }
 
@@ -653,6 +652,19 @@ export default function App() {
       }
     };
   }, [scratchModalTargetId]);
+
+  const superAdminCompanySwitchRef = useRef(currentCompanyId);
+  useEffect(() => {
+    if (!isSuperAdmin) {
+      superAdminCompanySwitchRef.current = currentCompanyId;
+      return;
+    }
+    if (superAdminCompanySwitchRef.current !== currentCompanyId) {
+      setScratchModalTargetId(null);
+      setSelectedParkingSpace('');
+    }
+    superAdminCompanySwitchRef.current = currentCompanyId;
+  }, [currentCompanyId, isSuperAdmin]);
 
   // Loading states
   const [loadingCompanies, setLoadingCompanies] = useState(true);
