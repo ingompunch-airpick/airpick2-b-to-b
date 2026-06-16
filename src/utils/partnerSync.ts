@@ -1,5 +1,6 @@
 import type { Company, PartnerCompany } from '../types';
 import { isAirpickHeadquarters } from '../constants/platform';
+import { isSubOperatorCompany } from './operatorHierarchy';
 
 const LEGACY_DEFAULT_PASSWORD = '1234';
 
@@ -69,8 +70,14 @@ export function mergePartnersFromFirestore(
     applySource(source);
   }
 
+  const subOperatorIds = new Set(
+    firestoreCompanies.filter((c) => isSubOperatorCompany(c)).map((c) => c.id)
+  );
+
   const fromFirestore = firestoreCompanies
-    .filter((c) => c?.id && !isAirpickHeadquarters(c.id))
+    .filter(
+      (c) => c?.id && !isAirpickHeadquarters(c.id) && !isSubOperatorCompany(c)
+    )
     .map(companyDocToPartner);
 
   for (const fromDb of fromFirestore) {
@@ -90,7 +97,7 @@ export function mergePartnersFromFirestore(
     });
   }
 
-  return Array.from(mergedMap.values());
+  return Array.from(mergedMap.values()).filter((p) => !subOperatorIds.has(p.companyId));
 }
 
 export function readPartnersFromStorage(

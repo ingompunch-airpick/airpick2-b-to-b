@@ -1,6 +1,7 @@
 import React from 'react';
 import type { FacilityType } from '../types';
 import type { PartnerProfileInput } from '../utils/companyProfile';
+import ParkingDistancesFormFields from './ParkingDistancesFormFields';
 
 type Props = {
   profile: PartnerProfileInput;
@@ -95,6 +96,18 @@ export default function PartnerProfileFormFields({
           </div>
         )}
       </div>
+
+      <ParkingDistancesFormFields
+        t1={profile.parkingDistances.T1}
+        t2={profile.parkingDistances.T2}
+        onChangeT1={(T1) =>
+          onChange({ ...profile, parkingDistances: { ...profile.parkingDistances, T1 } })
+        }
+        onChangeT2={(T2) =>
+          onChange({ ...profile, parkingDistances: { ...profile.parkingDistances, T2 } })
+        }
+        variant={variant}
+      />
 
       <div className={sectionCls}>
         <div className="flex items-center justify-between gap-2">

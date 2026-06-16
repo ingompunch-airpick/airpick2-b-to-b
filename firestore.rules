@@ -23,6 +23,34 @@ service cloud.firestore {
       return companyId.matches('^[a-z0-9_]{1,64}$');
     }
 
+    /** 하위 업체(B2C 전용) — parentCompanyId로 대표 companies 문서에 연결 */
+    function isSubOperatorCompanyData(data, companyId) {
+      return data.keys().hasAll(['parentCompanyId', 'isOperatorPrimary'])
+        && data.isOperatorPrimary == false
+        && data.parentCompanyId is string
+        && isValidCompanyId(data.parentCompanyId)
+        && data.parentCompanyId != companyId;
+    }
+
+    function subOperatorParentExists(data) {
+      return exists(/databases/$(database)/documents/companies/$(data.parentCompanyId));
+    }
+
+    function isSubOperatorCreate(companyId) {
+      return isSignedIn()
+        && isValidCompanyId(companyId)
+        && isSubOperatorCompanyData(request.resource.data, companyId)
+        && subOperatorParentExists(request.resource.data);
+    }
+
+    function isSubOperatorDelete() {
+      return isSignedIn()
+        && resource.data.keys().hasAll(['parentCompanyId'])
+        && resource.data.parentCompanyId is string
+        && resource.data.parentCompanyId.size() > 0
+        && isValidCompanyId(resource.data.parentCompanyId);
+    }
+
     function isValidReservationId(reservationId) {
       return reservationId.matches('^[a-zA-Z0-9_-]{1,128}$');
     }
@@ -73,10 +101,12 @@ service cloud.firestore {
     match /companies/{companyId} {
       // 요금·마감 조회: 로그인 전에도 B2C/홈에서 읽을 수 있도록 공개 read
       allow read: if true;
-      allow create: if isPlatformAdmin() && isValidCompanyId(companyId);
+      allow create: if isPlatformAdmin() && isValidCompanyId(companyId)
+        || isSubOperatorCreate(companyId);
       // blockedDates·isOpen·요금 등 — Anonymous 로그인 후 제휴업체 B2B 수정
       allow update: if isSignedIn() && isValidCompanyId(companyId);
-      allow delete: if isPlatformAdmin() && isValidCompanyId(companyId);
+      allow delete: if isPlatformAdmin() && isValidCompanyId(companyId)
+        || isSubOperatorDelete();
     }
 
     // ── system_settings (본사 레거시 마감) ────────────────────────────────

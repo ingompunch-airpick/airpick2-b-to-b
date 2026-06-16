@@ -30,7 +30,13 @@ import { motion, AnimatePresence } from 'motion/react';
 // --- Modular Typed Constants and Data ---
 import { Company, Reservation, ReservationStatus, PaymentMethod, ScratchPhotoSet, AppView, CompanyInfo, PartnerCompany } from './types';
 import { formatPartnerDisplayName } from './utils/companyDisplay';
-import { filterReservationsForCompany, persistReservationStores } from './utils/reservationScope';
+import { persistReservationStores } from './utils/reservationScope';
+import {
+  filterReservationsForOperatorGroup,
+  formatOperatorGroupLabel,
+  isSubOperatorLoginBlocked,
+  resolveOperatorCompanyIds,
+} from './utils/operatorHierarchy';
 import {
   mergePartnersFromFirestore,
   readPartnersFromStorage,
@@ -577,11 +583,31 @@ export default function App() {
     }
   }, [isLoggedIn, isAdminModeActive, isAdmin, isSuperAdmin, currentView, currentCompanyId]);
 
-  // Filter core reservations array based on active companyInfo depending on whether user is Master or B2B Partner
-  const visibleReservations = useMemo(
-    () => filterReservationsForCompany(normalizeDocsArray(reservations), currentCompanyId),
-    [reservations, currentCompanyId]
+  // Filter core reservations — 단독 업체 또는 대표+하위 통합 그룹
+  const operatorCompanyIds = useMemo(() => {
+    if (isAirpickHeadquarters(currentCompanyId)) return [];
+    return resolveOperatorCompanyIds(currentCompanyId, companies);
+  }, [currentCompanyId, companies]);
+
+  const operatorGroupLabel = useMemo(
+    () => formatOperatorGroupLabel(currentCompanyId, companies),
+    [currentCompanyId, companies]
   );
+
+  const showCompanyNameOnCards = operatorCompanyIds.length > 1;
+
+  const persistScopedReservations = (updated: Reservation[], cacheFirestore = true) => {
+    persistReservationStores(localStorage, updated, currentCompanyId, {
+      cacheFirestore,
+      operatorCompanyIds,
+    });
+  };
+
+  const visibleReservations = useMemo(() => {
+    const normalized = normalizeDocsArray(reservations);
+    if (isAirpickHeadquarters(currentCompanyId)) return normalized;
+    return filterReservationsForOperatorGroup(normalized, operatorCompanyIds);
+  }, [reservations, currentCompanyId, operatorCompanyIds]);
 
   // Itcha style real-time filter states
   const [filterType, setFilterType] = useState<'주/출차일자' | '주차예약' | '출차예약' | '등록일시'>('주/출차일자');
@@ -602,6 +628,7 @@ export default function App() {
   const reservationsBootstrappedRef = useRef(false);
   const reservationsPrevRef = useRef<Reservation[]>([]);
   const currentCompanyIdRef = useRef(currentCompanyId);
+  const operatorCompanyIdsRef = useRef(operatorCompanyIds);
   const companyAlertLabelRef = useRef(
     formatPartnerDisplayName(companyInfo.name, companyInfo.id) || currentCompanyId
   );
@@ -614,9 +641,12 @@ export default function App() {
 
   useEffect(() => {
     currentCompanyIdRef.current = currentCompanyId;
+    operatorCompanyIdsRef.current = operatorCompanyIds;
     companyAlertLabelRef.current =
-      formatPartnerDisplayName(companyInfo.name, companyInfo.id) || currentCompanyId;
-  }, [currentCompanyId, companyInfo.name, companyInfo.id]);
+      operatorGroupLabel ||
+      formatPartnerDisplayName(companyInfo.name, companyInfo.id) ||
+      currentCompanyId;
+  }, [currentCompanyId, operatorCompanyIds, operatorGroupLabel, companyInfo.name, companyInfo.id]);
 
   useEffect(() => {
     if (!incomingReservationToast) return;
@@ -696,7 +726,7 @@ export default function App() {
 
     setReservations(prev => {
       const updated = prev.map(r => r.id === driverDetailRes.id ? { ...r, ...updateData } : r);
-      persistReservationStores(localStorage, updated, currentCompanyId, { cacheFirestore: true });
+      persistScopedReservations(updated);
       return updated;
     });
 
@@ -999,7 +1029,8 @@ export default function App() {
         const incoming = findNewIncomingReservations(
           reservationsPrevRef.current,
           data,
-          currentCompanyIdRef.current
+          currentCompanyIdRef.current,
+          operatorCompanyIdsRef.current
         );
         for (const res of incoming) {
           if (!res.id) continue;
@@ -1099,6 +1130,11 @@ export default function App() {
         setLoginError('해당 제휴업체 계정은 최고관리자에 의해 [정지] 처리되었습니다. 플랫폼 본사에 정산 조정을 문의바랍니다.');
         return;
       }
+
+      if (isSubOperatorLoginBlocked(matchedPartner.companyId, companies)) {
+        setLoginError('하위 업체는 B2B 로그인할 수 없습니다. 대표 업체 계정을 사용하세요.');
+        return;
+      }
       
       // Validated dynamic partner login
       setIsSuperAdmin(false);
@@ -1122,6 +1158,10 @@ export default function App() {
       localStorage.setItem('local_is_admin', 'true');
       localStorage.setItem('local_is_master_admin', 'true');
       localStorage.setItem('local_is_admin_mode_active', 'true');
+      localStorage.setItem(
+        'operator_company_ids',
+        JSON.stringify(resolveOperatorCompanyIds(matchedPartner.companyId, companies))
+      );
       setShowLoginModal(false);
       alert(`제휴업체 [${matchedPartner.name}]의 마스터 관리자 인증이 성공 통과하여 관리자 모드가 활성화되었습니다!`);
       return;
@@ -1227,6 +1267,9 @@ export default function App() {
     localStorage.setItem('local_employee_name', roles.employeeName || '');
     localStorage.setItem('local_employee_role', roles.employeeRole || 'driver');
 
+    const opIds = resolveOperatorCompanyIds(companyId, companies);
+    localStorage.setItem('operator_company_ids', JSON.stringify(opIds));
+
     const shouldStartInAdmin =
       roles.isAdminModeActive &&
       (roles.isSuperAdmin || roles.isLocalAdmin || roles.isMasterAdmin || roles.employeeRole === 'admin');
@@ -1269,6 +1312,7 @@ export default function App() {
       localStorage.removeItem('current_company_id');
       localStorage.removeItem('master_company_info');
       localStorage.removeItem('firestore_reservations_cache');
+      localStorage.removeItem('operator_company_ids');
       
       await signOut(auth);
       try {
@@ -1300,6 +1344,7 @@ export default function App() {
       localStorage.removeItem('current_company_id');
       localStorage.removeItem('master_company_info');
       localStorage.removeItem('firestore_reservations_cache');
+      localStorage.removeItem('operator_company_ids');
       console.error(err);
     }
   };
@@ -1322,7 +1367,7 @@ export default function App() {
         updatedBy: operatorName,
         updatedAt: new Date().toISOString() 
       } : r);
-      persistReservationStores(localStorage, updated, currentCompanyId, { cacheFirestore: true });
+      persistScopedReservations(updated);
       return updated;
     });
 
@@ -1351,13 +1396,13 @@ export default function App() {
       });
       setReservations(prev => {
         const updated = prev.map(r => r.id === resId ? { ...r, paymentMethod: method, updatedBy: operatorName, updatedAt: new Date().toISOString() } : r);
-        persistReservationStores(localStorage, updated, currentCompanyId, { cacheFirestore: true });
+        persistScopedReservations(updated);
         return updated;
       });
     } catch (err: any) {
       setReservations(prev => {
         const updated = prev.map(r => r.id === resId ? { ...r, paymentMethod: method, updatedBy: operatorName, updatedAt: new Date().toISOString() } : r);
-        persistReservationStores(localStorage, updated, currentCompanyId, { cacheFirestore: true });
+        persistScopedReservations(updated);
         return updated;
       });
     }
@@ -1385,7 +1430,7 @@ export default function App() {
       const updated = prev.map((r) =>
         r.id === resId ? { ...r, scratchPhotos: photos, updatedBy: operatorName, updatedAt: new Date().toISOString() } : r
       );
-      persistReservationStores(localStorage, updated, currentCompanyId, { cacheFirestore: true });
+      persistScopedReservations(updated);
       return updated;
     });
   };
@@ -1411,7 +1456,7 @@ export default function App() {
       const updated = prev.map((r) =>
         r.id === resId ? { ...r, images: imageUrls, updatedBy: operatorName, updatedAt: new Date().toISOString() } : r
       );
-      persistReservationStores(localStorage, updated, currentCompanyId, { cacheFirestore: true });
+      persistScopedReservations(updated);
       return updated;
     });
   };
@@ -1759,12 +1804,19 @@ export default function App() {
                   </span>
                 </div>
               ) : (
-                <h1 className="text-toss-title flex items-center gap-1.5 leading-none" id="partner-header-brand">
-                  {formatPartnerDisplayName(companyInfo.name, companyInfo.id)} 
-                  <span className="text-toss-caption text-amber-400 font-semibold bg-amber-500/10 px-2 py-0.5 rounded-[6px]">
-                    인천
-                  </span>
-                </h1>
+                <div>
+                  <h1 className="text-toss-title flex items-center gap-1.5 leading-none" id="partner-header-brand">
+                    {formatPartnerDisplayName(companyInfo.name, companyInfo.id)} 
+                    <span className="text-toss-caption text-amber-400 font-semibold bg-amber-500/10 px-2 py-0.5 rounded-[6px]">
+                      인천
+                    </span>
+                  </h1>
+                  {operatorGroupLabel && (
+                    <p className="text-[10px] text-zinc-500 font-bold mt-1 leading-tight max-w-[220px] sm:max-w-none truncate">
+                      {operatorGroupLabel}
+                    </p>
+                  )}
+                </div>
               )}
             </div>
           </div>
@@ -1943,6 +1995,7 @@ export default function App() {
                     setScratchModalTargetId={setScratchModalTargetId}
                     setUploadedSpots={setUploadedSpots}
                     setSelectedParkingSpace={setSelectedParkingSpace}
+                    showCompanyLabel={showCompanyNameOnCards}
                   />
                 </motion.div>
               )}
@@ -1980,6 +2033,8 @@ export default function App() {
                     setScratchModalTargetId={setScratchModalTargetId}
                     setUploadedSpots={setUploadedSpots}
                     setSelectedParkingSpace={setSelectedParkingSpace}
+                    operatorCompanyIds={operatorCompanyIds}
+                    showCompanyLabel={showCompanyNameOnCards}
                   />
                 </motion.div>
               )}
@@ -2093,7 +2148,7 @@ export default function App() {
                         const updated = prev.map(r =>
                           r.id === resId ? { ...r, ...patch } : r
                         );
-                        persistReservationStores(localStorage, updated, currentCompanyId, { cacheFirestore: true });
+                        persistScopedReservations(updated);
                         return updated;
                       });
                     }}

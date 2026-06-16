@@ -1,5 +1,6 @@
 import type { Reservation } from '../types';
 import { reservationBelongsToCompany } from './reservationScope';
+import { filterReservationsForOperatorGroup } from './operatorHierarchy';
 import { isPending } from './reservationStatus';
 
 const ENABLED_KEY = 'reservation_alerts_enabled';
@@ -88,12 +89,17 @@ export function notifyNewReservation(res: Reservation, companyLabel: string): vo
 export function findNewIncomingReservations(
   prev: Reservation[],
   next: Reservation[],
-  companyId: string
+  companyId: string,
+  operatorCompanyIds?: string[]
 ): Reservation[] {
   const prevIds = new Set(prev.map((r) => r.id).filter(Boolean) as string[]);
-  return next.filter((r) => {
+  const scoped =
+    operatorCompanyIds && operatorCompanyIds.length > 0
+      ? filterReservationsForOperatorGroup(next, operatorCompanyIds)
+      : next.filter((r) => reservationBelongsToCompany(r, companyId));
+
+  return scoped.filter((r) => {
     if (!r.id || prevIds.has(r.id)) return false;
-    if (!reservationBelongsToCompany(r, companyId)) return false;
     return isPending(r.status);
   });
 }

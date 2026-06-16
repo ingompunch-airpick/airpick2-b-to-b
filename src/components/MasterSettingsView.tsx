@@ -9,7 +9,7 @@ import {
   ChevronDown
 } from 'lucide-react';
 import { doc, setDoc } from 'firebase/firestore';
-import { db } from '../firebase';
+import { db, handleFirestoreError, OperationType } from '../firebase';
 import TimePickerModal from './TimePickerModal';
 import AdminDashboard from './AdminDashboard';
 import { isAirpickHeadquarters } from '../constants/platform';

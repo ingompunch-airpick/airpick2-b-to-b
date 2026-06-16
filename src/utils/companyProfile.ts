@@ -1,4 +1,14 @@
 import type { Company, CompanyInsurance, FacilityType } from '../types';
+import {
+  buildParkingDistancesFromForm,
+  EMPTY_PARKING_DISTANCES_FORM,
+  EMPTY_TERMINAL_PARKING_FORM,
+  readParkingDistancesFormFromCompany,
+  type ParkingDistancesFormInput,
+} from './parkingDistances';
+
+export type { ParkingDistancesFormInput, TerminalParkingDistanceForm } from './parkingDistances';
+export { EMPTY_PARKING_DISTANCES_FORM, validateParkingDistancesForm } from './parkingDistances';
 
 export interface PartnerProfileInput {
   facilityType: FacilityType;
@@ -8,6 +18,7 @@ export interface PartnerProfileInput {
   insuranceProvider: string;
   insuranceProductName: string;
   insuranceCoverageLimitWon: string;
+  parkingDistances: ParkingDistancesFormInput;
 }
 
 export const DEFAULT_PARTNER_PROFILE: PartnerProfileInput = {
@@ -18,6 +29,10 @@ export const DEFAULT_PARTNER_PROFILE: PartnerProfileInput = {
   insuranceProvider: '',
   insuranceProductName: '',
   insuranceCoverageLimitWon: '',
+  parkingDistances: {
+    T1: { ...EMPTY_TERMINAL_PARKING_FORM },
+    T2: { ...EMPTY_TERMINAL_PARKING_FORM },
+  },
 };
 
 export function inferFacilityType(company?: Partial<Company>): FacilityType {
@@ -87,6 +102,7 @@ export function readPartnerProfileFromCompany(company?: Company): PartnerProfile
     insuranceProvider,
     insuranceProductName,
     insuranceCoverageLimitWon,
+    parkingDistances: readParkingDistancesFormFromCompany(company),
   };
 }
 
@@ -154,6 +170,7 @@ export function applyPartnerProfileToCompany(
   const outdoor = input.outdoorParkingAddress.trim();
   const insuranceFields = buildInsurancePayload(input);
   const parkingLots = buildParkingLots(input);
+  const parkingDistances = buildParkingDistancesFromForm(input.parkingDistances);
 
   return {
     ...company,
@@ -170,6 +187,7 @@ export function applyPartnerProfileToCompany(
     insuranceProvider: insuranceFields.insuranceProvider,
     insuranceLimit: insuranceFields.insuranceLimit,
     sharesInsurance: true,
+    parkingDistances: Object.keys(parkingDistances).length > 0 ? parkingDistances : undefined,
   };
 }
 
@@ -207,5 +225,6 @@ export function profileExtrasForFirestore(input: PartnerProfileInput): Record<st
     insuranceProvider: company.insuranceProvider ?? '',
     insuranceLimit: company.insuranceLimit ?? null,
     sharesInsurance: true,
+    parkingDistances: buildParkingDistancesFromForm(input.parkingDistances),
   };
 }
