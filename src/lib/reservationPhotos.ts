@@ -32,25 +32,30 @@ function dataUrlToCompressedBlob(dataUrl: string, maxWidth = 1600): Promise<Blob
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {
-      const scale = img.width > maxWidth ? maxWidth / img.width : 1;
-      const w = Math.max(1, Math.round(img.width * scale));
-      const h = Math.max(1, Math.round(img.height * scale));
-      const canvas = document.createElement('canvas');
-      canvas.width = w;
-      canvas.height = h;
-      const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        reject(new Error('이미지 처리 실패'));
-        return;
+      try {
+        const scale = img.width > maxWidth ? maxWidth / img.width : 1;
+        const w = Math.max(1, Math.round(img.width * scale));
+        const h = Math.max(1, Math.round(img.height * scale));
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          reject(new Error('이미지 처리 실패'));
+          return;
+        }
+        ctx.drawImage(img, 0, 0, w, h);
+        canvas.toBlob(
+          (blob) => (blob ? resolve(blob) : reject(new Error('이미지 압축 실패'))),
+          'image/jpeg',
+          0.82
+        );
+      } catch (e) {
+        reject(e instanceof Error ? e : new Error('이미지 처리 실패'));
       }
-      ctx.drawImage(img, 0, 0, w, h);
-      canvas.toBlob(
-        (blob) => (blob ? resolve(blob) : reject(new Error('이미지 압축 실패'))),
-        'image/jpeg',
-        0.82
-      );
     };
-    img.onerror = () => reject(new Error('이미지를 읽을 수 없습니다. JPG/PNG 파일을 선택하세요.'));
+    img.onerror = () =>
+      reject(new Error('이미지를 읽을 수 없습니다. JPG/PNG 파일을 다시 선택하거나 카메라로 촬영해 주세요.'));
     img.src = dataUrl;
   });
 }

@@ -3,6 +3,13 @@ import { PlusCircle, Bell, CheckCircle2 } from 'lucide-react';
 import { Reservation, ReservationStatus } from '../types';
 import { isReservationUnpaid } from '../utils/paymentStatus';
 import { isPending, statusBadgeColorClass, statusToLabel } from '../utils/reservationStatus';
+import {
+  bookingSourceBadgeClass,
+  bookingSourceCardClass,
+  bookingSourceLabel,
+  isAirpickB2CBooking,
+  resolveBookingSourceFromReservation,
+} from '../utils/bookingSource';
 
 function cn(...classes: (string | boolean | undefined | null)[]) {
   return classes.filter(Boolean).join(' ');
@@ -45,7 +52,8 @@ export default function ReservationCard({
   const isT1 = ((!res.status.includes('out') && res.status !== 'completed_in') ? res.departureTerminal : res.arrivalTerminal) === 'T1';
   const isIndoor = res.isIndoor !== false;
   const showUnpaidBadge = isReservationUnpaid(res);
-  const isHomepageBooking = res.createdBy === 'homepage';
+  const bookingSource = resolveBookingSourceFromReservation(res);
+  const showBookingSourceBadge = bookingSource !== 'unknown';
   // 기사 타임라인: 상단 탭이 이미 상태를 나타내므로 입고예정·입고요청 등 상태 뱃지 숨김
   const showStatusBadge = isAdminModeActive || activeCounterTab === undefined;
 
@@ -63,7 +71,8 @@ export default function ReservationCard({
         }
       }}
       className={cn(
-        "bg-[#1C1C1E] transition-all p-4.5 rounded-[20px] flex flex-col md:flex-row md:items-center justify-between gap-3.5 border border-neutral-900/5 shadow-sm cursor-pointer select-none active:scale-[0.99]"
+        'transition-all p-4.5 rounded-[20px] flex flex-col md:flex-row md:items-center justify-between gap-3.5 border shadow-sm cursor-pointer select-none active:scale-[0.99]',
+        bookingSourceCardClass(bookingSource)
       )}
       id={`card-${res.id}`}
     >
@@ -71,6 +80,17 @@ export default function ReservationCard({
       <div className="space-y-2">
         {/* 1st Row: Dynamic Soft Pills/Badges (Toss Aesthetic) */}
         <div className="flex flex-wrap items-center gap-1.5">
+          {isAirpickB2CBooking(res.createdBy) && (
+            <span
+              className={cn(
+                'text-[13px] px-2.5 py-0.5 rounded-[6px] border shrink-0',
+                bookingSourceBadgeClass('airpick-b2c')
+              )}
+            >
+              ★ {bookingSourceLabel('airpick-b2c')}
+            </span>
+          )}
+
           {showStatusBadge && (
             <span className={cn(
               "text-[13px] px-2 py-0.5 rounded-[6px] font-semibold shrink-0 text-center",
@@ -106,9 +126,14 @@ export default function ReservationCard({
             </span>
           )}
 
-          {isHomepageBooking && (
-            <span className="text-[13px] px-2 py-0.5 rounded-[6px] font-semibold bg-sky-500/15 text-sky-400 border border-sky-500/25 shrink-0">
-              홈페이지
+          {showBookingSourceBadge && bookingSource !== 'airpick-b2c' && (
+            <span
+              className={cn(
+                'text-[13px] px-2 py-0.5 rounded-[6px] font-semibold border shrink-0',
+                bookingSourceBadgeClass(bookingSource)
+              )}
+            >
+              {bookingSourceLabel(bookingSource)}
             </span>
           )}
 

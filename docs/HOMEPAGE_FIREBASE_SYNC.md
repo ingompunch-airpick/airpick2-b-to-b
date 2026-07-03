@@ -85,6 +85,12 @@ export async function submitHomepageReservation(form) {
     paymentMethod: 'unpaid',
     isIndoor: form.isIndoor ?? true,
     scratchPhotos: { synced: false },
+    // 항공·여행 (B2B 앱 표시용 — 필드명을 정확히 맞추는 것을 권장)
+    departureAirline: form.departureAirline,
+    departureFlight: form.departureFlight,
+    arrivalAirline: form.arrivalAirline,
+    arrivalFlight: form.arrivalFlight,
+    destination: form.destination,
   });
   return id;
 }
@@ -98,6 +104,12 @@ export async function submitHomepageReservation(form) {
 | `exitDate`, `exitTime` | `arrivalDate`, `arrivalTime` |
 | `name` | `userName` |
 | `carNo`, `vehicleNo` | `carNumber` |
+| `entryAirline`, `entryFlight` | `departureAirline`, `departureFlight` |
+| `exitAirline`, `exitFlight` | `arrivalAirline`, `arrivalFlight` |
+| `depFlight`, `outboundFlight`, `flightNo` | `departureFlight` |
+| `arrAirline`, `inboundAirline` | `arrivalAirline` |
+| `arrFlight`, `inboundFlight` | `arrivalFlight` |
+| `travelDestination`, `dest` | `destination` |
 
 ## 마감(블록아웃) 연동
 

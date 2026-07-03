@@ -1,6 +1,8 @@
 import type { Reservation } from '../types';
 import { isWawaCompany } from './pricing';
 import { normalizeReservationStatus } from './reservationStatus';
+import { resolveFlightFields } from './flightFields';
+import { RESERVATION_CREATED_BY, resolveBookingSource } from './bookingSource';
 
 export function getSafeDateString(val: unknown): string {
   if (!val) return new Date().toISOString();
@@ -74,9 +76,19 @@ export function normalizeDocsArray(items: unknown[]): Reservation[] {
     const finalCarNumber = String(r.carNumber || r.carNo || r.vehicleNo || r.car_number || '');
     const finalPrice = typeof r.totalPrice === 'number' ? r.totalPrice : Number(r.totalPrice) || 0;
     const { companyId, companyName } = resolveCompanyFields(r);
+    const flightFields = resolveFlightFields(r);
+    const bookingSource = resolveBookingSource(
+      r.createdBy as string | undefined,
+      r
+    );
+    const createdBy =
+      bookingSource === 'homepage' && !String(r.createdBy || '').trim()
+        ? RESERVATION_CREATED_BY.HOMEPAGE
+        : (r.createdBy as string | undefined);
 
     return {
       ...(r as Reservation),
+      createdBy,
       userId: String(r.userId || r.uid || 'external_system'),
       phone: String(r.phone || r.userPhone || ''),
       carNumber: finalCarNumber,
@@ -93,6 +105,7 @@ export function normalizeDocsArray(items: unknown[]): Reservation[] {
       updatedAt: updatedAtStr,
       companyId,
       companyName,
+      ...flightFields,
     };
   });
 }

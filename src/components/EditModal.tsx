@@ -1,10 +1,17 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { ArrowLeft, Users, Phone, Calendar, Bell, Car } from 'lucide-react';
-
-const AIRLINES = ['대한항공', '아시아나항공', '진에어', '제주항공', '티웨이항공', '에어부산'];
 import { Reservation } from '../types';
 import { isPending, statusToLabel } from '../utils/reservationStatus';
+import {
+  bookingSourceBadgeClass,
+  bookingSourceLabel,
+  isAirpickB2CBooking,
+  resolveBookingSourceFromReservation,
+} from '../utils/bookingSource';
+import { airlineSelectOptions, DEFAULT_AIRLINES } from '../utils/flightFields';
+
+const AIRLINES = [...DEFAULT_AIRLINES];
 
 function cn(...classes: (string | boolean | undefined | null)[]) {
   return classes.filter(Boolean).join(' ');
@@ -61,7 +68,9 @@ export default function EditModal({
       setDriverEditDeptAirline(driverDetailRes.departureAirline || '');
       setDriverEditDeptFlight(driverDetailRes.departureFlight || '');
       setDriverEditArrAirline(driverDetailRes.arrivalAirline || '');
-      setDriverEditArrFlight(driverDetailRes.arrivalFlight || '');
+      setDriverEditArrFlight(
+        driverDetailRes.arrivalFlight || (driverDetailRes as { inboundFlight?: string }).inboundFlight || ''
+      );
       setDriverEditReservationPassword(driverDetailRes.reservationPassword || '');
       setDriverEditCarNumber(driverDetailRes.carNumber || '');
       setDriverEditCarModel(driverDetailRes.carModel || '');
@@ -316,11 +325,21 @@ export default function EditModal({
               <span className="text-xs font-bold text-white bg-[#2C2C2E] px-2 py-1 rounded-md">
                 {driverDetailRes.arrivalTerminal === 'T2' ? '제2터미널 (T2)' : '제1터미널 (T1)'}
               </span>
-              {driverDetailRes.createdBy === 'homepage' && (
-                <span className="text-[11px] font-black text-sky-400 bg-sky-500/10 border border-sky-500/20 px-2 py-0.5 rounded-md ml-auto">
-                  홈페이지 예약
-                </span>
-              )}
+              {(() => {
+                const source = resolveBookingSourceFromReservation(driverDetailRes);
+                if (source === 'unknown') return null;
+                return (
+                  <span
+                    className={cn(
+                      'text-[11px] font-black border px-2 py-0.5 rounded-md ml-auto',
+                      bookingSourceBadgeClass(source)
+                    )}
+                  >
+                    {isAirpickB2CBooking(driverDetailRes.createdBy) ? '★ ' : ''}
+                    {bookingSourceLabel(source)} 예약
+                  </span>
+                );
+              })()}
             </div>
           </div>
 
@@ -351,7 +370,9 @@ export default function EditModal({
                   className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[14px] text-white font-bold outline-none focus:border-[#FF9F0A] transition-colors"
                 >
                   <option value="">선택 안 함</option>
-                  {AIRLINES.map((a) => <option key={a} value={a}>{a}</option>)}
+                  {airlineSelectOptions(driverEditDeptAirline, AIRLINES).map((a) => (
+                    <option key={a} value={a}>{a}</option>
+                  ))}
                 </select>
               </div>
 
@@ -374,7 +395,9 @@ export default function EditModal({
                   className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[14px] text-white font-bold outline-none focus:border-[#FF9F0A] transition-colors"
                 >
                   <option value="">선택 안 함</option>
-                  {AIRLINES.map((a) => <option key={a} value={a}>{a}</option>)}
+                  {airlineSelectOptions(driverEditDeptAirline, AIRLINES).map((a) => (
+                    <option key={a} value={a}>{a}</option>
+                  ))}
                 </select>
               </div>
 

@@ -3,6 +3,7 @@ import { ArrowLeft, Camera, RefreshCw, X, CheckCircle2 } from 'lucide-react';
 import { Reservation } from '../types';
 import { uploadReservationImages } from '../lib/reservationPhotos';
 import { ensureFirestoreAuth } from '../lib/reservationFirestore';
+import { readImageFilesAsDataUrls } from '../utils/imageFile';
 
 interface Props {
   onBack?: () => void;
@@ -35,29 +36,13 @@ function PhotoCard({
     if (e.target) e.target.value = '';
     if (!rawFiles.length) return;
 
-    const imageFiles = rawFiles.filter(
-      (f) => f.type.startsWith('image/') || /\.(jpe?g|png|webp|heic|gif)$/i.test(f.name)
-    );
-    if (!imageFiles.length) {
-      setError('이미지 파일(JPG·PNG 등)만 선택할 수 있습니다.');
+    let dataUrls: string[];
+    try {
+      dataUrls = await readImageFilesAsDataUrls(rawFiles);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '사진을 불러오지 못했습니다.');
       return;
     }
-
-    // 1) base64 미리보기
-    const dataUrls = await Promise.all(
-      imageFiles.map(
-        (f) =>
-          new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onloadend = () =>
-              typeof reader.result === 'string'
-                ? resolve(reader.result)
-                : reject(new Error('읽기 실패'));
-            reader.onerror = () => reject(new Error('파일 읽기 오류'));
-            reader.readAsDataURL(f);
-          })
-      )
-    );
 
     const next = [...previews, ...dataUrls];
     setPreviews(next);
@@ -137,7 +122,7 @@ function PhotoCard({
             {isSaving ? (
               <>
                 <RefreshCw className="animate-spin text-amber-500" size={22} />
-                <span className="text-[12px] text-amber-500 font-bold">Storage 업로드 중…</span>
+                <span className="text-[12px] text-amber-500 font-bold">사진 올리는 중…</span>
               </>
             ) : (
               <>

@@ -188,6 +188,11 @@ export interface Reservation {
   departureFlight?: string;
   arrivalAirline?: string;
   arrivalFlight?: string;
+  /** 와와 홈페이지 레거시 — normalize 시 표준 필드로 매핑 */
+  entryAirline?: string;
+  entryFlight?: string;
+  exitAirline?: string;
+  exitFlight?: string;
   destination?: string;
   customerNotes?: string;
   userRequest?: string;

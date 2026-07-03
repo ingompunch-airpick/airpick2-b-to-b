@@ -73,6 +73,12 @@ export async function createHomepageReservation(form) {
     paymentMethod: 'unpaid',
     isIndoor: form.isIndoor !== false,
     scratchPhotos: { synced: false },
+    // 표준 필드명 권장 (와와 홈 레거시는 entryAirline/exitFlight 도 앱에서 자동 매핑)
+    departureAirline: form.departureAirline || undefined,
+    departureFlight: form.departureFlight || undefined,
+    arrivalAirline: form.arrivalAirline || undefined,
+    arrivalFlight: form.arrivalFlight || undefined,
+    destination: form.destination || undefined,
   };
 
   await setDoc(doc(db, 'reservations', id), payload);

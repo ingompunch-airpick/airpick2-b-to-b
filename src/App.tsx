@@ -2152,6 +2152,13 @@ export default function App() {
                         return updated;
                       });
                     }}
+                    onReservationDelete={(resId) => {
+                      setReservations(prev => {
+                        const updated = prev.filter(r => r.id !== resId);
+                        persistScopedReservations(updated);
+                        return updated;
+                      });
+                    }}
                   />
                 </motion.div>
               )}

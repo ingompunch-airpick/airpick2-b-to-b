@@ -93,7 +93,7 @@ service cloud.firestore {
       allow update: if isSignedIn()
         && isValidReservationId(reservationId)
         && validReservationWrite();
-      allow delete: if isPlatformAdmin();
+      allow delete: if isSignedIn() && isValidReservationId(reservationId);
     }
 
     // ── companies (요금·마감 — B2C/홈 read, B2B write) ─────────────────────

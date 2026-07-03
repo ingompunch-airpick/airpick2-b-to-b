@@ -27,15 +27,20 @@ function cn(...classes: (string | boolean | undefined)[]) {
   return classes.filter(Boolean).join(' ');
 }
 
-const AIRLINES = ['대한항공', '아시아나항공', '진에어', '제주항공', '티웨이항공', '에어부산'];
+import { airlineSelectOptions, DEFAULT_AIRLINES } from '../utils/flightFields';
+
+const AIRLINES = [...DEFAULT_AIRLINES];
 
 function isT2Route(departure: 'T1' | 'T2', arrival: 'T1' | 'T2') {
   return departure === 'T2' || arrival === 'T2';
 }
 
-function isHomepageBookingSource(createdBy?: string) {
-  return createdBy === 'homepage';
-}
+import {
+  bookingSourceBadgeClass,
+  bookingSourceLabel,
+  isAirpickB2CBooking,
+  resolveBookingSourceFromReservation,
+} from '../utils/bookingSource';
 
 interface SearchReceptionViewProps {
   currentView: AppView;
@@ -373,7 +378,7 @@ export default function SearchReceptionView({
 
     try {
       await persistReservation(id, bookingPayload);
-      alert(`차량 번호 ${bookingPayload.carNumber}의 현장 접수가 Firebase에 저장되어 홈페이지·앱에서 동일하게 조회됩니다.`);
+      alert(`차량 번호 ${bookingPayload.carNumber} 현장 접수가 완료됐습니다.`);
     } catch (err: any) {
       onUpdateReservations(prev => {
         const updated = [{ id, ...bookingPayload }, ...prev];
@@ -383,7 +388,7 @@ export default function SearchReceptionView({
         });
         return updated;
       });
-      alert(`차량 번호 ${bookingPayload.carNumber}의 구역 정보가 로컬 임시 메모리로 백업 보관되었습니다!`);
+      alert(`차량 번호 ${bookingPayload.carNumber} 접수가 이 폰에 저장됐습니다.\n\n인터넷 연결을 확인한 뒤, 목록에 안 보이면 한 번 더 접수해 주세요.`);
     } finally {
       setIsSubmittingBooking(false);
       onNavigate('timeline');
@@ -455,14 +460,14 @@ export default function SearchReceptionView({
 
     try {
       await updateDoc(doc(db, 'reservations', editingSearchedRes.id || ''), updatePayload);
-      alert("현장 접수 예약의 세부 정보가 실시간 데이터베이스에 성료 갱신되었습니다!");
+      alert('예약 정보가 수정됐습니다.');
     } catch (_) {
       onUpdateReservations(prev => {
         const updated = prev.map(r => r.id === editingSearchedRes.id ? { ...r, ...updatePayload } : r);
         persistReservationStores(window.localStorage, updated, activeCompId, { cacheFirestore: true });
         return updated;
       });
-      alert("오프라인 상태입니다. 로컬 임시 메모리에 저장 수정 처리되었습니다.");
+      alert('수정 내용이 이 폰에 저장됐습니다.\n\n인터넷 연결 후 다시 저장해 주세요.');
     } finally {
       setEditingSearchedRes(null);
     }
@@ -608,7 +613,9 @@ export default function SearchReceptionView({
                         setEditSearchedDepartureAirline(target.departureAirline || '');
                         setEditSearchedDepartureFlight(target.departureFlight || '');
                         setEditSearchedArrivalAirline(target.arrivalAirline || '');
-                        setEditSearchedArrivalFlight(target.arrivalFlight || '');
+                        setEditSearchedArrivalFlight(
+                          target.arrivalFlight || (target as { inboundFlight?: string }).inboundFlight || ''
+                        );
                         setEditSearchedDestination(target.destination || '');
                         setEditSearchedCustomerNotes(target.customerNotes || target.userRequest || '');
                         setEditSearchedReservationPassword(target.reservationPassword || '');
@@ -816,7 +823,9 @@ export default function SearchReceptionView({
                   <label className="text-[11px] text-zinc-500 font-bold block mb-1">출국 항공사</label>
                   <select value={departureAirline} onChange={(e) => setDepartureAirline(e.target.value)} className="w-full px-3 py-2 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-100 text-xs font-bold outline-none focus:border-amber-500">
                     <option value="">선택 안 함</option>
-                    {AIRLINES.map((a) => <option key={a} value={a}>{a}</option>)}
+                    {airlineSelectOptions(departureAirline, AIRLINES).map((a) => (
+                      <option key={a} value={a}>{a}</option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -827,7 +836,9 @@ export default function SearchReceptionView({
                   <label className="text-[11px] text-zinc-500 font-bold block mb-1">입국 항공사</label>
                   <select value={arrivalAirline} onChange={(e) => setArrivalAirline(e.target.value)} className="w-full px-3 py-2 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-100 text-xs font-bold outline-none focus:border-amber-500">
                     <option value="">선택 안 함</option>
-                    {AIRLINES.map((a) => <option key={a} value={a}>{a}</option>)}
+                    {airlineSelectOptions(arrivalAirline, AIRLINES).map((a) => (
+                      <option key={a} value={a}>{a}</option>
+                    ))}
                   </select>
                 </div>
                 <div>
@@ -1057,11 +1068,21 @@ export default function SearchReceptionView({
                 <div>
                   <span className="text-[11px] text-zinc-500 block">고객 고유 예약 코드</span>
                   <span className="text-xs font-black text-white font-mono">{editingSearchedRes.receiptCode || editingSearchedRes.id}</span>
-                  {isHomepageBookingSource(editingSearchedRes.createdBy) && (
-                    <span className="mt-1 inline-block text-[10px] font-black text-sky-400 bg-sky-500/10 border border-sky-500/20 px-2 py-0.5 rounded-md">
-                      홈페이지 예약
-                    </span>
-                  )}
+                  {(() => {
+                    const source = resolveBookingSourceFromReservation(editingSearchedRes);
+                    if (source === 'unknown') return null;
+                    return (
+                      <span
+                        className={cn(
+                          'mt-1 inline-block text-[10px] font-black border px-2 py-0.5 rounded-md',
+                          bookingSourceBadgeClass(source)
+                        )}
+                      >
+                        {isAirpickB2CBooking(editingSearchedRes.createdBy) ? '★ ' : ''}
+                        {bookingSourceLabel(source)} 예약
+                      </span>
+                    );
+                  })()}
                 </div>
                 <span className="text-[12px] text-zinc-400 bg-neutral-900 px-2.5 py-1 rounded-lg border border-neutral-800 font-bold">
                   {editingSearchedRes.companyName}
@@ -1209,7 +1230,9 @@ export default function SearchReceptionView({
                     <label className="text-[11px] text-zinc-500 font-bold block mb-1">출국 항공사</label>
                     <select value={editSearchedDepartureAirline} onChange={(e) => setEditSearchedDepartureAirline(e.target.value)} className="w-full px-2 py-2 bg-neutral-955 border border-neutral-800 rounded-xl text-zinc-200 text-xs font-bold outline-none focus:border-amber-500">
                       <option value="">선택 안 함</option>
-                      {AIRLINES.map((a) => <option key={a} value={a}>{a}</option>)}
+                      {airlineSelectOptions(editSearchedDepartureAirline, AIRLINES).map((a) => (
+                        <option key={a} value={a}>{a}</option>
+                      ))}
                     </select>
                   </div>
                   <div>
@@ -1220,7 +1243,9 @@ export default function SearchReceptionView({
                     <label className="text-[11px] text-zinc-500 font-bold block mb-1">입국 항공사</label>
                     <select value={editSearchedArrivalAirline} onChange={(e) => setEditSearchedArrivalAirline(e.target.value)} className="w-full px-2 py-2 bg-neutral-955 border border-neutral-800 rounded-xl text-zinc-200 text-xs font-bold outline-none focus:border-amber-500">
                       <option value="">선택 안 함</option>
-                      {AIRLINES.map((a) => <option key={a} value={a}>{a}</option>)}
+                      {airlineSelectOptions(editSearchedArrivalAirline, AIRLINES).map((a) => (
+                        <option key={a} value={a}>{a}</option>
+                      ))}
                     </select>
                   </div>
                   <div>

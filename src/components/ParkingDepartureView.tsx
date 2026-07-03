@@ -19,6 +19,7 @@ function joinDateTime(date: string, time: string): string {
 }
 import { db } from '../firebase';
 import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { ensureFirestoreAuth } from '../lib/reservationFirestore';
 import {
   isReservationUnpaid,
   paymentChoiceToMethod,
@@ -39,6 +40,7 @@ interface ParkingDepartureViewProps {
   companies?: Company[];
   getCalculatePrice?: CalculatePriceFn;
   onReservationPatch?: (id: string, patch: Partial<Reservation>) => void;
+  onReservationDelete?: (id: string) => void;
 }
 
 export default function ParkingDepartureView({
@@ -47,6 +49,7 @@ export default function ParkingDepartureView({
   companies = [],
   getCalculatePrice,
   onReservationPatch,
+  onReservationDelete,
 }: ParkingDepartureViewProps) {
   const [activeTab, setActiveTab] = useState<'indoor' | 'outdoor'>('indoor');
 
@@ -185,12 +188,19 @@ export default function ParkingDepartureView({
     if (!deletingRes || !deletingRes.id) return;
     setIsDeleting(true);
     try {
+      await ensureFirestoreAuth();
       const docRef = doc(db, 'reservations', deletingRes.id);
       await deleteDoc(docRef);
+      onReservationDelete?.(deletingRes.id);
       setDeletingRes(null);
     } catch (error) {
       console.error("Failed to delete reservation:", error);
-      alert("차량 내역 삭제에 실패했습니다. 다시 시도해주십시오.");
+      const code = (error as { code?: string })?.code;
+      if (code === 'permission-denied') {
+        alert('삭제 권한이 없습니다. 잠시 후 다시 시도해 주세요.');
+      } else {
+        alert('차량 내역 삭제에 실패했습니다. 다시 시도해 주세요.');
+      }
     } finally {
       setIsDeleting(false);
     }

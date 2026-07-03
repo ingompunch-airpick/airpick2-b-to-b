@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect, useRef } from 'react';
-import { Camera, Images, X, CheckCircle2 } from 'lucide-react';
+import { Camera, Images, X, CheckCircle2, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Reservation } from '../types';
 import {
@@ -8,6 +8,7 @@ import {
 } from '../utils/paymentStatus';
 import { uploadReservationImages } from '../lib/reservationPhotos';
 import { ensureFirestoreAuth } from '../lib/reservationFirestore';
+import { readImageFilesAsDataUrls, safePersistPhotoDraft } from '../utils/imageFile';
 import InlineVehicleCamera from './InlineVehicleCamera';
 
 // Standalone class-combiner utility for safe use within components
@@ -52,30 +53,13 @@ export default function ScratchModal({
   const addImageFiles = async (files: FileList | null) => {
     if (!files?.length) return;
 
-    const imageFiles = Array.from(files).filter(
-      (f) => f.type.startsWith('image/') || /\.(jpe?g|png|webp|heic|gif)$/i.test(f.name)
-    );
-    if (!imageFiles.length) {
-      alert('이미지 파일(JPG·PNG 등)만 선택할 수 있습니다.');
-      return;
+    try {
+      const dataUrls = await readImageFilesAsDataUrls(files);
+      setUploadedPhotos((prev) => [...prev, ...dataUrls]);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '사진을 불러오지 못했습니다.';
+      alert(msg);
     }
-
-    const dataUrls = await Promise.all(
-      imageFiles.map(
-        (file) =>
-          new Promise<string>((resolve, reject) => {
-            const reader = new FileReader();
-            reader.onloadend = () =>
-              typeof reader.result === 'string'
-                ? resolve(reader.result)
-                : reject(new Error('읽기 실패'));
-            reader.onerror = () => reject(new Error('파일 읽기 오류'));
-            reader.readAsDataURL(file);
-          })
-      )
-    );
-
-    setUploadedPhotos((prev) => [...prev, ...dataUrls]);
   };
 
   const handleCameraChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -122,11 +106,7 @@ export default function ScratchModal({
   useEffect(() => {
     if (scratchModalTargetId) {
       const tempKey = `reservation_temp_photos_${scratchModalTargetId}`;
-      if (uploadedPhotos.length > 0) {
-        localStorage.setItem(tempKey, JSON.stringify(uploadedPhotos));
-      } else {
-        localStorage.removeItem(tempKey);
-      }
+      safePersistPhotoDraft(tempKey, uploadedPhotos);
     }
   }, [uploadedPhotos, scratchModalTargetId]);
 
@@ -176,6 +156,13 @@ export default function ScratchModal({
             exit={{ opacity: 0, scale: 0.96, y: 15 }}
             className="relative bg-neutral-900 w-full max-w-xl rounded-2xl shadow-2xl border border-neutral-800 flex flex-col max-h-[92vh] overflow-hidden"
           >
+            {isUploading && (
+              <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2.5 rounded-2xl bg-neutral-950/80 backdrop-blur-sm pointer-events-auto">
+                <Loader2 size={36} className="animate-spin text-amber-500" />
+                <p className="text-sm font-black text-white">사진 업로드 중</p>
+                <p className="text-xs text-zinc-400">잠시만 기다려 주세요</p>
+              </div>
+            )}
             {/* Header */}
             <div className="p-4 border-b border-neutral-800 flex items-center justify-between bg-neutral-900/40">
               <div className="flex items-center gap-2">
@@ -209,7 +196,7 @@ export default function ScratchModal({
               <input
                 type="file"
                 multiple
-                accept="image/*"
+                accept="image/jpeg,image/png,image/webp,image/heic,image/heif,image/*"
                 onChange={handleGalleryChange}
                 className="hidden"
                 ref={galleryInputRef}
@@ -298,11 +285,12 @@ export default function ScratchModal({
             <div className="p-4 border-t border-neutral-850 flex gap-2.5 bg-neutral-900/60">
               <button 
                 type="button"
+                disabled={isUploading}
                 onClick={() => {
                   setScratchModalTargetId(null);
                   setSelectedParkingSpace('');
                 }}
-                className="flex-1 py-3 bg-neutral-950 hover:bg-zinc-900 text-zinc-400 rounded-lg text-xs font-bold border border-neutral-800 transition-colors"
+                className="flex-1 py-3 bg-neutral-950 hover:bg-zinc-900 text-zinc-400 rounded-lg text-xs font-bold border border-neutral-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 취소
               </button>
@@ -343,15 +331,25 @@ export default function ScratchModal({
                   } catch (err) {
                     console.error('Photo upload failed:', err);
                     const msg = err instanceof Error ? err.message : String(err);
-                    alert(`사진 업로드 실패\n\n${msg}\n\n확인: Firebase Console → airpick-reservation → Storage 활성화 · Rules 게시 · Authentication Anonymous ON`);
+                    alert(`사진 업로드 실패\n\n${msg}`);
                   } finally {
                     setIsUploading(false);
                   }
                 }}
-                className="flex-1 py-3 bg-amber-500 hover:bg-amber-450 disabled:opacity-50 disabled:cursor-not-allowed text-neutral-950 rounded-lg text-xs font-bold shadow-md shadow-amber-500/15 transition-all flex items-center justify-center gap-1.5"
+                className="flex-1 min-h-[44px] py-3 bg-amber-500 hover:bg-amber-450 disabled:opacity-70 disabled:cursor-not-allowed text-neutral-950 rounded-lg text-xs font-bold shadow-md shadow-amber-500/15 transition-all flex items-center justify-center gap-1.5"
+                aria-busy={isUploading}
               >
-                <CheckCircle2 size={13} />
-                {isUploading ? 'Storage 업로드 중…' : '사진 등록 및 입고 완료'}
+                {isUploading ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin shrink-0" />
+                    <span className="whitespace-nowrap">처리 중…</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 size={13} className="shrink-0" />
+                    <span className="whitespace-nowrap">입고 완료</span>
+                  </>
+                )}
               </button>
             </div>
           </motion.div>
