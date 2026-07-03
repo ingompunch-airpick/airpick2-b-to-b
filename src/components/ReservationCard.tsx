@@ -87,7 +87,7 @@ export default function ReservationCard({
                 bookingSourceBadgeClass('airpick-b2c')
               )}
             >
-              ★ {bookingSourceLabel('airpick-b2c')}
+              {bookingSourceLabel('airpick-b2c')}
             </span>
           )}
 
@@ -126,7 +126,7 @@ export default function ReservationCard({
             </span>
           )}
 
-          {showBookingSourceBadge && bookingSource !== 'airpick-b2c' && (
+          {showBookingSourceBadge && bookingSource !== 'airpick-b2c' && bookingSource !== 'homepage' && (
             <span
               className={cn(
                 'text-[13px] px-2 py-0.5 rounded-[6px] font-semibold border shrink-0',

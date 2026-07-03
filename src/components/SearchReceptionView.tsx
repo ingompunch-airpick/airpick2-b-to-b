@@ -38,7 +38,6 @@ function isT2Route(departure: 'T1' | 'T2', arrival: 'T1' | 'T2') {
 import {
   bookingSourceBadgeClass,
   bookingSourceLabel,
-  isAirpickB2CBooking,
   resolveBookingSourceFromReservation,
 } from '../utils/bookingSource';
 
@@ -1070,7 +1069,7 @@ export default function SearchReceptionView({
                   <span className="text-xs font-black text-white font-mono">{editingSearchedRes.receiptCode || editingSearchedRes.id}</span>
                   {(() => {
                     const source = resolveBookingSourceFromReservation(editingSearchedRes);
-                    if (source === 'unknown') return null;
+                    if (source === 'unknown' || source === 'homepage') return null;
                     return (
                       <span
                         className={cn(
@@ -1078,7 +1077,6 @@ export default function SearchReceptionView({
                           bookingSourceBadgeClass(source)
                         )}
                       >
-                        {isAirpickB2CBooking(editingSearchedRes.createdBy) ? '★ ' : ''}
                         {bookingSourceLabel(source)} 예약
                       </span>
                     );

@@ -6,7 +6,6 @@ import { isPending, statusToLabel } from '../utils/reservationStatus';
 import {
   bookingSourceBadgeClass,
   bookingSourceLabel,
-  isAirpickB2CBooking,
   resolveBookingSourceFromReservation,
 } from '../utils/bookingSource';
 import { airlineSelectOptions, DEFAULT_AIRLINES } from '../utils/flightFields';
@@ -327,7 +326,7 @@ export default function EditModal({
               </span>
               {(() => {
                 const source = resolveBookingSourceFromReservation(driverDetailRes);
-                if (source === 'unknown') return null;
+                if (source === 'unknown' || source === 'homepage') return null;
                 return (
                   <span
                     className={cn(
@@ -335,7 +334,6 @@ export default function EditModal({
                       bookingSourceBadgeClass(source)
                     )}
                   >
-                    {isAirpickB2CBooking(driverDetailRes.createdBy) ? '★ ' : ''}
                     {bookingSourceLabel(source)} 예약
                   </span>
                 );
