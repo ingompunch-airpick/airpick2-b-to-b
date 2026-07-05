@@ -120,12 +120,44 @@ export type BookingSourceMetrics = Record<
   { count: number; revenue: number }
 >;
 
+/** 대시보드용 2분류 — 에어픽 vs 홈페이지·현장·기타 */
+export type GroupedBookingSource = 'airpick-b2c' | 'other';
+
+export type GroupedSourceMetrics = Record<
+  GroupedBookingSource,
+  { count: number; revenue: number }
+>;
+
+export const GROUPED_SOURCE_ROWS: { key: GroupedBookingSource; label: string }[] = [
+  { key: 'airpick-b2c', label: '에어픽' },
+  { key: 'other', label: '홈·현장' },
+];
+
 const EMPTY_METRICS = (): BookingSourceMetrics => ({
   homepage: { count: 0, revenue: 0 },
   'airpick-b2c': { count: 0, revenue: 0 },
   b2b: { count: 0, revenue: 0 },
   unknown: { count: 0, revenue: 0 },
 });
+
+const EMPTY_GROUPED = (): GroupedSourceMetrics => ({
+  'airpick-b2c': { count: 0, revenue: 0 },
+  other: { count: 0, revenue: 0 },
+});
+
+export function toGroupedBookingSource(src: BookingSource): GroupedBookingSource {
+  return src === 'airpick-b2c' ? 'airpick-b2c' : 'other';
+}
+
+export function groupedBookingSourceLabel(src: GroupedBookingSource): string {
+  return src === 'airpick-b2c' ? '에어픽' : '홈·현장';
+}
+
+export function groupedBookingSourceBadgeClass(src: GroupedBookingSource): string {
+  return src === 'airpick-b2c'
+    ? bookingSourceBadgeClass('airpick-b2c')
+    : 'bg-sky-500/15 text-sky-400 border-sky-500/25';
+}
 
 /** 유입별 건수·매출 집계 (cancelled 제외는 호출 측에서 필터) */
 export function aggregateBookingSourceMetrics(
@@ -138,6 +170,21 @@ export function aggregateBookingSourceMetrics(
     const src = resolveBookingSourceFromReservation(r);
     out[src].count += 1;
     out[src].revenue += r.totalPrice || 0;
+  }
+  return out;
+}
+
+/** 에어픽 / 홈·현장 2분류 집계 */
+export function aggregateGroupedBookingSourceMetrics(
+  reservations: Reservation[],
+  predicate?: (r: Reservation) => boolean
+): GroupedSourceMetrics {
+  const out = EMPTY_GROUPED();
+  for (const r of reservations) {
+    if (predicate && !predicate(r)) continue;
+    const key = toGroupedBookingSource(resolveBookingSourceFromReservation(r));
+    out[key].count += 1;
+    out[key].revenue += r.totalPrice || 0;
   }
   return out;
 }

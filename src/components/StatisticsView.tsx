@@ -37,9 +37,11 @@ import {
 import { normalizeDateString } from '../utils/reservationNormalize';
 import { getKSTDateOnlyString, toKSTDateOnlyString } from '../utils/kstDate';
 import {
-  aggregateBookingSourceMetrics,
-  bookingSourceBadgeClass,
-  bookingSourceLabel,
+  aggregateGroupedBookingSourceMetrics,
+  groupedBookingSourceBadgeClass,
+  groupedBookingSourceLabel,
+  GROUPED_SOURCE_ROWS,
+  toGroupedBookingSource,
   resolveBookingSourceFromReservation,
 } from '../utils/bookingSource';
 
@@ -308,7 +310,7 @@ export default function StatisticsView({
 
   const todaySourceMetrics = useMemo(
     () =>
-      aggregateBookingSourceMetrics(activeReservations, (r) =>
+      aggregateGroupedBookingSourceMetrics(activeReservations, (r) =>
         reservationDepartureOn(r, todayStr)
       ),
     [activeReservations, todayStr]
@@ -316,17 +318,11 @@ export default function StatisticsView({
 
   const monthSourceMetrics = useMemo(
     () =>
-      aggregateBookingSourceMetrics(activeReservations, (r) =>
+      aggregateGroupedBookingSourceMetrics(activeReservations, (r) =>
         normalizeDateString(r.departureDate).startsWith(currentMonthPrefix)
       ),
     [activeReservations, currentMonthPrefix]
   );
-
-  const sourceBreakdownRows = [
-    { key: 'airpick-b2c' as const, label: '에어픽' },
-    { key: 'homepage' as const, label: '홈페이지' },
-    { key: 'b2b' as const, label: '현장·B2B' },
-  ];
 
   const datesRange = (() => {
     const list: string[] = [];
@@ -358,15 +354,22 @@ export default function StatisticsView({
     return list;
   })();
 
+  const flowPeriodSourceMetrics = useMemo(() => {
+    const dateSet = new Set(datesRange);
+    return aggregateGroupedBookingSourceMetrics(activeReservations, (r) =>
+      dateSet.has(normalizeDateString(r.departureDate))
+    );
+  }, [activeReservations, datesRange]);
+
   // --- Daily flow data (A+C: 월 요약 + 미니 막대 + 현재 재차) ---
   const dailyFlow = datesRange.map((date) => {
-    const admittedCount = activeReservations.filter(r =>
-      reservationDepartureOn(r, date) && isAdmitted(r.status)
-    ).length;
+    const dayRes = activeReservations.filter(r => reservationDepartureOn(r, date));
+    const admittedCount = dayRes.filter(r => isAdmitted(r.status)).length;
     const exitedCount = activeReservations.filter(r =>
       isCompletedOut(r.status) && reservationExitOn(r, date)
     ).length;
-    return { date, admittedCount, exitedCount };
+    const sourceMetrics = aggregateGroupedBookingSourceMetrics(dayRes);
+    return { date, admittedCount, exitedCount, sourceMetrics };
   });
 
   // Scaling base for the mini bars (avoid divide-by-zero)
@@ -481,7 +484,7 @@ export default function StatisticsView({
             <span className="text-[12px] text-[#8E8E93] font-bold block">유입별 매출 비교</span>
             {(['today', 'month'] as const).map((period) => {
               const metrics = period === 'today' ? todaySourceMetrics : monthSourceMetrics;
-              const totalRev = sourceBreakdownRows.reduce((s, row) => s + metrics[row.key].revenue, 0);
+              const totalRev = GROUPED_SOURCE_ROWS.reduce((s, row) => s + metrics[row.key].revenue, 0);
               const title = period === 'today' ? '오늘 (입고일 기준)' : '이번 달 (입고일 기준)';
               return (
                 <div key={period} className="space-y-2">
@@ -490,13 +493,13 @@ export default function StatisticsView({
                     <span className="text-zinc-400 font-mono">{totalRev.toLocaleString()}원</span>
                   </div>
                   <div className="space-y-1.5">
-                    {sourceBreakdownRows.map(({ key, label }) => {
+                    {GROUPED_SOURCE_ROWS.map(({ key, label }) => {
                       const { count, revenue } = metrics[key];
                       const pct = totalRev > 0 ? Math.round((revenue / totalRev) * 100) : 0;
                       return (
                         <div key={`${period}-${key}`} className="flex items-center gap-2">
                           <span
-                            className={`shrink-0 text-[10px] font-black px-1.5 py-0.5 rounded border ${bookingSourceBadgeClass(key)}`}
+                            className={`shrink-0 text-[10px] font-black px-1.5 py-0.5 rounded border ${groupedBookingSourceBadgeClass(key)}`}
                           >
                             {label}
                           </span>
@@ -504,11 +507,7 @@ export default function StatisticsView({
                             <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
                               <div
                                 className={`h-full rounded-full ${
-                                  key === 'airpick-b2c'
-                                    ? 'bg-fuchsia-500'
-                                    : key === 'homepage'
-                                      ? 'bg-sky-500'
-                                      : 'bg-amber-500'
+                                  key === 'airpick-b2c' ? 'bg-fuchsia-500' : 'bg-sky-500'
                                 }`}
                                 style={{ width: `${pct}%` }}
                               />
@@ -548,6 +547,7 @@ export default function StatisticsView({
           return isReserve || isParkedRow || isOut;
         });
         const todayRevenue = todayTotal.reduce((s, r) => s + (r.totalPrice || 0), 0);
+        const todayGroupedMetrics = aggregateGroupedBookingSourceMetrics(todayTotal);
 
         const crmFiltered = (() => {
           const q = crmSearch.trim().toLowerCase().replace(/[ㄱ-ㅎㅏ-ㅣ\s]+$/, '');
@@ -580,10 +580,26 @@ export default function StatisticsView({
                 <ClipboardList size={13} className="text-amber-500" />
                 주차접수 현황
               </h3>
-              <div className="flex items-center gap-2 text-[12px] font-mono text-zinc-500">
-                <span className="text-amber-500 font-bold">{todayTotal.length}건</span>
-                <span>·</span>
-                <span>{todayRevenue.toLocaleString()}원</span>
+              <div className="text-right">
+                <div className="flex items-center gap-2 text-[12px] font-mono text-zinc-500 justify-end">
+                  <span className="text-amber-500 font-bold">{todayTotal.length}건</span>
+                  <span>·</span>
+                  <span>{todayRevenue.toLocaleString()}원</span>
+                </div>
+                <div className="flex items-center gap-1.5 mt-0.5 justify-end flex-wrap">
+                  {GROUPED_SOURCE_ROWS.map(({ key }) => {
+                    const { count, revenue } = todayGroupedMetrics[key];
+                    if (count === 0 && revenue === 0) return null;
+                    return (
+                      <span
+                        key={key}
+                        className={`text-[9.5px] font-bold px-1.5 py-0.5 rounded border ${groupedBookingSourceBadgeClass(key)}`}
+                      >
+                        {groupedBookingSourceLabel(key)} {count}건 · {revenue.toLocaleString()}원
+                      </span>
+                    );
+                  })}
+                </div>
               </div>
             </div>
 
@@ -641,13 +657,13 @@ export default function StatisticsView({
                           <span className="text-xs font-black text-white font-mono">{res.carNumber}</span>
                           <span className="text-[12px] text-zinc-500 truncate">{res.carModel}</span>
                           {(() => {
-                            const src = resolveBookingSourceFromReservation(res);
-                            if (src === 'unknown' || src === 'b2b') return null;
+                            const grouped = toGroupedBookingSource(resolveBookingSourceFromReservation(res));
+                            if (grouped === 'other') return null;
                             return (
                               <span
-                                className={`text-[10px] font-black px-1.5 py-0.5 rounded border shrink-0 ${bookingSourceBadgeClass(src)}`}
+                                className={`text-[10px] font-black px-1.5 py-0.5 rounded border shrink-0 ${groupedBookingSourceBadgeClass(grouped)}`}
                               >
-                                {bookingSourceLabel(src)}
+                                {groupedBookingSourceLabel(grouped)}
                               </span>
                             );
                           })()}
@@ -724,9 +740,27 @@ export default function StatisticsView({
             </div>
           )}
 
+          <div className="bg-[#1C1C1E] border border-neutral-800/40 rounded-2xl p-3 space-y-1.5">
+            <span className="text-[11px] text-zinc-500 font-bold block">
+              기간 매출 ({filterType === 'this_month' ? '이번 달' : '지난 달'} · 입고일 기준)
+            </span>
+            {GROUPED_SOURCE_ROWS.map(({ key, label }) => {
+              const { count, revenue } = flowPeriodSourceMetrics[key];
+              return (
+                <div key={key} className="flex items-center justify-between text-[11px] font-mono">
+                  <span className={`text-[10px] font-black px-1.5 py-0.5 rounded border ${groupedBookingSourceBadgeClass(key)}`}>
+                    {label}
+                  </span>
+                  <span className="text-zinc-400">{count}건</span>
+                  <span className="text-zinc-200 font-bold">{revenue.toLocaleString()}원</span>
+                </div>
+              );
+            })}
+          </div>
+
           {/* 날짜별 미니 막대 리스트 */}
           <div className="bg-[#1C1C1E] border border-neutral-800/40 rounded-2xl overflow-hidden divide-y divide-[#1D1D20] max-h-72 overflow-y-auto font-mono">
-            {dailyFlow.map(({ date, admittedCount, exitedCount }) => {
+            {dailyFlow.map(({ date, admittedCount, exitedCount, sourceMetrics }) => {
               const dateObj = new Date(date);
               const daysArr = ['일', '월', '화', '수', '목', '금', '토'];
               const dow = dateObj.getDay();
@@ -756,6 +790,23 @@ export default function StatisticsView({
                       <span className="text-emerald-400">출 {exitedCount}</span>
                     </div>
                   </div>
+
+                  {(sourceMetrics['airpick-b2c'].revenue > 0 || sourceMetrics.other.revenue > 0) && (
+                    <div className="flex gap-2 mb-2 flex-wrap">
+                      {GROUPED_SOURCE_ROWS.map(({ key }) => {
+                        const { count, revenue } = sourceMetrics[key];
+                        if (count === 0 && revenue === 0) return null;
+                        return (
+                          <span
+                            key={key}
+                            className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${groupedBookingSourceBadgeClass(key)}`}
+                          >
+                            {groupedBookingSourceLabel(key)} {revenue.toLocaleString()}원
+                          </span>
+                        );
+                      })}
+                    </div>
+                  )}
 
                   <div className="space-y-1">
                     <div className="flex items-center gap-1.5">
