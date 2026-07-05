@@ -7,6 +7,7 @@ import {
   bookingSourceBadgeClass,
   bookingSourceLabel,
   resolveBookingSourceFromReservation,
+  isExternalCustomerBooking,
 } from '../utils/bookingSource';
 import { airlineSelectOptions, DEFAULT_AIRLINES } from '../utils/flightFields';
 
@@ -93,10 +94,11 @@ export default function EditModal({
 
   const isPendingBeforeIntake = isPending(driverDetailRes.status);
   const canCancel = isPendingBeforeIntake && !!onCancelReservation;
+  const hideReservationPassword = isExternalCustomerBooking(driverDetailRes);
 
   const handleSave = () => {
     const operatorName = isEmployee ? employeeName : (isSuperAdmin ? '본사 마스터(최고관리자)' : '업체 마스터');
-    const updateData = {
+    const updateData: Record<string, unknown> = {
       userName: driverEditName,
       phone: driverEditPhone,
       userRequest: driverEditUserRequest,
@@ -110,7 +112,6 @@ export default function EditModal({
       arrivalAirline: driverEditArrAirline.trim() || undefined,
       arrivalFlight: driverEditArrFlight.trim() || undefined,
       inboundFlight: driverEditArrFlight.trim() || undefined,
-      reservationPassword: driverEditReservationPassword.trim() || undefined,
       carNumber: driverEditCarNumber,
       carModel: driverEditCarModel,
       departureDate: driverEditDepartureDate,
@@ -119,8 +120,11 @@ export default function EditModal({
       arrivalTime: driverEditArrivalTime,
       isIndoor: driverEditIsIndoor,
       updatedBy: operatorName,
-      updatedAt: new Date().toISOString()
+      updatedAt: new Date().toISOString(),
     };
+    if (!hideReservationPassword) {
+      updateData.reservationPassword = driverEditReservationPassword.trim() || undefined;
+    }
     onSave(updateData);
   };
 
@@ -410,6 +414,7 @@ export default function EditModal({
                 />
               </div>
 
+              {!hideReservationPassword && (
               <div className="relative group">
                 <label className="text-[12px] font-black text-[#8E8E93] block mb-1">예약 비밀번호</label>
                 <input
@@ -420,6 +425,7 @@ export default function EditModal({
                   placeholder="취소 확인용"
                 />
               </div>
+              )}
             </div>
           </div>
 

@@ -39,6 +39,7 @@ import {
   bookingSourceBadgeClass,
   bookingSourceLabel,
   resolveBookingSourceFromReservation,
+  isExternalCustomerBooking,
 } from '../utils/bookingSource';
 
 interface SearchReceptionViewProps {
@@ -452,10 +453,12 @@ export default function SearchReceptionView({
       destination: editSearchedDestination.trim() || undefined,
       customerNotes: editSearchedCustomerNotes.trim() || undefined,
       userRequest: editSearchedCustomerNotes.trim() || undefined,
-      reservationPassword: editSearchedReservationPassword.trim() || undefined,
       updatedAt: new Date().toISOString(),
-      updatedBy: isEmployee ? employeeName : (isSuperAdmin ? '본사 마스터(최고관리자)' : '업체 마스터')
+      updatedBy: isEmployee ? employeeName : (isSuperAdmin ? '본사 마스터(최고관리자)' : '업체 마스터'),
     };
+    if (!isExternalCustomerBooking(editingSearchedRes)) {
+      updatePayload.reservationPassword = editSearchedReservationPassword.trim() || undefined;
+    }
 
     try {
       await updateDoc(doc(db, 'reservations', editingSearchedRes.id || ''), updatePayload);
@@ -1258,10 +1261,12 @@ export default function SearchReceptionView({
                     <label className="text-[11px] text-zinc-500 font-bold block mb-1">고객 요청사항</label>
                     <input type="text" value={editSearchedCustomerNotes} onChange={(e) => setEditSearchedCustomerNotes(e.target.value)} className="w-full px-2 py-2 bg-neutral-955 border border-neutral-800 rounded-xl text-zinc-200 text-xs font-bold outline-none focus:border-amber-500" />
                   </div>
+                  {!isExternalCustomerBooking(editingSearchedRes) && (
                   <div>
                     <label className="text-[11px] text-zinc-500 font-bold block mb-1">예약 비밀번호</label>
                     <input type="text" value={editSearchedReservationPassword} onChange={(e) => setEditSearchedReservationPassword(e.target.value)} className="w-full px-2 py-2 bg-neutral-955 border border-neutral-800 rounded-xl text-zinc-200 text-xs font-bold outline-none focus:border-amber-500 font-mono" />
                   </div>
+                  )}
                 </div>
               </div>
 

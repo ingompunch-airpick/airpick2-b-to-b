@@ -19,6 +19,10 @@ export interface Company {
   representative?: string;
   isOpen?: boolean;
   blockedDates?: string[];
+  /** B2C 고객 셀프취소 — 입고 N시간 전까지 허용 (미설정 시 B2C 기본값) */
+  cancelCutoffHours?: number;
+  /** true면 당일(입고일=오늘) 예약 B2C에서 차단 */
+  sameDayBookingBlocked?: boolean;
   // Matrix pricing settings
   outdoorBasePrice?: number;
   outdoorBaseDays?: number;

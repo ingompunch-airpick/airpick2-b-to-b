@@ -837,24 +837,33 @@ export default function App() {
     };
   }, [isLoggedIn]);
 
-  const handleSaveBlockedDates = async (newBlockedDates: string[]) => {
+  const handleSaveBookingSettings = async (settings: {
+    blockedDates: string[];
+    cancelCutoffHours: number;
+    sameDayBookingBlocked: boolean;
+  }) => {
     const targetId = isAirpickHeadquarters(currentCompanyId)
       ? AIRPICK_HQ_ID
       : (currentCompanyId || '').trim();
     if (!targetId) return;
 
+    const { blockedDates: newBlockedDates, cancelCutoffHours, sameDayBookingBlocked } = settings;
+
     localStorage.setItem(`${targetId}_blockedDates`, JSON.stringify(newBlockedDates));
     setCompanies((prev) => {
       const idx = prev.findIndex((c) => c.id === targetId);
+      const patch = {
+        blockedDates: newBlockedDates,
+        cancelCutoffHours,
+        sameDayBookingBlocked,
+      };
       if (idx >= 0) {
-        return prev.map((c) =>
-          c.id === targetId ? { ...c, blockedDates: newBlockedDates } : c
-        );
+        return prev.map((c) => (c.id === targetId ? { ...c, ...patch } : c));
       }
       const fallbackName = isAirpickHeadquarters(targetId)
         ? '에어픽'
         : formatPartnerDisplayName(companyInfo?.name, targetId) || targetId;
-      return [...prev, { id: targetId, name: fallbackName, blockedDates: newBlockedDates } as Company];
+      return [...prev, { id: targetId, name: fallbackName, ...patch } as Company];
     });
 
     try {
@@ -868,12 +877,14 @@ export default function App() {
         {
           id: targetId,
           blockedDates: newBlockedDates,
+          cancelCutoffHours,
+          sameDayBookingBlocked,
           updatedAt: new Date().toISOString(),
         },
         { merge: true }
       );
     } catch (err: unknown) {
-      console.warn(`Firestore blockedDates save failed for companies/${targetId}:`, err);
+      console.warn(`Firestore booking settings save failed for companies/${targetId}:`, err);
       throw err;
     }
   };
@@ -2074,7 +2085,17 @@ export default function App() {
                     employeeRole={employeeRole}
                     currentCompanyId={currentCompanyId}
                     blockedDates={activeBlockedDates}
-                    onSaveBlockedDates={handleSaveBlockedDates}
+                    onSaveBlockedDates={(dates) => {
+                      const matched = companies.find((c) => c.id === currentCompanyId);
+                      return handleSaveBookingSettings({
+                        blockedDates: dates,
+                        cancelCutoffHours:
+                          typeof matched?.cancelCutoffHours === 'number'
+                            ? matched.cancelCutoffHours
+                            : 3,
+                        sameDayBookingBlocked: matched?.sameDayBookingBlocked !== false,
+                      });
+                    }}
                   />
                 </motion.div>
               )}
@@ -2148,13 +2169,6 @@ export default function App() {
                         const updated = prev.map(r =>
                           r.id === resId ? { ...r, ...patch } : r
                         );
-                        persistScopedReservations(updated);
-                        return updated;
-                      });
-                    }}
-                    onReservationDelete={(resId) => {
-                      setReservations(prev => {
-                        const updated = prev.filter(r => r.id !== resId);
                         persistScopedReservations(updated);
                         return updated;
                       });
@@ -2345,7 +2359,15 @@ export default function App() {
         isOpen={showBlockoutModal}
         onClose={() => setShowBlockoutModal(false)}
         blockedDates={activeBlockedDates}
-        onSave={handleSaveBlockedDates}
+        cancelCutoffHours={(() => {
+          const matched = companies.find(c => c.id === currentCompanyId);
+          return typeof matched?.cancelCutoffHours === 'number' ? matched.cancelCutoffHours : 3;
+        })()}
+        sameDayBookingBlocked={(() => {
+          const matched = companies.find(c => c.id === currentCompanyId);
+          return matched?.sameDayBookingBlocked !== false;
+        })()}
+        onSave={handleSaveBookingSettings}
         companyIsOpen={(() => {
           const matched = companies.find(c => c.id === currentCompanyId);
           return matched ? (matched.isOpen !== false) : true;

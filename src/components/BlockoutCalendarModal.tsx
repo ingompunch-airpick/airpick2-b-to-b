@@ -1,11 +1,17 @@
-﻿import React, { useState } from 'react';
+﻿import React, { useState, useEffect } from 'react';
 import { X, ChevronLeft, ChevronRight, CalendarRange, Info, Check, Power } from 'lucide-react';
 
 interface BlockoutCalendarModalProps {
   isOpen: boolean;
   onClose: () => void;
   blockedDates: string[];
-  onSave: (dates: string[]) => Promise<void>;
+  cancelCutoffHours?: number;
+  sameDayBookingBlocked?: boolean;
+  onSave: (settings: {
+    blockedDates: string[];
+    cancelCutoffHours: number;
+    sameDayBookingBlocked: boolean;
+  }) => Promise<void>;
   companyIsOpen: boolean;
   onToggleCompanyOpen: (isOpen: boolean) => Promise<void>;
   companyName: string;
@@ -15,6 +21,8 @@ export default function BlockoutCalendarModal({
   isOpen,
   onClose,
   blockedDates,
+  cancelCutoffHours = 3,
+  sameDayBookingBlocked = true,
   onSave,
   companyIsOpen,
   onToggleCompanyOpen,
@@ -31,13 +39,24 @@ export default function BlockoutCalendarModal({
   });
 
   const [localBlocked, setLocalBlocked] = useState<string[]>(() => [...blockedDates]);
+  const [localCancelCutoffHours, setLocalCancelCutoffHours] = useState<number>(cancelCutoffHours);
+  const [localSameDayBlocked, setLocalSameDayBlocked] = useState<boolean>(sameDayBookingBlocked);
   const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    setLocalBlocked([...blockedDates]);
+    setLocalCancelCutoffHours(cancelCutoffHours);
+    setLocalSameDayBlocked(sameDayBookingBlocked);
+  }, [isOpen, blockedDates, cancelCutoffHours, sameDayBookingBlocked]);
 
   if (!isOpen) return null;
 
   // Sync state when open state changed safely without side-effects 
   const handleReset = () => {
     setLocalBlocked([...blockedDates]);
+    setLocalCancelCutoffHours(cancelCutoffHours);
+    setLocalSameDayBlocked(sameDayBookingBlocked);
   };
 
   const monthsKR = [
@@ -95,8 +114,12 @@ export default function BlockoutCalendarModal({
   const handleSaveClick = async () => {
     setIsSaving(true);
     try {
-      await onSave(localBlocked);
-      alert('선택된 예약 차단 날짜가 시스템 설정에 성공적으로 동기화 저장되었습니다.');
+      await onSave({
+        blockedDates: localBlocked,
+        cancelCutoffHours: Math.max(0, Math.min(72, localCancelCutoffHours || 0)),
+        sameDayBookingBlocked: localSameDayBlocked,
+      });
+      alert('예약·취소 정책이 성공적으로 저장되었습니다.');
       onClose();
     } catch (err) {
       console.error(err);
@@ -171,6 +194,49 @@ export default function BlockoutCalendarModal({
               <p className="text-[12px] text-zinc-300 leading-normal font-semibold">
                 버튼 수정 시 즉시 {companyName}의 모든 신규 예약을 완전히 차단/허용합니다. (실시간 DB 반영)
               </p>
+            </div>
+          </div>
+
+          {/* B2C 예약·취소 정책 (companies 문서 — 에어픽 앱에서 읽음) */}
+          <div className="px-4.5 pb-4 border-b border-neutral-800/30 space-y-3">
+            <h4 className="text-[12.5px] font-black text-white px-1">에어픽 앱 예약·취소 정책</h4>
+            <div className="p-3.5 bg-[#141416]/90 border border-neutral-800/85 rounded-2xl space-y-3">
+              <div>
+                <label className="text-[12px] font-black text-zinc-300 block mb-1.5">
+                  고객 셀프취소 마감 (입고 N시간 전)
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min={0}
+                    max={72}
+                    value={localCancelCutoffHours}
+                    onChange={(e) => setLocalCancelCutoffHours(Number(e.target.value) || 0)}
+                    className="w-20 px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-white text-sm font-bold text-center"
+                  />
+                  <span className="text-[12px] text-zinc-400 font-bold">시간 전까지 취소 허용</span>
+                </div>
+                <p className="text-[11px] text-zinc-500 mt-1.5 leading-relaxed">
+                  미설정 시 에어픽 앱 기본값(3시간)이 적용됩니다.
+                </p>
+              </div>
+              <div className="flex items-center justify-between gap-3 pt-1 border-t border-neutral-800/60">
+                <div>
+                  <p className="text-[12px] font-black text-zinc-200">당일 예약 차단</p>
+                  <p className="text-[11px] text-zinc-500 mt-0.5">입고일=오늘인 예약을 에어픽 앱에서 막습니다</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setLocalSameDayBlocked((v) => !v)}
+                  className={`px-3 py-1.5 rounded-xl text-[12px] font-black border shrink-0 ${
+                    localSameDayBlocked
+                      ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                      : 'bg-neutral-900 text-zinc-400 border-neutral-800'
+                  }`}
+                >
+                  {localSameDayBlocked ? '차단 ON' : '허용'}
+                </button>
+              </div>
             </div>
           </div>
 

@@ -18,7 +18,7 @@ function joinDateTime(date: string, time: string): string {
   return `${date.trim()} ${withSec}`;
 }
 import { db } from '../firebase';
-import { doc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { doc, updateDoc } from 'firebase/firestore';
 import { ensureFirestoreAuth } from '../lib/reservationFirestore';
 import {
   isReservationUnpaid,
@@ -40,7 +40,6 @@ interface ParkingDepartureViewProps {
   companies?: Company[];
   getCalculatePrice?: CalculatePriceFn;
   onReservationPatch?: (id: string, patch: Partial<Reservation>) => void;
-  onReservationDelete?: (id: string) => void;
 }
 
 export default function ParkingDepartureView({
@@ -49,7 +48,6 @@ export default function ParkingDepartureView({
   companies = [],
   getCalculatePrice,
   onReservationPatch,
-  onReservationDelete,
 }: ParkingDepartureViewProps) {
   const [activeTab, setActiveTab] = useState<'indoor' | 'outdoor'>('indoor');
 
@@ -178,28 +176,34 @@ export default function ParkingDepartureView({
     }
   };
 
-  // Open Delete Confirm Modal
+  // Open cancel confirm modal (Firestore delete 금지 — status cancelled)
   const handleOpenDeleteConfirm = (res: Reservation) => {
     setDeletingRes(res);
   };
 
-  // Delete vehicle/reservation document from Firestore
   const handleDeleteConfirm = async () => {
     if (!deletingRes || !deletingRes.id) return;
     setIsDeleting(true);
     try {
       await ensureFirestoreAuth();
       const docRef = doc(db, 'reservations', deletingRes.id);
-      await deleteDoc(docRef);
-      onReservationDelete?.(deletingRes.id);
+      const patch: Partial<Reservation> = {
+        status: 'cancelled',
+        cancelReason: '출차관리 화면 취소 처리',
+        cancelledAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        updatedBy: 'B2B 출차관리',
+      };
+      await updateDoc(docRef, patch);
+      onReservationPatch?.(deletingRes.id, patch);
       setDeletingRes(null);
     } catch (error) {
-      console.error("Failed to delete reservation:", error);
+      console.error('Failed to cancel reservation:', error);
       const code = (error as { code?: string })?.code;
       if (code === 'permission-denied') {
-        alert('삭제 권한이 없습니다. 잠시 후 다시 시도해 주세요.');
+        alert('취소 처리 권한이 없습니다. 잠시 후 다시 시도해 주세요.');
       } else {
-        alert('차량 내역 삭제에 실패했습니다. 다시 시도해 주세요.');
+        alert('예약 취소 처리에 실패했습니다. 다시 시도해 주세요.');
       }
     } finally {
       setIsDeleting(false);
@@ -318,7 +322,7 @@ export default function ParkingDepartureView({
                     className="flex items-center gap-1 px-2.5 py-1 bg-neutral-950 border border-neutral-800 hover:border-red-500 text-[12px] font-bold text-[#8E8E93] hover:text-red-500 rounded-lg transition-all duration-100"
                   >
                     <Trash2 size={10} />
-                    삭제
+                    취소
                   </button>
                   <span className="text-[11.5px] font-bold text-zinc-400 bg-neutral-950 border border-neutral-850 px-2.5 py-1 rounded-md">
                     대행: {res.companyName}
@@ -695,10 +699,10 @@ export default function ParkingDepartureView({
                 <AlertTriangle size={24} className="text-red-500" />
               </div>
               <div className="space-y-1.5">
-                <h3 className="text-sm font-black text-white">차량 접수 내역 삭제</h3>
+                <h3 className="text-sm font-black text-white">예약 취소 처리</h3>
                 <p className="text-xs text-zinc-400 font-semibold leading-relaxed">
-                  정말 이 차량 접수 내역을 삭제하시겠습니까?<br />
-                  삭제 후에는 복구할 수 없으며 상단 집계 수량에서 즉시 감산되어 실시간 동기화됩니다.
+                  이 차량 예약을 <strong className="text-amber-400">취소(cancelled)</strong> 상태로 변경합니다.<br />
+                  문서는 삭제되지 않으며, 접수취소 내역에서 확인할 수 있습니다.
                 </p>
               </div>
 
@@ -735,7 +739,7 @@ export default function ParkingDepartureView({
                 onClick={handleDeleteConfirm}
                 className="flex-1 py-3 text-xs bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white rounded-xl font-black transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-red-500/10"
               >
-                {isDeleting ? '삭제 중...' : '확인 (삭제완료)'}
+                {isDeleting ? '처리 중...' : '확인 (취소 처리)'}
               </button>
             </div>
           </div>

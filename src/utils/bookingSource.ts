@@ -78,6 +78,18 @@ export function isAirpickB2CBooking(createdBy?: string | null): boolean {
   return resolveBookingSource(createdBy) === 'airpick-b2c';
 }
 
+/** 에어픽·홈페이지 고객 예약 — reservationPassword 등 보호 필드 수정 금지 */
+export function isExternalCustomerBooking(res: {
+  createdBy?: string | null;
+  entryAirline?: string;
+  entryFlight?: string;
+  exitAirline?: string;
+  exitFlight?: string;
+}): boolean {
+  const source = resolveBookingSourceFromReservation(res);
+  return source === 'airpick-b2c' || source === 'homepage';
+}
+
 export function bookingSourceBadgeClass(source: BookingSource): string {
   switch (source) {
     case 'homepage':
