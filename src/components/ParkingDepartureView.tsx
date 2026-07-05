@@ -183,27 +183,27 @@ export default function ParkingDepartureView({
 
   const handleDeleteConfirm = async () => {
     if (!deletingRes || !deletingRes.id) return;
+    const resId = deletingRes.id;
+    const patch: Partial<Reservation> = {
+      status: 'cancelled',
+      cancelReason: '출차관리 화면 취소 처리',
+      cancelledAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      updatedBy: 'B2B 출차관리',
+    };
     setIsDeleting(true);
+    onReservationPatch?.(resId, patch);
+    setDeletingRes(null);
     try {
       await ensureFirestoreAuth();
-      const docRef = doc(db, 'reservations', deletingRes.id);
-      const patch: Partial<Reservation> = {
-        status: 'cancelled',
-        cancelReason: '출차관리 화면 취소 처리',
-        cancelledAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        updatedBy: 'B2B 출차관리',
-      };
-      await updateDoc(docRef, patch);
-      onReservationPatch?.(deletingRes.id, patch);
-      setDeletingRes(null);
+      await updateDoc(doc(db, 'reservations', resId), patch);
     } catch (error) {
       console.error('Failed to cancel reservation:', error);
       const code = (error as { code?: string })?.code;
       if (code === 'permission-denied') {
-        alert('취소 처리 권한이 없습니다. 잠시 후 다시 시도해 주세요.');
+        alert('취소 처리 권한이 없습니다. 페이지를 새로고침한 뒤 다시 시도해 주세요.');
       } else {
-        alert('예약 취소 처리에 실패했습니다. 다시 시도해 주세요.');
+        alert('예약 취소 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
       }
     } finally {
       setIsDeleting(false);

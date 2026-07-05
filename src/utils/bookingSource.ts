@@ -1,4 +1,5 @@
 /** Firestore reservations.createdBy — 홈·B2C·B2B 유입 구분 (airpick-b2c 와 동일) */
+import type { Reservation } from '../types';
 export const RESERVATION_CREATED_BY = {
   AIRPICK_B2C: 'airpick-b2c',
   HOMEPAGE: 'homepage',
@@ -112,4 +113,31 @@ export function bookingSourceCardClass(source: BookingSource): string {
     return 'border-sky-500/20 bg-[#1C1C1E]';
   }
   return 'border-neutral-900/5 bg-[#1C1C1E]';
+}
+
+export type BookingSourceMetrics = Record<
+  BookingSource,
+  { count: number; revenue: number }
+>;
+
+const EMPTY_METRICS = (): BookingSourceMetrics => ({
+  homepage: { count: 0, revenue: 0 },
+  'airpick-b2c': { count: 0, revenue: 0 },
+  b2b: { count: 0, revenue: 0 },
+  unknown: { count: 0, revenue: 0 },
+});
+
+/** 유입별 건수·매출 집계 (cancelled 제외는 호출 측에서 필터) */
+export function aggregateBookingSourceMetrics(
+  reservations: Reservation[],
+  predicate?: (r: Reservation) => boolean
+): BookingSourceMetrics {
+  const out = EMPTY_METRICS();
+  for (const r of reservations) {
+    if (predicate && !predicate(r)) continue;
+    const src = resolveBookingSourceFromReservation(r);
+    out[src].count += 1;
+    out[src].revenue += r.totalPrice || 0;
+  }
+  return out;
 }

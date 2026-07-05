@@ -36,6 +36,12 @@ import {
 } from '../utils/reservationStatus';
 import { normalizeDateString } from '../utils/reservationNormalize';
 import { getKSTDateOnlyString, toKSTDateOnlyString } from '../utils/kstDate';
+import {
+  aggregateBookingSourceMetrics,
+  bookingSourceBadgeClass,
+  bookingSourceLabel,
+  resolveBookingSourceFromReservation,
+} from '../utils/bookingSource';
 
 function reservationDepartureOn(r: Reservation, ymd: string): boolean {
   return normalizeDateString(r.departureDate) === ymd;
@@ -300,6 +306,28 @@ export default function StatisticsView({
   const todaySales = realTodaySales;
   const monthSales = realMonthSales;
 
+  const todaySourceMetrics = useMemo(
+    () =>
+      aggregateBookingSourceMetrics(activeReservations, (r) =>
+        reservationDepartureOn(r, todayStr)
+      ),
+    [activeReservations, todayStr]
+  );
+
+  const monthSourceMetrics = useMemo(
+    () =>
+      aggregateBookingSourceMetrics(activeReservations, (r) =>
+        normalizeDateString(r.departureDate).startsWith(currentMonthPrefix)
+      ),
+    [activeReservations, currentMonthPrefix]
+  );
+
+  const sourceBreakdownRows = [
+    { key: 'airpick-b2c' as const, label: '에어픽' },
+    { key: 'homepage' as const, label: '홈페이지' },
+    { key: 'b2b' as const, label: '현장·B2B' },
+  ];
+
   const datesRange = (() => {
     const list: string[] = [];
     const [yearStr, monthStr, dayStrPart] = todayStr.split('-');
@@ -446,6 +474,60 @@ export default function StatisticsView({
               </span>
             </div>
           </div>
+
+          <div className="h-px bg-neutral-800/40" />
+
+          <div className="space-y-3">
+            <span className="text-[12px] text-[#8E8E93] font-bold block">유입별 매출 비교</span>
+            {(['today', 'month'] as const).map((period) => {
+              const metrics = period === 'today' ? todaySourceMetrics : monthSourceMetrics;
+              const totalRev = sourceBreakdownRows.reduce((s, row) => s + metrics[row.key].revenue, 0);
+              const title = period === 'today' ? '오늘 (입고일 기준)' : '이번 달 (입고일 기준)';
+              return (
+                <div key={period} className="space-y-2">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="text-zinc-500 font-bold">{title}</span>
+                    <span className="text-zinc-400 font-mono">{totalRev.toLocaleString()}원</span>
+                  </div>
+                  <div className="space-y-1.5">
+                    {sourceBreakdownRows.map(({ key, label }) => {
+                      const { count, revenue } = metrics[key];
+                      const pct = totalRev > 0 ? Math.round((revenue / totalRev) * 100) : 0;
+                      return (
+                        <div key={`${period}-${key}`} className="flex items-center gap-2">
+                          <span
+                            className={`shrink-0 text-[10px] font-black px-1.5 py-0.5 rounded border ${bookingSourceBadgeClass(key)}`}
+                          >
+                            {label}
+                          </span>
+                          <div className="flex-1 min-w-0">
+                            <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+                              <div
+                                className={`h-full rounded-full ${
+                                  key === 'airpick-b2c'
+                                    ? 'bg-fuchsia-500'
+                                    : key === 'homepage'
+                                      ? 'bg-sky-500'
+                                      : 'bg-amber-500'
+                                }`}
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                          </div>
+                          <span className="text-[10px] text-zinc-400 font-mono shrink-0 w-16 text-right">
+                            {count}건
+                          </span>
+                          <span className="text-[11px] text-zinc-200 font-bold font-mono shrink-0 w-20 text-right">
+                            {revenue.toLocaleString()}원
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </div>
       </div>
 
@@ -555,9 +637,20 @@ export default function StatisticsView({
                       className="bg-[#1C1C1E] border border-neutral-800/80 rounded-2xl p-3.5 space-y-2 hover:border-neutral-700/80 cursor-pointer transition-all active:scale-[0.99]"
                     >
                       <div className="flex justify-between items-center">
-                        <div>
+                        <div className="flex items-center gap-2 min-w-0">
                           <span className="text-xs font-black text-white font-mono">{res.carNumber}</span>
-                          <span className="text-[12px] text-zinc-500 ml-2">{res.carModel}</span>
+                          <span className="text-[12px] text-zinc-500 truncate">{res.carModel}</span>
+                          {(() => {
+                            const src = resolveBookingSourceFromReservation(res);
+                            if (src === 'unknown' || src === 'b2b') return null;
+                            return (
+                              <span
+                                className={`text-[10px] font-black px-1.5 py-0.5 rounded border shrink-0 ${bookingSourceBadgeClass(src)}`}
+                              >
+                                {bookingSourceLabel(src)}
+                              </span>
+                            );
+                          })()}
                         </div>
                         {getStatusBadge(res.status)}
                       </div>
