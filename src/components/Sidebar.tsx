@@ -1,21 +1,14 @@
 ﻿import React from 'react';
 import { 
   X, 
-  BarChart2, 
   CreditCard, 
   Camera, 
   History, 
   Calendar, 
-  User, 
   Settings, 
   LogOut, 
   ShieldAlert,
-  Moon,
-  Coffee,
-  CheckCircle,
-  Play,
   TrendingUp,
-  ClipboardList,
   FileX,
   Bell,
   BellOff,
@@ -137,7 +130,7 @@ export default function Sidebar({
               )}
               <div>
                 <h3 className="font-bold text-sm tracking-tight text-white flex items-center gap-1.5">
-                  {isAirpickHeadquarters(currentCompanyId) ? '에어픽 본사' : (isSuperAdmin ? '김인원' : (isEmployee ? (employeeRole === 'admin' ? `${employeeName} 부관리자` : `${employeeName} 기사`) : `${safeCompanyInfo.name} 관리자`))} 
+                  {isAirpickHeadquarters(currentCompanyId) ? '에어픽 본사' : (isSuperAdmin ? '본사 관리자' : (isEmployee ? (employeeRole === 'admin' ? `${employeeName} 부관리자` : `${employeeName} 기사`) : `${safeCompanyInfo.name} 관리자`))} 
                   <span className="text-[12px] text-amber-500 font-bold bg-amber-500/10 px-1.5 py-0.5 rounded font-sans shrink-0">
                     {isAirpickHeadquarters(currentCompanyId) ? '본사' : (isAdminModeActive ? '관리자' : (isEmployee ? (employeeRole === 'admin' ? '부관리자' : '직원기사') : '기사'))}
                   </span>

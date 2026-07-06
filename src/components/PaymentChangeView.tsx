@@ -66,7 +66,7 @@ export default function PaymentChangeView({ onBack, reservations, onUpdatePaymen
       // Update local tracking
       setSelectedRes(prev => prev ? { ...prev, paymentMethod: method } : null);
       
-      setStatusMsg(`차량번호 ${selectedRes.carNumber}의 결제가 [${getMethodDetails(method).text}]으로 성료 변경되었습니다.`);
+      setStatusMsg(`차량번호 ${selectedRes.carNumber}의 결제가 [${getMethodDetails(method).text}]으로 완료 변경되었습니다.`);
       setTimeout(() => setStatusMsg(''), 4000);
     } catch (_) {
       alert("결제 통계 처리에 에러가 발생했으나, 로컬 캐시 메모리에 동기화되었습니다.");

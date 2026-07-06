@@ -705,7 +705,7 @@ export default function StatisticsView({
             <h3 className="text-[12.5px] text-zinc-400 font-extrabold tracking-wider uppercase">
               일별 입·출차 흐름 ({filterType === 'this_month' ? '이번 달' : '지난 달'})
             </h3>
-            <span className="text-[11px] font-mono text-zinc-500 font-semibold uppercase">Lot Flow Daily</span>
+            <span className="text-[11px] font-mono text-zinc-500 font-semibold">일별 입·출차</span>
           </div>
 
           {/* 현재 재차(주차 중) + 월 요약 바 */}
@@ -845,7 +845,7 @@ export default function StatisticsView({
               <div className="p-4 space-y-4 overflow-y-auto">
                 <div className="bg-amber-500/5 border border-amber-500/10 p-3.5 rounded-2xl flex items-center justify-between">
                   <div>
-                    <p className="text-[11px] text-amber-500 font-mono font-bold uppercase">Customer</p>
+                    <p className="text-[11px] text-amber-500 font-mono font-bold">고객 정보</p>
                     <h4 className="text-sm font-black text-white">{crmSelected.userName} 고객님</h4>
                     <p className="text-[12px] text-zinc-400 mt-0.5">누적 예약 <span className="text-amber-500 font-bold">{visitCount}회</span></p>
                   </div>

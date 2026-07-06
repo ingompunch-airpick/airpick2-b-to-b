@@ -321,7 +321,7 @@ export default function MasterSettingsView({
     setEmpLoginId('');
     setEmpPassword('');
     setEmpIsAdmin(false);
-    alert(`👥 신규 직원 [${cleanName}] 기사가 성료 등록되었습니다.`);
+    alert(`👥 신규 직원 [${cleanName}] 기사가 등록되었습니다.`);
   };
 
   const handleDeleteEmployee = (empId: string, empName: string) => {

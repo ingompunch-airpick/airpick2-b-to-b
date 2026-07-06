@@ -15,8 +15,8 @@ const STATUS_ALIASES: Record<string, ReservationStatus> = {
   '출고요청': 'request_out',
 
   completed_in: 'completed_in',
-  '출고예정': 'completed_in',
   '주차완료': 'completed_in',
+  '출고예정': 'completed_in',
 
   completed_out: 'completed_out',
   '인도완료': 'completed_out',
@@ -30,7 +30,7 @@ const DRIVER_LABELS: Record<ReservationStatus, string> = {
   pending: '입고예정',
   pending_in: '입고요청',
   request_out: '출고요청',
-  completed_in: '출고예정',
+  completed_in: '주차완료',
   completed_out: '인도완료',
   cancelled: '취소',
 };
@@ -39,7 +39,7 @@ const ADMIN_LABELS: Record<ReservationStatus, string> = {
   pending: '접수대기',
   pending_in: '입고대기',
   request_out: '출고요청',
-  completed_in: '입고완료',
+  completed_in: '주차완료',
   completed_out: '출고완료',
   cancelled: '취소',
 };

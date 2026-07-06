@@ -223,7 +223,7 @@ export default function ParkingDepartureView({
         </button>
         <div>
           <h2 className="text-sm font-bold tracking-tight text-white">주차장별 실시간 현황</h2>
-          <p className="text-[12px] text-zinc-500 font-bold uppercase font-mono">Real-time Parking Space Allocation</p>
+          <p className="text-[12px] text-zinc-500 font-bold">실시간 주차 구역 현황</p>
         </div>
       </div>
 
@@ -411,7 +411,7 @@ export default function ParkingDepartureView({
                 <Edit size={16} className="text-amber-500" />
                 <div>
                   <h3 className="text-[14px] font-black text-white">차량 접수 정보 수정</h3>
-                  <p className="text-[11px] text-[#8E8E93] font-bold tracking-wide uppercase">EDIT VEHICLE DETAILS</p>
+                  <p className="text-[11px] text-[#8E8E93] font-bold tracking-wide">차량 정보 수정</p>
                 </div>
               </div>
               <button

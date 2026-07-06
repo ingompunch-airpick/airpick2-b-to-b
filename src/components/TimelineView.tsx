@@ -27,7 +27,6 @@ interface TimelineViewProps {
   handleUpdateValetStatus: (id: string, nextStatus: any, extra?: any) => void;
   getKSTDateTimeString: () => string;
   setScratchModalTargetId: (id: string | null) => void;
-  setUploadedSpots: (spots: any) => void;
   setSelectedParkingSpace: (space: string) => void;
   showCompanyLabel?: boolean;
 }
@@ -46,7 +45,6 @@ export default function TimelineView({
   handleUpdateValetStatus,
   getKSTDateTimeString,
   setScratchModalTargetId,
-  setUploadedSpots,
   setSelectedParkingSpace,
   showCompanyLabel = false,
 }: TimelineViewProps) {
@@ -235,7 +233,6 @@ export default function TimelineView({
                 handleUpdateValetStatus={handleUpdateValetStatus}
                 getKSTDateTimeString={getKSTDateTimeString}
                 setScratchModalTargetId={setScratchModalTargetId}
-                setUploadedSpots={setUploadedSpots}
                 setSelectedParkingSpace={setSelectedParkingSpace}
                 showCompanyLabel={showCompanyLabel}
               />

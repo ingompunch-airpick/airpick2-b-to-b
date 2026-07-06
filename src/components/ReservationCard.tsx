@@ -28,7 +28,6 @@ interface ReservationCardProps {
   handleUpdateValetStatus: (id: string, status: ReservationStatus, extra?: any) => void;
   getKSTDateTimeString: () => string;
   setScratchModalTargetId: (id: string) => void;
-  setUploadedSpots: (spots: any) => void;
   setSelectedParkingSpace: (space: string) => void;
 }
 
@@ -43,7 +42,6 @@ export default function ReservationCard({
   handleUpdateValetStatus,
   getKSTDateTimeString,
   setScratchModalTargetId,
-  setUploadedSpots,
   setSelectedParkingSpace,
 }: ReservationCardProps) {
   // 실제 배정된 자리만 표시(없으면 미지정), 실내/야외는 접수 시 결정된 등급(res.isIndoor) 사용
@@ -151,7 +149,7 @@ export default function ReservationCard({
           </span>
           
           <span className="text-toss-body leading-none shrink-0 tabular-nums">
-            {isOutOrCompletedIn ? '출고예정' : '입고예정'}{' '}
+            {isOutOrCompletedIn ? '출차예정' : '입고예정'}{' '}
             {isOutOrCompletedIn ? res.arrivalTime : res.departureTime}
           </span>
 
@@ -182,7 +180,6 @@ export default function ReservationCard({
                 type="button"
                 onClick={() => {
                   setScratchModalTargetId(res.id!);
-                  setUploadedSpots({});
                   setSelectedParkingSpace(res.parkingSpace || '');
                 }}
                 className="px-4 py-2 bg-[#007AFF] hover:bg-[#0051FF] text-white rounded-[14px] text-sm font-black transition-all flex items-center justify-center gap-1.5 shadow-sm min-w-[100px] cursor-pointer"

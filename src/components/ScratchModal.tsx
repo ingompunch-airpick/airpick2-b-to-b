@@ -22,12 +22,8 @@ interface ScratchModalProps {
   setScratchModalTargetId: (id: string | null) => void;
   setSelectedParkingSpace: (space: string) => void;
   selectedParkingSpace: string;
-  uploadedSpots: Record<string, string>;
-  activeSpotKey: string | null;
-  handleSpotClick: (spotKey: string, mockUrl: string) => void;
   handleUpdateValetStatus: (id: string, status: any, extData?: any) => Promise<void>;
   getKSTDateTimeString: () => string;
-  setUploadedSpots: React.Dispatch<React.SetStateAction<Record<string, string>>>;
 }
 
 export default function ScratchModal({
@@ -36,12 +32,8 @@ export default function ScratchModal({
   setScratchModalTargetId,
   setSelectedParkingSpace,
   selectedParkingSpace,
-  uploadedSpots,
-  activeSpotKey,
-  handleSpotClick,
   handleUpdateValetStatus,
   getKSTDateTimeString,
-  setUploadedSpots
 }: ScratchModalProps) {
   const [uploadedPhotos, setUploadedPhotos] = useState<string[]>([]);
   const [paymentChoice, setPaymentChoice] = useState<'unpaid' | 'paid'>('unpaid');
@@ -326,7 +318,6 @@ export default function ScratchModal({
                     const tempKey = `reservation_temp_photos_${scratchModalTargetId}`;
                     localStorage.removeItem(tempKey);
                     setScratchModalTargetId(null);
-                    setUploadedSpots({});
                     setSelectedParkingSpace('');
                   } catch (err) {
                     console.error('Photo upload failed:', err);

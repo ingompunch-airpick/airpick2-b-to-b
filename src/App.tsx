@@ -21,14 +21,13 @@ import {
   onAuthStateChanged, 
   signOut, 
   signInAnonymously,
-  signInWithEmailAndPassword,
   User
 } from 'firebase/auth';
 import { db, auth, handleFirestoreError, OperationType } from './firebase';
 import { motion, AnimatePresence } from 'motion/react';
 
 // --- Modular Typed Constants and Data ---
-import { Company, Reservation, ReservationStatus, PaymentMethod, ScratchPhotoSet, AppView, CompanyInfo, PartnerCompany } from './types';
+import { Company, Reservation, ReservationStatus, PaymentMethod, AppView, CompanyInfo, PartnerCompany } from './types';
 import { formatPartnerDisplayName } from './utils/companyDisplay';
 import { persistReservationStores } from './utils/reservationScope';
 import {
@@ -72,12 +71,10 @@ import AdminMode from './components/AdminMode';
 import ConsolidatedGate from './components/ConsolidatedGate';
 import CustomDatePickerModal from './components/CustomDatePickerModal';
 import AdminDashboardComponent from './components/AdminDashboard';
-import ReservationCard from './components/ReservationCard';
 import EditModal from './components/EditModal';
 import SearchReceptionView from './components/SearchReceptionView';
 import TimelineView from './components/TimelineView';
 import AdminReservationEditModal from './components/AdminReservationEditModal';
-import DriverReservationEditModal from './components/DriverReservationEditModal';
 
 /** 관리자 모드 전용 화면 — 기사 모드에서 진입 시 timeline으로 보냄 */
 const ADMIN_ONLY_VIEWS: AppView[] = ['statistics', 'master_settings'];
@@ -197,18 +194,6 @@ function AdminDashboard({
     />
   );
 }
-
-// --- Photo capture sequence for auto advance ---
-const SPOT_SEQUENCE = [
-  'front',
-  'rear',
-  'left',
-  'right',
-  'front_wheel_l',
-  'front_wheel_r',
-  'rear_wheel_l',
-  'rear_wheel_r'
-];
 
 // --- Main Core App Component ---
 export default function App() {
@@ -537,16 +522,6 @@ export default function App() {
       }
     }
 
-    // Save/Initialize drivers roster for isolation compliance
-    const driverKey = `${currentCompanyId}_drivers`;
-    if (!localStorage.getItem(driverKey)) {
-      const defaultDrivers = [
-        { id: '1', name: `${companyInfo.name || currentCompanyId} 대기기사`, phone: companyInfo.phone, rating: 4.9 },
-        { id: '2', name: '이민수 기사', phone: '010-8765-4321', rating: 4.8 },
-        { id: '3', name: '박진영 기사', phone: '010-4321-8765', rating: 4.7 }
-      ];
-      localStorage.setItem(driverKey, JSON.stringify(defaultDrivers));
-    }
   }, [currentCompanyId, companyInfo.id, companyInfo.name, isLoggedIn]);
 
   // View/mode sync: 관리자↔기사 전환·본사 모드 시 currentView를 허용된 화면으로 강제 정렬 (빈 화면 방지)
@@ -609,22 +584,14 @@ export default function App() {
     return filterReservationsForOperatorGroup(normalized, operatorCompanyIds);
   }, [reservations, currentCompanyId, operatorCompanyIds]);
 
-  // Itcha style real-time filter states
-  const [filterType, setFilterType] = useState<'주/출차일자' | '주차예약' | '출차예약' | '등록일시'>('주/출차일자');
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     return getKSTDateOnlyString();
   });
 
-  const [searchKeyword, setSearchKeyword] = useState<string>('');
-
   // Scratch Photo Upload Modal states
   const [scratchModalTargetId, setScratchModalTargetId] = useState<string | null>(null);
-  const [uploadedSpots, setUploadedSpots] = useState<Record<string, string>>({});
   const [selectedParkingSpace, setSelectedParkingSpace] = useState<string>('');
 
-  // Continuous shooting (Auto-Advance) states
-  const [activeSpotKey, setActiveSpotKey] = useState<string>('front');
-  const autoShootTimeoutRef = useRef<any>(null);
   const reservationsBootstrappedRef = useRef(false);
   const reservationsPrevRef = useRef<Reservation[]>([]);
   const currentCompanyIdRef = useRef(currentCompanyId);
@@ -667,22 +634,6 @@ export default function App() {
     setShowAlertPermissionBanner(true);
   }, [isLoggedIn]);
 
-  useEffect(() => {
-    if (scratchModalTargetId) {
-      setActiveSpotKey('front');
-    } else {
-      if (autoShootTimeoutRef.current) {
-        clearTimeout(autoShootTimeoutRef.current);
-        autoShootTimeoutRef.current = null;
-      }
-    }
-    return () => {
-      if (autoShootTimeoutRef.current) {
-        clearTimeout(autoShootTimeoutRef.current);
-      }
-    };
-  }, [scratchModalTargetId]);
-
   const superAdminCompanySwitchRef = useRef(currentCompanyId);
   useEffect(() => {
     if (!isSuperAdmin) {
@@ -697,7 +648,6 @@ export default function App() {
   }, [currentCompanyId, isSuperAdmin]);
 
   // Loading states
-  const [loadingCompanies, setLoadingCompanies] = useState(true);
   const [loadingReservations, setLoadingReservations] = useState(false);
 
   // Business configuration — blockedDates는 companies/{id}.blockedDates 단일 소스
@@ -712,9 +662,6 @@ export default function App() {
   const [adminEditingReservationId, setAdminEditingReservationId] = useState<string | null>(null);
   
   const [receptionSubMode, setReceptionSubMode] = useState<'search' | 'new_contract'>('search');
-
-  // Editing state for searched reservation inside Search/Edit Info
-  const [editingSearchedRes, setEditingSearchedRes] = useState<Reservation | null>(null);
 
   // --- Driver Detail Modal State ---
   const [driverDetailRes, setDriverDetailRes] = useState<Reservation | null>(null);
@@ -973,7 +920,6 @@ export default function App() {
 
   // 3. Load Available Partner Companies List from Firestore
   useEffect(() => {
-    setLoadingCompanies(true);
     const unsub = onSnapshot(collection(db, 'companies'), (snap) => {
       const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Company));
 
@@ -987,7 +933,6 @@ export default function App() {
             const parsed = JSON.parse(saved);
             if (parsed && Array.isArray(parsed)) {
               setCompanies(parsed);
-              setLoadingCompanies(false);
               return;
             }
           } catch (_) {}
@@ -1003,7 +948,6 @@ export default function App() {
         return mergedList;
       });
 
-      setLoadingCompanies(false);
     }, (error) => {
       handleFirestoreError(error, OperationType.LIST, 'companies');
       const saved = localStorage.getItem('companies');
@@ -1012,13 +956,11 @@ export default function App() {
           const parsed = JSON.parse(saved);
             if (parsed && Array.isArray(parsed)) {
               setCompanies(parsed);
-            setLoadingCompanies(false);
-            return;
-          }
+              return;
+            }
         } catch (_) {}
       }
       setCompanies([]);
-      setLoadingCompanies(false);
     });
     return () => unsub();
   }, []);
@@ -1419,33 +1361,6 @@ export default function App() {
     }
   };
 
-  // Mutate scratch photo sync lists (scratchPhotos 필드 — 현재 ScratchModal에서 사용)
-  const handleUpdateScratchPhotos = async (resId: string, photos: ScratchPhotoSet) => {
-    const operatorName = isEmployee ? employeeName : (isSuperAdmin ? '본사 마스터(최고관리자)' : '업체 마스터');
-    await ensureFirestoreAuth();
-    const payload = {
-      scratchPhotos: photos,
-      updatedBy: operatorName,
-      updatedAt: new Date().toISOString(),
-    };
-    try {
-      await updateDoc(doc(db, 'reservations', resId), payload);
-    } catch (err: unknown) {
-      const code = (err as { code?: string })?.code;
-      if (code === 'not-found') {
-        throw new Error('Firestore에 이 예약 문서가 없습니다. 타임라인에서 입고 처리 후 다시 시도해 주세요.');
-      }
-      throw err;
-    }
-    setReservations((prev) => {
-      const updated = prev.map((r) =>
-        r.id === resId ? { ...r, scratchPhotos: photos, updatedBy: operatorName, updatedAt: new Date().toISOString() } : r
-      );
-      persistScopedReservations(updated);
-      return updated;
-    });
-  };
-
   // 사이드바 「③ 차량 사진 업로드」— images[] 필드, images/ 폴더
   const handleUpdateReservationImages = async (resId: string, imageUrls: string[]) => {
     const operatorName = isEmployee ? employeeName : (isSuperAdmin ? '본사 마스터(최고관리자)' : '업체 마스터');
@@ -1475,92 +1390,6 @@ export default function App() {
   const targetReservationForScratch = useMemo(() => {
     return reservations.find(r => r.id === scratchModalTargetId);
   }, [reservations, scratchModalTargetId]);
-
-  const handleSpotClick = (spotKey: string, mockUrl: string) => {
-    if (autoShootTimeoutRef.current) {
-      clearTimeout(autoShootTimeoutRef.current);
-      autoShootTimeoutRef.current = null;
-    }
-
-    const isCurrentlyUploaded = !!uploadedSpots[spotKey];
-
-    if (isCurrentlyUploaded) {
-      setUploadedSpots(prev => {
-        const copy = { ...prev };
-        delete copy[spotKey];
-        return copy;
-      });
-      setActiveSpotKey(spotKey);
-    } else {
-      setUploadedSpots(prev => ({
-        ...prev,
-        [spotKey]: mockUrl
-      }));
-      setActiveSpotKey(spotKey);
-
-      const currentIndex = SPOT_SEQUENCE.indexOf(spotKey);
-      if (currentIndex !== -1 && currentIndex < SPOT_SEQUENCE.length - 1) {
-        const nextKey = SPOT_SEQUENCE[currentIndex + 1];
-        const spotsList = [
-          { key: 'front', mockUrl: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?q=80&w=400&fit=crop' },
-          { key: 'rear', mockUrl: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?q=80&w=400&fit=crop' },
-          { key: 'left', mockUrl: 'https://images.unsplash.com/photo-1617788138017-80ad40651399?q=80&w=400&fit=crop' },
-          { key: 'right', mockUrl: 'https://images.unsplash.com/photo-1542282088-fe8426682b8f?q=80&w=400&fit=crop' },
-          { key: 'front_wheel_l', mockUrl: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?q=80&w=400&fit=crop' },
-          { key: 'front_wheel_r', mockUrl: 'https://images.unsplash.com/photo-1580273916550-e323be2ae537?q=80&w=400&fit=crop' },
-          { key: 'rear_wheel_l', mockUrl: 'https://images.unsplash.com/photo-1621932953986-15fcfec8140f?q=80&w=400&fit=crop' },
-          { key: 'rear_wheel_r', mockUrl: 'https://images.unsplash.com/photo-1616422285623-13ff0162193c?q=80&w=400&fit=crop' }
-        ];
-
-        const nextSpotObj = spotsList.find(s => s.key === nextKey);
-        if (nextSpotObj) {
-          setActiveSpotKey(nextKey);
-          autoShootTimeoutRef.current = setTimeout(() => {
-            triggerAutoAdvance(nextKey, nextSpotObj.mockUrl);
-          }, 850);
-        }
-      }
-    }
-  };
-
-  const triggerAutoAdvance = (spotKey: string, mockUrl: string) => {
-    // If the modal was closed while waiting, stop immediately
-    setUploadedSpots(prev => {
-      // Return updated spots
-      const nextSpots = {
-        ...prev,
-        [spotKey]: mockUrl
-      };
-      
-      const currentIndex = SPOT_SEQUENCE.indexOf(spotKey);
-      if (currentIndex !== -1 && currentIndex < SPOT_SEQUENCE.length - 1) {
-        const nextKey = SPOT_SEQUENCE[currentIndex + 1];
-        setActiveSpotKey(nextKey);
-
-        const spotsList = [
-          { key: 'front', mockUrl: 'https://images.unsplash.com/photo-1533473359331-0135ef1b58bf?q=80&w=400&fit=crop' },
-          { key: 'rear', mockUrl: 'https://images.unsplash.com/photo-1503376780353-7e6692767b70?q=80&w=400&fit=crop' },
-          { key: 'left', mockUrl: 'https://images.unsplash.com/photo-1617788138017-80ad40651399?q=80&w=400&fit=crop' },
-          { key: 'right', mockUrl: 'https://images.unsplash.com/photo-1542282088-fe8426682b8f?q=80&w=400&fit=crop' },
-          { key: 'front_wheel_l', mockUrl: 'https://images.unsplash.com/photo-1552519507-da3b142c6e3d?q=80&w=400&fit=crop' },
-          { key: 'front_wheel_r', mockUrl: 'https://images.unsplash.com/photo-1580273916550-e323be2ae537?q=80&w=400&fit=crop' },
-          { key: 'rear_wheel_l', mockUrl: 'https://images.unsplash.com/photo-1621932953986-15fcfec8140f?q=80&w=400&fit=crop' },
-          { key: 'rear_wheel_r', mockUrl: 'https://images.unsplash.com/photo-1616422285623-13ff0162193c?q=80&w=400&fit=crop' }
-        ];
-
-        const nextSpotObj = spotsList.find(s => s.key === nextKey);
-        if (nextSpotObj) {
-          if (autoShootTimeoutRef.current) {
-            clearTimeout(autoShootTimeoutRef.current);
-          }
-          autoShootTimeoutRef.current = setTimeout(() => {
-            triggerAutoAdvance(nextKey, nextSpotObj.mockUrl);
-          }, 850);
-        }
-      }
-      return nextSpots;
-    });
-  };
 
   // 4-step counters and counts
   const countPending = useMemo(() => {
@@ -1611,80 +1440,6 @@ export default function App() {
     }).length;
   }, [visibleReservations, selectedDate]);
 
-  // Filter and sort reservations based on selected tab and filters
-  const computedList = useMemo(() => {
-    return visibleReservations.filter(res => {
-      const rDep = normalizeDateString(res.departureDate);
-      const rArr = normalizeDateString(res.arrivalDate);
-      const selDate = normalizeDateString(selectedDate);
-
-      // 1. Admin Mode Filtering Strategy
-      if (isAdminModeActive) {
-        if (filterType === '주/출차일자') {
-          if (rDep !== selDate && rArr !== selDate) return false;
-        } else if (filterType === '주차예약') {
-          // 상태 제한 없이 입고예정일이 selectedDate와 일치
-          if (rDep !== selDate) return false;
-        } else if (filterType === '출차예약') {
-          // 상태 제한 없이 출고예정일이 selectedDate와 일치
-          if (rArr !== selDate) return false;
-        } else if (filterType === '등록일시') {
-          // createdAt의 날짜와 selectedDate 일치
-          if (!res.createdAt || !normalizeDateString(res.createdAt).startsWith(selDate)) return false;
-        }
-      } else {
-        // 2. Driver Mode Filtering Strategy
-        // 2-1. Filter by active tab status strictly
-        if (activeCounterTab === 'pending') {
-          if (!isPending(res.status)) return false;
-        } else {
-          if (res.status !== activeCounterTab) return false;
-        }
-
-        // 2-2. Filter by date-matching rules
-        if (selDate) {
-          if (activeCounterTab === 'pending' || activeCounterTab === 'pending_in') {
-            if (rDep !== selDate) return false;
-          } else if (activeCounterTab === 'request_out' || activeCounterTab === 'completed_in') {
-            if (rArr !== selDate) return false;
-          }
-        }
-      }
-
-      // 3. Admin-only Search keywords
-      if (isAdminModeActive) {
-        const keyword = searchKeyword.trim().toLowerCase();
-        if (keyword) {
-          const matchesKeyword = 
-            (res.carNumber || '').toLowerCase().includes(keyword) ||
-            (res.userName || '').toLowerCase().includes(keyword) ||
-            (res.carModel || '').toLowerCase().includes(keyword) ||
-            (res.phone || '').includes(keyword) ||
-            (res.companyName || '').toLowerCase().includes(keyword);
-          
-          if (!matchesKeyword) return false;
-        }
-      }
-
-      return true;
-    }).sort((a, b) => {
-      const aDep = normalizeDateString(a.departureDate);
-      const bDep = normalizeDateString(b.departureDate);
-      const aArr = normalizeDateString(a.arrivalDate);
-      const bArr = normalizeDateString(b.arrivalDate);
-      if (filterType === '출차예약') {
-        const timeA = `${aArr || ''} ${a.arrivalTime || ''}`;
-        const timeB = `${bArr || ''} ${b.arrivalTime || ''}`;
-        return timeA.localeCompare(timeB);
-      } else {
-        const timeA = `${aDep || ''} ${a.departureTime || ''}`;
-        const timeB = `${bDep || ''} ${b.departureTime || ''}`;
-        return timeA.localeCompare(timeB);
-      }
-    });
-  }, [visibleReservations, activeCounterTab, filterType, selectedDate, searchKeyword, isAdminModeActive]);
-
-  const activeTimelineReservations = computedList;
   const showPartnerDriverView = isPartnerDriverContext(currentCompanyId, isAdminModeActive);
 
   const handleNavigate = (view: AppView) => {
@@ -1810,8 +1565,8 @@ export default function App() {
                       </option>
                     ))}
                   </select>
-                  <span className="text-[11px] text-amber-500/95 font-bold bg-amber-500/10 px-1.5 py-0.5 rounded uppercase font-sans tracking-wide shrink-0">
-                    MASTER
+                  <span className="text-[11px] text-amber-500/95 font-bold bg-amber-500/10 px-1.5 py-0.5 rounded font-sans tracking-wide shrink-0">
+                    본사
                   </span>
                 </div>
               ) : (
@@ -1924,7 +1679,7 @@ export default function App() {
               { key: 'pending' as ReservationStatus, label: '입고예정', count: countPending, color: 'text-amber-400' },
               { key: 'pending_in' as ReservationStatus, label: '입고요청', count: countPendingIn, color: 'text-sky-450' },
               { key: 'request_out' as ReservationStatus, label: '출고요청', count: countRequestOut, color: 'text-rose-450' },
-              { key: 'completed_in' as ReservationStatus, label: '출고예정', count: countConfirmed, color: 'text-emerald-450' }
+              { key: 'completed_in' as ReservationStatus, label: '주차완료', count: countConfirmed, color: 'text-emerald-450' }
             ].map((step) => {
               const isActive = activeCounterTab === step.key;
               return (
@@ -2004,7 +1759,6 @@ export default function App() {
                     handleUpdateValetStatus={handleUpdateValetStatus}
                     getKSTDateTimeString={getKSTDateTimeString}
                     setScratchModalTargetId={setScratchModalTargetId}
-                    setUploadedSpots={setUploadedSpots}
                     setSelectedParkingSpace={setSelectedParkingSpace}
                     showCompanyLabel={showCompanyNameOnCards}
                   />
@@ -2042,7 +1796,6 @@ export default function App() {
                     handleUpdateValetStatus={handleUpdateValetStatus}
                     getKSTDateTimeString={getKSTDateTimeString}
                     setScratchModalTargetId={setScratchModalTargetId}
-                    setUploadedSpots={setUploadedSpots}
                     setSelectedParkingSpace={setSelectedParkingSpace}
                     operatorCompanyIds={operatorCompanyIds}
                     showCompanyLabel={showCompanyNameOnCards}
@@ -2220,7 +1973,7 @@ export default function App() {
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="text-red-600" size={18} />
                   <span className="text-[13px] font-black font-mono text-slate-800">
-                    최고관리자 데이터 보안 모드 (ADMIN PANEL)
+                    최고관리자 데이터 보안 모드
                   </span>
                 </div>
                 <button 
@@ -2334,12 +2087,8 @@ export default function App() {
         setScratchModalTargetId={setScratchModalTargetId}
         setSelectedParkingSpace={setSelectedParkingSpace}
         selectedParkingSpace={selectedParkingSpace}
-        uploadedSpots={uploadedSpots}
-        activeSpotKey={activeSpotKey}
-        handleSpotClick={handleSpotClick}
         handleUpdateValetStatus={handleUpdateValetStatus}
         getKSTDateTimeString={getKSTDateTimeString}
-        setUploadedSpots={setUploadedSpots}
       />
 
 
@@ -2396,21 +2145,7 @@ export default function App() {
         getKSTDateTimeString={getKSTDateTimeString}
       />
 
-      {/* SEARCHED RESERVATION EDIT MODAL (DRIVER DRIVEN) */}
-      <DriverReservationEditModal
-        isOpen={!!editingSearchedRes}
-        onClose={() => setEditingSearchedRes(null)}
-        reservation={editingSearchedRes}
-        companies={companies}
-        currentCompanyId={currentCompanyId}
-        isEmployee={isEmployee}
-        employeeName={employeeName}
-        isSuperAdmin={isSuperAdmin}
-        getCalculatePrice={getCalculatePrice}
-        onUpdateReservations={setReservations}
-      />
-
-      {/* DRIVER RESERVATION VIEW/EDIT MODAL (COMPETITOR BENCHMARK FOR WORKERS) */}
+      {/* 기사 예약 상세/수정 모달 */}
       <AnimatePresence>
         {driverDetailRes && (
           <EditModal

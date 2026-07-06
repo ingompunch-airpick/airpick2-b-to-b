@@ -186,7 +186,7 @@ export default function CancelledListView({ reservations, onUpdateStatus, onBack
 
                 {/* Receipt and Host affiliation */}
                 <div className="flex items-center justify-between text-[11.5px] text-zinc-500 font-mono border-t border-neutral-900/60 pt-2.5">
-                  <span>접수 번호: {res.receiptCode || 'RE_MOCK'}</span>
+                  <span>접수 번호: {res.receiptCode || '-'}</span>
                   <span className="text-zinc-405 font-sans font-bold">{res.companyName}</span>
                 </div>
               </motion.div>

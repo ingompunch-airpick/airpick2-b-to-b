@@ -170,7 +170,7 @@ export default function BlockoutCalendarModal({
                   </div>
                   <div>
                     <h4 className="text-[12.5px] font-black text-white">{companyName} 예약 총괄</h4>
-                    <p className="text-[11px] text-zinc-400 font-bold uppercase tracking-tight">MASTER SHUTOFF</p>
+                    <p className="text-[11px] text-zinc-400 font-bold tracking-tight">예약 마감 설정</p>
                   </div>
                 </div>
                 

@@ -65,7 +65,6 @@ interface SearchReceptionViewProps {
   handleUpdateValetStatus: (id: string, status: any, extra?: any) => void;
   getKSTDateTimeString: () => string;
   setScratchModalTargetId: (id: string | null) => void;
-  setUploadedSpots: (spots: any) => void;
   setSelectedParkingSpace: (space: string) => void;
   operatorCompanyIds?: string[];
   showCompanyLabel?: boolean;
@@ -92,7 +91,6 @@ export default function SearchReceptionView({
   handleUpdateValetStatus,
   getKSTDateTimeString,
   setScratchModalTargetId,
-  setUploadedSpots,
   setSelectedParkingSpace,
   operatorCompanyIds = [],
   showCompanyLabel = false,
@@ -488,8 +486,8 @@ export default function SearchReceptionView({
           <h2 className="text-sm font-black tracking-tight text-white">
             {receptionSubMode === 'search' ? '🔍 차량 검색 및 정보 수정' : '신규 대행 위탁 수납계약서'}
           </h2>
-          <p className="text-[11px] text-zinc-500 font-mono uppercase font-black">
-            {receptionSubMode === 'search' ? 'Search & Edit Reservation' : 'New Intake Agreement'}
+          <p className="text-[11px] text-zinc-500 font-bold">
+            {receptionSubMode === 'search' ? '차량 검색 · 정보 수정' : '신규 현장 접수'}
           </p>
         </div>
       </div>
@@ -625,7 +623,6 @@ export default function SearchReceptionView({
                       handleUpdateValetStatus={handleUpdateValetStatus}
                       getKSTDateTimeString={getKSTDateTimeString}
                       setScratchModalTargetId={setScratchModalTargetId}
-                      setUploadedSpots={setUploadedSpots}
                       setSelectedParkingSpace={setSelectedParkingSpace}
                       showCompanyLabel={showCompanyLabel}
                     />
