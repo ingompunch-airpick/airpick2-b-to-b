@@ -10,6 +10,8 @@ import {
   isAirpickB2CBooking,
   resolveBookingSourceFromReservation,
 } from '../utils/bookingSource';
+import type { DepartureAlertLevel } from '../utils/departureImminent';
+import { formatDepartureCountdown, getMinutesUntilDeparture } from '../utils/departureImminent';
 
 function cn(...classes: (string | boolean | undefined | null)[]) {
   return classes.filter(Boolean).join(' ');
@@ -21,6 +23,8 @@ interface ReservationCardProps {
   isAdminModeActive: boolean;
   /** 타임라인 탭과 동일한 상태면 뱃지 생략 (기사 모드) */
   activeCounterTab?: ReservationStatus;
+  /** 출차 임박·지연 강조 */
+  departureAlert?: DepartureAlertLevel | null;
   /** 대표+하위 통합 관리 시 업체 구분 라벨 */
   showCompanyLabel?: boolean;
   setAdminEditingReservationId: (id: string) => void;
@@ -36,6 +40,7 @@ export default function ReservationCard({
   idx,
   isAdminModeActive,
   activeCounterTab,
+  departureAlert = null,
   showCompanyLabel = false,
   setAdminEditingReservationId,
   setDriverDetailRes,
@@ -56,6 +61,7 @@ export default function ReservationCard({
   const showStatusBadge = isAdminModeActive || activeCounterTab === undefined;
 
   const badgeColorClass = statusBadgeColorClass(res.status);
+  const minutesUntilDeparture = departureAlert ? getMinutesUntilDeparture(res) : null;
 
   return (
     <div 
@@ -70,7 +76,9 @@ export default function ReservationCard({
       }}
       className={cn(
         'transition-all p-4.5 rounded-[20px] flex flex-col md:flex-row md:items-center justify-between gap-3.5 border shadow-sm cursor-pointer select-none active:scale-[0.99]',
-        bookingSourceCardClass(bookingSource)
+        departureAlert === 'overdue' && 'ring-2 ring-rose-500/50 border-rose-500/40',
+        departureAlert === 'imminent' && 'ring-2 ring-amber-500/45 border-amber-500/35',
+        !departureAlert && bookingSourceCardClass(bookingSource)
       )}
       id={`card-${res.id}`}
     >
@@ -121,6 +129,20 @@ export default function ReservationCard({
           {showUnpaidBadge && (
             <span className="text-[13px] px-2 py-0.5 rounded-[6px] font-semibold bg-rose-500/15 text-rose-400 border border-rose-500/25 shrink-0">
               미납
+            </span>
+          )}
+
+          {departureAlert && minutesUntilDeparture != null && (
+            <span
+              className={cn(
+                'text-[13px] px-2 py-0.5 rounded-[6px] font-black border shrink-0',
+                departureAlert === 'overdue'
+                  ? 'bg-rose-500/20 text-rose-300 border-rose-500/35'
+                  : 'bg-amber-500/20 text-amber-300 border-amber-500/35'
+              )}
+            >
+              {departureAlert === 'overdue' ? '출차지연' : '출차임박'}{' '}
+              · {formatDepartureCountdown(minutesUntilDeparture)}
             </span>
           )}
 
