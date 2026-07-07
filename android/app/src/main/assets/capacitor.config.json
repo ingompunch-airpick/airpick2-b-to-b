@@ -1,6 +1,6 @@
 {
 	"appId": "com.airpick.manager",
-	"appName": "에어픽 B2B",
+	"appName": "에어픽 파트너",
 	"webDir": "dist",
 	"android": {
 		"allowMixedContent": true

@@ -9,6 +9,8 @@
     "build:pages": "GITHUB_PAGES=true vite build",
     "deploy:hosting": "npm run build && npx -y firebase-tools@latest deploy --only hosting",
     "deploy:rules": "npx -y firebase-tools@latest deploy --only firestore:rules,storage",
+    "build:android": "npm run build && npx cap sync android",
+    "bundle:android": "npm run build:android && cd android && ./gradlew bundleRelease",
     "start": "node dist/server.cjs",
     "preview": "vite preview",
     "clean": "rm -rf dist",
@@ -18,6 +20,10 @@
     "firebase:rules:deploy": "firebase deploy --only firestore:rules"
   },
   "dependencies": {
+    "@capacitor/android": "^7.4.2",
+    "@capacitor/app": "^7.0.2",
+    "@capacitor/core": "^7.4.2",
+    "@capacitor/splash-screen": "^7.0.2",
     "@tailwindcss/vite": "^4.1.14",
     "@vitejs/plugin-react": "^5.0.4",
     "axios": "^1.13.6",
@@ -35,6 +41,7 @@
     "vite": "^6.2.0"
   },
   "devDependencies": {
+    "@capacitor/cli": "^7.4.2",
     "@types/express": "^4.17.21",
     "@types/node": "^22.14.0",
     "@types/react": "^19.2.15",
