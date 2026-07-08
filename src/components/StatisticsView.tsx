@@ -148,6 +148,63 @@ export default function StatisticsView({
     return () => clearInterval(intervalId);
   }, []);
 
+  // ── Partner-scope derived data ────────────────────────────
+  // 훅은 반드시 조기 return 이전에 무조건 호출되어야 함(에어픽 본사 ↔ 입점 업체 전환 시 훅 순서 고정)
+  const activeReservations = reservations.filter(r => r.status !== 'cancelled');
+
+  const todaySourceMetrics = useMemo(
+    () =>
+      aggregateGroupedBookingSourceMetrics(activeReservations, (r) =>
+        reservationDepartureOn(r, todayStr)
+      ),
+    [activeReservations, todayStr]
+  );
+
+  const monthSourceMetrics = useMemo(
+    () =>
+      aggregateGroupedBookingSourceMetrics(activeReservations, (r) =>
+        normalizeDateString(r.departureDate).startsWith(currentMonthPrefix)
+      ),
+    [activeReservations, currentMonthPrefix]
+  );
+
+  const datesRange = useMemo(() => {
+    const list: string[] = [];
+    const [yearStr, monthStr, dayStrPart] = todayStr.split('-');
+    const currentYearNum = parseInt(yearStr, 10);
+    const currentMonthNum = parseInt(monthStr, 10);
+
+    if (filterType === 'this_month') {
+      const day = parseInt(dayStrPart, 10);
+      for (let dNum = day; dNum >= 1; dNum--) {
+        const dd = String(dNum).padStart(2, '0');
+        list.push(`${yearStr}-${monthStr}-${dd}`);
+      }
+    } else {
+      let lastYearNum = currentYearNum;
+      let lastMonthNum = currentMonthNum - 1;
+      if (lastMonthNum === 0) {
+        lastMonthNum = 12;
+        lastYearNum = currentYearNum - 1;
+      }
+      const lastYearStr = String(lastYearNum);
+      const lastMonthStr = String(lastMonthNum).padStart(2, '0');
+      const lastMonthDaysCount = new Date(lastYearNum, lastMonthNum, 0).getDate();
+      for (let dNum = lastMonthDaysCount; dNum >= 1; dNum--) {
+        const dd = String(dNum).padStart(2, '0');
+        list.push(`${lastYearStr}-${lastMonthStr}-${dd}`);
+      }
+    }
+    return list;
+  }, [filterType, todayStr]);
+
+  const flowPeriodSourceMetrics = useMemo(() => {
+    const dateSet = new Set(datesRange);
+    return aggregateGroupedBookingSourceMetrics(activeReservations, (r) =>
+      dateSet.has(normalizeDateString(r.departureDate))
+    );
+  }, [activeReservations, datesRange]);
+
   // Helper matching reservation list dynamically to each major node
   const getCompanyReservations = (allResList: Reservation[], compId: string) => {
     const list = allResList || [];
@@ -654,8 +711,6 @@ export default function StatisticsView({
   }
 
   // --- Rendering Path B: B2B Partner Owner Dashboard (isSuperAdmin === false) ---
-  const activeReservations = reservations.filter(r => r.status !== 'cancelled');
-
   // Real-time calculated statistics from active reservations
   const realTodaySales = activeReservations
     .filter(r => reservationDepartureOn(r, todayStr))
@@ -667,59 +722,6 @@ export default function StatisticsView({
 
   const todaySales = realTodaySales;
   const monthSales = realMonthSales;
-
-  const todaySourceMetrics = useMemo(
-    () =>
-      aggregateGroupedBookingSourceMetrics(activeReservations, (r) =>
-        reservationDepartureOn(r, todayStr)
-      ),
-    [activeReservations, todayStr]
-  );
-
-  const monthSourceMetrics = useMemo(
-    () =>
-      aggregateGroupedBookingSourceMetrics(activeReservations, (r) =>
-        normalizeDateString(r.departureDate).startsWith(currentMonthPrefix)
-      ),
-    [activeReservations, currentMonthPrefix]
-  );
-
-  const datesRange = (() => {
-    const list: string[] = [];
-    const [yearStr, monthStr, dayStrPart] = todayStr.split('-');
-    const currentYearNum = parseInt(yearStr, 10);
-    const currentMonthNum = parseInt(monthStr, 10);
-
-    if (filterType === 'this_month') {
-      const day = parseInt(dayStrPart, 10);
-      for (let dNum = day; dNum >= 1; dNum--) {
-        const dd = String(dNum).padStart(2, '0');
-        list.push(`${yearStr}-${monthStr}-${dd}`);
-      }
-    } else {
-      let lastYearNum = currentYearNum;
-      let lastMonthNum = currentMonthNum - 1;
-      if (lastMonthNum === 0) {
-        lastMonthNum = 12;
-        lastYearNum = currentYearNum - 1;
-      }
-      const lastYearStr = String(lastYearNum);
-      const lastMonthStr = String(lastMonthNum).padStart(2, '0');
-      const lastMonthDaysCount = new Date(lastYearNum, lastMonthNum, 0).getDate();
-      for (let dNum = lastMonthDaysCount; dNum >= 1; dNum--) {
-        const dd = String(dNum).padStart(2, '0');
-        list.push(`${lastYearStr}-${lastMonthStr}-${dd}`);
-      }
-    }
-    return list;
-  })();
-
-  const flowPeriodSourceMetrics = useMemo(() => {
-    const dateSet = new Set(datesRange);
-    return aggregateGroupedBookingSourceMetrics(activeReservations, (r) =>
-      dateSet.has(normalizeDateString(r.departureDate))
-    );
-  }, [activeReservations, datesRange]);
 
   // --- Daily flow data (A+C: 월 요약 + 미니 막대 + 현재 재차) ---
   const dailyFlow = datesRange.map((date) => {
