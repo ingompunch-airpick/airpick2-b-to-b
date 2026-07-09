@@ -330,7 +330,7 @@ export default function EditModal({
               </span>
               {(() => {
                 const source = resolveBookingSourceFromReservation(driverDetailRes);
-                if (source === 'unknown' || source === 'homepage') return null;
+                if (source !== 'airpick-b2c') return null;
                 return (
                   <span
                     className={cn(

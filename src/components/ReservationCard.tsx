@@ -56,7 +56,6 @@ export default function ReservationCard({
   const isIndoor = res.isIndoor !== false;
   const showUnpaidBadge = isReservationUnpaid(res);
   const bookingSource = resolveBookingSourceFromReservation(res);
-  const showBookingSourceBadge = bookingSource !== 'unknown';
   // 기사 타임라인: 상단 탭이 이미 상태를 나타내므로 입고예정·입고요청 등 상태 뱃지 숨김
   const showStatusBadge = isAdminModeActive || activeCounterTab === undefined;
 
@@ -143,17 +142,6 @@ export default function ReservationCard({
             >
               {departureAlert === 'overdue' ? '출차지연' : '출차임박'}{' '}
               · {formatDepartureCountdown(minutesUntilDeparture)}
-            </span>
-          )}
-
-          {showBookingSourceBadge && bookingSource !== 'airpick-b2c' && bookingSource !== 'homepage' && (
-            <span
-              className={cn(
-                'text-[13px] px-2 py-0.5 rounded-[6px] font-semibold border shrink-0',
-                bookingSourceBadgeClass(bookingSource)
-              )}
-            >
-              {bookingSourceLabel(bookingSource)}
             </span>
           )}
 

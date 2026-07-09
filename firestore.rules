@@ -96,6 +96,11 @@ service cloud.firestore {
       allow delete: if isSignedIn() && isValidReservationId(reservationId);
     }
 
+    // 출차 7일 후 예약 삭제됐을 때 사진(30일) 삭제용 — 클라이언트 접근 불가
+    match /storage_retention/{reservationId} {
+      allow read, write: if false;
+    }
+
     // ── companies (요금·마감 — B2C/홈 read, B2B write) ─────────────────────
 
     match /companies/{companyId} {

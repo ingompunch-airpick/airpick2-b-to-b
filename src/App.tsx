@@ -15,7 +15,6 @@ import {
   getDoc,
   getDocs,
   updateDoc,
-  query
 } from 'firebase/firestore';
 import { 
   onAuthStateChanged, 
@@ -44,6 +43,11 @@ import {
 import { getCalculatePrice } from './utils/pricing';
 import { getKSTDateOnlyString, getKSTDateTimeString } from './utils/kstDate';
 import { normalizeDateString, normalizeDocsArray } from './utils/reservationNormalize';
+import {
+  fetchScopedReservations,
+  subscribeScopedReservations,
+} from './utils/reservationQuery';
+import { buildCheckoutRetentionFields } from './lib/reservationRetention';
 import { AIRPICK_HQ_ID, isAirpickHeadquarters, normalizePlatformCompanyId } from './constants/platform';
 import { ensureFirestoreAuth, ensurePlatformAdminAuth, tryPlatformAdminAuthFallback } from './lib/firebaseAuth';
 import { isPending, normalizeReservationStatus } from './utils/reservationStatus';
@@ -967,14 +971,26 @@ export default function App() {
 
 
 
-  // 4. Real-time Reservations Sync — runs on app login (not only when Firebase Auth user exists)
+  const reservationSyncScopeKey = useMemo(() => {
+    if (isAirpickHeadquarters(currentCompanyId)) return 'hq';
+    return operatorCompanyIds.slice().sort().join('|') || currentCompanyId;
+  }, [currentCompanyId, operatorCompanyIds]);
+
+  // 4. Real-time Reservations Sync — 업체·입고일 범위로 Firestore 쿼리 (전체 컬렉션 로드 방지)
   useEffect(() => {
     if (!isLoggedIn) return;
 
     let cancelled = false;
-    const q = query(collection(db, 'reservations'));
+    reservationsBootstrappedRef.current = false;
+    reservationsPrevRef.current = [];
 
-    const applySnapshot = (rawData: Record<string, unknown>[]) => {
+    const syncScope = {
+      isHqScope: isAirpickHeadquarters(currentCompanyId),
+      operatorCompanyIds:
+        operatorCompanyIds.length > 0 ? operatorCompanyIds : [currentCompanyId],
+    };
+
+    const applySnapshot = (rawData: unknown[]) => {
       if (cancelled) return;
       const data = normalizeDocsArray(rawData).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 
@@ -1020,18 +1036,19 @@ export default function App() {
       if (cancelled) return;
 
       try {
-        const snap = await getDocs(q);
+        const rows = await fetchScopedReservations(db, syncScope);
         if (!cancelled) {
-          applySnapshot(snap.docs.map(d => ({ id: d.id, ...d.data() })));
+          applySnapshot(rows);
         }
       } catch (err) {
         handleFirestoreError(err, OperationType.LIST, 'reservations');
         if (!cancelled) setLoadingReservations(false);
       }
 
-      const unsub = onSnapshot(
-        q,
-        (snap) => applySnapshot(snap.docs.map(d => ({ id: d.id, ...d.data() }))),
+      const unsub = subscribeScopedReservations(
+        db,
+        syncScope,
+        (rows) => applySnapshot(rows),
         (err) => {
           console.warn('reservations onSnapshot error:', err);
           handleFirestoreError(err, OperationType.LIST, 'reservations');
@@ -1051,7 +1068,7 @@ export default function App() {
       cancelled = true;
       unsub?.();
     };
-  }, [isLoggedIn]);
+  }, [isLoggedIn, reservationSyncScopeKey, currentCompanyId, operatorCompanyIds]);
 
   // Login handler
   const handleCredentialLogin = async (e: React.FormEvent) => {
@@ -1306,19 +1323,27 @@ export default function App() {
 
   // Mutate schedule states (Worker transition flow)
   const handleUpdateValetStatus = async (
-    resId: string, 
-    nextStatus: ReservationStatus, 
+    resId: string,
+    nextStatus: ReservationStatus,
     extraFields?: Partial<Reservation>
   ) => {
     const operatorName = isEmployee ? employeeName : (isSuperAdmin ? '본사 마스터(최고관리자)' : '업체 마스터');
+    const retentionPatch =
+      nextStatus === 'completed_out'
+        ? buildCheckoutRetentionFields(extraFields?.actualExitTime)
+        : {};
+    const patch = {
+      status: nextStatus,
+      ...extraFields,
+      ...retentionPatch,
+      updatedBy: operatorName,
+      updatedAt: new Date().toISOString(),
+    };
     // Optimistically update React state and localStorage instantly
     setReservations(prev => {
-      const updated = prev.map(r => r.id === resId ? { 
-        ...r, 
-        status: nextStatus, 
-        ...extraFields,
-        updatedBy: operatorName,
-        updatedAt: new Date().toISOString() 
+      const updated = prev.map(r => r.id === resId ? {
+        ...r,
+        ...patch,
       } : r);
       persistScopedReservations(updated);
       return updated;
@@ -1326,12 +1351,7 @@ export default function App() {
 
     try {
       const docRef = doc(db, 'reservations', resId);
-      await updateDoc(docRef, { 
-        status: nextStatus,
-        ...extraFields,
-        updatedBy: operatorName,
-        updatedAt: new Date().toISOString()
-      });
+      await updateDoc(docRef, patch);
     } catch (err: any) {
       console.warn("Firestore status update run locally or failed, state already migrated:", err);
     }

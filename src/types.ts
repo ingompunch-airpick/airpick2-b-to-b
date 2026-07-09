@@ -37,6 +37,10 @@ export interface Company {
   peakStartTime?: string;
   peakEndTime?: string;
   peakSurcharge?: number;
+  /** 대면 입고 추가요금 (T1) — 0=무료 대면, 필드 없음=T1 대면 미제공 */
+  valetFeeT1?: number;
+  /** 대면 입고 추가요금 (T2) — 0=무료 대면, 필드 없음=T2 대면 미제공 */
+  valetFeeT2?: number;
   /** B2B 마스터 — 시설 유형 */
   facilityType?: 'indoor' | 'outdoor' | 'mixed';
   /** B2C 손님 MY · 실내 주차장 도로명 주소 */
@@ -165,6 +169,12 @@ export interface Reservation {
   // Real completion tracking fields
   actualParkingTime?: string;
   actualExitTime?: string;
+  /** 출차 확정 시각 (ISO) — 보관 기간 계산 기준 */
+  completedOutAt?: string;
+  /** Firestore 문서 자동 삭제 예정 시각 (ISO) */
+  dataPurgeAt?: string;
+  /** Storage 사진 자동 삭제 예정 시각 (ISO) */
+  storagePurgeAt?: string;
   
   // Custom newly requested intake fields
   isIndoor?: boolean;

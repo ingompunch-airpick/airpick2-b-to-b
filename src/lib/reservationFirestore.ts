@@ -2,6 +2,7 @@ import { doc, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import type { Reservation } from '../types';
 import { ensureFirestoreAuth } from './firebaseAuth';
+import { tryPlatformAdminAuthFallback } from './firebaseAuth';
 
 export { ensureFirestoreAuth, ensurePlatformAdminAuth } from './firebaseAuth';
 
@@ -12,18 +13,38 @@ export function createReservationId(): string {
   return `res_${Date.now()}`;
 }
 
+/** Firestore는 undefined 필드 값을 거부함 — 빈 항공·메모 등 미입력 시 setDoc 실패 원인 */
+export function stripUndefinedFields<T extends Record<string, unknown>>(obj: T): T {
+  const out = { ...obj };
+  for (const key of Object.keys(out)) {
+    if (out[key] === undefined) delete out[key];
+  }
+  return out;
+}
+
+async function ensureReservationWriteAuth(): Promise<void> {
+  try {
+    await ensureFirestoreAuth();
+  } catch (e) {
+    const ok = await tryPlatformAdminAuthFallback();
+    if (!ok) throw e;
+  }
+}
+
 export async function persistReservation(
   id: string,
   payload: Omit<Reservation, 'id'>
 ): Promise<void> {
-  await ensureFirestoreAuth();
-  await setDoc(doc(db, 'reservations', id), payload);
+  await ensureReservationWriteAuth();
+  const clean = stripUndefinedFields(payload as Record<string, unknown>);
+  await setDoc(doc(db, 'reservations', id), clean);
 }
 
 export async function patchReservation(
   id: string,
   payload: Partial<Reservation>
 ): Promise<void> {
-  await ensureFirestoreAuth();
-  await updateDoc(doc(db, 'reservations', id), payload);
+  await ensureReservationWriteAuth();
+  const clean = stripUndefinedFields(payload as Record<string, unknown>);
+  await updateDoc(doc(db, 'reservations', id), clean);
 }

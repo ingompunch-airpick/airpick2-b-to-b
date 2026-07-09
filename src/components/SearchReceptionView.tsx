@@ -9,9 +9,7 @@ import {
   X,
   Settings
 } from 'lucide-react';
-import { db } from '../firebase';
-import { doc, updateDoc } from 'firebase/firestore';
-import { createReservationId, persistReservation } from '../lib/reservationFirestore';
+import { createReservationId, persistReservation, patchReservation } from '../lib/reservationFirestore';
 import { User } from 'firebase/auth';
 import { Company, Reservation, AppView, CompanyInfo } from '../types';
 import ReservationCard from './ReservationCard';
@@ -376,8 +374,17 @@ export default function SearchReceptionView({
 
     try {
       await persistReservation(id, bookingPayload);
-      alert(`차량 번호 ${bookingPayload.carNumber} 현장 접수가 완료됐습니다.`);
-    } catch (err: any) {
+      onUpdateReservations((prev) => {
+        const updated = [{ id, ...bookingPayload }, ...prev.filter((r) => r.id !== id)];
+        persistReservationStores(window.localStorage, updated, currentCompanyId, {
+          cacheFirestore: true,
+          operatorCompanyIds,
+        });
+        return updated;
+      });
+      alert(`차량 번호 ${bookingPayload.carNumber} 현장 접수가 완료됐습니다.\n\n(Firestore에 저장됨 · ID: ${id})`);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : String(err);
       onUpdateReservations(prev => {
         const updated = [{ id, ...bookingPayload }, ...prev];
         persistReservationStores(window.localStorage, updated, currentCompanyId, {
@@ -386,7 +393,12 @@ export default function SearchReceptionView({
         });
         return updated;
       });
-      alert(`차량 번호 ${bookingPayload.carNumber} 접수가 이 폰에 저장됐습니다.\n\n인터넷 연결을 확인한 뒤, 목록에 안 보이면 한 번 더 접수해 주세요.`);
+      alert(
+        `차량 번호 ${bookingPayload.carNumber} 접수가 이 폰에만 저장됐습니다.\n\n` +
+          `Firestore 저장 실패 — Console에 문서가 없을 수 있습니다.\n` +
+          `인터넷·로그인(익명 인증)을 확인한 뒤 다시 접수해 주세요.\n\n` +
+          `오류: ${msg}`
+      );
     } finally {
       setIsSubmittingBooking(false);
       onNavigate('timeline');
@@ -459,7 +471,7 @@ export default function SearchReceptionView({
     }
 
     try {
-      await updateDoc(doc(db, 'reservations', editingSearchedRes.id || ''), updatePayload);
+      await patchReservation(editingSearchedRes.id || '', updatePayload);
       alert('예약 정보가 수정됐습니다.');
     } catch (_) {
       onUpdateReservations(prev => {
@@ -1069,7 +1081,7 @@ export default function SearchReceptionView({
                   <span className="text-xs font-black text-white font-mono">{editingSearchedRes.receiptCode || editingSearchedRes.id}</span>
                   {(() => {
                     const source = resolveBookingSourceFromReservation(editingSearchedRes);
-                    if (source === 'unknown' || source === 'homepage') return null;
+                    if (source !== 'airpick-b2c') return null;
                     return (
                       <span
                         className={cn(

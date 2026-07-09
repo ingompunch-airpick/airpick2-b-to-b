@@ -8,7 +8,7 @@ import {
   ChevronUp,
   ChevronDown
 } from 'lucide-react';
-import { doc, setDoc } from 'firebase/firestore';
+import { doc, setDoc, deleteField } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import TimePickerModal from './TimePickerModal';
 import AdminDashboard from './AdminDashboard';
@@ -377,6 +377,13 @@ export default function MasterSettingsView({
   const [peakSurcharge, setPeakSurcharge] = useState(0);
   const [activePickerTarget, setActivePickerTarget] = useState<'surchargeStart' | 'surchargeEnd' | null>(null);
 
+  // 대면 입고 제공 설정 (T1/T2 각각 · 0=무료 대면)
+  const [valetEnabled, setValetEnabled] = useState(false);
+  const [valetT1Enabled, setValetT1Enabled] = useState(false);
+  const [valetT2Enabled, setValetT2Enabled] = useState(false);
+  const [valetFeeT1, setValetFeeT1] = useState(0);
+  const [valetFeeT2, setValetFeeT2] = useState(0);
+
   useEffect(() => {
     if (!isSuperAdmin) {
       const p = (partners || []).find(x => x.companyId === companyInfo.id);
@@ -403,6 +410,15 @@ export default function MasterSettingsView({
         setPeakStartTime(c.peakStartTime ?? '');
         setPeakEndTime(c.peakEndTime ?? '');
         setPeakSurcharge(c.peakSurcharge ?? 0);
+
+        // 대면 입고: 필드 존재 여부로 제공 판단 (0=무료 대면이므로 falsy 체크 금지)
+        const hasT1 = typeof c.valetFeeT1 === 'number';
+        const hasT2 = typeof c.valetFeeT2 === 'number';
+        setValetT1Enabled(hasT1);
+        setValetT2Enabled(hasT2);
+        setValetEnabled(hasT1 || hasT2);
+        setValetFeeT1(hasT1 ? (c.valetFeeT1 as number) : 0);
+        setValetFeeT2(hasT2 ? (c.valetFeeT2 as number) : 0);
       }
     }
   }, [isSuperAdmin, partners, companies, companyInfo]);
@@ -419,6 +435,28 @@ export default function MasterSettingsView({
 
   const handleSavePartnerSelf = async () => {
     try {
+      // 대면 입고 검증: ON이면 T1·T2 중 최소 1개, 각 요금은 0 이상 정수
+      if (valetEnabled) {
+        if (!valetT1Enabled && !valetT2Enabled) {
+          alert('대면 입고를 제공하려면 T1·T2 중 최소 한 곳을 선택해 주세요.');
+          return;
+        }
+        const feeInvalid = (fee: number, on: boolean) =>
+          on && (!Number.isInteger(fee) || fee < 0);
+        if (feeInvalid(valetFeeT1, valetT1Enabled) || feeInvalid(valetFeeT2, valetT2Enabled)) {
+          alert('대면 추가요금은 0 이상의 정수(원)로 입력해 주세요. (무료 대면이면 0)');
+          return;
+        }
+      }
+
+      // 대면 미제공 터미널은 Firestore에서 필드 삭제 (deleteField), 로컬은 키 제거
+      const valetT1On = valetEnabled && valetT1Enabled;
+      const valetT2On = valetEnabled && valetT2Enabled;
+      const valetFirestorePayload: Record<string, unknown> = {
+        valetFeeT1: valetT1On ? Math.trunc(valetFeeT1) : deleteField(),
+        valetFeeT2: valetT2On ? Math.trunc(valetFeeT2) : deleteField(),
+      };
+
       const cleanPassword = (partnerPassword || '').trim() || 'master1234';
       const cleanPhone = (partnerPhone || companyInfo.phone || '1544-5746').trim();
 
@@ -480,10 +518,15 @@ export default function MasterSettingsView({
 
       const updatedCompanies = dbCompanies.map(c => {
         if (c.id === companyInfo.id) {
-          return {
+          const next: Company = {
             ...c,
             ...pricingPayload,
           };
+          if (valetT1On) next.valetFeeT1 = Math.trunc(valetFeeT1);
+          else delete next.valetFeeT1;
+          if (valetT2On) next.valetFeeT2 = Math.trunc(valetFeeT2);
+          else delete next.valetFeeT2;
+          return next;
         }
         return c;
       });
@@ -503,24 +546,38 @@ export default function MasterSettingsView({
         }));
       }
 
-      // Direct Firestore update for this partner company item, sanitizing all undefined values
+      // Direct Firestore update for this partner company item (cross-account sync source of truth)
+      // NOTE: 로컬스토리지는 보조 캐시일 뿐이며, Firestore 저장 실패 시 타 기기/본사 화면에 반영되지 않습니다.
       try {
+        await ensureFirestoreAuth();
         const docRef = doc(db, 'companies', companyInfo.id);
-        await setDoc(docRef, {
-          ...pricingPayload,
-          employees: (employeeList || []).map(emp => ({
-            id: emp.id || '',
-            name: emp.name || '',
-            loginId: emp.loginId || '',
-            password: emp.password || '',
-            role: emp.role || 'driver'
-          }))
-        }, { merge: true });
+        await setDoc(
+          docRef,
+          {
+            ...pricingPayload,
+            ...valetFirestorePayload,
+            updatedAt: new Date().toISOString(),
+            employees: (employeeList || []).map((emp) => ({
+              id: emp.id || '',
+              name: emp.name || '',
+              loginId: emp.loginId || '',
+              password: emp.password || '',
+              role: emp.role || 'driver',
+            })),
+          },
+          { merge: true }
+        );
       } catch (err: any) {
         handleFirestoreError(err, OperationType.WRITE, `companies/${companyInfo.id}`);
+        alert(
+          `❌ Firestore 저장에 실패했습니다. (다른 계정/본사 화면에 연동되지 않습니다)\n\n` +
+            `네트워크/로그인 상태를 확인 후 다시 저장해 주세요.\n` +
+            `오류: ${err?.message || String(err)}`
+        );
+        return;
       }
 
-      alert(`🎉 [${companyInfo.name}] 자율 주차 요금 및 터미널 정보 등의 변경 사항이 파이어베이스(Firestore) 및 로컬스토리지에 안전하게 성공적으로 실시간 업데이트 저장되었습니다.`);
+      alert(`🎉 [${companyInfo.name}] 변경 사항이 Firestore에 저장되어 본사/다른 기기에도 실시간으로 연동됩니다.`);
       if (onBack) {
         onBack();
       }
@@ -771,6 +828,84 @@ export default function MasterSettingsView({
                 </div>
               </div>
             </div>
+          </div>
+
+          {/* 3-2. 대면 입고 제공 설정 */}
+          <div className="bg-neutral-900/40 p-5 rounded-3xl border border-neutral-850 space-y-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-xs font-black text-amber-500 tracking-wider uppercase">
+                <FileSpreadsheet size={14} className="text-amber-500" />
+                <span>[2] 대면 입고 제공 설정</span>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={valetEnabled}
+                onClick={() => setValetEnabled((v) => !v)}
+                className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${valetEnabled ? 'bg-amber-500' : 'bg-neutral-700'}`}
+              >
+                <span
+                  className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${valetEnabled ? 'translate-x-5' : ''}`}
+                />
+              </button>
+            </div>
+            <p className="text-[12.5px] text-white/80 leading-relaxed">
+              고객이 공항 여객터미널에서 직접 차량을 인계·인수하는 대면 입고 서비스입니다. 제공하는 터미널을 선택하고 추가요금을 설정하세요. (무료 제공 시 <span className="font-bold text-amber-400">0원</span>)
+            </p>
+
+            {valetEnabled && (
+              <div className="space-y-3">
+                {/* 제1여객터미널(T1) */}
+                <div className="p-3 bg-[#131315] border border-neutral-850 rounded-xl space-y-3">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={valetT1Enabled}
+                      onChange={(e) => setValetT1Enabled(e.target.checked)}
+                      className="w-4 h-4 rounded border-neutral-800 text-amber-500 focus:ring-amber-500 bg-[#1C1C1E] cursor-pointer"
+                    />
+                    <span className="text-[12px] text-white font-bold">제1여객터미널(T1) 대면 제공</span>
+                  </label>
+                  {valetT1Enabled && (
+                    <PriceInput
+                      label="T1 대면 추가요금 (원)"
+                      value={valetFeeT1}
+                      onChange={setValetFeeT1}
+                      focusColorClass="focus-within:border-amber-500"
+                      placeholder="무료면 0"
+                    />
+                  )}
+                </div>
+
+                {/* 제2여객터미널(T2) */}
+                <div className="p-3 bg-[#131315] border border-neutral-850 rounded-xl space-y-3">
+                  <label className="flex items-center gap-2 cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      checked={valetT2Enabled}
+                      onChange={(e) => setValetT2Enabled(e.target.checked)}
+                      className="w-4 h-4 rounded border-neutral-800 text-amber-500 focus:ring-amber-500 bg-[#1C1C1E] cursor-pointer"
+                    />
+                    <span className="text-[12px] text-white font-bold">제2여객터미널(T2) 대면 제공</span>
+                  </label>
+                  {valetT2Enabled && (
+                    <PriceInput
+                      label="T2 대면 추가요금 (원)"
+                      value={valetFeeT2}
+                      onChange={setValetFeeT2}
+                      focusColorClass="focus-within:border-amber-500"
+                      placeholder="무료면 0"
+                    />
+                  )}
+                </div>
+
+                {!valetT1Enabled && !valetT2Enabled && (
+                  <p className="text-[11px] text-red-400 font-bold px-1">
+                    ※ 대면 입고 제공 시 T1·T2 중 최소 한 곳을 선택해야 합니다.
+                  </p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* 4. 소속 직원(기사) 계정 관리 */}
