@@ -16,17 +16,21 @@ export function parseReceiptCodeFromPath(pathname: string): string | null {
   }
 }
 
-export function resolveReceiptLookupCode(reservation: Pick<Reservation, 'id' | 'receiptCode'>): string {
-  return (reservation.receiptCode || reservation.id || '').trim();
+export function resolveReceiptLookupCode(
+  reservation: Pick<Reservation, 'id' | 'receiptCode' | 'receiptToken'>
+): string {
+  return (reservation.receiptToken || reservation.receiptCode || reservation.id || '').trim();
 }
 
-export function buildReceiptPath(reservation: Pick<Reservation, 'id' | 'receiptCode'>): string {
+export function buildReceiptPath(
+  reservation: Pick<Reservation, 'id' | 'receiptCode' | 'receiptToken'>
+): string {
   const code = resolveReceiptLookupCode(reservation);
   return code ? `/r/${encodeURIComponent(code)}` : '';
 }
 
 export function buildReceiptUrl(
-  reservation: Pick<Reservation, 'id' | 'receiptCode'>,
+  reservation: Pick<Reservation, 'id' | 'receiptCode' | 'receiptToken'>,
   origin: string = RECEIPT_PUBLIC_ORIGIN
 ): string {
   const path = buildReceiptPath(reservation);

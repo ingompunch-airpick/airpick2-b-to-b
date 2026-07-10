@@ -12,7 +12,21 @@ export async function fetchCompanyById(companyId: string): Promise<Company | nul
   return { id: snap.id, ...snap.data() } as Company;
 }
 
-/** `receiptCode` 또는 Firestore 문서 ID로 예약 조회 */
+async function queryReservationByField(
+  field: 'receiptCode' | 'receiptToken',
+  value: string
+): Promise<Reservation | null> {
+  const snap = await getDocs(
+    query(collection(db, 'reservations'), where(field, '==', value), limit(1))
+  );
+  if (snap.empty) return null;
+  const normalized = normalizeDocsArray(
+    snap.docs.map((d) => ({ id: d.id, ...d.data() }))
+  );
+  return normalized[0] ?? null;
+}
+
+/** 문서 ID · `receiptCode` · `receiptToken`(홈페이지) 로 예약 조회 */
 export async function fetchReservationByLookupCode(code: string): Promise<Reservation | null> {
   const lookup = code.trim();
   if (!lookup) return null;
@@ -25,16 +39,8 @@ export async function fetchReservationByLookupCode(code: string): Promise<Reserv
     return normalized[0] ?? null;
   }
 
-  const q = query(
-    collection(db, 'reservations'),
-    where('receiptCode', '==', lookup),
-    limit(1)
-  );
-  const snap = await getDocs(q);
-  if (snap.empty) return null;
+  const byReceiptCode = await queryReservationByField('receiptCode', lookup);
+  if (byReceiptCode) return byReceiptCode;
 
-  const normalized = normalizeDocsArray(
-    snap.docs.map((d) => ({ id: d.id, ...d.data() }))
-  );
-  return normalized[0] ?? null;
+  return queryReservationByField('receiptToken', lookup);
 }

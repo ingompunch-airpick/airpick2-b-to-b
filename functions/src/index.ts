@@ -1,6 +1,9 @@
 import * as admin from 'firebase-admin';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
+import { onReservationSync } from './onReservationWrite';
 import { runRetentionCleanup } from './retentionCleanup';
+
+export { onReservationSync };
 
 if (!admin.apps.length) {
   admin.initializeApp();

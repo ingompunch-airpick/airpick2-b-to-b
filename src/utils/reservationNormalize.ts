@@ -59,8 +59,6 @@ function resolveCompanyFields(r: Record<string, unknown>): { companyId: string; 
     companyName: String(r.companyName || r.company || ''),
   };
 }
-
-/** 홈페이지·Firestore raw 문서 → B2B Reservation (필드 alias 통합) */
 export function normalizeDocsArray(items: unknown[]): Reservation[] {
   if (!items || !Array.isArray(items)) return [];
   return items.map((raw): Reservation => {
@@ -75,7 +73,9 @@ export function normalizeDocsArray(items: unknown[]): Reservation[] {
     const updatedAtStr = r.updatedAt ? getSafeDateString(r.updatedAt) : undefined;
     const finalCarNumber = String(r.carNumber || r.carNo || r.vehicleNo || r.car_number || '');
     const finalPrice = typeof r.totalPrice === 'number' ? r.totalPrice : Number(r.totalPrice) || 0;
-    const { companyId, companyName } = resolveCompanyFields(r);
+    const { companyId, companyName: resolvedCompanyName } = resolveCompanyFields(r);
+    const displayCompanyName =
+      String(r.companyName || r.company || '').trim() || resolvedCompanyName;
     const flightFields = resolveFlightFields(r);
     const bookingSource = resolveBookingSource(
       r.createdBy as string | undefined,
@@ -104,7 +104,7 @@ export function normalizeDocsArray(items: unknown[]): Reservation[] {
       createdAt: createdAtStr,
       updatedAt: updatedAtStr,
       companyId,
-      companyName,
+      companyName: displayCompanyName,
       ...flightFields,
     };
   });

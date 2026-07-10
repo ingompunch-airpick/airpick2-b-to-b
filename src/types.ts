@@ -165,6 +165,8 @@ export interface Reservation {
   scratchPhotos?: ScratchPhotoSet;
   parkingSpace?: string; // e.g. "LG-B2", "상주A"
   receiptCode?: string; // e.g. "1770207629_BEIAKF"
+  /** 홈페이지 예약 공개 접수증 조회용 토큰 */
+  receiptToken?: string;
   
   // Real completion tracking fields
   actualParkingTime?: string;

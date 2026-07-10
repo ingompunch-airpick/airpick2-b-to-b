@@ -1,0 +1,68 @@
+import { onDocumentWritten } from 'firebase-functions/v2/firestore';
+import { defineSecret, defineString } from 'firebase-functions/params';
+import { buildNhnConfigFromEnv, processReservationAlimtalk } from './alimtalk/sendReservationAlimtalk';
+import { buildSheetsConfigFromEnv } from './sheets/syncReservation';
+import { processReservationSheetsArchive } from './sheets/processReservationSheets';
+
+const alimtalkEnabled = defineString('ALIMTALK_ENABLED', { default: 'false' });
+const nhnAppKey = defineString('NHN_ALIMTALK_APP_KEY', { default: '' });
+const nhnSecretKey = defineString('NHN_ALIMTALK_SECRET_KEY', { default: '' });
+const nhnSenderKey = defineString('NHN_ALIMTALK_SENDER_KEY', { default: '' });
+
+const sheetsArchiveEnabled = defineString('SHEETS_ARCHIVE_ENABLED', { default: 'false' });
+const sheetsSpreadsheetId = defineString('GOOGLE_SHEETS_SPREADSHEET_ID', {
+  default: '1zxxMHH7cJDz_nyCQbPOt2GCHdBtAVY9mzBDnUVV6lTs',
+});
+const sheetsServiceAccountJson = defineSecret('GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON');
+
+function applyRuntimeEnv(): void {
+  process.env.ALIMTALK_ENABLED = alimtalkEnabled.value();
+  process.env.NHN_ALIMTALK_APP_KEY = nhnAppKey.value();
+  process.env.NHN_ALIMTALK_SECRET_KEY = nhnSecretKey.value();
+  process.env.NHN_ALIMTALK_SENDER_KEY = nhnSenderKey.value();
+
+  process.env.SHEETS_ARCHIVE_ENABLED = sheetsArchiveEnabled.value();
+  process.env.GOOGLE_SHEETS_SPREADSHEET_ID = sheetsSpreadsheetId.value();
+  try {
+    process.env.GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON = sheetsServiceAccountJson.value();
+  } catch {
+    process.env.GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON = '';
+  }
+}
+
+/**
+ * 예약 Firestore 변경 시:
+ * - Google Sheets 장부 동기화 (탭: 에어픽 / 와와 / 가유 / …)
+ * - NHN 알림톡 발송 (활성화 시)
+ */
+export const onReservationSync = onDocumentWritten(
+  {
+    document: 'reservations/{reservationId}',
+    memory: '512MiB',
+    timeoutSeconds: 120,
+    secrets: [sheetsServiceAccountJson],
+  },
+  async (event) => {
+    const reservationId = event.params.reservationId;
+    const beforeData = event.data?.before.data();
+    const afterData = event.data?.after.data();
+
+    if (!afterData) return;
+
+    applyRuntimeEnv();
+
+    await processReservationSheetsArchive(
+      reservationId,
+      beforeData,
+      afterData,
+      buildSheetsConfigFromEnv()
+    );
+
+    await processReservationAlimtalk(
+      reservationId,
+      beforeData,
+      afterData,
+      buildNhnConfigFromEnv()
+    );
+  }
+);
