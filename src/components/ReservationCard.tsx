@@ -25,7 +25,7 @@ interface ReservationCardProps {
   activeCounterTab?: ReservationStatus;
   /** 출차 임박·지연 강조 */
   departureAlert?: DepartureAlertLevel | null;
-  /** 대표+하위 통합 관리 시 업체 구분 라벨 */
+  /** @deprecated 업체명 뱃지 미사용 — 유입은 에어픽만 표시 */
   showCompanyLabel?: boolean;
   setAdminEditingReservationId: (id: string) => void;
   setDriverDetailRes: (res: Reservation) => void;
@@ -41,7 +41,7 @@ export default function ReservationCard({
   isAdminModeActive,
   activeCounterTab,
   departureAlert = null,
-  showCompanyLabel = false,
+  showCompanyLabel: _showCompanyLabel = false,
   setAdminEditingReservationId,
   setDriverDetailRes,
   handleUpdateValetStatus,
@@ -85,6 +85,7 @@ export default function ReservationCard({
       <div className="space-y-2">
         {/* 1st Row: Dynamic Soft Pills/Badges (Toss Aesthetic) */}
         <div className="flex flex-wrap items-center gap-1.5">
+          {/* 에어픽(B2C) 유입만 표시 — 홈페이지·현장은 뱃지 없음 */}
           {isAirpickB2CBooking(res.createdBy) && (
             <span
               className={cn(
@@ -142,12 +143,6 @@ export default function ReservationCard({
             >
               {departureAlert === 'overdue' ? '출차지연' : '출차임박'}{' '}
               · {formatDepartureCountdown(minutesUntilDeparture)}
-            </span>
-          )}
-
-          {showCompanyLabel && res.companyName && (
-            <span className="text-[13px] px-2 py-0.5 rounded-[6px] font-semibold bg-indigo-500/15 text-indigo-300 border border-indigo-500/25 shrink-0">
-              {res.companyName}
             </span>
           )}
         </div>

@@ -45,21 +45,26 @@ function parseRowFromUpdatedRange(updatedRange?: string | null): number | null {
 async function listTabTitles(
   sheets: sheets_v4.Sheets,
   spreadsheetId: string
-): Promise<Set<string>> {
+): Promise<Map<string, number>> {
   const res = await sheets.spreadsheets.get({
     spreadsheetId,
-    fields: 'sheets.properties.title',
+    fields: 'sheets.properties(sheetId,title)',
   });
-  const titles = res.data.sheets?.map((s) => s.properties?.title).filter(Boolean) as string[];
-  return new Set(titles || []);
+  const map = new Map<string, number>();
+  for (const sheet of res.data.sheets || []) {
+    const title = sheet.properties?.title;
+    const sheetId = sheet.properties?.sheetId;
+    if (title != null && sheetId != null) map.set(title, sheetId);
+  }
+  return map;
 }
 
 async function ensureTabWithHeaders(
   sheets: sheets_v4.Sheets,
   spreadsheetId: string,
   tabName: string
-): Promise<void> {
-  const tabs = await listTabTitles(sheets, spreadsheetId);
+): Promise<number> {
+  let tabs = await listTabTitles(sheets, spreadsheetId);
   if (!tabs.has(tabName)) {
     await sheets.spreadsheets.batchUpdate({
       spreadsheetId,
@@ -81,7 +86,7 @@ async function ensureTabWithHeaders(
         values: [Array.from(SHEET_HEADERS)],
       },
     });
-    return;
+    tabs = await listTabTitles(sheets, spreadsheetId);
   }
 
   const headerRes = await sheets.spreadsheets.values.get({
@@ -99,10 +104,62 @@ async function ensureTabWithHeaders(
       },
     });
   }
+
+  const sheetId = tabs.get(tabName);
+  if (sheetId == null) throw new Error(`sheet tab not found: ${tabName}`);
+  return sheetId;
 }
 
 function quoteTab(tabName: string): string {
   return `'${tabName.replace(/'/g, "''")}'`;
+}
+
+/** A열(예약ID)에서 해당 예약 행 번호들 (1-based, 헤더 제외) */
+async function findRowsByReservationId(
+  sheets: sheets_v4.Sheets,
+  spreadsheetId: string,
+  tabName: string,
+  reservationId: string
+): Promise<number[]> {
+  const res = await sheets.spreadsheets.values.get({
+    spreadsheetId,
+    range: `${quoteTab(tabName)}!A:A`,
+  });
+  const values = res.data.values || [];
+  const rows: number[] = [];
+  values.forEach((row, idx) => {
+    if (idx === 0) return; // header
+    if (String(row[0] || '').trim() === reservationId) {
+      rows.push(idx + 1);
+    }
+  });
+  return rows;
+}
+
+async function deleteSheetRows(
+  sheets: sheets_v4.Sheets,
+  spreadsheetId: string,
+  sheetId: number,
+  rowNumbers: number[]
+): Promise<void> {
+  if (rowNumbers.length === 0) return;
+  // 아래에서부터 삭제해야 인덱스가 안 밀림
+  const sorted = [...rowNumbers].sort((a, b) => b - a);
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId,
+    requestBody: {
+      requests: sorted.map((rowNumber) => ({
+        deleteDimension: {
+          range: {
+            sheetId,
+            dimension: 'ROWS',
+            startIndex: rowNumber - 1,
+            endIndex: rowNumber,
+          },
+        },
+      })),
+    },
+  });
 }
 
 async function appendReservationRow(
@@ -111,8 +168,6 @@ async function appendReservationRow(
   tabName: string,
   rowValues: string[]
 ): Promise<number> {
-  await ensureTabWithHeaders(sheets, spreadsheetId, tabName);
-
   const res = await sheets.spreadsheets.values.append({
     spreadsheetId,
     range: `${quoteTab(tabName)}!A:U`,
@@ -147,7 +202,13 @@ async function updateReservationRow(
   });
 }
 
-const SYNC_SKIP_FIELDS = new Set(['sheetsArchive', 'alimtalkSent', 'updatedAt', 'updatedBy']);
+const SYNC_SKIP_FIELDS = new Set([
+  'sheetsArchive',
+  'sheetsSyncInProgress',
+  'alimtalkSent',
+  'updatedAt',
+  'updatedBy',
+]);
 
 export function shouldSyncReservationToSheets(
   before: Record<string, unknown> | undefined,
@@ -175,6 +236,12 @@ export function buildSheetsConfigFromEnv(): SheetsArchiveConfig | null {
   };
 }
 
+/**
+ * 예약 1건 = 시트 1행.
+ * - 예약ID로 기존 행 검색 후 있으면 업데이트
+ * - 중복 행이 있으면 첫 행만 남기고 삭제
+ * - 없으면 append
+ */
 export async function syncReservationToSheets(
   reservationId: string,
   data: Record<string, unknown>,
@@ -183,17 +250,72 @@ export async function syncReservationToSheets(
   const sheets = createSheetsClient(config.serviceAccountJson || undefined);
   const tabName = resolveSheetTabName(data);
   const rowValues = buildReservationSheetRow(reservationId, data);
+  const sheetId = await ensureTabWithHeaders(sheets, config.spreadsheetId, tabName);
 
   const existing = data.sheetsArchive as SheetsArchiveMeta | undefined;
   const sameSpreadsheet =
-    existing?.spreadsheetId === config.spreadsheetId && existing?.tab === tabName;
+    existing?.spreadsheetId === config.spreadsheetId &&
+    existing?.tab === tabName &&
+    typeof existing?.row === 'number' &&
+    existing.row > 0;
 
-  let rowNumber = sameSpreadsheet ? existing?.row : undefined;
+  // 1) 시트에서 예약ID로 실제 행 찾기 (레이스로 중복 append된 경우 대비)
+  let matchedRows = await findRowsByReservationId(
+    sheets,
+    config.spreadsheetId,
+    tabName,
+    reservationId
+  );
 
-  if (rowNumber && rowNumber > 0) {
+  let rowNumber: number;
+
+  if (matchedRows.length > 0) {
+    rowNumber = matchedRows[0];
     await updateReservationRow(sheets, config.spreadsheetId, tabName, rowNumber, rowValues);
+
+    // 중복 행 제거 (2번째 이후)
+    if (matchedRows.length > 1) {
+      await deleteSheetRows(sheets, config.spreadsheetId, sheetId, matchedRows.slice(1));
+      // 삭제 후 행 번호가 바뀔 수 있어 다시 조회
+      matchedRows = await findRowsByReservationId(
+        sheets,
+        config.spreadsheetId,
+        tabName,
+        reservationId
+      );
+      rowNumber = matchedRows[0] || rowNumber;
+      await updateReservationRow(sheets, config.spreadsheetId, tabName, rowNumber, rowValues);
+    }
+  } else if (sameSpreadsheet) {
+    // 메타는 있는데 A열에 없음 → 해당 행에 다시 쓰거나 append
+    rowNumber = existing!.row;
+    try {
+      await updateReservationRow(sheets, config.spreadsheetId, tabName, rowNumber, rowValues);
+    } catch {
+      rowNumber = await appendReservationRow(sheets, config.spreadsheetId, tabName, rowValues);
+    }
   } else {
     rowNumber = await appendReservationRow(sheets, config.spreadsheetId, tabName, rowValues);
+
+    // append 직후 레이스로 또 들어갔는지 한 번 더 정리
+    matchedRows = await findRowsByReservationId(
+      sheets,
+      config.spreadsheetId,
+      tabName,
+      reservationId
+    );
+    if (matchedRows.length > 1) {
+      rowNumber = matchedRows[0];
+      await updateReservationRow(sheets, config.spreadsheetId, tabName, rowNumber, rowValues);
+      await deleteSheetRows(sheets, config.spreadsheetId, sheetId, matchedRows.slice(1));
+      matchedRows = await findRowsByReservationId(
+        sheets,
+        config.spreadsheetId,
+        tabName,
+        reservationId
+      );
+      rowNumber = matchedRows[0] || rowNumber;
+    }
   }
 
   return {

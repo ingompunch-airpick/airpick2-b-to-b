@@ -5,6 +5,39 @@ import {
   syncReservationToSheets,
 } from './syncReservation';
 
+const LOCK_TTL_MS = 45_000;
+
+/** 동시 실행 시 중복 append 방지 */
+async function tryClaimSheetsSync(reservationId: string): Promise<boolean> {
+  const ref = admin.firestore().doc(`reservations/${reservationId}`);
+  try {
+    return await admin.firestore().runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      if (!snap.exists) return false;
+      const data = snap.data() || {};
+      const startedAt = Date.parse(String(data.sheetsSyncInProgress || ''));
+      if (Number.isFinite(startedAt) && Date.now() - startedAt < LOCK_TTL_MS) {
+        return false;
+      }
+      tx.update(ref, { sheetsSyncInProgress: new Date().toISOString() });
+      return true;
+    });
+  } catch (error) {
+    console.warn('[sheets] lock claim failed', { reservationId, error });
+    return false;
+  }
+}
+
+async function clearSheetsSyncLock(reservationId: string): Promise<void> {
+  await admin
+    .firestore()
+    .doc(`reservations/${reservationId}`)
+    .update({
+      sheetsSyncInProgress: admin.firestore.FieldValue.delete(),
+    })
+    .catch(() => undefined);
+}
+
 export async function processReservationSheetsArchive(
   reservationId: string,
   beforeData: FirebaseFirestore.DocumentData | undefined,
@@ -21,24 +54,26 @@ export async function processReservationSheetsArchive(
     return;
   }
 
+  const claimed = await tryClaimSheetsSync(reservationId);
+  if (!claimed) {
+    console.log('[sheets] skipped — sync already in progress', { reservationId });
+    return;
+  }
+
   try {
-    const meta = await syncReservationToSheets(reservationId, afterData, config);
-    if (!meta) return;
+    // 락 직후 최신 문서 재조회 (다른 인스턴스가 sheetsArchive를 썼을 수 있음)
+    const fresh = await admin.firestore().doc(`reservations/${reservationId}`).get();
+    const freshData = (fresh.data() || afterData) as Record<string, unknown>;
 
-    const existing = afterData.sheetsArchive as { syncedAt?: string } | undefined;
-    const unchanged =
-      existing &&
-      typeof existing === 'object' &&
-      'tab' in existing &&
-      existing.tab === meta.tab &&
-      'row' in existing &&
-      existing.row === meta.row &&
-      existing.syncedAt === meta.syncedAt;
-
-    if (unchanged) return;
+    const meta = await syncReservationToSheets(reservationId, freshData, config);
+    if (!meta) {
+      await clearSheetsSyncLock(reservationId);
+      return;
+    }
 
     await admin.firestore().doc(`reservations/${reservationId}`).update({
       sheetsArchive: meta,
+      sheetsSyncInProgress: admin.firestore.FieldValue.delete(),
     });
 
     console.log('[sheets] synced', {
@@ -49,6 +84,7 @@ export async function processReservationSheetsArchive(
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
     console.error('[sheets] sync failed', { reservationId, message });
+    await clearSheetsSyncLock(reservationId);
     await admin
       .firestore()
       .doc(`reservations/${reservationId}`)
