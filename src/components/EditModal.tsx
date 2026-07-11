@@ -9,9 +9,7 @@ import {
   resolveBookingSourceFromReservation,
   isExternalCustomerBooking,
 } from '../utils/bookingSource';
-import { airlineSelectOptions, DEFAULT_AIRLINES } from '../utils/flightFields';
-
-const AIRLINES = [...DEFAULT_AIRLINES];
+import AirlinePicker from './AirlinePicker';
 
 function cn(...classes: (string | boolean | undefined | null)[]) {
   return classes.filter(Boolean).join(' ');
@@ -366,16 +364,11 @@ export default function EditModal({
 
               <div className="relative group">
                 <label className="text-[12px] font-black text-[#8E8E93] block mb-1">출국 항공사</label>
-                <select
+                <AirlinePicker
                   value={driverEditDeptAirline}
-                  onChange={(e) => setDriverEditDeptAirline(e.target.value)}
-                  className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[14px] text-white font-bold outline-none focus:border-[#FF9F0A] transition-colors"
-                >
-                  <option value="">선택 안 함</option>
-                  {airlineSelectOptions(driverEditDeptAirline, AIRLINES).map((a) => (
-                    <option key={a} value={a}>{a}</option>
-                  ))}
-                </select>
+                  onChange={setDriverEditDeptAirline}
+                  tone="dark"
+                />
               </div>
 
               <div className="relative group">
@@ -391,16 +384,11 @@ export default function EditModal({
 
               <div className="relative group">
                 <label className="text-[12px] font-black text-[#8E8E93] block mb-1">입국 항공사</label>
-                <select
+                <AirlinePicker
                   value={driverEditArrAirline}
-                  onChange={(e) => setDriverEditArrAirline(e.target.value)}
-                  className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[14px] text-white font-bold outline-none focus:border-[#FF9F0A] transition-colors"
-                >
-                  <option value="">선택 안 함</option>
-                  {airlineSelectOptions(driverEditDeptAirline, AIRLINES).map((a) => (
-                    <option key={a} value={a}>{a}</option>
-                  ))}
-                </select>
+                  onChange={setDriverEditArrAirline}
+                  tone="dark"
+                />
               </div>
 
               <div className="relative group">

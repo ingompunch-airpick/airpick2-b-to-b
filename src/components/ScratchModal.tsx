@@ -8,6 +8,7 @@ import {
 } from '../utils/paymentStatus';
 import { uploadReservationImages } from '../lib/reservationPhotos';
 import { ensureFirestoreAuth } from '../lib/reservationFirestore';
+import { resolveRequiredCompanyId } from '../utils/companyDisplay';
 import { readImageFilesAsDataUrls, safePersistPhotoDraft } from '../utils/imageFile';
 import InlineVehicleCamera from './InlineVehicleCamera';
 
@@ -296,9 +297,16 @@ export default function ScratchModal({
                   try {
                     let imageUrls: string[] = [];
                     if (uploadedPhotos.length > 0) {
+                      const companyId = resolveRequiredCompanyId(
+                        targetReservationForScratch.companyId
+                      );
+                      if (!companyId) {
+                        alert('예약에 업체 정보가 없어 사진을 업로드할 수 없습니다.');
+                        return;
+                      }
                       imageUrls = await uploadReservationImages(
                         scratchModalTargetId,
-                        targetReservationForScratch.companyId || 'wawa',
+                        companyId,
                         uploadedPhotos
                       );
                     }

@@ -32,6 +32,17 @@ export const DEFAULT_AIRLINES = [
   '에어부산',
 ] as const;
 
+/** 셀렉트에서 「기타」 선택 시 내부 값 */
+export const OTHER_AIRLINE_VALUE = '__other__';
+
+export function isListedAirline(
+  name: string,
+  airlines: readonly string[] = DEFAULT_AIRLINES
+): boolean {
+  const v = name.trim();
+  return Boolean(v) && (airlines as readonly string[]).includes(v);
+}
+
 /** select 목록에 없는 홈페이지 값도 표시 */
 export function airlineSelectOptions(
   currentValue: string,

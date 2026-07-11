@@ -17,7 +17,7 @@ import CustomDatePickerModal from './CustomDatePickerModal';
 import TimePickerModal from './TimePickerModal';
 import { getCalculatePrice, checkIsNightSurcharge, mergePartnerPricing, getParkingDayCount } from '../utils/pricing';
 import { getKSTDateTimeLocalString } from '../utils/kstDate';
-import { formatPartnerDisplayName } from '../utils/companyDisplay';
+import { formatPartnerDisplayName, resolveRequiredCompanyId } from '../utils/companyDisplay';
 import { persistReservationStores } from '../utils/reservationScope';
 import { getOperatorIntakeCompanyOptions } from '../utils/operatorHierarchy';
 
@@ -25,9 +25,7 @@ function cn(...classes: (string | boolean | undefined)[]) {
   return classes.filter(Boolean).join(' ');
 }
 
-import { airlineSelectOptions, DEFAULT_AIRLINES } from '../utils/flightFields';
-
-const AIRLINES = [...DEFAULT_AIRLINES];
+import AirlinePicker from './AirlinePicker';
 
 function isT2Route(departure: 'T1' | 'T2', arrival: 'T1' | 'T2') {
   return departure === 'T2' || arrival === 'T2';
@@ -224,7 +222,8 @@ export default function SearchReceptionView({
 
   // Extract active blocked dates for current company selection (companies/{id}.blockedDates)
   const getActiveBlockedDates = (): string[] => {
-    const activeCompId = selectedCompanyId || currentCompanyId || 'wawa';
+    const activeCompId = resolveRequiredCompanyId(selectedCompanyId, currentCompanyId);
+    if (!activeCompId) return [];
     const fromCompany = companies.find((c) => c.id === activeCompId);
     if (fromCompany && Array.isArray(fromCompany.blockedDates)) {
       return fromCompany.blockedDates;
@@ -239,8 +238,13 @@ export default function SearchReceptionView({
   const handleCreateIntakeBooking = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmittingBooking(true);
-    
-    const activeCompId = selectedCompanyId || currentCompanyId || 'wawa';
+
+    const activeCompId = resolveRequiredCompanyId(selectedCompanyId, currentCompanyId);
+    if (!activeCompId) {
+      alert('업체가 선택되지 않았습니다. 다시 로그인한 뒤 접수해 주세요.');
+      setIsSubmittingBooking(false);
+      return;
+    }
     let partnerObj = companies.find(c => c.id === activeCompId);
     if (!partnerObj) {
       try {
@@ -426,7 +430,15 @@ export default function SearchReceptionView({
   const handleSaveSearchedResEdit = async () => {
     if (!editingSearchedRes) return;
 
-    const activeCompId = selectedCompanyId || currentCompanyId || 'wawa';
+    const activeCompId = resolveRequiredCompanyId(
+      selectedCompanyId,
+      currentCompanyId,
+      editingSearchedRes.companyId
+    );
+    if (!activeCompId) {
+      alert('업체 정보가 없어 저장할 수 없습니다. 다시 로그인해 주세요.');
+      return;
+    }
     let partnerObj = companies.find(c => c.id === activeCompId);
     const partner: any = {
       id: activeCompId,
@@ -832,12 +844,11 @@ export default function SearchReceptionView({
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-[11px] text-zinc-500 font-bold block mb-1">출국 항공사</label>
-                  <select value={departureAirline} onChange={(e) => setDepartureAirline(e.target.value)} className="w-full px-3 py-2 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-100 text-xs font-bold outline-none focus:border-amber-500">
-                    <option value="">선택 안 함</option>
-                    {airlineSelectOptions(departureAirline, AIRLINES).map((a) => (
-                      <option key={a} value={a}>{a}</option>
-                    ))}
-                  </select>
+                  <AirlinePicker
+                    value={departureAirline}
+                    onChange={setDepartureAirline}
+                    tone="dark"
+                  />
                 </div>
                 <div>
                   <label className="text-[11px] text-zinc-500 font-bold block mb-1">출국 항공편명</label>
@@ -845,12 +856,11 @@ export default function SearchReceptionView({
                 </div>
                 <div>
                   <label className="text-[11px] text-zinc-500 font-bold block mb-1">입국 항공사</label>
-                  <select value={arrivalAirline} onChange={(e) => setArrivalAirline(e.target.value)} className="w-full px-3 py-2 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-100 text-xs font-bold outline-none focus:border-amber-500">
-                    <option value="">선택 안 함</option>
-                    {airlineSelectOptions(arrivalAirline, AIRLINES).map((a) => (
-                      <option key={a} value={a}>{a}</option>
-                    ))}
-                  </select>
+                  <AirlinePicker
+                    value={arrivalAirline}
+                    onChange={setArrivalAirline}
+                    tone="dark"
+                  />
                 </div>
                 <div>
                   <label className="text-[11px] text-zinc-500 font-bold block mb-1">입국 항공편명</label>
@@ -874,7 +884,8 @@ export default function SearchReceptionView({
 
           {/* Real-time fare display statement */}
           {(selectedCompanyId || currentCompanyId) && (() => {
-            const activeCompId = selectedCompanyId || currentCompanyId || 'wawa';
+            const activeCompId = resolveRequiredCompanyId(selectedCompanyId, currentCompanyId);
+            if (!activeCompId) return null;
             let partnerObj = companies.find(c => c.id === activeCompId);
             if (!partnerObj) {
               try {
@@ -1238,12 +1249,11 @@ export default function SearchReceptionView({
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="text-[11px] text-zinc-500 font-bold block mb-1">출국 항공사</label>
-                    <select value={editSearchedDepartureAirline} onChange={(e) => setEditSearchedDepartureAirline(e.target.value)} className="w-full px-2 py-2 bg-neutral-955 border border-neutral-800 rounded-xl text-zinc-200 text-xs font-bold outline-none focus:border-amber-500">
-                      <option value="">선택 안 함</option>
-                      {airlineSelectOptions(editSearchedDepartureAirline, AIRLINES).map((a) => (
-                        <option key={a} value={a}>{a}</option>
-                      ))}
-                    </select>
+                    <AirlinePicker
+                      value={editSearchedDepartureAirline}
+                      onChange={setEditSearchedDepartureAirline}
+                      tone="dark"
+                    />
                   </div>
                   <div>
                     <label className="text-[11px] text-zinc-500 font-bold block mb-1">출국 편명</label>
@@ -1251,12 +1261,11 @@ export default function SearchReceptionView({
                   </div>
                   <div>
                     <label className="text-[11px] text-zinc-500 font-bold block mb-1">입국 항공사</label>
-                    <select value={editSearchedArrivalAirline} onChange={(e) => setEditSearchedArrivalAirline(e.target.value)} className="w-full px-2 py-2 bg-neutral-955 border border-neutral-800 rounded-xl text-zinc-200 text-xs font-bold outline-none focus:border-amber-500">
-                      <option value="">선택 안 함</option>
-                      {airlineSelectOptions(editSearchedArrivalAirline, AIRLINES).map((a) => (
-                        <option key={a} value={a}>{a}</option>
-                      ))}
-                    </select>
+                    <AirlinePicker
+                      value={editSearchedArrivalAirline}
+                      onChange={setEditSearchedArrivalAirline}
+                      tone="dark"
+                    />
                   </div>
                   <div>
                     <label className="text-[11px] text-zinc-500 font-bold block mb-1">입국 편명</label>

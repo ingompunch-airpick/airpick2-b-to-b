@@ -153,7 +153,7 @@ export default function Sidebar({
           <div className="flex items-center justify-between p-2.5 bg-neutral-900 rounded-xl border border-neutral-800 text-xs">
             <span className="text-zinc-400 font-medium">단말기 ID</span>
             <span className="font-mono font-bold text-white uppercase text-[13px] tracking-wider">
-              {isSuperAdmin ? 'airpick' : (currentCompanyId || companyInfo?.id || 'wawa')}
+              {isSuperAdmin ? 'airpick' : (currentCompanyId || companyInfo?.id || '—')}
             </span>
           </div>
         </div>

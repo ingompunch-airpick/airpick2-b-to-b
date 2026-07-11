@@ -27,7 +27,7 @@ import { motion, AnimatePresence } from 'motion/react';
 
 // --- Modular Typed Constants and Data ---
 import { Company, Reservation, ReservationStatus, PaymentMethod, AppView, CompanyInfo, PartnerCompany } from './types';
-import { formatPartnerDisplayName } from './utils/companyDisplay';
+import { formatPartnerDisplayName, resolveRequiredCompanyId } from './utils/companyDisplay';
 import { persistReservationStores } from './utils/reservationScope';
 import {
   filterReservationsForOperatorGroup,
@@ -233,7 +233,7 @@ export default function App() {
   
   // Track currently active company ID for dynamic partition isolation
   const [currentCompanyId, setCurrentCompanyId] = useState<string>(() => {
-    return normalizePlatformCompanyId(localStorage.getItem('current_company_id')) || 'wawa';
+    return normalizePlatformCompanyId(localStorage.getItem('current_company_id')) || '';
   });
 
   const [companyInfo, setCompanyInfo] = useState<CompanyInfo>(() => {
@@ -242,28 +242,32 @@ export default function App() {
       try {
         const parsed = JSON.parse(saved);
         if (parsed && typeof parsed === 'object') {
+          const id = String(parsed.id || '').trim();
           return {
             ...parsed,
-            id: parsed.id || 'wawa',
-            name: parsed.name ? formatPartnerDisplayName(parsed.name, parsed.id) : '와와',
-            region: parsed.region || '인천공항 1터미널',
-            phone: parsed.phone || '1545-5746',
+            id,
+            name: parsed.name
+              ? formatPartnerDisplayName(parsed.name, id)
+              : formatPartnerDisplayName('', id) || '',
+            region: parsed.region || '',
+            phone: parsed.phone || '',
             logo: parsed.logo || '',
           };
         }
       } catch (e) {}
     }
     return {
-      id: 'wawa',
-      name: '와와',
-      region: '인천공항 1터미널',
-      phone: '1545-5746',
+      id: '',
+      name: '',
+      region: '',
+      phone: '',
       logo: '',
     };
   });
 
   const [reservations, setReservations] = useState<Reservation[]>(() => {
-    const compId = localStorage.getItem('current_company_id') || 'wawa';
+    const compId = localStorage.getItem('current_company_id') || '';
+    if (!compId) return [];
     if (isAirpickHeadquarters(compId)) {
       const allRes: Reservation[] = [];
       const seenIds = new Set<string>();
@@ -1169,7 +1173,11 @@ export default function App() {
       setIsLocalAdmin(true);
       setIsMasterAdmin(true);
       setIsAdminModeActive(true);
-      const partnerId = companyInfo.id || currentCompanyId || 'wawa';
+      const partnerId = resolveRequiredCompanyId(companyInfo.id, currentCompanyId);
+      if (!partnerId) {
+        setLoginError('업체 정보가 없습니다. Gate에서 다시 로그인해 주세요.');
+        return;
+      }
       setCurrentCompanyId(partnerId);
       localStorage.setItem('current_company_id', partnerId);
       localStorage.setItem('local_is_super_admin', 'false');
@@ -1261,13 +1269,13 @@ export default function App() {
       setIsEmployee(false);
       setEmployeeName('');
       setEmployeeRole('driver');
-      setCurrentCompanyId('wawa');
+      setCurrentCompanyId('');
       setCurrentView('timeline');
       setCompanyInfo({
-        id: 'wawa',
-        name: '와와',
-        region: '인천공항 1터미널',
-        phone: '1545-5746',
+        id: '',
+        name: '',
+        region: '',
+        phone: '',
         logo: '',
       });
       
@@ -1300,8 +1308,15 @@ export default function App() {
       setIsEmployee(false);
       setEmployeeName('');
       setEmployeeRole('driver');
-      setCurrentCompanyId('wawa');
+      setCurrentCompanyId('');
       setCurrentView('timeline');
+      setCompanyInfo({
+        id: '',
+        name: '',
+        region: '',
+        phone: '',
+        logo: '',
+      });
       
       localStorage.removeItem('is_logged_in');
       localStorage.removeItem('local_is_super_admin');

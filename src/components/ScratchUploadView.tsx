@@ -3,6 +3,7 @@ import { ArrowLeft, Camera, RefreshCw, X, CheckCircle2 } from 'lucide-react';
 import { Reservation } from '../types';
 import { uploadReservationImages } from '../lib/reservationPhotos';
 import { ensureFirestoreAuth } from '../lib/reservationFirestore';
+import { resolveRequiredCompanyId } from '../utils/companyDisplay';
 import { readImageFilesAsDataUrls } from '../utils/imageFile';
 
 interface Props {
@@ -53,7 +54,11 @@ function PhotoCard({
     setIsSaving(true);
     try {
       await ensureFirestoreAuth();
-      const uploaded = await uploadReservationImages(res.id!, res.companyId || 'wawa', next);
+      const companyId = resolveRequiredCompanyId(res.companyId);
+      if (!companyId) {
+        throw new Error('예약에 업체 정보가 없습니다. 다시 조회한 뒤 업로드해 주세요.');
+      }
+      const uploaded = await uploadReservationImages(res.id!, companyId, next);
       await onUpdateImages(res.id!, uploaded);
       setPreviews(uploaded);
       setSaved(true);
