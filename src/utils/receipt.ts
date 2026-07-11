@@ -22,6 +22,7 @@ export function resolveReceiptLookupCode(
   return (reservation.receiptToken || reservation.receiptCode || reservation.id || '').trim();
 }
 
+/** B2B Hosting(`airpick-reservation`)용 — `/r/{token|code|id}` */
 export function buildReceiptPath(
   reservation: Pick<Reservation, 'id' | 'receiptCode' | 'receiptToken'>
 ): string {
@@ -29,12 +30,24 @@ export function buildReceiptPath(
   return code ? `/r/${encodeURIComponent(code)}` : '';
 }
 
+/**
+ * 공개 도메인(에어픽.kr = B2C Hosting)용.
+ * B2C 접수증: `/r/{reservationId}?t={receiptToken}`
+ */
 export function buildReceiptUrl(
   reservation: Pick<Reservation, 'id' | 'receiptCode' | 'receiptToken'>,
   origin: string = RECEIPT_PUBLIC_ORIGIN
 ): string {
+  const base = origin.replace(/\/$/, '');
+  const id = (reservation.id || '').trim();
+  const token = (reservation.receiptToken || '').trim();
+
+  if (id && token) {
+    return `${base}/r/${encodeURIComponent(id)}?t=${encodeURIComponent(token)}`;
+  }
+
   const path = buildReceiptPath(reservation);
-  return path ? `${origin.replace(/\/$/, '')}${path}` : '';
+  return path ? `${base}${path}` : '';
 }
 
 /** `2026-07-08` + `11:30` → `2026년 07월 08일 11시 30분` */

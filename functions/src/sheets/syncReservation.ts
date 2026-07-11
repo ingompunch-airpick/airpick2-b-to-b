@@ -205,6 +205,8 @@ async function updateReservationRow(
 const SYNC_SKIP_FIELDS = new Set([
   'sheetsArchive',
   'sheetsSyncInProgress',
+  'sheetsSyncPending',
+  'sheetsSyncPendingAt',
   'alimtalkSent',
   'updatedAt',
   'updatedBy',
