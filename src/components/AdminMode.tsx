@@ -10,6 +10,7 @@ interface AdminModeProps {
   reservations: Reservation[];
   allReservations?: Reservation[];
   onUpdateValetStatus: (resId: string, nextStatus: any) => void;
+  onEditReservation?: (res: Reservation) => void;
   companyInfo: CompanyInfo;
   onUpdateCompany: (info: CompanyInfo) => void;
   companies: Company[];
@@ -35,6 +36,7 @@ export default function AdminMode({
   reservations,
   allReservations = [],
   onUpdateValetStatus,
+  onEditReservation,
   companyInfo,
   onUpdateCompany,
   companies,
@@ -60,6 +62,7 @@ export default function AdminMode({
       blockedDates={blockedDates}
       onSaveBlockedDates={onSaveBlockedDates}
       onUpdateValetStatus={onUpdateValetStatus}
+      onEditReservation={onEditReservation}
     />
   );
 

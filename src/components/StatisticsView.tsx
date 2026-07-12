@@ -83,6 +83,8 @@ interface StatisticsViewProps {
   blockedDates?: string[];
   onSaveBlockedDates?: (dates: string[]) => void;
   onUpdateValetStatus?: (resId: string, nextStatus: any, extraFields?: any) => Promise<void> | void;
+  /** CRM 상세 → 예약 수정/취소 모달 */
+  onEditReservation?: (res: Reservation) => void;
 }
 
 export default function StatisticsView({ 
@@ -94,6 +96,7 @@ export default function StatisticsView({
   blockedDates = [],
   onSaveBlockedDates,
   onUpdateValetStatus,
+  onEditReservation,
 }: StatisticsViewProps) {
   // ── 접수내역 CRM 상태 (합친 섹션) ──────────────────────────
   const [crmSearch, setCrmSearch] = useState('');
@@ -1230,6 +1233,19 @@ export default function StatisticsView({
                 <a href={`tel:${crmSelected.phone}`} className="flex items-center justify-center gap-2 w-full py-3 bg-amber-500 text-neutral-950 rounded-xl font-black text-xs">
                   <PhoneCall size={14} />즉시 통화
                 </a>
+                {onEditReservation && crmSelected.status !== 'cancelled' && crmSelected.status !== 'completed_out' && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const target = crmSelected;
+                      setCrmSelected(null);
+                      onEditReservation(target);
+                    }}
+                    className="flex items-center justify-center gap-2 w-full py-3 bg-white text-neutral-950 rounded-xl font-black text-xs"
+                  >
+                    예약 수정 · 취소
+                  </button>
+                )}
                 {onUpdateValetStatus && (crmSelected.status === 'completed_in' || crmSelected.status === 'request_out') && (
                   <div className="flex gap-2">
                     {crmSelected.status === 'completed_in' && (

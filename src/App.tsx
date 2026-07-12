@@ -1853,6 +1853,7 @@ export default function App() {
                     reservations={visibleReservations}
                     allReservations={reservations}
                     onUpdateValetStatus={handleUpdateValetStatus}
+                    onEditReservation={(res) => setDriverDetailRes(res)}
                     companyInfo={companyInfo}
                     onUpdateCompany={(updated) => {
                       setCompanyInfo(updated);
