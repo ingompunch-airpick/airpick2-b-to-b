@@ -2003,25 +2003,25 @@ export default function App() {
               initial={{ opacity: 0, scale: 0.95, y: 15 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.95, y: 15 }}
-              className="relative bg-slate-100 w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]"
+              className="relative bg-[#141416] w-full max-w-lg rounded-3xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh] border border-neutral-800"
             >
-              <div className="p-4 border-b border-slate-200 flex items-center justify-between bg-slate-200/50">
+              <div className="p-4 border-b border-neutral-800 flex items-center justify-between bg-[#1A1A1D]">
                 <div className="flex items-center gap-2">
-                  <ShieldCheck className="text-red-600" size={18} />
-                  <span className="text-[13px] font-black font-mono text-slate-800">
-                    최고관리자 데이터 보안 모드
+                  <ShieldCheck className="text-amber-500" size={18} />
+                  <span className="text-[13px] font-black font-mono text-zinc-100">
+                    최고관리자 설정
                   </span>
                 </div>
                 <button 
                   type="button" 
                   onClick={() => setShowAdminModal(false)} 
-                  className="p-1 text-slate-500 hover:bg-slate-300 rounded-full"
+                  className="p-1 text-zinc-500 hover:bg-neutral-800 hover:text-zinc-200 rounded-full"
                 >
                   <X size={16} />
                 </button>
               </div>
               
-              <div className="overflow-y-auto p-5 flex-1 select-none">
+              <div className="overflow-y-auto p-5 flex-1 select-none bg-[#141416]">
                 <AdminDashboard 
                   onClose={() => setShowAdminModal(false)} 
                   companies={companies} 
