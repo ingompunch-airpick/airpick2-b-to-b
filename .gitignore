@@ -143,5 +143,18 @@ android/local.properties
 android/capacitor-cordova-android-plugins/
 android/.idea/
 *.jks
+*.jks.*
 *.keystore
 keystore.properties
+
+# macOS
+.DS_Store
+
+# Firebase local deploy cache
+.firebase/
+
+# Cloud Functions compile output (functions/src 만 커밋)
+functions/lib/
+
+# Local store listing screenshots / marketing exports
+store-assets/
