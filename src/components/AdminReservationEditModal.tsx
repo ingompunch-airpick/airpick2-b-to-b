@@ -184,7 +184,7 @@ export default function AdminReservationEditModal({
 
           {/* 2nd Section: Pricing Details manually defined (with VAT) */}
           <div className="p-4 bg-neutral-955 border border-neutral-850 rounded-2xl space-y-3 font-sans text-xs">
-            <span className="text-[12px] font-extrabold text-amber-500 uppercase tracking-wider block">💸 정형 정밀 금융 수납 수동 조율</span>
+            <span className="text-[12px] font-extrabold text-amber-500 uppercase tracking-wider block">정형 정밀 금융 수납 수동 조율</span>
             
             <div className="grid grid-cols-2 gap-3.5">
               <div>
@@ -267,7 +267,7 @@ export default function AdminReservationEditModal({
               <span>관리자 마스터 권한 (Master Override)</span>
             </div>
             <p className="text-[11.5px] text-zinc-500 leading-normal">
-              ⚠️ 본 제어 기능은 손가락 오작동을 최소화하면서도 마스터 권한을 행사할 수 있게 특별 구성되었습니다. 상태 변경 시 즉시 Firestore 실시간 서버 데이터와 동기화됩니다.
+              본 제어 기능은 손가락 오작동을 최소화하면서도 마스터 권한을 행사할 수 있게 특별 구성되었습니다. 상태 변경 시 즉시 Firestore 실시간 서버 데이터와 동기화됩니다.
             </p>
 
             <div className="pt-1.5">
@@ -275,7 +275,7 @@ export default function AdminReservationEditModal({
                 <button
                   type="button"
                   onClick={async () => {
-                    if (window.confirm("⚠️ 정말 강제로 차량 상태를 변경하시겠습니까? 현장 데이터가 즉시 동기화됩니다.")) {
+                    if (window.confirm("정말 강제로 차량 상태를 변경하시겠습니까? 현장 데이터가 즉시 동기화됩니다.")) {
                       await handleUpdateValetStatus(targetReservationForEdit.id || '', 'request_out');
                     }
                   }}
@@ -288,7 +288,7 @@ export default function AdminReservationEditModal({
                 <button
                   type="button"
                   onClick={async () => {
-                    if (window.confirm("⚠️ 정말 강제로 차량 상태를 변경하시겠습니까? 현장 데이터가 즉시 동기화됩니다.")) {
+                    if (window.confirm("정말 강제로 차량 상태를 변경하시겠습니까? 현장 데이터가 즉시 동기화됩니다.")) {
                       await handleUpdateValetStatus(targetReservationForEdit.id || '', 'completed_out', {
                         actualExitTime: getKSTDateTimeString()
                       });

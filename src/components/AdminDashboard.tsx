@@ -6,14 +6,13 @@ import {
   PlusCircle, 
   X 
 } from 'lucide-react';
-import { 
-  doc, 
-  updateDoc
-} from 'firebase/firestore';
-import { db } from '../firebase';
+import { auth } from '../firebase';
 import { Company, Reservation, PartnerCompany } from '../types';
 import PartnerOnboardingChecklist from './PartnerOnboardingChecklist';
-import { ensurePlatformAdminAuth, getPlatformAdminCredentials } from '../lib/firebaseAuth';
+import {
+  isPlatformAdminUser,
+} from '../lib/firebaseAuth';
+import { adminUpsertCompany, adminSetCompanyStatus } from '../lib/adminCompanyApi';
 import { getKSTDateOnlyString } from '../utils/kstDate';
 import {
   appendPartnerToList,
@@ -178,29 +177,32 @@ export default function AdminDashboard({
     safeStorage.setItem('companies', JSON.stringify(updatedCompanies));
 
     try {
-      await ensurePlatformAdminAuth();
-      await updateDoc(doc(db, 'companies', targetId), {
-        ...profileExtrasForFirestore(profileToSave),
-        parentCompanyId: editingSubCompany.parentCompanyId,
-        isOperatorPrimary: false,
-        updatedAt: new Date().toISOString(),
+      await adminUpsertCompany({
+        companyId: targetId,
+        patch: {
+          ...profileExtrasForFirestore(profileToSave),
+          parentCompanyId: editingSubCompany.parentCompanyId,
+          isOperatorPrimary: false,
+        },
       });
     } catch (err) {
-      console.warn('Firestore sub-operator update failed:', err);
+      console.warn('adminUpsertCompany sub-operator update failed:', err);
       alert(
-        '❌ 하위 업체 위치·프로필 저장에 실패했습니다.\n최고관리자 Firebase 로그인(.env)을 확인하세요.'
+        `하위 업체 위치·프로필 저장에 실패했습니다.\n${
+          err instanceof Error ? err.message : String(err)
+        }`
       );
       return;
     }
 
-    alert(`🏢 [${editingSubCompany.name}] 하위 업체 정보가 수정되었습니다.`);
+    alert(`[${editingSubCompany.name}] 하위 업체 정보가 수정되었습니다.`);
     setEditingSubCompany(null);
   };
 
   const handleDeleteSub = async (companyId: string, companyName: string) => {
     if (
       !window.confirm(
-        `⚠️ [${companyName} (${companyId})] 하위 업체를 삭제하시겠습니까?\nB2C 노출 및 Firestore companies 문서가 삭제됩니다.`
+        `[${companyName} (${companyId})] 하위 업체를 삭제하시겠습니까?\nB2C 노출 및 Firestore companies 문서가 삭제됩니다.`
       )
     ) {
       return;
@@ -213,13 +215,17 @@ export default function AdminDashboard({
     try {
       await deletePartnerFromFirestore(companyId, { isSubOperator: true });
     } catch (err) {
-      console.warn('Firestore sub delete failed:', err);
-      alert('❌ Firebase 하위 업체 삭제에 실패했습니다.');
+      console.warn('adminDeleteCompany sub failed:', err);
+      alert(
+        `Firebase 하위 업체 삭제에 실패했습니다.\n${
+          err instanceof Error ? err.message : String(err)
+        }`
+      );
       return;
     }
 
     removePartnerLocalPartitions(companyId, safeStorage);
-    alert(`🏢 [${companyName}] 하위 업체가 삭제되었습니다.`);
+    alert(`[${companyName}] 하위 업체가 삭제되었습니다.`);
   };
 
   const handleStartEdit = (p: PartnerCompany) => {
@@ -265,10 +271,9 @@ export default function AdminDashboard({
         return;
       }
 
-      const adminCreds = getPlatformAdminCredentials();
-      if (!adminCreds) {
+      if (!isPlatformAdminUser(auth.currentUser)) {
         setSaveEditError(
-          '.env의 VITE_FIREBASE_ADMIN_PASSWORD 가 비어 있습니다. 비밀번호를 넣은 뒤 npm run dev 를 재시작하세요.'
+          '본사 Firebase 로그인이 필요합니다. Gate에서 관리자 이메일로 다시 로그인해 주세요.'
         );
         return;
       }
@@ -321,22 +326,23 @@ export default function AdminDashboard({
       safeStorage.setItem('companies', JSON.stringify(updatedCompanies));
 
       try {
-        await ensurePlatformAdminAuth();
-        await updateDoc(doc(db, 'companies', targetId), {
-          name: editName.trim(),
-          phone: editPhone.trim(),
-          representative: editRep.trim(),
-          password: editPassword,
-          settlementMemo: editMemo.trim(),
-          status: editingPartner.status || 'active',
-          isOperatorPrimary: true,
-          ...profileExtrasForFirestore(profileToSave),
-          updatedAt: new Date().toISOString(),
+        await adminUpsertCompany({
+          companyId: targetId,
+          patch: {
+            name: editName.trim(),
+            phone: editPhone.trim(),
+            representative: editRep.trim(),
+            password: editPassword,
+            settlementMemo: editMemo.trim(),
+            status: editingPartner.status || 'active',
+            isOperatorPrimary: true,
+            ...profileExtrasForFirestore(profileToSave),
+          },
         });
       } catch (err) {
-        console.warn('Firestore updateDoc for partner edit failed:', err);
+        console.warn('adminUpsertCompany for partner edit failed:', err);
         const detail = err instanceof Error ? err.message : String(err);
-        setSaveEditError(`Firestore 저장 실패: ${detail}`);
+        setSaveEditError(`저장 실패: ${detail}`);
         savingEditRef.current = false;
         setSavingEdit(false);
         return;
@@ -345,7 +351,7 @@ export default function AdminDashboard({
       savingEditRef.current = false;
       setSavingEdit(false);
       setEditingPartner(null);
-      alert(`🏢 [${editName}] 업체 정보가 성공적으로 수정되었습니다.`);
+      alert(`[${editName}] 업체 정보가 성공적으로 수정되었습니다.`);
     } catch (err) {
       console.error('handleSaveEdit unexpected error:', err);
       const detail = err instanceof Error ? err.message : String(err);
@@ -419,12 +425,11 @@ export default function AdminDashboard({
     onUpdatePartners(updated);
     safeStorage.setItem('super_partners_list', JSON.stringify(updated));
 
-    // Update in Firestore to persist status change (non-blocking)
-    updateDoc(doc(db, 'companies', id), {
-      status: nextStatus,
-      updatedAt: new Date().toISOString()
-    }).catch(err => {
-      console.warn("Firestore status toggle failed:", err);
+    void adminSetCompanyStatus({ companyId: id, status: nextStatus }).catch((err) => {
+      console.warn('adminSetCompanyStatus failed:', err);
+      alert(
+        `상태 변경 저장에 실패했습니다.\n${err instanceof Error ? err.message : String(err)}`
+      );
     });
   };
 
@@ -507,8 +512,12 @@ export default function AdminDashboard({
     try {
       await writeNewPartnerToFirestore(newCompany, newPartner);
     } catch (err) {
-      console.warn('Firestore setDoc for brand-new tenant registration failed:', err);
-      alert('❌ Firebase 업체 등록에 실패했습니다.\n.env에 VITE_FIREBASE_ADMIN_EMAIL/PASSWORD 설정 후, Firebase Console에서 해당 계정이 등록되어 있는지 확인하세요.');
+      console.warn('adminCreateCompany for brand-new tenant failed:', err);
+      alert(
+        `Firebase 업체 등록에 실패했습니다.\n${
+          err instanceof Error ? err.message : String(err)
+        }`
+      );
       return;
     }
 
@@ -587,11 +596,9 @@ export default function AdminDashboard({
     try {
       await writeSubOperatorToFirestore(newCompany);
     } catch (err) {
-      console.warn('Firestore sub-operator registration failed:', err);
+      console.warn('adminCreateCompany sub-operator failed:', err);
       const detail = err instanceof Error ? err.message : String(err);
-      alert(
-        `❌ Firebase 하위 업체 등록에 실패했습니다.\n\n${detail}\n\n대표 업체가 Firestore companies에 등록되어 있는지, Firebase Console → Authentication → Anonymous 사용 설정이 켜져 있는지 확인하세요.`
-      );
+      alert(`Firebase 하위 업체 등록에 실패했습니다.\n\n${detail}`);
       return;
     }
 
@@ -615,7 +622,7 @@ export default function AdminDashboard({
 
   // Deletion logic
   const handleDeletePartner = async (companyId: string, companyName: string) => {
-    if (window.confirm(`⚠️ 경고! [${companyName} (${companyId})] 제휴업체를 완전히 삭제하시겠습니까?\n삭제 즉시 해당 제휴업체의 계정 정보 및 Firestore 파티션 설정이 영구 폐기되며 복구할 수 없습니다.`)) {
+    if (window.confirm(`경고: [${companyName} (${companyId})] 제휴업체를 완전히 삭제하시겠습니까?\n삭제 즉시 해당 제휴업체의 계정 정보 및 Firestore 파티션 설정이 영구 폐기되며 복구할 수 없습니다.`)) {
       // 1. Delete from partners list
       const nextPartners = partners.filter(p => p.companyId !== companyId);
       onUpdatePartners(nextPartners);
@@ -630,15 +637,19 @@ export default function AdminDashboard({
       try {
         await deletePartnerFromFirestore(companyId);
       } catch (err: unknown) {
-        console.warn('Firestore deleteDoc failed:', err);
-        alert('❌ Firebase 업체 삭제에 실패했습니다. 플랫폼 관리자 Firebase 로그인(.env)을 확인하세요.');
+        console.warn('adminDeleteCompany failed:', err);
+        alert(
+          `Firebase 업체 삭제에 실패했습니다.\n${
+            err instanceof Error ? err.message : String(err)
+          }`
+        );
         return;
       }
 
       // 4. Clean up reservations/drivers local storage keys
       removePartnerLocalPartitions(companyId, safeStorage);
 
-      alert(`🏢 [${companyName}] 업체 정보가 성공적으로 영구 삭제되었습니다.`);
+      alert(`[${companyName}] 업체 정보가 성공적으로 영구 삭제되었습니다.`);
     }
   };
 
@@ -833,7 +844,7 @@ export default function AdminDashboard({
                   >
                     <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-neutral-800 shrink-0 bg-[#1C1C1E]">
                       <div>
-                        <h4 className="text-sm font-black text-zinc-100">🏢 제휴 가맹점 정보 수정</h4>
+                        <h4 className="text-sm font-black text-zinc-100">제휴 가맹점 정보 수정</h4>
                         <p className="text-[12px] text-zinc-500 mt-0.5">
                           고유 ID:{' '}
                           <span className="font-mono font-bold text-amber-400 bg-amber-500/10 px-1 py-0.2 rounded">

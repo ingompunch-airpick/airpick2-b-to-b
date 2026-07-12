@@ -67,7 +67,7 @@ export default class ErrorBoundary extends React.Component<Props, State> {
                 onClick={this.handleReset}
                 className="w-full py-3 bg-amber-500 hover:bg-amber-450 text-neutral-950 rounded-xl text-xs font-black transition-all shadow-md active:scale-[0.98]"
               >
-                🔐 브라우저 캐시 초기화 및 다시 시작
+                브라우저 캐시 초기화 및 다시 시작
               </button>
               
               <button

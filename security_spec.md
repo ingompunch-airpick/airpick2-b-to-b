@@ -33,10 +33,10 @@
 | 계층 | 역할 |
 |------|------|
 | **Gate / localStorage** | B2B 화면 접근 (업체·역할·모드) |
-| **Firebase Anonymous** | 예약·업체 update·Storage |
-| **Firebase 이메일 (플랫폼 관리자)** | companies create/delete, system_settings |
+| **Firebase Anonymous** | 예약·업체 운영 필드 update·차량 사진 Storage |
+| **Firebase 이메일 (플랫폼 관리자)** | Gate에서 직접 로그인 → Callable / 주차장 사진 |
 
-`.env`: `VITE_FIREBASE_ADMIN_EMAIL`, `VITE_FIREBASE_ADMIN_PASSWORD` (git 커밋 금지)
+본사 비밀번호는 `.env`에 두지 않습니다. Firebase Console Authentication 계정으로 Gate 로그인합니다.
 
 ---
 

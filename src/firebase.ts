@@ -1,6 +1,7 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import { initializeFirestore, doc, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
+import { getFunctions } from 'firebase/functions';
 import { getStorage } from 'firebase/storage';
 import firebaseConfig from '../firebase-applet-config.json' with { type: 'json' };
 
@@ -21,6 +22,8 @@ export const db = namedDbId
 
 export const auth = getAuth(app);
 export const storage = getStorage(app, firebaseConfig.storageBucket);
+/** Callable — 기본 리전 us-central1 (Functions v2 기본과 동일) */
+export const functions = getFunctions(app);
 
 // --- Firestore Error Handling Enums and Interfaces ---
 export enum OperationType {

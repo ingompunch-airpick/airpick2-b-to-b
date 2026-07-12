@@ -32,7 +32,6 @@ import { persistReservationStores } from './utils/reservationScope';
 import {
   filterReservationsForOperatorGroup,
   formatOperatorGroupLabel,
-  isSubOperatorLoginBlocked,
   resolveOperatorCompanyIds,
 } from './utils/operatorHierarchy';
 import {
@@ -49,7 +48,8 @@ import {
 } from './utils/reservationQuery';
 import { buildCheckoutRetentionFields } from './lib/reservationRetention';
 import { AIRPICK_HQ_ID, isAirpickHeadquarters, normalizePlatformCompanyId } from './constants/platform';
-import { ensureFirestoreAuth, ensurePlatformAdminAuth, tryPlatformAdminAuthFallback } from './lib/firebaseAuth';
+import { ensureFirestoreAuth, ensurePlatformAdminAuth, formatPlatformAdminAuthError, isPlatformAdminEmail, signInPlatformAdminWithPassword } from './lib/firebaseAuth';
+import { verifyPartnerLogin } from './lib/partnerLoginApi';
 import { isPending, normalizeReservationStatus } from './utils/reservationStatus';
 import { cn } from './lib/utils';
 import {
@@ -729,8 +729,8 @@ export default function App() {
 
   // Auth credentials form (for activating Admin setting options)
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const [loginEmail, setLoginEmail] = useState('ingompunch@gmail.com');
-  const [loginPassword, setLoginPassword] = useState('admin1234');
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
   const [loginError, setLoginError] = useState('');
 
   // 1. Monitor Authenticated State
@@ -875,9 +875,6 @@ export default function App() {
           await signInAnonymously(auth);
         } catch (e: any) {
           console.warn("Anonymous auth restricted or disabled (safe to ignore offline):", e);
-          if (e && (e.code === 'auth/admin-restricted-operation' || e.message?.includes('admin-restricted-operation'))) {
-            await tryPlatformAdminAuthFallback();
-          }
         }
       }
     };
@@ -896,28 +893,11 @@ export default function App() {
             break;
           }
         }
-        // 3. Make sure 'wawa' exists
+        // companies create는 Rules상 클라이언트 불가 — 누락 시 Functions/콘솔로 생성
         if (!wawaExists) {
-          await setDoc(doc(db, 'companies', 'wawa'), {
-            id: 'wawa',
-            name: '와와',
-            outdoorBasePrice: 40000,
-            outdoorBaseDays: 2,
-            outdoorExtraPrice: 5000,
-            indoorBasePrice: 40000,
-            indoorBaseDays: 2,
-            indoorExtraPrice: 10000,
-            surchargePrice: 20000,
-            surchargeStartTime: '19:00',
-            surchargeEndTime: '05:00',
-            is_indoor: true,
-            supports_indoor: true,
-            supports_outdoor: true,
-            phone: '1545-5746',
-            isOpen: true,
-            blockedDates: [],
-            updatedAt: new Date().toISOString()
-          });
+          console.warn(
+            "companies/wawa 문서가 없습니다. 클라이언트 생성은 Rules에서 차단됩니다. 본사 Callable 또는 Console로 생성하세요."
+          );
         }
       } catch (err) {
         console.warn("Automated master DB validation on load bypassed:", err);
@@ -1031,9 +1011,6 @@ export default function App() {
           await signInAnonymously(auth);
         } catch (e: any) {
           console.warn('Anonymous auth before reservations sync:', e);
-          if (e?.code === 'auth/admin-restricted-operation') {
-            await tryPlatformAdminAuthFallback();
-          }
         }
       }
 
@@ -1080,95 +1057,94 @@ export default function App() {
     setLoginError('');
     
     const inputEmailClean = loginEmail.trim().toLowerCase();
-    
-    // First, check if input matches a dynamic partner company in super_partners_list
-    const savedPartnersStr = localStorage.getItem('super_partners_list');
-    let dynamicPartners: PartnerCompany[] = [];
-    if (savedPartnersStr) {
-      try {
-        dynamicPartners = JSON.parse(savedPartnersStr);
-      } catch (_) {}
-    }
-    
-    const matchedPartner = dynamicPartners.find(
-      p => p.companyId.toLowerCase() === inputEmailClean || p.name.toLowerCase() === loginEmail.trim().toLowerCase()
-    );
-    
-    if (matchedPartner) {
-      if (loginPassword !== matchedPartner.password) {
-        setLoginError('인증번호/비밀번호가 일치하지 않습니다.');
-        return;
-      }
-      
-      if (matchedPartner.status === 'suspended') {
-        setLoginError('해당 제휴업체 계정은 최고관리자에 의해 [정지] 처리되었습니다. 플랫폼 본사에 정산 조정을 문의바랍니다.');
-        return;
-      }
 
-      if (isSubOperatorLoginBlocked(matchedPartner.companyId, companies)) {
-        setLoginError('하위 업체는 B2B 로그인할 수 없습니다. 대표 업체 계정을 사용하세요.');
-        return;
+    // 본사 Firebase Auth 이메일 로그인 (우선)
+    if (isPlatformAdminEmail(inputEmailClean)) {
+      try {
+        const user = await signInPlatformAdminWithPassword(inputEmailClean, loginPassword);
+        setIsSuperAdmin(true);
+        setIsLocalAdmin(true);
+        setIsMasterAdmin(false);
+        setIsAdminModeActive(true);
+        const hqInfo: CompanyInfo = {
+          id: AIRPICK_HQ_ID,
+          name: '에어픽',
+          region: '플랫폼 본사',
+          phone: '1545-5746',
+          logo: '',
+        };
+        setCurrentCompanyId(AIRPICK_HQ_ID);
+        setCompanyInfo(hqInfo);
+        localStorage.setItem('current_company_id', AIRPICK_HQ_ID);
+        localStorage.setItem('master_company_info', JSON.stringify(hqInfo));
+        localStorage.setItem('local_is_super_admin', 'true');
+        localStorage.setItem('local_is_admin', 'true');
+        localStorage.setItem('local_is_master_admin', 'false');
+        localStorage.setItem('local_is_admin_mode_active', 'true');
+        setCurrentView('statistics');
+        setShowLoginModal(false);
+        alert(`최고관리자 ${user.email} 님 마스터 자격 인증이 완료되었습니다!`);
+      } catch (err) {
+        setLoginError(formatPlatformAdminAuthError(err));
       }
-      
-      // Validated dynamic partner login
+      return;
+    }
+
+    if (loginEmail.trim().toLowerCase() === 'airpick') {
+      setLoginError(
+        '본사는 등록된 관리자 이메일로 로그인하세요. (업체 ID `airpick` 은 더 이상 사용하지 않습니다.)'
+      );
+      return;
+    }
+
+    // 제휴 업체 마스터 — 서버 비밀번호 검증
+    try {
+      const verified = await verifyPartnerLogin({
+        loginId: inputEmailClean,
+        password: loginPassword,
+      });
       setIsSuperAdmin(false);
       setIsLocalAdmin(true);
       setIsMasterAdmin(true);
-      setCurrentCompanyId(matchedPartner.companyId);
-      
+      setCurrentCompanyId(verified.companyId);
+
       const brandInfo: CompanyInfo = {
-        id: matchedPartner.companyId,
-        name: matchedPartner.name,
+        id: verified.companyId,
+        name: verified.name,
         region: '인천공항 1터미널',
-        phone: matchedPartner.phone,
-        logo: ''
+        phone: verified.phone,
+        logo: '',
       };
       setCompanyInfo(brandInfo);
       setIsAdminModeActive(true);
       setCurrentView('statistics');
       localStorage.setItem('master_company_info', JSON.stringify(brandInfo));
-      localStorage.setItem('current_company_id', matchedPartner.companyId);
+      localStorage.setItem('current_company_id', verified.companyId);
       localStorage.setItem('local_is_super_admin', 'false');
       localStorage.setItem('local_is_admin', 'true');
       localStorage.setItem('local_is_master_admin', 'true');
       localStorage.setItem('local_is_admin_mode_active', 'true');
       localStorage.setItem(
         'operator_company_ids',
-        JSON.stringify(resolveOperatorCompanyIds(matchedPartner.companyId, companies))
+        JSON.stringify(resolveOperatorCompanyIds(verified.companyId, companies))
       );
       setShowLoginModal(false);
-      alert(`제휴업체 [${matchedPartner.name}]의 마스터 관리자 인증이 성공 통과하여 관리자 모드가 활성화되었습니다!`);
+      alert(`제휴업체 [${verified.name}]의 마스터 관리자 인증이 성공 통과하여 관리자 모드가 활성화되었습니다!`);
       return;
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err);
+      // 업체를 못 찾은 경우에만 아래 레거시 fallback 계속
+      if (!msg.includes('없거나') && !msg.includes('not-found') && !msg.includes('일치하는 업체')) {
+        setLoginError(msg);
+        return;
+      }
     }
     
     // Fallbacks
     const savedMasterEmail = (localStorage.getItem('master_account_email') || 'master@gayoo.com').trim().toLowerCase();
     const savedMasterPassword = localStorage.getItem('master_account_password') || 'master1234';
-    
-    if (loginEmail === 'airpick' && loginPassword === '9980') {
-      setIsSuperAdmin(true);
-      setIsLocalAdmin(true);
-      setIsMasterAdmin(false);
-      setIsAdminModeActive(true);
-      const hqInfo: CompanyInfo = {
-        id: AIRPICK_HQ_ID,
-        name: '에어픽',
-        region: '플랫폼 본사',
-        phone: '1545-5746',
-        logo: '',
-      };
-      setCurrentCompanyId(AIRPICK_HQ_ID);
-      setCompanyInfo(hqInfo);
-      localStorage.setItem('current_company_id', AIRPICK_HQ_ID);
-      localStorage.setItem('master_company_info', JSON.stringify(hqInfo));
-      localStorage.setItem('local_is_super_admin', 'true');
-      localStorage.setItem('local_is_admin', 'true');
-      localStorage.setItem('local_is_master_admin', 'false');
-      localStorage.setItem('local_is_admin_mode_active', 'true');
-      setCurrentView('statistics');
-      setShowLoginModal(false);
-      alert(`최고관리자 'airpick' 님 마스터 자격 인증이 완료되었습니다!`);
-    } else if (inputEmailClean === savedMasterEmail && loginPassword === savedMasterPassword) {
+
+    if (inputEmailClean === savedMasterEmail && loginPassword === savedMasterPassword) {
       setIsSuperAdmin(false);
       setIsLocalAdmin(true);
       setIsMasterAdmin(true);
@@ -1298,7 +1274,7 @@ export default function App() {
       } catch (anonErr) {
         console.warn("Silent ignore: signInAnonymously restricted during logout", anonErr);
       }
-      alert("👋 안전하게 로그아웃되었습니다. 통합 로그인 화면(Gate)으로 이동합니다.");
+      alert("안전하게 로그아웃되었습니다. 통합 로그인 화면(Gate)으로 이동합니다.");
     } catch (err) {
       setIsLoggedIn(false);
       setIsSuperAdmin(false);
@@ -1561,7 +1537,7 @@ export default function App() {
             className="fixed bottom-24 inset-x-0 z-[100] px-4 pointer-events-none"
           >
             <div className="mx-auto max-w-md rounded-2xl border border-sky-500/40 bg-neutral-900/95 backdrop-blur-md px-4 py-3 shadow-2xl pointer-events-auto">
-              <p className="text-xs font-black text-sky-400">📥 신규 입고예정</p>
+              <p className="text-xs font-black text-sky-400">신규 입고예정</p>
               <p className="text-sm font-bold text-white mt-1">
                 {incomingReservationToast.carNumber}
                 {incomingReservationToast.userName ? ` · ${incomingReservationToast.userName}` : ''}
@@ -1636,7 +1612,7 @@ export default function App() {
                   >
                     <CalendarRange size={11} className="text-[#10B981] animate-pulse" />
                     <span className="text-[11px] sm:text-[11.5px] font-black tracking-tight flex items-center gap-0.5 text-zinc-200">
-                      ⚙️ <span className="hidden sm:inline">예약 관리</span><span className="sm:hidden">예약</span>
+                      <span className="hidden sm:inline">예약 관리</span><span className="sm:hidden">예약</span>
                       <span className="w-1 h-1 rounded-full inline-block ml-0.5 bg-[#10B981]" />
                     </span>
                   </button>
@@ -1694,7 +1670,8 @@ export default function App() {
             ) : (
               <button
                 onClick={() => {
-                  setLoginEmail('ingompunch@gmail.com');
+                  setLoginEmail('');
+                  setLoginPassword('');
                   setShowLoginModal(true);
                 }}
                 className="px-3 py-1.5 bg-neutral-900 hover:bg-neutral-850 text-neutral-300 text-[12px] font-bold rounded-[16px] border border-neutral-800 transition-colors flex items-center gap-1.5"
@@ -1753,7 +1730,8 @@ export default function App() {
         onOpenAdmin={() => setShowAdminModal(true)}
         onLogout={handleOperatorLogout}
         onTriggerLogin={() => {
-          setLoginEmail('ingompunch@gmail.com');
+          setLoginEmail('');
+          setLoginPassword('');
           setShowLoginModal(true);
         }}
         isAdminModeActive={isAdminModeActive}
@@ -2078,7 +2056,7 @@ export default function App() {
                     type="text"
                     value={loginEmail}
                     onChange={e => setLoginEmail(e.target.value)}
-                    placeholder="마스터 ID ('airpick') 또는 이메일"
+                    placeholder="아이디 또는 이메일"
                     className="w-full px-3 py-2.5 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-200 outline-none focus:border-amber-500 font-bold text-xs"
                   />
                 </div>
@@ -2089,10 +2067,10 @@ export default function App() {
                     type="password"
                     value={loginPassword}
                     onChange={e => setLoginPassword(e.target.value)}
-                    placeholder="비밀번호"
+                    placeholder="Firebase Auth 비밀번호"
                     className="w-full px-3 py-2.5 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-200 outline-none focus:border-amber-500 text-xs font-mono"
                   />
-                  <p className="text-[10.5px] text-zinc-650">등록하신 B2B 최고운영자 2차 보안 비밀번호를 넣으십시오.</p>
+                  <p className="text-[10.5px] text-zinc-650">본사는 Firebase Console Authentication 비밀번호를 사용합니다.</p>
                 </div>
 
                 <div className="flex gap-2 pt-2">

@@ -188,7 +188,7 @@ export default function BlockoutCalendarModal({
                   }`}
                 >
                   <span className={`w-1.5 h-1.5 rounded-full inline-block mr-1.5 ${companyIsOpen ? "bg-zinc-950 animate-ping" : "bg-white"}`} />
-                  {companyIsOpen ? '🟢 예약 접수 허용중' : '🔴 예약 전체 마감 시킴'}
+                  {companyIsOpen ? '예약 접수 허용중' : '예약 전체 마감 시킴'}
                 </button>
               </div>
               <p className="text-[12px] text-zinc-300 leading-normal font-semibold">

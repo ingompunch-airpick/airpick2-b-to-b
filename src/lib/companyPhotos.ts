@@ -1,6 +1,6 @@
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '../firebase';
-import { ensureFirestoreAuth } from './firebaseAuth';
+import { ensureAdminCallableAuth } from './adminCompanyApi';
 
 const UPLOAD_TIMEOUT_MS = 90_000;
 const MAX_PARKING_PHOTOS = 5;
@@ -69,13 +69,15 @@ function formatUploadError(err: unknown): string {
   const code = (err as { code?: string })?.code || '';
   const message = err instanceof Error ? err.message : String(err);
   if (code === 'storage/unauthorized' || message.includes('permission')) {
-    return 'Storage 권한 거부: Firebase Console → Storage → Rules 게시, 또는 `firebase deploy --only storage` 실행이 필요합니다.';
+    return 'Storage 권한 거부: 본사 계정으로 로그인했는지 확인하세요. (주차장 사진은 본사만 업로드 가능)';
   }
   if (code === 'storage/unknown' || message.includes('404') || message.includes('bucket')) {
     return 'Storage 버킷 오류: Console에서 Storage를 먼저 활성화하세요.';
   }
-  if (code?.startsWith('auth/')) {
-    return `로그인 오류(${code}): Authentication → Anonymous 사용을 확인하세요.`;
+  if (code?.startsWith('auth/') || message.includes('본사 권한')) {
+    return message.includes('본사')
+      ? message
+      : `로그인 오류(${code || 'auth'}): 본사 Firebase 이메일 로그인을 확인하세요.`;
   }
   return message || '알 수 없는 업로드 오류';
 }
@@ -100,7 +102,7 @@ export async function uploadCompanyParkingImages(
 ): Promise<string[]> {
   if (!companyId || sources.length === 0) return [];
 
-  await ensureFirestoreAuth();
+  await ensureAdminCallableAuth();
   const safeCompany = companyId.replace(/[^\w-]/g, '_').toLowerCase();
   const urls: string[] = [];
 

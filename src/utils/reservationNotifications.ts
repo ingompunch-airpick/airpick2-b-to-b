@@ -75,7 +75,7 @@ export function notifyNewReservation(res: Reservation, companyLabel: string): vo
   if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
     try {
       const body = formatReservationAlertBody(res);
-      new Notification(`📥 신규 입고예정 · ${companyLabel}`, {
+      new Notification(`신규 입고예정 · ${companyLabel}`, {
         body,
         tag: `res-${res.id}`,
         renotify: true,

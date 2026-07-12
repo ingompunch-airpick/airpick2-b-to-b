@@ -325,13 +325,13 @@ export default function SearchReceptionView({
 
     const foundBlockedDates = requestedDates.filter(d => activeBlocked.includes(d));
     if (foundBlockedDates.length > 0) {
-      alert(`❌ 선택하신 기간(${depDateStr} ~ ${arrDateStr})에 예약이 마감된 날짜가 포함되어 있어 현장 접수가 불가능합니다.`);
+      alert(`선택하신 기간(${depDateStr} ~ ${arrDateStr})에 예약이 마감된 날짜가 포함되어 있어 현장 접수가 불가능합니다.`);
       setIsSubmittingBooking(false);
       return;
     }
 
     if (partnerObj && partnerObj.isOpen === false) {
-      alert('❌ 전체 예약이 마감된 상태입니다. 앱 예약 마감 설정 또는 홈페이지 마감과 동일하게 적용됩니다.');
+      alert('전체 예약이 마감된 상태입니다. 앱 예약 마감 설정 또는 홈페이지 마감과 동일하게 적용됩니다.');
       setIsSubmittingBooking(false);
       return;
     }
@@ -508,7 +508,7 @@ export default function SearchReceptionView({
         </button>
         <div>
           <h2 className="text-sm font-black tracking-tight text-white">
-            {receptionSubMode === 'search' ? '🔍 차량 검색 및 정보 수정' : '신규 대행 위탁 수납계약서'}
+            {receptionSubMode === 'search' ? '차량 검색 및 정보 수정' : '신규 대행 위탁 수납계약서'}
           </h2>
           <p className="text-[11px] text-zinc-500 font-bold">
             {receptionSubMode === 'search' ? '차량 검색 · 정보 수정' : '신규 현장 접수'}
@@ -949,7 +949,7 @@ export default function SearchReceptionView({
             return (
               <div className="col-span-2 p-4 bg-[#141416] border border-neutral-850 rounded-2xl space-y-2 text-xs text-zinc-350 font-sans">
                 <div className="flex items-center justify-between border-b border-neutral-850 pb-2">
-                  <span className="font-black text-amber-500 text-[12px] uppercase tracking-wider">🧮 실시간 자동 요금 명세표</span>
+                  <span className="font-black text-amber-500 text-[12px] uppercase tracking-wider">실시간 자동 요금 명세표</span>
                   <span className="text-[12px] text-zinc-500 font-mono">총 {diffDays}일 주차 기간</span>
                 </div>
                 <div className="space-y-1 text-[12.5px]">
@@ -1153,7 +1153,7 @@ export default function SearchReceptionView({
               </div>
 
               <div className="space-y-1.5 p-3.5 bg-[#141416] border border-neutral-850 rounded-2xl font-sans">
-                <span className="text-[11.5px] font-black text-amber-500 block">✈️ 입/출항 여정 동선 지정</span>
+                <span className="text-[11.5px] font-black text-amber-500 block">입/출항 여정 동선 지정</span>
                 <div className="grid grid-cols-2 gap-2 text-xs pt-1">
                   <div>
                     <span className="text-[11px] text-zinc-500 block mb-1 font-bold">입고일 (출발일)</span>
@@ -1199,7 +1199,7 @@ export default function SearchReceptionView({
               </div>
 
               <div className="space-y-1.5 p-3.5 bg-[#141416] border border-neutral-850 rounded-2xl font-sans">
-                <span className="text-[11.5px] font-black text-emerald-500 block">✨ 고객 반납일</span>
+                <span className="text-[11.5px] font-black text-emerald-500 block">고객 반납일</span>
                 <div className="grid grid-cols-2 gap-2 text-xs pt-1">
                   <div>
                     <span className="text-[11px] text-zinc-500 block mb-1 font-bold">출고일 (반납일)</span>
@@ -1245,7 +1245,7 @@ export default function SearchReceptionView({
               </div>
 
               <div className="space-y-3 p-3.5 bg-[#141416] border border-neutral-850 rounded-2xl font-sans">
-                <span className="text-[11.5px] font-black text-amber-500 block">✈️ 항공편 · 여행 정보</span>
+                <span className="text-[11.5px] font-black text-amber-500 block">항공편 · 여행 정보</span>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
                     <label className="text-[11px] text-zinc-500 font-bold block mb-1">출국 항공사</label>

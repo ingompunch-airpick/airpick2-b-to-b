@@ -2,8 +2,20 @@ import * as admin from 'firebase-admin';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { onReservationSync } from './onReservationWrite';
 import { runRetentionCleanup } from './retentionCleanup';
+import { adminUpsertCompany } from './admin/upsertCompany';
+import { adminSetCompanyStatus } from './admin/setCompanyStatus';
+import { adminDeleteCompany } from './admin/deleteCompany';
+import { verifyPartnerLogin } from './admin/verifyPartnerLogin';
+import { upsertCompanyEmployees } from './admin/upsertCompanyEmployees';
 
-export { onReservationSync };
+export {
+  onReservationSync,
+  adminUpsertCompany,
+  adminSetCompanyStatus,
+  adminDeleteCompany,
+  verifyPartnerLogin,
+  upsertCompanyEmployees,
+};
 
 if (!admin.apps.length) {
   admin.initializeApp();

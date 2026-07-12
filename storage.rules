@@ -7,6 +7,16 @@ service firebase.storage {
       return request.auth != null;
     }
 
+    /** Firestore rules `isPlatformAdmin()` 과 동일 */
+    function isPlatformAdmin() {
+      return isSignedIn()
+        && request.auth.token.email != null
+        && request.auth.token.email in [
+          'drive5746@gmail.com',
+          'ingompunch@gmail.com'
+        ];
+    }
+
     function isValidCompanyId(companyId) {
       return companyId.matches('^[a-z0-9_]{1,64}$');
     }
@@ -25,9 +35,10 @@ service firebase.storage {
     }
 
     // 가맹점 주차장 사진: companies/{companyId}/parking/…
+    // 쓰기는 본사만 (AdminDashboard). 읽기는 공개(B2C MY 등).
     match /companies/{companyId}/{allPaths=**} {
       allow read: if true;
-      allow write: if isSignedIn()
+      allow write: if isPlatformAdmin()
         && isValidCompanyId(companyId)
         && request.resource.size < 15 * 1024 * 1024
         && request.resource.contentType.matches('image/.*');

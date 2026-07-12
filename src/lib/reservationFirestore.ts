@@ -2,7 +2,6 @@ import { doc, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import type { Reservation } from '../types';
 import { ensureFirestoreAuth } from './firebaseAuth';
-import { tryPlatformAdminAuthFallback } from './firebaseAuth';
 
 export { ensureFirestoreAuth, ensurePlatformAdminAuth } from './firebaseAuth';
 
@@ -22,20 +21,11 @@ export function stripUndefinedFields<T extends Record<string, unknown>>(obj: T):
   return out;
 }
 
-async function ensureReservationWriteAuth(): Promise<void> {
-  try {
-    await ensureFirestoreAuth();
-  } catch (e) {
-    const ok = await tryPlatformAdminAuthFallback();
-    if (!ok) throw e;
-  }
-}
-
 export async function persistReservation(
   id: string,
   payload: Omit<Reservation, 'id'>
 ): Promise<void> {
-  await ensureReservationWriteAuth();
+  await ensureFirestoreAuth();
   const clean = stripUndefinedFields(payload as Record<string, unknown>);
   await setDoc(doc(db, 'reservations', id), clean);
 }
@@ -44,7 +34,7 @@ export async function patchReservation(
   id: string,
   payload: Partial<Reservation>
 ): Promise<void> {
-  await ensureReservationWriteAuth();
+  await ensureFirestoreAuth();
   const clean = stripUndefinedFields(payload as Record<string, unknown>);
   await updateDoc(doc(db, 'reservations', id), clean);
 }

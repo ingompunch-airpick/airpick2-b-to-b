@@ -4,14 +4,18 @@ import { isSubOperatorCompany } from './operatorHierarchy';
 
 const LEGACY_DEFAULT_PASSWORD = '1234';
 
-function normalizePassword(value?: string | null): string {
-  return (value || '').trim();
+function normalizePassword(value?: unknown): string {
+  if (value == null) return '';
+  if (typeof value === 'string') return value.trim();
+  // 숫자·객체 등 레거시/깨진 값 방어
+  if (typeof value === 'number' || typeof value === 'boolean') return String(value).trim();
+  return '';
 }
 
 /** Firestore password는 비어 있거나 레거시 기본값이면 로컬 비밀번호 유지 */
 export function resolvePartnerPassword(
-  firestorePassword?: string | null,
-  localPassword?: string | null
+  firestorePassword?: unknown,
+  localPassword?: unknown
 ): string {
   const fromFs = normalizePassword(firestorePassword);
   const fromLocal = normalizePassword(localPassword);

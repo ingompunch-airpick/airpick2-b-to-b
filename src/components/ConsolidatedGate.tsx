@@ -2,7 +2,12 @@
 import { Lock, Shuffle, AlertCircle, Sparkles, Building2, Eye, EyeOff } from 'lucide-react';
 import { PartnerCompany, Company, CompanyInfo } from '../types';
 import { AIRPICK_HQ_ID } from '../constants/platform';
-import { isSubOperatorLoginBlocked } from '../utils/operatorHierarchy';
+import {
+  formatPlatformAdminAuthError,
+  isPlatformAdminEmail,
+  signInPlatformAdminWithPassword,
+} from '../lib/firebaseAuth';
+import { verifyPartnerLogin } from '../lib/partnerLoginApi';
 
 interface ConsolidatedGateProps {
   onLoginSuccess: (roles: {
@@ -20,12 +25,24 @@ interface ConsolidatedGateProps {
   companies: Company[];
 }
 
+const HQ_COMPANY_INFO: CompanyInfo = {
+  id: AIRPICK_HQ_ID,
+  name: '에어픽',
+  region: '플랫폼 본사',
+  phone: '1545-5746',
+  logo: '',
+  isIndoor: true,
+  facilityType: 'mixed',
+  ratePolicy: '',
+};
+
 export default function ConsolidatedGate({ onLoginSuccess, partners, companies }: ConsolidatedGateProps) {
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [rememberId, setRememberId] = useState(false);
+  const [loggingIn, setLoggingIn] = useState(false);
 
   useEffect(() => {
     const savedId = localStorage.getItem('saved_id');
@@ -35,7 +52,7 @@ export default function ConsolidatedGate({ onLoginSuccess, partners, companies }
     }
   }, []);
 
-  const handleLoginSubmit = (e: React.FormEvent) => {
+  const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
 
@@ -78,238 +95,101 @@ export default function ConsolidatedGate({ onLoginSuccess, partners, companies }
         companyId: 'wawa',
         companyInfo: wawaCompany
       });
-      alert("🎉 [와와] 로그인 성공! 전용 주차/기사 관리 터미널이 열립니다.");
+      alert("[와와] 로그인 성공! 전용 주차/기사 관리 터미널이 열립니다.");
       return;
     }
 
-    // 1. 최고 관리자 계정 로그인 확인
-    if (cleanUsername === 'airpick' && cleanPassword === '9980') {
-      const superAdminCompany: CompanyInfo = {
-        id: AIRPICK_HQ_ID,
-        name: '에어픽',
-        region: '플랫폼 본사',
-        phone: '1545-5746',
-        logo: '',
-        isIndoor: true,
-        facilityType: 'mixed',
-        ratePolicy: ''
-      };
-      
-      onLoginSuccess({
-        isSuperAdmin: true,
-        isLocalAdmin: true,
-        isMasterAdmin: false,
-        isAdminModeActive: true,
-        companyId: AIRPICK_HQ_ID,
-        companyInfo: superAdminCompany
-      });
-      alert("🎉 최고관리자 'airpick' 님 통합 마스터 채널 로그인이 완료되었습니다!");
-      return;
-    }
-
-    // 2. 제휴 업체 계정 로그인 확인 (super_partners_list 대조 - 실시간 반영력 극대화를 위해 localStorage 직접 참조)
-    let dynamicPartners = [...partners];
-    const savedPartnersStr = localStorage.getItem('super_partners_list');
-    if (savedPartnersStr) {
+    // 1. 본사 — Firebase Auth 관리자 이메일 + Auth 비밀번호
+    if (isPlatformAdminEmail(cleanUsername)) {
+      setLoggingIn(true);
       try {
-        const parsed = JSON.parse(savedPartnersStr);
-        if (parsed && Array.isArray(parsed) && parsed.length > 0) {
-          dynamicPartners = parsed;
-        }
-      } catch (_) {}
-    }
-
-    // 2-1. 소속 직원(Employee) 로그인 검사
-    let matchedEmployee: any = null;
-    let employeeParentPartner: any = null;
-
-    for (const p of dynamicPartners) {
-      if (p.employees && Array.isArray(p.employees)) {
-        const foundEmp = p.employees.find(emp => emp.loginId.toLowerCase() === cleanUsername);
-        if (foundEmp) {
-          matchedEmployee = foundEmp;
-          employeeParentPartner = p;
-          break;
-        }
+        const user = await signInPlatformAdminWithPassword(cleanUsername, cleanPassword);
+        onLoginSuccess({
+          isSuperAdmin: true,
+          isLocalAdmin: true,
+          isMasterAdmin: false,
+          isAdminModeActive: true,
+          companyId: AIRPICK_HQ_ID,
+          companyInfo: HQ_COMPANY_INFO,
+        });
+        alert(`최고관리자 ${user.email} 님 통합 마스터 채널 로그인이 완료되었습니다.`);
+      } catch (err) {
+        setError(formatPlatformAdminAuthError(err));
+      } finally {
+        setLoggingIn(false);
       }
-    }
-
-    if (matchedEmployee && employeeParentPartner) {
-      if (cleanPassword !== matchedEmployee.password) {
-        setError('보안 비밀번호가 일치하지 않습니다.');
-        return;
-      }
-
-      if (employeeParentPartner.status === 'suspended') {
-        setError('본사 사정에 의해 소속 제휴사의 서비스가 일시 정지(suspended)된 상태입니다.');
-        return;
-      }
-
-      // Load companies directly from localStorage to guarantee real-time updates
-      let dbCompanies = [...companies];
-      const savedCompaniesStr = localStorage.getItem('companies');
-      if (savedCompaniesStr) {
-        try {
-          const parsed = JSON.parse(savedCompaniesStr);
-          if (parsed && Array.isArray(parsed) && parsed.length > 0) {
-            dbCompanies = parsed;
-          }
-        } catch (_) {}
-      }
-
-      const matchingCompany = dbCompanies.find(c => c.id === employeeParentPartner!.companyId);
-      const isIndoor = matchingCompany ? matchingCompany.is_indoor : true;
-
-      const brandInfo: CompanyInfo = {
-        id: employeeParentPartner.companyId,
-        name: employeeParentPartner.name,
-        region: matchingCompany ? (matchingCompany.supports_indoor && matchingCompany.supports_outdoor ? '실내+실외 혼합' : matchingCompany.supports_indoor ? '실내' : '실외') : '실내',
-        phone: employeeParentPartner.phone || '010-0000-0000',
-        logo: matchingCompany?.image_url || '',
-        isIndoor: isIndoor,
-        facilityType: isIndoor ? 'indoor' : 'outdoor',
-        ratePolicy: ''
-      };
-
-      const isEmpAdmin = matchedEmployee.role === 'admin';
-
-      onLoginSuccess({
-        isSuperAdmin: false,
-        isLocalAdmin: isEmpAdmin,       // 부관리자 직원(admin)이면 true
-        isMasterAdmin: isEmpAdmin,      // 부관리자 직원(admin)이면 true
-        isAdminModeActive: isEmpAdmin,   // 부관리자 직원(admin)이면 관리자 대시보드로 초기 진입
-        companyId: employeeParentPartner.companyId,
-        companyInfo: brandInfo,
-        isEmployee: true,
-        employeeName: matchedEmployee.name,
-        employeeRole: matchedEmployee.role || 'driver'
-      });
-
-      alert(isEmpAdmin 
-        ? `🎉 소속 관리자 [${matchedEmployee.name}] 님 로그인 성공! [${employeeParentPartner.name}] 대시보드 관리자 모드로 진입합니다.`
-        : `🎉 소속 직원 [${matchedEmployee.name}] 기사님 로그인 성공! [${employeeParentPartner.name}] 대시보드 기사 모드 전용으로 진입합니다.`);
       return;
     }
 
-    const matchedPartner = dynamicPartners.find(
-      p => p.companyId.toLowerCase() === cleanUsername || p.name.toLowerCase() === username.trim().toLowerCase()
-    );
+    // 1b. 레거시 airpick/9980 — 클라우드 권한 없음 (안내)
+    if (cleanUsername === 'airpick') {
+      setError(
+        '본사는 등록된 관리자 이메일로 로그인하세요.\n(업체 ID `airpick` 은 더 이상 사용하지 않습니다.)'
+      );
+      return;
+    }
 
-    if (matchedPartner) {
-      if (cleanPassword !== matchedPartner.password) {
-        setError('보안 비밀번호가 일치하지 않습니다.');
-        return;
-      }
-
-      if (matchedPartner.status === 'suspended') {
-        setError('해당 제휴업체 계정은 최고관리자에 의해 [정지] 처리되었습니다.');
-        return;
-      }
-
-      // Load companies directly from localStorage to guarantee real-time updates
-      let dbCompanies = [...companies];
-      const savedCompaniesStr = localStorage.getItem('companies');
-      if (savedCompaniesStr) {
-        try {
-          const parsed = JSON.parse(savedCompaniesStr);
-          if (parsed && Array.isArray(parsed) && parsed.length > 0) {
-            dbCompanies = parsed;
-          }
-        } catch (_) {}
-      }
-
-      if (isSubOperatorLoginBlocked(matchedPartner.companyId, dbCompanies)) {
-        setError('하위 업체는 B2B 로그인할 수 없습니다. 대표 업체 계정을 사용하세요.');
-        return;
-      }
-
-      const matchingCompany = dbCompanies.find(c => c.id === matchedPartner.companyId);
-      const isIndoor = matchingCompany ? matchingCompany.is_indoor : true;
+    // 2. 업체 마스터 · 직원 — Cloud Function 검증 (+ custom token)
+    setLoggingIn(true);
+    try {
+      const verified = await verifyPartnerLogin({
+        loginId: cleanUsername,
+        password: cleanPassword,
+      });
 
       const brandInfo: CompanyInfo = {
-        id: matchedPartner.companyId,
-        name: matchedPartner.name,
-        region: matchingCompany ? (matchingCompany.supports_indoor && matchingCompany.supports_outdoor ? '실내+실외 혼합' : matchingCompany.supports_indoor ? '실내' : '실외') : '실내',
-        phone: matchedPartner.phone || '010-0000-0000',
-        logo: matchingCompany?.image_url || '',
-        isIndoor: isIndoor,
-        facilityType: isIndoor ? 'indoor' : 'outdoor',
-        ratePolicy: ''
+        id: verified.companyId,
+        name: verified.name,
+        region:
+          verified.supports_indoor && verified.supports_outdoor
+            ? '실내+실외 혼합'
+            : verified.supports_indoor
+              ? '실내'
+              : '실외',
+        phone: verified.phone || '010-0000-0000',
+        logo: verified.image_url || '',
+        isIndoor: verified.is_indoor,
+        facilityType: verified.is_indoor ? 'indoor' : 'outdoor',
+        ratePolicy: '',
       };
+
+      if (verified.kind === 'employee') {
+        const isEmpAdmin = verified.employeeRole === 'admin';
+        onLoginSuccess({
+          isSuperAdmin: false,
+          isLocalAdmin: isEmpAdmin,
+          isMasterAdmin: isEmpAdmin,
+          isAdminModeActive: isEmpAdmin,
+          companyId: verified.companyId,
+          companyInfo: brandInfo,
+          isEmployee: true,
+          employeeName: verified.employeeName || '',
+          employeeRole: verified.employeeRole || 'driver',
+        });
+        alert(
+          isEmpAdmin
+            ? `소속 관리자 [${verified.employeeName}] 님 로그인 성공! [${verified.name}] 대시보드 관리자 모드로 진입합니다.`
+            : `소속 직원 [${verified.employeeName}] 기사님 로그인 성공! [${verified.name}] 대시보드 기사 모드 전용으로 진입합니다.`
+        );
+        return;
+      }
 
       onLoginSuccess({
         isSuperAdmin: false,
         isLocalAdmin: true,
         isMasterAdmin: true,
         isAdminModeActive: true,
-        companyId: matchedPartner.companyId,
-        companyInfo: brandInfo
+        companyId: verified.companyId,
+        companyInfo: brandInfo,
       });
-      alert(`🎉 B2B 제휴업체 [${matchedPartner.name}] 로그인 성공! 전용 주차/기사 관리 터미널이 열립니다.`);
+      alert(`B2B 제휴업체 [${verified.name}] 로그인 성공! 전용 주차/기사 관리 터미널이 열립니다.`);
       return;
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+      return;
+    } finally {
+      setLoggingIn(false);
     }
-
-    // 3. Fallback: Companies 배열 매칭 (예: ID "a123" 대조)
-    let dbCompaniesFallback = [...companies];
-    const savedCompStr = localStorage.getItem('companies');
-    if (savedCompStr) {
-      try {
-        const parsed = JSON.parse(savedCompStr);
-        if (parsed && Array.isArray(parsed) && parsed.length > 0) {
-          dbCompaniesFallback = parsed;
-        }
-      } catch (_) {}
-    }
-
-    // Ensure essential companies are always in the fallback login lists for direct testability
-    const essentialCompanySeeds = [
-      { id: 'wawa', name: '와와', supports_indoor: true, supports_outdoor: true, is_indoor: true, phone: '1545-5746', image_url: '' }
-    ];
-
-    essentialCompanySeeds.forEach(seed => {
-      if (!dbCompaniesFallback.some(c => c.id.toLowerCase() === seed.id.toLowerCase())) {
-        dbCompaniesFallback.push(seed as any);
-      }
-    });
-
-    const matchedCompanyInList = dbCompaniesFallback.find(
-      c => c.id.toLowerCase() === cleanUsername || c.name.toLowerCase() === username.trim().toLowerCase()
-    );
-
-    if (matchedCompanyInList) {
-      if (isSubOperatorLoginBlocked(matchedCompanyInList.id, dbCompaniesFallback)) {
-        setError('하위 업체는 B2B 로그인할 수 없습니다. 대표 업체 계정을 사용하세요.');
-        return;
-      }
-
-      // For fallback user accounts, require a default password (the id itself) or standard testing master password
-      const expectedPassword = matchedCompanyInList.id.toLowerCase(); // e.g. kakao, care, gayu
-      if (cleanPassword === expectedPassword || cleanPassword === 'admin1234' || cleanPassword === 'master1234') {
-        const brandInfo: CompanyInfo = {
-          id: matchedCompanyInList.id,
-          name: matchedCompanyInList.name,
-          region: matchedCompanyInList.supports_indoor && matchedCompanyInList.supports_outdoor ? '실내+실외' : matchedCompanyInList.supports_indoor ? '실내' : '실외',
-          phone: matchedCompanyInList.phone || '1545-5746',
-          logo: matchedCompanyInList.image_url || '',
-          isIndoor: matchedCompanyInList.is_indoor ?? true,
-          facilityType: matchedCompanyInList.is_indoor ? 'indoor' : 'outdoor',
-          ratePolicy: ''
-        };
-
-        onLoginSuccess({
-          isSuperAdmin: false,
-          isLocalAdmin: true,
-          isMasterAdmin: true,
-          isAdminModeActive: true,
-          companyId: matchedCompanyInList.id,
-          companyInfo: brandInfo
-        });
-        alert(`🎉 제휴업체 [${matchedCompanyInList.name}]의 B2B 파트너 채널 로그인이 완료되었습니다.`);
-        return;
-      }
-    }
-
-    setError('일치하는 통합 B2B 계정이 없거나 비밀번호가 다릅니다.');
   };
 
   return (
@@ -341,7 +221,7 @@ export default function ConsolidatedGate({ onLoginSuccess, partners, companies }
             {/* ID Input */}
             <div className="space-y-1.5">
               <label htmlFor="gate-username" className="text-toss-caption block">
-                아이디 (ID / 브랜드아이디)
+                아이디 (업체 ID)
               </label>
               <div className="relative">
                 <input
@@ -350,7 +230,8 @@ export default function ConsolidatedGate({ onLoginSuccess, partners, companies }
                   required
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="아이디를 기입해주세요."
+                  placeholder="업체 ID 또는 본사 계정"
+                  disabled={loggingIn}
                   className="w-full bg-[#1C1C1E] border border-neutral-800 rounded-xl pl-3.5 pr-10 py-3 text-toss-body text-white placeholder:text-[var(--color-toss-fg-subtle)] outline-none focus:border-amber-500/90 transition-all font-medium"
                 />
               </div>
@@ -409,9 +290,10 @@ export default function ConsolidatedGate({ onLoginSuccess, partners, companies }
             <div className="pt-3">
               <button
                 type="submit"
-                className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 active:scale-[0.98] text-neutral-950 font-black rounded-xl text-xs transition-all shadow-lg shadow-amber-500/10 hover:shadow-amber-500/20 uppercase tracking-wider block"
+                disabled={loggingIn}
+                className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 active:scale-[0.98] text-neutral-950 font-black rounded-xl text-xs transition-all shadow-lg shadow-amber-500/10 hover:shadow-amber-500/20 uppercase tracking-wider block disabled:opacity-60 disabled:pointer-events-none"
               >
-                로그인하기
+                {loggingIn ? '로그인 중…' : '로그인하기'}
               </button>
             </div>
           </form>

@@ -4,13 +4,14 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ── Helpers ─────────────────────────────────────────────────────────────
-    // 정본: docs/FIRESTORE_RULES_CANONICAL.md — B2B·B2C 동일 유지, rules 배포는 한곳에서만
+    // 정본: airpick2-b-to-b/firestore.rules (+ docs/FIRESTORE_RULES_CANONICAL.md)
+    // B2C는 이 파일을 동기화만 하고, rules 배포는 B2B에서만 한다
 
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /** B2B 본사 Firebase Auth 계정 (Anonymous 아님) */
+    /** B2B 본사 Firebase Auth 계정 (Anonymous 아님). 예약 삭제 등 Rules 경로용 */
     function isPlatformAdmin() {
       return isSignedIn()
         && request.auth.token.email != null
@@ -24,60 +25,38 @@ service cloud.firestore {
       return companyId.matches('^[a-z0-9_]{1,64}$');
     }
 
-    function isSubOperatorCompanyData(data, companyId) {
-      return data.keys().hasAll(['parentCompanyId', 'isOperatorPrimary'])
-        && data.isOperatorPrimary == false
-        && data.parentCompanyId is string
-        && isValidCompanyId(data.parentCompanyId)
-        && data.parentCompanyId != companyId;
-    }
-
-    function subOperatorParentExists(data) {
-      return exists(/databases/$(database)/documents/companies/$(data.parentCompanyId));
-    }
-
-    function isSubOperatorCreate(companyId) {
-      return isSignedIn()
-        && isValidCompanyId(companyId)
-        && isSubOperatorCompanyData(request.resource.data, companyId)
-        && subOperatorParentExists(request.resource.data);
-    }
-
-    function isSubOperatorDelete() {
-      return isSignedIn()
-        && resource.data.keys().hasAll(['parentCompanyId'])
-        && resource.data.parentCompanyId is string
-        && resource.data.parentCompanyId.size() > 0
-        && isValidCompanyId(resource.data.parentCompanyId);
-    }
-
-    /** 가맹점이 덮어쓰면 안 되는 B2C MY 보험·위치·사진 필드 (최고관리자만) */
-    function touchesHqOnlyParkingFields() {
-      return request.resource.data.diff(resource.data).affectedKeys().hasAny([
-        'facilityType',
-        'is_indoor',
-        'supports_indoor',
-        'supports_outdoor',
-        'features',
-        'indoorParkingAddress',
-        'outdoorParkingAddress',
-        'indoorParkingLat',
-        'indoorParkingLng',
-        'outdoorParkingLat',
-        'outdoorParkingLng',
-        'parkingLots',
-        'parkingDistances',
-        'parkingDistancesIndoor',
-        'parkingDistancesOutdoor',
-        'image_url',
-        'image_urls',
-        'sharesParkingLocation',
-        'sharesPhotos',
-        'insurance',
-        'hasInsurance',
-        'insuranceProvider',
-        'insuranceLimit',
-        'sharesInsurance'
+    /**
+     * 가맹점(클라이언트)이 바꿀 수 있는 운영 필드만.
+     * 생성·삭제·프로필(핀·보험·비밀번호·status 등)은 Cloud Functions Admin SDK만.
+     */
+    function onlyPartnerOperationalFieldsChanged() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+        'id',
+        'base_price',
+        'extra_day_price',
+        'base_days',
+        'outdoorBasePrice',
+        'outdoorBaseDays',
+        'outdoorExtraPrice',
+        'indoorBasePrice',
+        'indoorBaseDays',
+        'indoorExtraPrice',
+        'surchargeStartTime',
+        'surchargeEndTime',
+        'surchargePrice',
+        't2Surcharge',
+        'peakStartTime',
+        'peakEndTime',
+        'peakSurcharge',
+        'valetFeeT1',
+        'valetFeeT2',
+        // employees 는 upsertCompanyEmployees (Admin SDK) 만
+        'isOpen',
+        'blockedDates',
+        'cancelCutoffHours',
+        'sameDayBookingBlocked',
+        'phone',
+        'updatedAt'
       ]);
     }
 
@@ -149,31 +128,31 @@ service cloud.firestore {
     match /companies/{companyId} {
       allow read: if true;
 
-      allow create: if isPlatformAdmin() && isValidCompanyId(companyId)
-        || isSubOperatorCreate(companyId);
+      // 생성·삭제는 Cloud Functions(adminUpsertCompany / adminDeleteCompany)만
+      allow create, delete: if false;
 
-      // 가맹점: 요금·대면·직원·마감 등만
-      // 보험·주소·핀·거리·사진·시설유형: 최고관리자만
-      allow update: if isSignedIn() && isValidCompanyId(companyId)
-        && (
-          isPlatformAdmin()
-          || !touchesHqOnlyParkingFields()
-        );
+      // 가맹점: 요금·발레·직원·마감·영업여부 등 운영 필드만
+      // 핀·보험·사진·password·status·정산메모 등 → Functions만
+      allow update: if isSignedIn()
+        && isValidCompanyId(companyId)
+        && onlyPartnerOperationalFieldsChanged();
 
-      allow delete: if isPlatformAdmin() && isValidCompanyId(companyId)
-        || isSubOperatorDelete();
+      // 로그인 비밀번호 — Admin SDK만
+      match /secrets/{secretId} {
+        allow read, write: if false;
+      }
     }
 
     // ── system_settings / parking_lots ─────────────────────────────────────
 
     match /system_settings/{settingId} {
       allow read: if isSignedIn();
-      allow write: if isPlatformAdmin();
+      allow write: if false;
     }
 
     match /parking_lots/{lotId} {
       allow read: if true;
-      allow write: if isPlatformAdmin();
+      allow write: if false;
     }
 
     // ── reviews (후기 — 쓰기는 Cloud Functions만) ─────────────────────────

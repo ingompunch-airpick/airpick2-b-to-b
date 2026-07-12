@@ -15,6 +15,7 @@ import AdminDashboard from './AdminDashboard';
 import PartnerParkingProfileReadonly from './PartnerParkingProfileReadonly';
 import { isAirpickHeadquarters } from '../constants/platform';
 import { ensureFirestoreAuth } from '../lib/firebaseAuth';
+import { upsertCompanyEmployees } from '../lib/partnerLoginApi';
 import { inferFacilityType } from '../utils/companyProfile';
 
 /** 최고관리자(제휴 가맹점 수정)만 companies에 쓰는 필드 — 가맹점 자체 저장에서 제외 */
@@ -262,7 +263,7 @@ export default function MasterSettingsView({
   const currentPartner = (partners || []).find(p => p.companyId === companyInfo.id);
   const employeeList: Employee[] = currentPartner?.employees || [];
 
-  const handleAddEmployee = (e: React.FormEvent) => {
+  const handleAddEmployee = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanName = empName.trim();
     const cleanLoginId = empLoginId.trim();
@@ -300,15 +301,25 @@ export default function MasterSettingsView({
       role: empIsAdmin ? 'admin' : 'driver'
     };
 
+    const nextEmployees = [...employeeList, newEmployee];
+
+    try {
+      await upsertCompanyEmployees({
+        companyId: companyInfo.id,
+        employees: nextEmployees,
+      });
+    } catch (err) {
+      alert(
+        `직원 저장 실패: ${err instanceof Error ? err.message : String(err)}\n\n업체 마스터/부관리자로 Gate에서 다시 로그인한 뒤 시도해 주세요.`
+      );
+      return;
+    }
+
     let found = false;
     const updatedPartners = (partners || []).map(p => {
       if (p.companyId === companyInfo.id) {
         found = true;
-        const currentEmployees = p.employees || [];
-        return {
-          ...p,
-          employees: [...currentEmployees, newEmployee]
-        };
+        return { ...p, employees: nextEmployees };
       }
       return p;
     });
@@ -316,30 +327,15 @@ export default function MasterSettingsView({
     if (!found) {
       updatedPartners.push({
         companyId: companyInfo.id,
-        password: partnerPassword || 'master1234',
+        password: partnerPassword || '',
         name: companyInfo.name,
         representative: '제휴 사장님',
         phone: partnerPhone || companyInfo.phone || '1545-5746',
         settlementMemo: '',
         status: 'active',
-        employees: [newEmployee]
+        employees: nextEmployees
       });
     }
-
-    // Direct Firestore update for this partner company's employee list with strict sanitization of undefined values
-    const targetEmployees = [...employeeList, newEmployee].map(emp => ({
-      id: emp.id || '',
-      name: emp.name || '',
-      loginId: emp.loginId || '',
-      password: emp.password || '',
-      role: emp.role || 'driver'
-    }));
-
-    setDoc(doc(db, 'companies', companyInfo.id), {
-      employees: targetEmployees
-    }, { merge: true }).catch(err => {
-      console.warn("Firestore update for adding employee failed:", err);
-    });
 
     if (onUpdatePartners) {
       onUpdatePartners(updatedPartners);
@@ -350,44 +346,40 @@ export default function MasterSettingsView({
     setEmpLoginId('');
     setEmpPassword('');
     setEmpIsAdmin(false);
-    alert(`👥 신규 직원 [${cleanName}] 기사가 등록되었습니다.`);
+    alert(`신규 직원 [${cleanName}] 기사가 등록되었습니다.`);
   };
 
-  const handleDeleteEmployee = (empId: string, empName: string) => {
-    if (!window.confirm(`👥 소속 직원 [${empName}] 기사를 정말 삭제(퇴사 처리)하시겠습니까?`)) {
+  const handleDeleteEmployee = async (empId: string, empName: string) => {
+    if (!window.confirm(`소속 직원 [${empName}] 기사를 정말 삭제(퇴사 처리)하시겠습니까?`)) {
+      return;
+    }
+
+    const nextEmployees = employeeList.filter(emp => emp.id !== empId);
+
+    try {
+      await upsertCompanyEmployees({
+        companyId: companyInfo.id,
+        employees: nextEmployees,
+      });
+    } catch (err) {
+      alert(
+        `직원 삭제 실패: ${err instanceof Error ? err.message : String(err)}\n\n업체 마스터/부관리자로 Gate에서 다시 로그인한 뒤 시도해 주세요.`
+      );
       return;
     }
 
     const updatedPartners = (partners || []).map(p => {
       if (p.companyId === companyInfo.id) {
-        return {
-          ...p,
-          employees: (p.employees || []).filter(emp => emp.id !== empId)
-        };
+        return { ...p, employees: nextEmployees };
       }
       return p;
-    });
-
-    // Direct Firestore update for this partner company's employee list with strict sanitization of undefined values
-    const targetEmployees = employeeList.filter(emp => emp.id !== empId).map(emp => ({
-      id: emp.id || '',
-      name: emp.name || '',
-      loginId: emp.loginId || '',
-      password: emp.password || '',
-      role: emp.role || 'driver'
-    }));
-
-    setDoc(doc(db, 'companies', companyInfo.id), {
-      employees: targetEmployees
-    }, { merge: true }).catch(err => {
-      console.warn("Firestore update for deleting employee failed:", err);
     });
 
     if (onUpdatePartners) {
       onUpdatePartners(updatedPartners);
     }
     localStorage.setItem('super_partners_list', JSON.stringify(updatedPartners));
-    alert(`👥 [${empName}] 기사가 안전하게 해임(삭제)되었습니다.`);
+    alert(`[${empName}] 기사가 안전하게 해임(삭제)되었습니다.`);
   };
 
   // Matrix pricing settings
@@ -587,33 +579,26 @@ export default function MasterSettingsView({
             ...pricingPayload,
             ...valetFirestorePayload,
             updatedAt: new Date().toISOString(),
-            employees: (employeeList || []).map((emp) => ({
-              id: emp.id || '',
-              name: emp.name || '',
-              loginId: emp.loginId || '',
-              password: emp.password || '',
-              role: emp.role || 'driver',
-            })),
           },
           { merge: true }
         );
       } catch (err: any) {
         handleFirestoreError(err, OperationType.WRITE, `companies/${companyInfo.id}`);
         alert(
-          `❌ Firestore 저장에 실패했습니다. (다른 계정/본사 화면에 연동되지 않습니다)\n\n` +
+          `Firestore 저장에 실패했습니다. (다른 계정/본사 화면에 연동되지 않습니다)\n\n` +
             `네트워크/로그인 상태를 확인 후 다시 저장해 주세요.\n` +
             `오류: ${err?.message || String(err)}`
         );
         return;
       }
 
-      alert(`🎉 [${companyInfo.name}] 변경 사항이 Firestore에 저장되어 본사/다른 기기에도 실시간으로 연동됩니다.`);
+      alert(`[${companyInfo.name}] 변경 사항이 Firestore에 저장되어 본사/다른 기기에도 실시간으로 연동됩니다.`);
       if (onBack) {
         onBack();
       }
     } catch (unexpectedErr: any) {
       console.error("Error in handleSavePartnerSelf:", unexpectedErr);
-      alert(`❌ 저장 도중 오류가 발생했습니다: ${unexpectedErr?.message || unexpectedErr}`);
+      alert(`저장 도중 오류가 발생했습니다: ${unexpectedErr?.message || unexpectedErr}`);
     }
   };
 
@@ -812,7 +797,7 @@ export default function MasterSettingsView({
               <div className="p-3 bg-[#131315] border border-neutral-850 rounded-xl space-y-3">
                 <span className="text-[12px] text-white font-bold block">● 제2여객터미널(T2) 이동 추가요금 (Terminal Surcharge)</span>
                 <PriceInput
-                  label="💰 제2여객터미널(T2) 이동 추가요금 (원)"
+                  label="제2여객터미널(T2) 이동 추가요금 (원)"
                   value={t2Surcharge}
                   onChange={setT2Surcharge}
                   focusColorClass="focus-within:border-amber-500"
@@ -944,7 +929,7 @@ export default function MasterSettingsView({
           <div className="bg-neutral-900/40 p-5 rounded-3xl border border-neutral-850 space-y-4">
             <div className="flex items-center gap-2 text-xs font-black text-amber-500 tracking-wider uppercase">
               <Users size={14} className="text-amber-500" />
-              <span>👥 소속 직원(현장 기사) 계정 관리</span>
+              <span>소속 직원(현장 기사) 계정 관리</span>
             </div>
             <p className="text-[12.5px] text-white/80 leading-relaxed">
               소속 직원의 개인 로그인 계정을 직접 생성하고 관리합니다. 직원으로 로그인 시, 요금 변경 권한이 통제된 기사 모드로 강제 진입합니다.
@@ -993,7 +978,7 @@ export default function MasterSettingsView({
                   className="w-4 h-4 rounded border-neutral-800 text-amber-500 focus:ring-amber-500 bg-[#1C1C1E] cursor-pointer"
                 />
                 <label htmlFor="emp-is-admin-checkbox" className="text-[12px] text-white font-bold cursor-pointer select-none flex items-center gap-1">
-                  <span>✅ 이 직원에게 관리자 권한 부여</span>
+                  <span>이 직원에게 관리자 권한 부여</span>
                   <span className="text-[11px] text-white/60 font-normal">(업체 정보 요금설정 및 다른 직원 관리 권한 포함)</span>
                 </label>
               </div>
@@ -1001,7 +986,7 @@ export default function MasterSettingsView({
                 type="submit"
                 className="w-full py-2 bg-amber-500 hover:bg-amber-600 text-neutral-950 font-black rounded-xl text-3xs font-extrabold uppercase transition-all flex items-center justify-center gap-1"
               >
-                <span>➕ 신규 직원 기사 등록</span>
+                <span>신규 직원 기사 등록</span>
               </button>
             </form>
 
@@ -1040,7 +1025,9 @@ export default function MasterSettingsView({
                             </div>
                           </td>
                           <td className="p-3 font-mono text-white">{emp.loginId}</td>
-                          <td className="p-3 font-mono text-white/70">{emp.password}</td>
+                          <td className="p-3 font-mono text-white/70">
+                            {emp.password ? '••••••' : '서버 보관'}
+                          </td>
                           <td className="p-3 text-right">
                             <button
                               type="button"

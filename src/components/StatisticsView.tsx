@@ -328,7 +328,7 @@ export default function StatisticsView({
         {/* 1. 업체들 총 현황 (Scoreboard Bento Boards) */}
         <div>
           <h3 className="text-xs font-black text-zinc-400 px-1 mb-3">
-            📊 플랫폼 입출차 총 현황
+            플랫폼 입출차 총 현황
           </h3>
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
             
@@ -391,7 +391,7 @@ export default function StatisticsView({
         <div className="space-y-3">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-1 gap-2">
             <h3 className="text-xs font-black text-zinc-400">
-              📅 월별 입고 현황
+              월별 입고 현황
             </h3>
             <div className="flex items-center gap-1.5 bg-[#1C1C1E] border border-neutral-800/50 rounded-xl p-1">
               <button
@@ -482,7 +482,7 @@ export default function StatisticsView({
         {/* 에어픽 유입 비중 추이 */}
         <div className="space-y-3">
           <h3 className="text-xs font-black text-zinc-400 px-1">
-            📈 에어픽 유입 비중 추이 (최근 6개월)
+            에어픽 유입 비중 추이 (최근 6개월)
           </h3>
           <div className="bg-[#121214] border border-neutral-800/80 rounded-[22px] p-4 space-y-3">
             {hqAirpickTrend.map((m) => {
@@ -533,7 +533,7 @@ export default function StatisticsView({
         {/* 신규 vs 재방문 */}
         <div className="space-y-3">
           <h3 className="text-xs font-black text-zinc-400 px-1">
-            👥 신규 vs 재방문 ({hqMonthLabel})
+            신규 vs 재방문 ({hqMonthLabel})
           </h3>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div className="bg-[#121214] border border-neutral-800/80 rounded-[22px] p-4 space-y-3">
@@ -613,7 +613,7 @@ export default function StatisticsView({
         {/* 3. 업장별 입고 + 순위 변동 */}
         <div className="space-y-3">
           <h3 className="text-xs font-black text-zinc-400 px-1">
-            🏢 업장별 입고 · 순위 변동 ({hqMonthLabel})
+            업장별 입고 · 순위 변동 ({hqMonthLabel})
           </h3>
           <p className="text-[10px] text-zinc-600 px-1">
             전월({hqPrevMonthLabel}) 대비 입고 순위 · 대수 변화

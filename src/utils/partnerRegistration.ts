@@ -1,7 +1,8 @@
-import { doc, setDoc, deleteDoc } from 'firebase/firestore';
-import { db } from '../firebase';
 import type { Company, PartnerCompany } from '../types';
-import { ensureFirestoreAuth, ensurePlatformAdminAuth } from '../lib/firebaseAuth';
+import {
+  adminCreateCompany,
+  adminDeleteCompany,
+} from '../lib/adminCompanyApi';
 
 export const DEFAULT_SETTLEMENT_MEMO = '지급 기본 정산 기준 보류';
 
@@ -9,7 +10,7 @@ export function sanitizePartnerCompanyId(raw: string): string {
   return raw.trim().toLowerCase().replace(/[^a-z0-9_]/g, '');
 }
 
-/** Firestore setDoc — undefined 필드는 거부되므로 제거 */
+/** Firestore / Callable — undefined 필드는 거부되므로 제거 */
 function omitUndefinedDeep<T>(value: T): T {
   if (value === null || value === undefined) return value;
   if (Array.isArray(value)) {
@@ -94,19 +95,17 @@ export async function writeNewPartnerToFirestore(
   company: Company,
   partner: PartnerCompany
 ): Promise<void> {
-  await ensurePlatformAdminAuth();
-  await setDoc(
-    doc(db, 'companies', company.id),
-    omitUndefinedDeep({
+  await adminCreateCompany({
+    companyId: company.id,
+    document: omitUndefinedDeep({
       ...company,
       isOperatorPrimary: company.isOperatorPrimary ?? true,
       password: partner.password,
       settlementMemo: partner.settlementMemo,
       status: 'active',
       blockedDates: [],
-      updatedAt: new Date().toISOString(),
-    })
-  );
+    }),
+  });
 }
 
 export interface CreateSubOperatorInput {
@@ -133,31 +132,24 @@ export function createSubOperatorSkeleton(input: CreateSubOperatorInput): Compan
 }
 
 export async function writeSubOperatorToFirestore(company: Company): Promise<void> {
-  // 주소·핀·거리·사진 포함 — 최고관리자(플랫폼) 계정으로만 기록
-  await ensurePlatformAdminAuth();
-  await setDoc(
-    doc(db, 'companies', company.id),
-    omitUndefinedDeep({
+  await adminCreateCompany({
+    companyId: company.id,
+    document: omitUndefinedDeep({
       ...company,
       parentCompanyId: company.parentCompanyId,
       isOperatorPrimary: false,
       status: 'active',
       blockedDates: company.blockedDates ?? [],
-      updatedAt: new Date().toISOString(),
-    })
-  );
+    }),
+  });
 }
 
 export async function deletePartnerFromFirestore(
   companyId: string,
-  options?: { isSubOperator?: boolean }
+  _options?: { isSubOperator?: boolean }
 ): Promise<void> {
-  if (options?.isSubOperator) {
-    await ensureFirestoreAuth();
-  } else {
-    await ensurePlatformAdminAuth();
-  }
-  await deleteDoc(doc(db, 'companies', companyId));
+  // 대표·하위 모두 본사 Callable (익명 삭제 경로 제거)
+  await adminDeleteCompany({ companyId });
 }
 
 export type StorageAdapter = {

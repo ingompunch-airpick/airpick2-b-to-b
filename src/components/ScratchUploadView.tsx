@@ -142,7 +142,7 @@ function PhotoCard({
         {/* 에러 */}
         {error && (
           <p className="text-[12px] text-rose-400 font-bold bg-rose-500/10 rounded-lg px-3 py-2">
-            ⚠ {error}
+            {error}
           </p>
         )}
 

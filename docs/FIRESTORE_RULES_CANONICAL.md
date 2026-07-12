@@ -1,10 +1,11 @@
-# Firestore 규칙 정본 (초안)
+# Firestore 규칙 정본
 
 **프로젝트:** `airpick-reservation` (B2B · B2C · 홈페이지 예약 공유)  
 **목적:** B2B/B2C 저장소에 각각 다른 `firestore.rules`가 있어, 나중에 배포한 쪽이 다른 쪽 보호를 지우는 문제를 막기 위함입니다.
 
-**적용 상태:** B2B `firestore.rules` · B2C `firestore.rules`에 동일 내용 반영됨 (로컬).  
-프로덕션 반영: B2B에서 `firebase deploy --only firestore:rules --project airpick-reservation`
+**적용 상태:** B2B `firestore.rules` · B2C `Documents/GitHub/airpick-b2c/firestore.rules` 동기화됨.  
+프로덕션 반영: B2B에서 `firebase deploy --only firestore:rules --project airpick-reservation`  
+**(B2C에서는 rules 배포하지 말 것)**
 
 ## 배포 원칙 (중요)
 
@@ -15,18 +16,22 @@
 3. Functions도 같은 이유로 **한쪽 전체 배포가 다른 쪽 함수를 지울 수 있습니다.**  
    → 규칙과 별도로 Functions 배포 체크리스트를 따르세요. (`docs/LAUNCH_CHECKLIST.md`)
 
-## 이 초안이 합친 것
+## 권한 모델 (요약)
 
-| 출처 | 내용 |
-|------|------|
-| B2C | 예약 보안 필드 잠금 (`reservationPassword`, `receiptToken`, `createdBy` 등), 삭제는 본사만, `reviews` 컬렉션 |
-| B2B | 보험·주소·핀·T1/T2·사진·시설유형은 **최고관리자만** companies 수정 |
-| 공통 | companies 공개 읽기, 요금/직원 등은 가맹점 수정 가능, `storage_retention` 클라이언트 차단 |
+| 컬렉션 | 클라이언트 | Cloud Functions (Admin SDK) |
+|--------|------------|------------------------------|
+| `companies` create/delete | **불가** | `adminUpsertCompany` / `adminDeleteCompany` |
+| `companies` HQ 프로필 (핀·보험·사진·password·status 등) | **불가** | `adminUpsertCompany` / `adminSetCompanyStatus` |
+| `companies/.../secrets` (로그인 비번) | **불가** | Admin SDK만 (`verifyPartnerLogin` 검증) |
+| `companies` 운영 필드 (요금·직원·마감·isOpen 등) | 로그인 후 update 허용 | — |
+| `system_settings` / `parking_lots` write | **불가** | 필요 시 Functions |
+| `reviews` write | **불가** | Functions만 |
+| `reservations` | 로그인 + 필드 검증 | 보안 필드·삭제는 본사/Functions |
 
 ## 아직 안 넣은 것 (다음 단계)
 
-- companies의 `password` / `employees[].password` 공개 읽기 제한 → Auth 재설계와 함께
-- Storage `companies/{id}/parking` 쓰기를 본사만으로 제한 → `storage.rules` 별도
+- `.env` 본사 비밀번호 로그인 제거 → **완료** (Gate Firebase 이메일 로그인)
+- Firebase Custom Claims `companyId` 로 가맹점 update 범위 제한
 
 ---
 
@@ -39,12 +44,13 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // ── Helpers ─────────────────────────────────────────────────────────────
+    // 정본: docs/FIRESTORE_RULES_CANONICAL.md — B2B·B2C 동일 유지, rules 배포는 한곳에서만
 
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /** B2B 본사 Firebase Auth 계정 (Anonymous 아님) */
+    /** B2B 본사 Firebase Auth 계정 (Anonymous 아님). 예약 삭제 등 Rules 경로용 */
     function isPlatformAdmin() {
       return isSignedIn()
         && request.auth.token.email != null
@@ -58,60 +64,38 @@ service cloud.firestore {
       return companyId.matches('^[a-z0-9_]{1,64}$');
     }
 
-    function isSubOperatorCompanyData(data, companyId) {
-      return data.keys().hasAll(['parentCompanyId', 'isOperatorPrimary'])
-        && data.isOperatorPrimary == false
-        && data.parentCompanyId is string
-        && isValidCompanyId(data.parentCompanyId)
-        && data.parentCompanyId != companyId;
-    }
-
-    function subOperatorParentExists(data) {
-      return exists(/databases/$(database)/documents/companies/$(data.parentCompanyId));
-    }
-
-    function isSubOperatorCreate(companyId) {
-      return isSignedIn()
-        && isValidCompanyId(companyId)
-        && isSubOperatorCompanyData(request.resource.data, companyId)
-        && subOperatorParentExists(request.resource.data);
-    }
-
-    function isSubOperatorDelete() {
-      return isSignedIn()
-        && resource.data.keys().hasAll(['parentCompanyId'])
-        && resource.data.parentCompanyId is string
-        && resource.data.parentCompanyId.size() > 0
-        && isValidCompanyId(resource.data.parentCompanyId);
-    }
-
-    /** 가맹점이 덮어쓰면 안 되는 B2C MY 보험·위치·사진 필드 (최고관리자만) */
-    function touchesHqOnlyParkingFields() {
-      return request.resource.data.diff(resource.data).affectedKeys().hasAny([
-        'facilityType',
-        'is_indoor',
-        'supports_indoor',
-        'supports_outdoor',
-        'features',
-        'indoorParkingAddress',
-        'outdoorParkingAddress',
-        'indoorParkingLat',
-        'indoorParkingLng',
-        'outdoorParkingLat',
-        'outdoorParkingLng',
-        'parkingLots',
-        'parkingDistances',
-        'parkingDistancesIndoor',
-        'parkingDistancesOutdoor',
-        'image_url',
-        'image_urls',
-        'sharesParkingLocation',
-        'sharesPhotos',
-        'insurance',
-        'hasInsurance',
-        'insuranceProvider',
-        'insuranceLimit',
-        'sharesInsurance'
+    /**
+     * 가맹점(클라이언트)이 바꿀 수 있는 운영 필드만.
+     * 생성·삭제·프로필(핀·보험·비밀번호·status 등)은 Cloud Functions Admin SDK만.
+     */
+    function onlyPartnerOperationalFieldsChanged() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly([
+        'id',
+        'base_price',
+        'extra_day_price',
+        'base_days',
+        'outdoorBasePrice',
+        'outdoorBaseDays',
+        'outdoorExtraPrice',
+        'indoorBasePrice',
+        'indoorBaseDays',
+        'indoorExtraPrice',
+        'surchargeStartTime',
+        'surchargeEndTime',
+        'surchargePrice',
+        't2Surcharge',
+        'peakStartTime',
+        'peakEndTime',
+        'peakSurcharge',
+        'valetFeeT1',
+        'valetFeeT2',
+        'employees',
+        'isOpen',
+        'blockedDates',
+        'cancelCutoffHours',
+        'sameDayBookingBlocked',
+        'phone',
+        'updatedAt'
       ]);
     }
 
@@ -183,31 +167,26 @@ service cloud.firestore {
     match /companies/{companyId} {
       allow read: if true;
 
-      allow create: if isPlatformAdmin() && isValidCompanyId(companyId)
-        || isSubOperatorCreate(companyId);
+      // 생성·삭제는 Cloud Functions(adminUpsertCompany / adminDeleteCompany)만
+      allow create, delete: if false;
 
-      // 가맹점: 요금·대면·직원·마감 등만
-      // 보험·주소·핀·거리·사진·시설유형: 최고관리자만
-      allow update: if isSignedIn() && isValidCompanyId(companyId)
-        && (
-          isPlatformAdmin()
-          || !touchesHqOnlyParkingFields()
-        );
-
-      allow delete: if isPlatformAdmin() && isValidCompanyId(companyId)
-        || isSubOperatorDelete();
+      // 가맹점: 요금·발레·직원·마감·영업여부 등 운영 필드만
+      // 핀·보험·사진·password·status·정산메모 등 → Functions만
+      allow update: if isSignedIn()
+        && isValidCompanyId(companyId)
+        && onlyPartnerOperationalFieldsChanged();
     }
 
     // ── system_settings / parking_lots ─────────────────────────────────────
 
     match /system_settings/{settingId} {
       allow read: if isSignedIn();
-      allow write: if isPlatformAdmin();
+      allow write: if false;
     }
 
     match /parking_lots/{lotId} {
       allow read: if true;
-      allow write: if isPlatformAdmin();
+      allow write: if false;
     }
 
     // ── reviews (후기 — 쓰기는 Cloud Functions만) ─────────────────────────
@@ -223,8 +202,9 @@ service cloud.firestore {
 ## 반영 후 스모크 테스트
 
 - [ ] 가맹점 마스터에서 요금 저장 → 성공
-- [ ] 가맹점이 브라우저에서 companies의 `indoorParkingAddress`를 직접 바꾸려 하면 → 실패
-- [ ] 본사(플랫폼 Auth) 가맹점 수정에서 주소·사진·보험 저장 → 성공
+- [ ] 가맹점이 브라우저에서 companies의 `indoorParkingAddress` / `password` / `status`를 직접 바꾸려 하면 → 실패
+- [ ] 본사 AdminDashboard에서 주소·사진·보험 저장 (Callable) → 성공
+- [ ] 본사에서 업체 생성·삭제·상태 토글 (Callable) → 성공
 - [ ] B2C에서 예약 생성 → 성공
 - [ ] B2C/B2B가 `reservationPassword` / `createdBy`를 클라이언트로 바꾸려 하면 → 실패
 - [ ] MY에서 published 후기 목록 조회 → 성공
