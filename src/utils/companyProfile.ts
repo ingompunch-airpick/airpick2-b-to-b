@@ -198,8 +198,12 @@ function coordToFormString(raw: unknown): string {
 }
 
 function parseOptionalCoord(raw: string): number | undefined {
-  const n = Number(String(raw || '').trim());
+  const s = String(raw || '').trim();
+  if (!s) return undefined;
+  const n = Number(s);
   if (!Number.isFinite(n)) return undefined;
+  // 빈 문자열이 Number('')===0 으로 저장되던 버그 방지
+  if (n === 0 && !/[1-9]/.test(s)) return undefined;
   return n;
 }
 

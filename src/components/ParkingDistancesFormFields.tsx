@@ -78,28 +78,6 @@ function TerminalSection({
           />
         </div>
       </div>
-
-      <div>
-        <label className={labelCls}>현재 사용 주차장명</label>
-        <input
-          type="text"
-          value={form.parkingLotName}
-          onChange={(e) => set('parkingLotName', e.target.value)}
-          className={inputCls}
-          placeholder="예: 와와 실내주차장 A구역"
-        />
-      </div>
-
-      <div>
-        <label className={labelCls}>주차장 도로명 주소</label>
-        <input
-          type="text"
-          value={form.parkingLotAddress}
-          onChange={(e) => set('parkingLotAddress', e.target.value)}
-          className={inputCls}
-          placeholder="예: 인천광역시 중구 공항로 272"
-        />
-      </div>
     </div>
   );
 }
@@ -111,7 +89,7 @@ export default function ParkingDistancesFormFields({
   onChangeT2,
   variant = 'light',
   title = '터미널별 주차장 거리',
-  hint = 'B2C 비교 화면 거리순 탭에서 사용합니다. 주차장 계약 변경 시 여기만 수정하면 됩니다.',
+  hint = 'B2C 비교 화면 거리순 탭에서 사용합니다. 핀으로 자동 계산된 km·분을 필요 시 수정하세요.',
   nested = false,
 }: Props) {
   const sectionCls = nested

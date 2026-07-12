@@ -41,10 +41,16 @@ export function distancesFromParkingPin(pin: LatLng): {
 }
 
 export function parseLatLng(latRaw: string, lngRaw: string): LatLng | null {
-  const lat = Number(latRaw.trim());
-  const lng = Number(lngRaw.trim());
+  const latStr = String(latRaw ?? '').trim();
+  const lngStr = String(lngRaw ?? '').trim();
+  // Number('') === 0 이므로 빈 값은 좌표 없음으로 처리
+  if (!latStr || !lngStr) return null;
+  const lat = Number(latStr);
+  const lng = Number(lngStr);
   if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
   if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+  // (0,0)은 미입력/오류로 취급 — 인천 주차장 핀으로 쓰지 않음
+  if (lat === 0 && lng === 0) return null;
   return { lat, lng };
 }
 

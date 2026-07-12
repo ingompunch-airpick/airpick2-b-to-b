@@ -46,6 +46,8 @@ export default function PartnerProfileFormFields({
   variant = 'light',
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const profileRef = useRef(profile);
+  profileRef.current = profile;
   const [uploading, setUploading] = useState(false);
 
   const set = <K extends keyof PartnerProfileInput>(key: K, value: PartnerProfileInput[K]) => {
@@ -134,31 +136,7 @@ export default function PartnerProfileFormFields({
           </div>
         </div>
 
-        {showIndoor && (
-          <div>
-            <label className={labelCls}>실내 주차장 도로명 주소</label>
-            <input
-              type="text"
-              value={profile.indoorParkingAddress}
-              onChange={(e) => set('indoorParkingAddress', e.target.value)}
-              className={inputCls}
-              placeholder="예: 인천광역시 중구 공항로 272"
-            />
-          </div>
-        )}
-
-        {showOutdoor && (
-          <div>
-            <label className={labelCls}>실외(야외) 주차장 도로명 주소</label>
-            <input
-              type="text"
-              value={profile.outdoorParkingAddress}
-              onChange={(e) => set('outdoorParkingAddress', e.target.value)}
-              className={inputCls}
-              placeholder="예: 인천광역시 중구 공항동로 295"
-            />
-          </div>
-        )}
+        {/* 도로명 주소는 아래 지도 핀에서 자동 채움 */}
       </div>
 
       <div className={sectionCls}>
@@ -217,26 +195,32 @@ export default function PartnerProfileFormFields({
         outdoor={{ lat: profile.outdoorParkingLat, lng: profile.outdoorParkingLng }}
         showIndoor={showIndoor}
         showOutdoor={showOutdoor}
-        onChangeIndoor={({ lat, lng }) =>
-          onChange({ ...profile, indoorParkingLat: lat, indoorParkingLng: lng })
+        onUpdateIndoor={({ lat, lng, address, distances }) =>
+          onChange({
+            ...profileRef.current,
+            indoorParkingLat: lat,
+            indoorParkingLng: lng,
+            ...(address != null ? { indoorParkingAddress: address } : {}),
+            parkingDistancesByLot: {
+              ...profileRef.current.parkingDistancesByLot,
+              indoor: distances,
+            },
+          })
         }
-        onChangeOutdoor={({ lat, lng }) =>
-          onChange({ ...profile, outdoorParkingLat: lat, outdoorParkingLng: lng })
+        onUpdateOutdoor={({ lat, lng, address, distances }) =>
+          onChange({
+            ...profileRef.current,
+            outdoorParkingLat: lat,
+            outdoorParkingLng: lng,
+            ...(address != null ? { outdoorParkingAddress: address } : {}),
+            parkingDistancesByLot: {
+              ...profileRef.current.parkingDistancesByLot,
+              outdoor: distances,
+            },
+          })
         }
         indoorDistances={profile.parkingDistancesByLot.indoor}
         outdoorDistances={profile.parkingDistancesByLot.outdoor}
-        onChangeIndoorDistances={(indoor) =>
-          onChange({
-            ...profile,
-            parkingDistancesByLot: { ...profile.parkingDistancesByLot, indoor },
-          })
-        }
-        onChangeOutdoorDistances={(outdoor) =>
-          onChange({
-            ...profile,
-            parkingDistancesByLot: { ...profile.parkingDistancesByLot, outdoor },
-          })
-        }
         variant={variant}
       />
 

@@ -1,4 +1,5 @@
 ﻿import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   Edit, 
   Trash2, 
@@ -12,7 +13,7 @@ import {
 import { db } from '../firebase';
 import { Company, Reservation, PartnerCompany } from '../types';
 import PartnerOnboardingChecklist from './PartnerOnboardingChecklist';
-import { ensurePlatformAdminAuth } from '../lib/firebaseAuth';
+import { ensurePlatformAdminAuth, getPlatformAdminCredentials } from '../lib/firebaseAuth';
 import { getKSTDateOnlyString } from '../utils/kstDate';
 import {
   appendPartnerToList,
@@ -128,6 +129,8 @@ export default function AdminDashboard({
   const [editPassword, setEditPassword] = useState('');
   const [editMemo, setEditMemo] = useState('');
   const [editProfile, setEditProfile] = useState<PartnerProfileInput>({ ...DEFAULT_PARTNER_PROFILE });
+  const [savingEdit, setSavingEdit] = useState(false);
+  const savingEditRef = React.useRef(false);
 
   const primaryPartners = (partners || []).filter((p) => {
     if (!p?.companyId) return false;
@@ -219,6 +222,8 @@ export default function AdminDashboard({
   };
 
   const handleStartEdit = (p: PartnerCompany) => {
+    savingEditRef.current = false;
+    setSavingEdit(false);
     setEditingPartner(p);
     setEditName(p.name);
     setEditRep(p.representative);
@@ -229,10 +234,24 @@ export default function AdminDashboard({
     setEditProfile(readPartnerProfileFromCompany(company));
   };
 
-  const handleSaveEdit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingPartner) return;
-    if (!editName || !editRep || !editPhone) {
+  const handleSaveEdit = async (e?: React.FormEvent | React.MouseEvent) => {
+    e?.preventDefault?.();
+    e?.stopPropagation?.();
+
+    // HMR/이전 시도로 ref만 true로 남은 경우 해제 (취소는 되는데 저장만 무시되던 원인)
+    if (savingEditRef.current && !savingEdit) {
+      savingEditRef.current = false;
+    }
+
+    if (!editingPartner) {
+      alert('수정 대상이 없습니다. 창을 닫고 다시 열어 주세요.');
+      return;
+    }
+    if (savingEditRef.current) {
+      alert('이미 저장 중입니다. 잠시만 기다려 주세요.');
+      return;
+    }
+    if (!editName.trim() || !editRep.trim() || !editPhone.trim()) {
       alert('모든 필수 항목을 입력해주십시오.');
       return;
     }
@@ -243,6 +262,19 @@ export default function AdminDashboard({
       return;
     }
 
+    // Firestore 쓰기 전에 인증 정보 먼저 확인 — 비밀번호 없으면 여기서 바로 안내
+    if (!getPlatformAdminCredentials()) {
+      alert(
+        'Firebase 최고관리자 비밀번호가 .env에 없습니다.\n\n' +
+          '필요한 값: VITE_FIREBASE_ADMIN_EMAIL 계정(ingompunch@gmail.com)의\n' +
+          'Firebase Authentication 로그인 비밀번호입니다.\n' +
+          '(네이버·가맹점 비밀번호가 아닙니다)'
+      );
+      return;
+    }
+
+    savingEditRef.current = true;
+    setSavingEdit(true);
     const targetId = editingPartner.companyId;
 
     let profileToSave = editProfile;
@@ -252,6 +284,8 @@ export default function AdminDashboard({
     } catch (err) {
       const msg = err instanceof Error ? err.message : '주차장 사진 업로드 실패';
       alert(msg);
+      savingEditRef.current = false;
+      setSavingEdit(false);
       return;
     }
 
@@ -304,13 +338,21 @@ export default function AdminDashboard({
       });
     } catch (err) {
       console.warn('Firestore updateDoc for partner edit failed:', err);
+      const detail = err instanceof Error ? err.message : String(err);
       alert(
-        '❌ 가맹점 위치·사진 저장에 실패했습니다.\n최고관리자 Firebase 로그인(.env)을 확인하세요.'
+        '❌ 가맹점 저장에 실패했습니다.\n\n' +
+          'Firebase 최고관리자(ingompunch@gmail.com) 비밀번호를 .env의\n' +
+          'VITE_FIREBASE_ADMIN_PASSWORD 에 넣고 서버를 재시작하세요.\n\n' +
+          detail
       );
+      savingEditRef.current = false;
+      setSavingEdit(false);
       return;
     }
 
     alert(`🏢 [${editName}] 업체 정보가 성공적으로 수정되었습니다.`);
+    savingEditRef.current = false;
+    setSavingEdit(false);
     setEditingPartner(null);
   };
   
@@ -775,155 +817,193 @@ export default function AdminDashboard({
             </div>
           </div>
 
-          {/* Edit Partner Overlay Form */}
-          {editingPartner && (
-            <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs select-none">
-              <div className="bg-white w-full max-w-lg max-h-[90vh] rounded-2xl shadow-xl overflow-hidden flex flex-col p-5 text-xs text-left">
-                <div className="flex items-center justify-between pb-3 border-b border-slate-150 mb-4">
-                  <div>
-                    <h4 className="text-sm font-black text-slate-900">🏢 제휴 가맹점 정보 수정</h4>
-                    <p className="text-[12px] text-slate-450 mt-0.5">고유 ID: <span className="font-mono font-bold text-indigo-600 bg-indigo-50 px-1 py-0.2 rounded">{editingPartner.companyId}</span></p>
-                  </div>
-                  <button 
-                    type="button" 
-                    onClick={() => setEditingPartner(null)} 
-                    className="p-1.5 text-slate-400 hover:bg-slate-100 rounded-full"
+          {/* Edit Partner — body portal + 높은 z-index (네이버지도/부모 transform 클릭 가로채기 방지) */}
+          {editingPartner &&
+            createPortal(
+              <div className="fixed inset-0 z-[99999]" role="dialog" aria-modal="true">
+                <div
+                  className="absolute inset-0 bg-slate-950/70 backdrop-blur-xs"
+                  onClick={() => {
+                    if (!savingEdit) setEditingPartner(null);
+                  }}
+                />
+                <div className="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
+                  <div
+                    className="pointer-events-auto bg-white w-full max-w-lg rounded-2xl shadow-xl flex flex-col text-xs text-left overflow-hidden"
+                    style={{ height: 'min(90dvh, 900px)', maxHeight: '90vh' }}
                   >
-                    <X size={16} />
-                  </button>
+                    <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-slate-100 shrink-0 bg-white">
+                      <div>
+                        <h4 className="text-sm font-black text-slate-900">🏢 제휴 가맹점 정보 수정</h4>
+                        <p className="text-[12px] text-slate-450 mt-0.5">
+                          고유 ID:{' '}
+                          <span className="font-mono font-bold text-indigo-600 bg-indigo-50 px-1 py-0.2 rounded">
+                            {editingPartner.companyId}
+                          </span>
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setEditingPartner(null)}
+                        className="p-1.5 text-slate-400 hover:bg-slate-100 rounded-full"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+
+                    <div className="px-5 py-3 space-y-3 overflow-y-auto flex-1 min-h-0 overscroll-contain">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-[12px] text-slate-500 block mb-1 font-bold">가맹사 법인명 (상호명) *</label>
+                          <input
+                            type="text"
+                            value={editName}
+                            onChange={(e) => setEditName(e.target.value)}
+                            className="w-full px-3 py-2 border border-slate-200 bg-white text-slate-900 rounded-xl focus:outline-none focus:ring-1 focus:ring-indigo-500 font-bold"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[12px] text-slate-500 block mb-1 font-bold">대표자 성함 *</label>
+                          <input
+                            type="text"
+                            value={editRep}
+                            onChange={(e) => setEditRep(e.target.value)}
+                            className="w-full px-3 py-2 border border-slate-200 bg-white text-slate-900 rounded-xl focus:outline-none focus:ring-1 focus:ring-indigo-500 font-semibold"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-[12px] text-slate-500 block mb-1 font-bold">업체 대표 연락처 *</label>
+                          <input
+                            type="text"
+                            value={editPhone}
+                            onChange={(e) => setEditPhone(e.target.value)}
+                            className="w-full px-3 py-2 border border-slate-200 bg-white text-slate-900 rounded-xl focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono font-semibold"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[12px] text-slate-500 block mb-1 font-bold">로그인 비밀번호</label>
+                          <input
+                            type="text"
+                            value={editPassword}
+                            onChange={(e) => setEditPassword(e.target.value)}
+                            className="w-full px-3 py-2 border border-slate-200 bg-white text-slate-900 rounded-xl focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono font-semibold"
+                            placeholder="로그인 비밀번호 재설정"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="text-[12px] text-slate-500 block mb-1 font-bold">정산 방식 및 계약 조건 메모</label>
+                        <textarea
+                          value={editMemo}
+                          onChange={(e) => setEditMemo(e.target.value)}
+                          className="w-full px-3 py-2 border border-slate-200 bg-white text-slate-900 rounded-xl h-20 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-sans font-medium"
+                        />
+                      </div>
+
+                      <PartnerProfileFormFields
+                        profile={editProfile}
+                        onChange={setEditProfile}
+                        companyId={editingPartner.companyId}
+                      />
+                      <p className="text-[11px] text-indigo-600 font-bold bg-indigo-50 rounded-lg px-2.5 py-1.5">
+                        보험·주소·핀·T1/T2 거리·사진은 companies에 저장되며 B2C MY가 읽습니다. 가맹점은 확인만 가능합니다.
+                      </p>
+                    </div>
+
+                    <div className="shrink-0 flex flex-col gap-2 px-5 py-3 border-t border-slate-200 bg-white shadow-[0_-4px_12px_rgba(0,0,0,0.06)]">
+                      <button
+                        type="button"
+                        disabled={savingEdit}
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          void handleSaveEdit(e);
+                        }}
+                        className="w-full py-3.5 bg-indigo-600 text-white rounded-xl font-black hover:bg-indigo-700 transition-all disabled:opacity-50 text-sm"
+                      >
+                        {savingEdit ? '저장 중…' : '변경 내용 저장'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          savingEditRef.current = false;
+                          setSavingEdit(false);
+                          setEditingPartner(null);
+                        }}
+                        disabled={savingEdit}
+                        className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 font-black rounded-xl transition-all disabled:opacity-50"
+                      >
+                        취소
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                
-                <form onSubmit={handleSaveEdit} className="space-y-3 overflow-y-auto flex-1 min-h-0 pr-1">
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-[12px] text-slate-500 block mb-1 font-bold">가맹사 법인명 (상호명) *</label>
-                      <input 
-                        type="text" 
-                        required
-                        value={editName}
-                        onChange={e => setEditName(e.target.value)}
-                        className="w-full px-3 py-2 border border-slate-200 bg-white text-slate-900 rounded-xl focus:outline-none focus:ring-1 focus:ring-indigo-500 font-bold"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[12px] text-slate-500 block mb-1 font-bold">대표자 성함 *</label>
-                      <input 
-                        type="text" 
-                        required
-                        value={editRep}
-                        onChange={e => setEditRep(e.target.value)}
-                        className="w-full px-3 py-2 border border-slate-200 bg-white text-slate-900 rounded-xl focus:outline-none focus:ring-1 focus:ring-indigo-500 font-semibold"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-[12px] text-slate-500 block mb-1 font-bold">업체 대표 연락처 *</label>
-                      <input 
-                        type="text" 
-                        required
-                        value={editPhone}
-                        onChange={e => setEditPhone(e.target.value)}
-                        className="w-full px-3 py-2 border border-slate-200 bg-white text-slate-900 rounded-xl focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono font-semibold"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[12px] text-slate-500 block mb-1 font-bold">로그인 비밀번호</label>
-                      <input 
-                        type="text" 
-                        value={editPassword}
-                        onChange={e => setEditPassword(e.target.value)}
-                        className="w-full px-3 py-2 border border-slate-200 bg-white text-slate-900 rounded-xl focus:outline-none focus:ring-1 focus:ring-indigo-500 font-mono font-semibold"
-                        placeholder="로그인 비밀번호 재설정"
-                      />
-                    </div>
-                  </div>
-
-                  <div>
-                     <label className="text-[12px] text-slate-500 block mb-1 font-bold">정산 방식 및 계약 조건 메모</label>
-                     <textarea
-                       value={editMemo}
-                       onChange={e => setEditMemo(e.target.value)}
-                       className="w-full px-3 py-2 border border-slate-200 bg-white text-slate-900 rounded-xl h-20 focus:outline-none focus:ring-1 focus:ring-indigo-500 font-sans font-medium"
-                     />
-                  </div>
-
-                  <PartnerProfileFormFields
-                    profile={editProfile}
-                    onChange={setEditProfile}
-                    companyId={editingPartner.companyId}
-                  />
-                  <p className="text-[11px] text-indigo-600 font-bold bg-indigo-50 rounded-lg px-2.5 py-1.5">
-                    보험·주소·핀·T1/T2 거리·사진은 companies에 저장되며 B2C MY가 읽습니다. 가맹점은 확인만 가능합니다.
-                  </p>
-
-                  <div className="flex gap-2 pt-3 border-t border-slate-100 sticky bottom-0 bg-white">
-                    <button 
-                      type="button" 
-                      onClick={() => setEditingPartner(null)}
-                      className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 font-black rounded-xl transition-all"
-                    >
-                      취소
-                    </button>
-                    <button 
-                      type="submit" 
-                      className="flex-1 py-1.5 bg-indigo-600 text-white rounded-xl font-black hover:bg-indigo-700 transition-all flex items-center justify-center gap-1 shadow-xs"
-                    >
-                      변경 내용 저장
-                    </button>
-                  </div>
-                </form>
-              </div>
-            </div>
-          )}
+              </div>,
+              document.body
+            )}
 
           {/* Sub-operator edit modal */}
-          {editingSubCompany && (
-            <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-slate-950/70 backdrop-blur-xs select-none">
-              <div className="bg-white w-full max-w-lg max-h-[90vh] rounded-2xl shadow-xl overflow-hidden flex flex-col p-5 text-xs text-left">
-                <div className="flex items-center justify-between pb-3 border-b border-slate-150 mb-4">
-                  <div>
-                    <h4 className="text-sm font-black text-slate-900">하위 업체 정보 수정</h4>
-                    <p className="text-[12px] text-slate-450 mt-0.5">
-                      ID: <span className="font-mono font-bold text-violet-600">{editingSubCompany.id}</span>
-                      {' · '}
-                      대표: {editingSubCompany.parentCompanyId}
-                    </p>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setEditingSubCompany(null)}
-                    className="p-1.5 text-slate-400 hover:bg-slate-100 rounded-full"
+          {editingSubCompany &&
+            createPortal(
+              <div className="fixed inset-0 z-[99999]" role="dialog" aria-modal="true">
+                <div
+                  className="absolute inset-0 bg-slate-950/70 backdrop-blur-xs"
+                  onClick={() => setEditingSubCompany(null)}
+                />
+                <div className="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
+                  <div
+                    className="pointer-events-auto bg-white w-full max-w-lg rounded-2xl shadow-xl flex flex-col text-xs text-left overflow-hidden"
+                    style={{ height: 'min(90dvh, 900px)', maxHeight: '90vh' }}
                   >
-                    <X size={16} />
-                  </button>
-                </div>
-                <form onSubmit={handleSaveSubEdit} className="space-y-3 overflow-y-auto flex-1 min-h-0 pr-1">
-                  <PartnerProfileFormFields
-                    profile={editSubProfile}
-                    onChange={setEditSubProfile}
-                    companyId={editingSubCompany.id}
-                  />
-                  <div className="flex gap-2 pt-3 border-t border-slate-100 sticky bottom-0 bg-white">
-                    <button
-                      type="button"
-                      onClick={() => setEditingSubCompany(null)}
-                      className="flex-1 py-2 bg-slate-100 hover:bg-slate-200 text-slate-600 font-black rounded-xl transition-all"
-                    >
-                      취소
-                    </button>
-                    <button
-                      type="submit"
-                      className="flex-1 py-1.5 bg-violet-600 text-white rounded-xl font-black hover:bg-violet-700 transition-all"
-                    >
-                      저장
-                    </button>
+                    <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-slate-100 shrink-0">
+                      <div>
+                        <h4 className="text-sm font-black text-slate-900">하위 업체 정보 수정</h4>
+                        <p className="text-[12px] text-slate-450 mt-0.5">
+                          ID: <span className="font-mono font-bold text-violet-600">{editingSubCompany.id}</span>
+                          {' · '}
+                          대표: {editingSubCompany.parentCompanyId}
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setEditingSubCompany(null)}
+                        className="p-1.5 text-slate-400 hover:bg-slate-100 rounded-full"
+                      >
+                        <X size={16} />
+                      </button>
+                    </div>
+                    <div className="px-5 py-3 space-y-3 overflow-y-auto flex-1 min-h-0">
+                      <PartnerProfileFormFields
+                        profile={editSubProfile}
+                        onChange={setEditSubProfile}
+                        companyId={editingSubCompany.id}
+                      />
+                    </div>
+                    <div className="shrink-0 flex gap-2 px-5 py-3 border-t border-slate-200 bg-white">
+                      <button
+                        type="button"
+                        onClick={() => setEditingSubCompany(null)}
+                        className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-black rounded-xl"
+                      >
+                        취소
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(e) => void handleSaveSubEdit(e as unknown as React.FormEvent)}
+                        className="flex-1 py-3 bg-violet-600 text-white rounded-xl font-black hover:bg-violet-700"
+                      >
+                        저장
+                      </button>
+                    </div>
                   </div>
-                </form>
-              </div>
-            </div>
-          )}
+                </div>
+              </div>,
+              document.body
+            )}
         </div>
       )}
 
