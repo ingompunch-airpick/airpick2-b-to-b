@@ -2,14 +2,24 @@
 
 프로젝트 `airpick-reservation` — **홈페이지 · B2C · B2B** 가 같은 DB를 공유합니다.
 
+> **정본:** [`FIRESTORE_RULES_CANONICAL.md`](./FIRESTORE_RULES_CANONICAL.md)  
+> B2B `firestore.rules`와 B2C `firestore.rules`는 **동일**해야 합니다.  
+> **rules 배포는 B2B에서만** 하세요. B2C에서 rules를 따로 올리면 잠금이 풀리거나 어긋날 수 있습니다.
+
 ## 규칙 요약
 
 | 컬렉션 | read | create | update | delete |
 |--------|------|--------|--------|--------|
-| `reservations` | 로그인(Anonymous 포함) | 로그인 + 필드 검증 | 로그인 + 필드 검증 | 로그인 |
-| `companies` | **공개** (요금·마감 조회) | **플랫폼 관리자** | 로그인 | **플랫폼 관리자** |
+| `reservations` | 로그인(Anonymous 포함) | 로그인 + 필드 검증 | 로그인 + 필드 검증 + **보안필드 잠금** | **플랫폼 관리자만** |
+| `companies` | **공개** (요금·마감·위치 조회) | 플랫폼 관리자 / 하위업체 | 로그인, 단 **보험·위치·핀·거리·사진은 본사만** | 플랫폼 관리자 / 하위업체 |
+| `reviews` | 로그인 + `published` | Functions만 | Functions만 | Functions만 |
 | `system_settings` | 로그인 | **플랫폼 관리자** | **플랫폼 관리자** | **플랫폼 관리자** |
 | Storage `reservations/…` | 로그인 | 로그인 (15MB 이하) | — | — |
+
+### 예약 보안 필드 (클라이언트 변경 불가)
+
+`reservationPassword`, `receiptToken`, `createdBy`, `createdAt`, `userId`  
+→ 취소·비번 검증은 Cloud Functions(admin)가 처리합니다.
 
 ### 플랫폼 관리자 (Firestore `isPlatformAdmin`)
 
@@ -28,7 +38,7 @@ B2B 앱은 `.env`의 `VITE_FIREBASE_ADMIN_EMAIL` / `VITE_FIREBASE_ADMIN_PASSWORD
 ### Anonymous Auth (예약·업체 수정)
 
 - 홈페이지·B2C·B2B **예약 생성/수정**
-- 제휴업체 **요금·마감(companies update)**
+- 제휴업체 **요금·마감(companies update)** — 위치·보험 제외
 
 Firebase Console → Authentication → Sign-in method → **Anonymous 사용 설정** 필수.
 

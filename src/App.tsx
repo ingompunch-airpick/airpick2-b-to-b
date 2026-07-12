@@ -1711,10 +1711,10 @@ export default function App() {
         {currentView === 'timeline' && showPartnerDriverView && (
           <div className="mx-4 mb-3 bg-[#1C1C1E] rounded-[22px] p-1 grid grid-cols-4 gap-1 border border-neutral-900/30">
             {[
-              { key: 'pending' as ReservationStatus, label: '입고예정', count: countPending, color: 'text-amber-400' },
-              { key: 'pending_in' as ReservationStatus, label: '입고요청', count: countPendingIn, color: 'text-sky-450' },
-              { key: 'request_out' as ReservationStatus, label: '출고요청', count: countRequestOut, color: 'text-rose-450' },
-              { key: 'completed_in' as ReservationStatus, label: '주차완료', count: countConfirmed, color: 'text-emerald-450' }
+              { key: 'pending' as ReservationStatus, label: '입고 예정', count: countPending, color: 'text-amber-400' },
+              { key: 'pending_in' as ReservationStatus, label: '입고', count: countPendingIn, color: 'text-sky-450' },
+              { key: 'request_out' as ReservationStatus, label: '출고', count: countRequestOut, color: 'text-rose-450' },
+              { key: 'completed_in' as ReservationStatus, label: '출고예정', count: countConfirmed, color: 'text-emerald-450' }
             ].map((step) => {
               const isActive = activeCounterTab === step.key;
               return (

@@ -1,10 +1,44 @@
+# Firestore 규칙 정본 (초안)
+
+**프로젝트:** `airpick-reservation` (B2B · B2C · 홈페이지 예약 공유)  
+**목적:** B2B/B2C 저장소에 각각 다른 `firestore.rules`가 있어, 나중에 배포한 쪽이 다른 쪽 보호를 지우는 문제를 막기 위함입니다.
+
+**적용 상태:** B2B `firestore.rules` · B2C `firestore.rules`에 동일 내용 반영됨 (로컬).  
+프로덕션 반영: B2B에서 `firebase deploy --only firestore:rules --project airpick-reservation`
+
+## 배포 원칙 (중요)
+
+1. **정본은 이 문서의 규칙 블록 하나**입니다.
+2. 반영 시 **B2B `firestore.rules`와 B2C `firestore.rules`를 동일 내용으로 맞춘 뒤**, 한곳에서만 배포하세요.
+   - 예: B2B에서만 `firebase deploy --only firestore:rules`
+   - B2C에서는 rules 배포 스크립트를 끄거나, 같은 파일을 복사해 두고 “B2B가 정본”이라고 README에 적기
+3. Functions도 같은 이유로 **한쪽 전체 배포가 다른 쪽 함수를 지울 수 있습니다.**  
+   → 규칙과 별도로 Functions 배포 체크리스트를 따르세요. (`docs/LAUNCH_CHECKLIST.md`)
+
+## 이 초안이 합친 것
+
+| 출처 | 내용 |
+|------|------|
+| B2C | 예약 보안 필드 잠금 (`reservationPassword`, `receiptToken`, `createdBy` 등), 삭제는 본사만, `reviews` 컬렉션 |
+| B2B | 보험·주소·핀·T1/T2·사진·시설유형은 **최고관리자만** companies 수정 |
+| 공통 | companies 공개 읽기, 요금/직원 등은 가맹점 수정 가능, `storage_retention` 클라이언트 차단 |
+
+## 아직 안 넣은 것 (다음 단계)
+
+- companies의 `password` / `employees[].password` 공개 읽기 제한 → Auth 재설계와 함께
+- Storage `companies/{id}/parking` 쓰기를 본사만으로 제한 → `storage.rules` 별도
+
+---
+
+## 정본 규칙 (복사해 `firestore.rules`에 사용)
+
+```
 rules_version = '2';
 
 service cloud.firestore {
   match /databases/{database}/documents {
 
     // ── Helpers ─────────────────────────────────────────────────────────────
-    // 정본: docs/FIRESTORE_RULES_CANONICAL.md — B2B·B2C 동일 유지, rules 배포는 한곳에서만
 
     function isSignedIn() {
       return request.auth != null;
@@ -184,3 +218,14 @@ service cloud.firestore {
     }
   }
 }
+```
+
+## 반영 후 스모크 테스트
+
+- [ ] 가맹점 마스터에서 요금 저장 → 성공
+- [ ] 가맹점이 브라우저에서 companies의 `indoorParkingAddress`를 직접 바꾸려 하면 → 실패
+- [ ] 본사(플랫폼 Auth) 가맹점 수정에서 주소·사진·보험 저장 → 성공
+- [ ] B2C에서 예약 생성 → 성공
+- [ ] B2C/B2B가 `reservationPassword` / `createdBy`를 클라이언트로 바꾸려 하면 → 실패
+- [ ] MY에서 published 후기 목록 조회 → 성공
+- [ ] 예약 문서 클라이언트 삭제 시도(비본사) → 실패
