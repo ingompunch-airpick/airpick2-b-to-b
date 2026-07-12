@@ -130,6 +130,7 @@ export default function AdminDashboard({
   const [editMemo, setEditMemo] = useState('');
   const [editProfile, setEditProfile] = useState<PartnerProfileInput>({ ...DEFAULT_PARTNER_PROFILE });
   const [savingEdit, setSavingEdit] = useState(false);
+  const [saveEditError, setSaveEditError] = useState('');
   const savingEditRef = React.useRef(false);
 
   const primaryPartners = (partners || []).filter((p) => {
@@ -224,6 +225,7 @@ export default function AdminDashboard({
   const handleStartEdit = (p: PartnerCompany) => {
     savingEditRef.current = false;
     setSavingEdit(false);
+    setSaveEditError('');
     setEditingPartner(p);
     setEditName(p.name);
     setEditRep(p.representative);
@@ -237,6 +239,7 @@ export default function AdminDashboard({
   const handleSaveEdit = async (e?: React.FormEvent | React.MouseEvent) => {
     e?.preventDefault?.();
     e?.stopPropagation?.();
+    setSaveEditError('');
 
     try {
       if (savingEditRef.current && !savingEdit) {
@@ -244,31 +247,28 @@ export default function AdminDashboard({
       }
 
       if (!editingPartner) {
-        alert('수정 대상이 없습니다. 창을 닫고 다시 열어 주세요.');
+        setSaveEditError('수정 대상이 없습니다. 창을 닫고 다시 열어 주세요.');
         return;
       }
       if (savingEditRef.current) {
-        alert('이미 저장 중입니다. 잠시만 기다려 주세요.');
+        setSaveEditError('이미 저장 중입니다. 잠시만 기다려 주세요.');
         return;
       }
       if (!editName.trim() || !editRep.trim() || !editPhone.trim()) {
-        alert('모든 필수 항목을 입력해주십시오.');
+        setSaveEditError('모든 필수 항목을 입력해주십시오.');
         return;
       }
 
       const parkingErr = validateLotParkingDistancesForm(editProfile.parkingDistancesByLot);
       if (parkingErr) {
-        alert(parkingErr);
+        setSaveEditError(parkingErr);
         return;
       }
 
       const adminCreds = getPlatformAdminCredentials();
       if (!adminCreds) {
-        alert(
-          'Firebase 관리자 .env 값이 비어 있습니다.\n\n' +
-            'VITE_FIREBASE_ADMIN_PASSWORD 를 저장한 뒤\n' +
-            '터미널에서 npm run dev 를 재시작하세요.\n' +
-            '(env는 서버 재시작 후에만 반영됩니다)'
+        setSaveEditError(
+          '.env의 VITE_FIREBASE_ADMIN_PASSWORD 가 비어 있습니다. 비밀번호를 넣은 뒤 npm run dev 를 재시작하세요.'
         );
         return;
       }
@@ -283,7 +283,7 @@ export default function AdminDashboard({
         setEditProfile(profileToSave);
       } catch (err) {
         const msg = err instanceof Error ? err.message : '주차장 사진 업로드 실패';
-        alert(msg);
+        setSaveEditError(msg);
         savingEditRef.current = false;
         setSavingEdit(false);
         return;
@@ -336,20 +336,20 @@ export default function AdminDashboard({
       } catch (err) {
         console.warn('Firestore updateDoc for partner edit failed:', err);
         const detail = err instanceof Error ? err.message : String(err);
-        alert(`❌ 가맹점 저장에 실패했습니다.\n\n${detail}`);
+        setSaveEditError(`Firestore 저장 실패: ${detail}`);
         savingEditRef.current = false;
         setSavingEdit(false);
         return;
       }
 
-      alert(`🏢 [${editName}] 업체 정보가 성공적으로 수정되었습니다.`);
       savingEditRef.current = false;
       setSavingEdit(false);
       setEditingPartner(null);
+      alert(`🏢 [${editName}] 업체 정보가 성공적으로 수정되었습니다.`);
     } catch (err) {
       console.error('handleSaveEdit unexpected error:', err);
       const detail = err instanceof Error ? err.message : String(err);
-      alert(`저장 중 오류가 발생했습니다.\n\n${detail}`);
+      setSaveEditError(`저장 중 오류: ${detail}`);
       savingEditRef.current = false;
       setSavingEdit(false);
     }
@@ -915,6 +915,11 @@ export default function AdminDashboard({
                     </div>
 
                     <div className="shrink-0 flex flex-col gap-2 px-5 py-3 border-t border-neutral-800 bg-[#1C1C1E]">
+                      {saveEditError ? (
+                        <p className="text-[11px] font-bold text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-xl px-3 py-2 whitespace-pre-wrap">
+                          {saveEditError}
+                        </p>
+                      ) : null}
                       <button
                         type="button"
                         disabled={savingEdit}
