@@ -680,7 +680,7 @@ export default function MasterSettingsView({
             </p>
             <p className="text-[11px] text-amber-500/90 font-bold">
               현재 시설 유형: {facilityTypeLabel}
-              {!isSuperAdmin && ' · 시설 유형은 최고관리자(제휴 가맹점 수정)에서 변경'}
+              {!isSuperAdmin && ' · 시설 유형·위치·사진은 최고관리자(제휴 가맹점 수정)에서 변경'}
             </p>
             
             <div className="space-y-4">

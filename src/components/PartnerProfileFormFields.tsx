@@ -1,11 +1,20 @@
-import React from 'react';
+import React, { useRef, useState } from 'react';
+import { ImagePlus, Loader2, X } from 'lucide-react';
 import type { FacilityType } from '../types';
 import type { PartnerProfileInput } from '../utils/companyProfile';
 import ParkingDistancesFormFields from './ParkingDistancesFormFields';
+import {
+  MAX_PARKING_PHOTOS,
+  normalizeCompanyParkingPhotos,
+  uploadCompanyParkingImages,
+} from '../lib/companyPhotos';
+import { readImageFilesAsDataUrls } from '../utils/imageFile';
 
 type Props = {
   profile: PartnerProfileInput;
   onChange: (next: PartnerProfileInput) => void;
+  /** Storage 업로드 경로용 — 없으면 로컬 미리보기만 유지 후 저장 시 업로드 */
+  companyId?: string;
   variant?: 'light' | 'dark';
 };
 
@@ -15,11 +24,30 @@ const FACILITY_OPTIONS: { value: FacilityType; label: string; desc: string }[] =
   { value: 'mixed', label: '실내+실외', desc: '실내·야외 모두 운영' },
 ];
 
+function photosFromProfile(profile: PartnerProfileInput): string[] {
+  if (profile.imageUrls.length > 0) return normalizeCompanyParkingPhotos(profile.imageUrls);
+  if (profile.imageUrl.trim()) return [profile.imageUrl.trim()];
+  return [];
+}
+
+function withPhotos(profile: PartnerProfileInput, urls: string[]): PartnerProfileInput {
+  const imageUrls = normalizeCompanyParkingPhotos(urls);
+  return {
+    ...profile,
+    imageUrls,
+    imageUrl: imageUrls[0] || '',
+  };
+}
+
 export default function PartnerProfileFormFields({
   profile,
   onChange,
+  companyId,
   variant = 'light',
 }: Props) {
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [uploading, setUploading] = useState(false);
+
   const set = <K extends keyof PartnerProfileInput>(key: K, value: PartnerProfileInput[K]) => {
     onChange({ ...profile, [key]: value });
   };
@@ -39,6 +67,42 @@ export default function PartnerProfileFormFields({
 
   const showIndoor = profile.facilityType === 'indoor' || profile.facilityType === 'mixed';
   const showOutdoor = profile.facilityType === 'outdoor' || profile.facilityType === 'mixed';
+  const photos = photosFromProfile(profile);
+  const canAddMore = photos.length < MAX_PARKING_PHOTOS;
+
+  const handlePickPhotos = async (files: FileList | null) => {
+    if (!files?.length) return;
+    const remaining = MAX_PARKING_PHOTOS - photos.length;
+    if (remaining <= 0) {
+      alert(`주차장 사진은 최대 ${MAX_PARKING_PHOTOS}장까지 등록할 수 있습니다.`);
+      return;
+    }
+
+    try {
+      setUploading(true);
+      const dataUrls = (await readImageFilesAsDataUrls(files)).slice(0, remaining);
+      const merged = [...photos, ...dataUrls];
+      const safeId = (companyId || '').trim().toLowerCase();
+
+      if (safeId) {
+        const uploaded = await uploadCompanyParkingImages(safeId, merged);
+        onChange(withPhotos(profile, uploaded));
+      } else {
+        onChange(withPhotos(profile, merged));
+      }
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '사진 업로드에 실패했습니다.';
+      alert(msg);
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+    }
+  };
+
+  const removePhotoAt = (index: number) => {
+    const next = photos.filter((_, i) => i !== index);
+    onChange(withPhotos(profile, next));
+  };
 
   return (
     <div className="space-y-3">
@@ -95,6 +159,57 @@ export default function PartnerProfileFormFields({
             />
           </div>
         )}
+      </div>
+
+      <div className={sectionCls}>
+        <div>
+          <label className={labelCls}>주차장 사진 (B2C 노출)</label>
+          <p className="text-[11px] text-slate-400 mb-2">
+            첫 장이 대표 사진입니다. 최고관리자만 등록·변경할 수 있습니다. (최대 {MAX_PARKING_PHOTOS}장)
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {photos.map((url, index) => (
+              <div
+                key={`${url.slice(0, 48)}_${index}`}
+                className="relative w-20 h-20 rounded-xl overflow-hidden border border-slate-200 bg-slate-100"
+              >
+                <img src={url} alt={`주차장 사진 ${index + 1}`} className="w-full h-full object-cover" />
+                {index === 0 && (
+                  <span className="absolute left-1 top-1 rounded bg-indigo-600 px-1 py-0.5 text-[9px] font-black text-white">
+                    대표
+                  </span>
+                )}
+                <button
+                  type="button"
+                  onClick={() => removePhotoAt(index)}
+                  className="absolute right-1 top-1 rounded-full bg-black/60 p-0.5 text-white hover:bg-black/80"
+                  aria-label={`사진 ${index + 1} 삭제`}
+                >
+                  <X size={12} />
+                </button>
+              </div>
+            ))}
+            {canAddMore && (
+              <button
+                type="button"
+                disabled={uploading}
+                onClick={() => fileInputRef.current?.click()}
+                className="w-20 h-20 rounded-xl border border-dashed border-slate-300 bg-white text-slate-500 hover:border-indigo-400 hover:text-indigo-600 flex flex-col items-center justify-center gap-1 disabled:opacity-60"
+              >
+                {uploading ? <Loader2 size={18} className="animate-spin" /> : <ImagePlus size={18} />}
+                <span className="text-[10px] font-bold">{uploading ? '업로드…' : '추가'}</span>
+              </button>
+            )}
+          </div>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            className="hidden"
+            onChange={(e) => void handlePickPhotos(e.target.files)}
+          />
+        </div>
       </div>
 
       <ParkingDistancesFormFields

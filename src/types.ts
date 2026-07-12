@@ -10,7 +10,10 @@ export interface Company {
   rating: number;
   reviews_count: number;
   features: string[];
+  /** B2C 목록·상세 대표 주차장 사진 */
   image_url: string;
+  /** B2C 갤러리용 추가 사진 (첫 장은 image_url과 동일하게 유지) */
+  image_urls?: string[];
   terminals: string[];
   booking_url?: string;
   distance_score?: number;

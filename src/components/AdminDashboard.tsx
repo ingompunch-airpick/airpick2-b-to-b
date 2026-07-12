@@ -42,11 +42,33 @@ import {
   validateParkingDistancesForm,
   type PartnerProfileInput,
 } from '../utils/companyProfile';
+import { uploadCompanyParkingImages } from '../lib/companyPhotos';
 
 const getKSTMonthOnlyString = () => {
   const kstDate = new Date(Date.now() + 9 * 60 * 60 * 1000);
   return kstDate.toISOString().substring(0, 7);
 };
+
+async function resolveProfileParkingPhotos(
+  companyId: string,
+  profile: PartnerProfileInput
+): Promise<PartnerProfileInput> {
+  const sources =
+    profile.imageUrls.length > 0
+      ? profile.imageUrls
+      : profile.imageUrl.trim()
+        ? [profile.imageUrl.trim()]
+        : [];
+  if (!sources.length) {
+    return { ...profile, imageUrl: '', imageUrls: [] };
+  }
+  const urls = await uploadCompanyParkingImages(companyId, sources);
+  return {
+    ...profile,
+    imageUrls: urls,
+    imageUrl: urls[0] || '',
+  };
+}
 
 // Safe LocalStorage wrapper for sandboxed environments
 const safeStorage = (() => {
@@ -132,9 +154,19 @@ export default function AdminDashboard({
     }
 
     const targetId = editingSubCompany.id;
+    let profileToSave = editSubProfile;
+    try {
+      profileToSave = await resolveProfileParkingPhotos(targetId, editSubProfile);
+      setEditSubProfile(profileToSave);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '주차장 사진 업로드 실패';
+      alert(msg);
+      return;
+    }
+
     const updatedCompanies = companies.map((c) => {
       if (c.id === targetId) {
-        return applyPartnerProfileToCompany(c, editSubProfile);
+        return applyPartnerProfileToCompany(c, profileToSave);
       }
       return c;
     });
@@ -144,7 +176,7 @@ export default function AdminDashboard({
     try {
       await ensureFirestoreAuth();
       await updateDoc(doc(db, 'companies', targetId), {
-        ...profileExtrasForFirestore(editSubProfile),
+        ...profileExtrasForFirestore(profileToSave),
         parentCompanyId: editingSubCompany.parentCompanyId,
         isOperatorPrimary: false,
         updatedAt: new Date().toISOString(),
@@ -209,6 +241,16 @@ export default function AdminDashboard({
 
     const targetId = editingPartner.companyId;
 
+    let profileToSave = editProfile;
+    try {
+      profileToSave = await resolveProfileParkingPhotos(targetId, editProfile);
+      setEditProfile(profileToSave);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '주차장 사진 업로드 실패';
+      alert(msg);
+      return;
+    }
+
     // 1. Update in partners array and local storage
     const updatedPartners = partners.map(p => {
       if (p.companyId === targetId) {
@@ -235,7 +277,7 @@ export default function AdminDashboard({
           phone: editPhone.trim(),
           representative: editRep.trim(),
         };
-        return applyPartnerProfileToCompany(withBasics, editProfile);
+        return applyPartnerProfileToCompany(withBasics, profileToSave);
       }
       return c;
     });
@@ -253,7 +295,7 @@ export default function AdminDashboard({
         settlementMemo: editMemo.trim(),
         status: editingPartner.status || 'active',
         isOperatorPrimary: true,
-        ...profileExtrasForFirestore(editProfile),
+        ...profileExtrasForFirestore(profileToSave),
         updatedAt: new Date().toISOString()
       });
     } catch (err) {
@@ -380,16 +422,29 @@ export default function AdminDashboard({
       return;
     }
 
+    let profileToSave = newProfile;
+    try {
+      profileToSave = await resolveProfileParkingPhotos(cleanId, newProfile);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '주차장 사진 업로드 실패';
+      alert(msg);
+      return;
+    }
+
     const skeleton = createPartnerCompanySkeleton({
       companyId: cleanId,
       name: newName,
       phone: newPhone,
       representative: newRep,
     });
-    const newCompany = applyPartnerProfileToCompany(
+    const newCompanyRaw = applyPartnerProfileToCompany(
       { ...skeleton, isOperatorPrimary: true },
-      newProfile
+      profileToSave
     );
+    const newCompany =
+      profileToSave.imageUrls.length > 0 || profileToSave.imageUrl.trim()
+        ? newCompanyRaw
+        : { ...newCompanyRaw, image_url: skeleton.image_url };
 
     const newPartner = buildPartnerRecord({
       companyId: cleanId,
@@ -458,6 +513,15 @@ export default function AdminDashboard({
       return;
     }
 
+    let profileToSave = newProfile;
+    try {
+      profileToSave = await resolveProfileParkingPhotos(cleanId, newProfile);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : '주차장 사진 업로드 실패';
+      alert(msg);
+      return;
+    }
+
     const skeleton = createSubOperatorSkeleton({
       companyId: cleanId,
       name: newName,
@@ -465,7 +529,11 @@ export default function AdminDashboard({
       representative: newRep,
       parentCompanyId: newParentId,
     });
-    const newCompany = applyPartnerProfileToCompany(skeleton, newProfile);
+    const newCompanyRaw = applyPartnerProfileToCompany(skeleton, profileToSave);
+    const newCompany =
+      profileToSave.imageUrls.length > 0 || profileToSave.imageUrl.trim()
+        ? newCompanyRaw
+        : { ...newCompanyRaw, image_url: skeleton.image_url };
 
     try {
       await writeSubOperatorToFirestore(newCompany);
@@ -773,7 +841,11 @@ export default function AdminDashboard({
                      />
                   </div>
 
-                  <PartnerProfileFormFields profile={editProfile} onChange={setEditProfile} />
+                  <PartnerProfileFormFields
+                    profile={editProfile}
+                    onChange={setEditProfile}
+                    companyId={editingPartner.companyId}
+                  />
 
                   <div className="flex gap-2 pt-3 border-t border-slate-100 sticky bottom-0 bg-white">
                     <button 
@@ -817,7 +889,11 @@ export default function AdminDashboard({
                   </button>
                 </div>
                 <form onSubmit={handleSaveSubEdit} className="space-y-3 overflow-y-auto flex-1 min-h-0 pr-1">
-                  <PartnerProfileFormFields profile={editSubProfile} onChange={setEditSubProfile} />
+                  <PartnerProfileFormFields
+                    profile={editSubProfile}
+                    onChange={setEditSubProfile}
+                    companyId={editingSubCompany.id}
+                  />
                   <div className="flex gap-2 pt-3 border-t border-slate-100 sticky bottom-0 bg-white">
                     <button
                       type="button"
@@ -982,7 +1058,11 @@ export default function AdminDashboard({
             />
           </div>
 
-          <PartnerProfileFormFields profile={newProfile} onChange={setNewProfile} />
+          <PartnerProfileFormFields
+            profile={newProfile}
+            onChange={setNewProfile}
+            companyId={newId}
+          />
 
           <button
             type="submit"

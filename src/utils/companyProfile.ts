@@ -14,6 +14,10 @@ export interface PartnerProfileInput {
   facilityType: FacilityType;
   indoorParkingAddress: string;
   outdoorParkingAddress: string;
+  /** 대표 주차장 사진 URL (B2C image_url) */
+  imageUrl: string;
+  /** 주차장 사진 목록 (최대 5장, 첫 장 = 대표) */
+  imageUrls: string[];
   insuranceEnrolled: boolean;
   insuranceProvider: string;
   insuranceProductName: string;
@@ -25,6 +29,8 @@ export const DEFAULT_PARTNER_PROFILE: PartnerProfileInput = {
   facilityType: 'mixed',
   indoorParkingAddress: '',
   outdoorParkingAddress: '',
+  imageUrl: '',
+  imageUrls: [],
   insuranceEnrolled: false,
   insuranceProvider: '',
   insuranceProductName: '',
@@ -94,10 +100,23 @@ export function readPartnerProfileFromCompany(company?: Company): PartnerProfile
     insuranceCoverageLimitWon = raw.insuranceLimit ? String(raw.insuranceLimit) : '';
   }
 
+  const primaryImage = String(raw.image_url || '').trim();
+  const galleryRaw = Array.isArray(raw.image_urls)
+    ? raw.image_urls.map((u) => String(u || '').trim()).filter(Boolean)
+    : [];
+  const imageUrls =
+    galleryRaw.length > 0
+      ? galleryRaw
+      : primaryImage
+        ? [primaryImage]
+        : [];
+
   return {
     facilityType,
     indoorParkingAddress,
     outdoorParkingAddress,
+    imageUrl: imageUrls[0] || primaryImage || '',
+    imageUrls,
     insuranceEnrolled,
     insuranceProvider,
     insuranceProductName,
@@ -171,6 +190,15 @@ export function applyPartnerProfileToCompany(
   const insuranceFields = buildInsurancePayload(input);
   const parkingLots = buildParkingLots(input);
   const parkingDistances = buildParkingDistancesFromForm(input.parkingDistances);
+  const imageUrls = (input.imageUrls.length > 0
+    ? input.imageUrls
+    : input.imageUrl
+      ? [input.imageUrl]
+      : []
+  )
+    .map((u) => u.trim())
+    .filter(Boolean);
+  const image_url = imageUrls[0] || '';
 
   return {
     ...company,
@@ -179,6 +207,8 @@ export function applyPartnerProfileToCompany(
     supports_indoor: facilityType === 'indoor' || facilityType === 'mixed',
     supports_outdoor: facilityType === 'outdoor' || facilityType === 'mixed',
     features: [featureLabel],
+    image_url,
+    image_urls: imageUrls,
     indoorParkingAddress: indoor || undefined,
     outdoorParkingAddress: outdoor || undefined,
     parkingLots: parkingLots.length > 0 ? parkingLots : undefined,
@@ -217,6 +247,8 @@ export function profileExtrasForFirestore(input: PartnerProfileInput): Record<st
     supports_indoor: company.supports_indoor,
     supports_outdoor: company.supports_outdoor,
     features: company.features,
+    image_url: company.image_url ?? '',
+    image_urls: company.image_urls ?? [],
     indoorParkingAddress: company.indoorParkingAddress ?? '',
     outdoorParkingAddress: company.outdoorParkingAddress ?? '',
     parkingLots: company.parkingLots ?? [],

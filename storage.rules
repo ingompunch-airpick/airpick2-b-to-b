@@ -23,5 +23,14 @@ service firebase.storage {
         && isValidReservationId(reservationId)
         && request.resource.size < 15 * 1024 * 1024;
     }
+
+    // 가맹점 주차장 사진: companies/{companyId}/parking/…
+    match /companies/{companyId}/{allPaths=**} {
+      allow read: if true;
+      allow write: if isSignedIn()
+        && isValidCompanyId(companyId)
+        && request.resource.size < 15 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+    }
   }
 }
