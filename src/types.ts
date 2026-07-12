@@ -50,14 +50,28 @@ export interface Company {
   indoorParkingAddress?: string;
   /** B2C 손님 MY · 실외 주차장 도로명 주소 */
   outdoorParkingAddress?: string;
+  /** 실내 주차장 핀 좌표 */
+  indoorParkingLat?: number;
+  indoorParkingLng?: number;
+  /** 야외 주차장 핀 좌표 */
+  outdoorParkingLat?: number;
+  outdoorParkingLng?: number;
   parkingLots?: Array<{ type: 'indoor' | 'outdoor'; parkingAddress: string }>;
   insurance?: CompanyInsurance;
   hasInsurance?: boolean;
   insuranceProvider?: string;
   insuranceLimit?: number;
   sharesInsurance?: boolean;
-  /** B2C 거리순 정렬 — 터미널별 주차장 거리 (companies/{id} 단일 소스) */
+  /** B2C MY 주차 위치 노출 */
+  sharesParkingLocation?: boolean;
+  /** B2C MY 주차장 사진 노출 */
+  sharesPhotos?: boolean;
+  /** @deprecated 레거시 단일 거리 — parkingDistancesIndoor/Outdoor 우선 */
   parkingDistances?: ParkingDistances;
+  /** 실내 대표 주차장 → T1/T2 거리 */
+  parkingDistancesIndoor?: ParkingDistances;
+  /** 야외 대표 주차장 → T1/T2 거리 */
+  parkingDistancesOutdoor?: ParkingDistances;
   /** 대표 업체 — B2B 통합 로그인·예약 통합 관리 */
   isOperatorPrimary?: boolean;
   /** 하위 업체 — B2C만, parentCompanyId로 대표에 연결 */

@@ -1,4 +1,4 @@
-import { buildReceiptUrl } from '../utils/receipt';
+import { buildReceiptUrl, buildReviewUrl } from '../utils/receipt';
 import type { Reservation } from '../types';
 
 /**
@@ -54,14 +54,14 @@ export const ALIMTALK_CHECKOUT_TEMPLATE = {
   category: '003002',
   emphasisTitle: '[에어픽] 출차 완료',
   emphasisSubtitle: '출차완료',
-  body: `[에어픽] #{고객명}님 #{차량번호} 차량 출차가 완료되었습니다.
+  body: `[에어픽] #{고객명}님 #{차량번호} 출고가 완료되었습니다.
 
 결제금액: #{결제금액}원
-아래 링크를 클릭하시면 출차 내역을 확인하실 수 있습니다.
-#{접수증링크}
+후기 남기기 → #{접수증링크}
 
 문의: #{업체연락처}`,
-  extra: '감사합니다.',
+  extra: '감사합니다. 이용 후기는 다른 고객에게 큰 도움이 됩니다.',
+  buttonName: '후기 남기기',
   variables: ['고객명', '차량번호', '결제금액', '접수증링크', '업체연락처'] as const,
 };
 
@@ -102,16 +102,16 @@ export function buildAlimtalkCheckinParams(
   };
 }
 
-/** NHN API templateParameter — 출차 완료 */
+/** NHN API templateParameter — 출차 완료 (후기 딥링크) */
 export function buildAlimtalkCheckoutParams(
   reservation: Reservation,
   companyPhone: string,
-  receiptUrl: string = buildReceiptUrl(reservation)
+  reviewUrl: string = buildReviewUrl(reservation)
 ): AlimtalkTemplateParams {
   return {
     ...baseParams(reservation),
     결제금액: String(reservation.totalPrice ?? 0),
-    접수증링크: receiptUrl,
+    접수증링크: reviewUrl,
     업체연락처: companyPhone,
   };
 }

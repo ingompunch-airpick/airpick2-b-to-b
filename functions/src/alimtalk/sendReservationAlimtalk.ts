@@ -6,7 +6,7 @@ import {
 } from './constants';
 import { sendAlimtalkMessage, type NhnAlimtalkConfig, type NhnAlimtalkButton } from './nhnClient';
 import { normalizeRecipientPhone } from './phone';
-import { buildReceiptUrl } from './receiptUrl';
+import { buildReceiptUrl, buildReviewUrl } from './receiptUrl';
 import {
   buildCheckinParams,
   buildCheckoutParams,
@@ -41,6 +41,33 @@ function resolveTemplateParams(
     case 'checkout':
       return buildCheckoutParams(reservation, companyPhone, receiptUrl);
   }
+}
+
+function resolveAlimtalkButton(
+  eventType: AlimtalkEventType,
+  reservation: ReservationSnapshot
+): NhnAlimtalkButton | null {
+  if (eventType === 'checkout') {
+    const reviewUrl = buildReviewUrl(reservation);
+    if (!reviewUrl) return null;
+    return {
+      ordering: 1,
+      type: 'WL',
+      name: '후기 남기기',
+      linkMo: reviewUrl,
+      linkPc: reviewUrl,
+    };
+  }
+
+  const receiptUrl = buildReceiptUrl(reservation);
+  if (!receiptUrl) return null;
+  return {
+    ordering: 1,
+    type: 'WL',
+    name: eventType === 'checkin' ? '보관증 보기' : '접수증 보기',
+    linkMo: receiptUrl,
+    linkPc: receiptUrl,
+  };
 }
 
 export function resolveAlimtalkEvents(
@@ -134,12 +161,6 @@ export async function processReservationAlimtalk(
     return;
   }
 
-  const receiptUrl = buildReceiptUrl(after!);
-  if (!receiptUrl) {
-    console.warn('[alimtalk] skipped — receipt URL empty', { reservationId });
-    return;
-  }
-
   const companyPhone = events.includes('checkout')
     ? await fetchCompanyPhone(after?.companyId)
     : DEFAULT_COMPANY_PHONE;
@@ -147,15 +168,12 @@ export async function processReservationAlimtalk(
   for (const eventType of events) {
     const templateCode = ALIMTALK_TEMPLATE_CODES[eventType];
     const templateParameter = resolveTemplateParams(eventType, after!, companyPhone);
-    const buttons: NhnAlimtalkButton[] = [
-      {
-        ordering: 1,
-        type: 'WL',
-        name: eventType === 'checkout' ? '출차내역 보기' : eventType === 'checkin' ? '보관증 보기' : '접수증 보기',
-        linkMo: receiptUrl,
-        linkPc: receiptUrl,
-      },
-    ];
+    const button = resolveAlimtalkButton(eventType, after!);
+    if (!button) {
+      console.warn('[alimtalk] skipped — button link empty', { reservationId, eventType });
+      continue;
+    }
+    const buttons: NhnAlimtalkButton[] = [button];
 
     try {
       const result = await sendAlimtalkMessage(

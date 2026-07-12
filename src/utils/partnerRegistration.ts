@@ -133,8 +133,8 @@ export function createSubOperatorSkeleton(input: CreateSubOperatorInput): Compan
 }
 
 export async function writeSubOperatorToFirestore(company: Company): Promise<void> {
-  // 하위 업체 수정(update)과 동일 — Anonymous 로그인 (플랫폼 관리자 .env 불필요)
-  await ensureFirestoreAuth();
+  // 주소·핀·거리·사진 포함 — 최고관리자(플랫폼) 계정으로만 기록
+  await ensurePlatformAdminAuth();
   await setDoc(
     doc(db, 'companies', company.id),
     omitUndefinedDeep({

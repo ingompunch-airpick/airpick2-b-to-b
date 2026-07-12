@@ -23,6 +23,7 @@ function baseParams(reservation: ReservationSnapshot): Pick<AlimtalkTemplatePara
 
 /** 본문 변수용 — 긴 URL 대신 짧은 문구 (실제 URL은 WL 버튼) */
 const RECEIPT_LINK_PLACEHOLDER = '버튼확인';
+const REVIEW_LINK_PLACEHOLDER = '후기작성';
 
 export function buildReserveParams(
   reservation: ReservationSnapshot,
@@ -53,7 +54,7 @@ export function buildCheckoutParams(
   return {
     ...baseParams(reservation),
     결제금액: clampAlimtalkValue(String(amount)),
-    접수증링크: RECEIPT_LINK_PLACEHOLDER,
+    접수증링크: REVIEW_LINK_PLACEHOLDER,
     업체연락처: clampAlimtalkValue(companyPhone.replace(/\s+/g, '')),
   };
 }

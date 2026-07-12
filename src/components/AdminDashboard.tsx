@@ -12,7 +12,7 @@ import {
 import { db } from '../firebase';
 import { Company, Reservation, PartnerCompany } from '../types';
 import PartnerOnboardingChecklist from './PartnerOnboardingChecklist';
-import { ensureFirestoreAuth } from '../lib/firebaseAuth';
+import { ensurePlatformAdminAuth } from '../lib/firebaseAuth';
 import { getKSTDateOnlyString } from '../utils/kstDate';
 import {
   appendPartnerToList,
@@ -39,7 +39,7 @@ import {
   DEFAULT_PARTNER_PROFILE,
   profileExtrasForFirestore,
   readPartnerProfileFromCompany,
-  validateParkingDistancesForm,
+  validateLotParkingDistancesForm,
   type PartnerProfileInput,
 } from '../utils/companyProfile';
 import { uploadCompanyParkingImages } from '../lib/companyPhotos';
@@ -147,7 +147,7 @@ export default function AdminDashboard({
     e.preventDefault();
     if (!editingSubCompany) return;
 
-    const parkingErr = validateParkingDistancesForm(editSubProfile.parkingDistances);
+    const parkingErr = validateLotParkingDistancesForm(editSubProfile.parkingDistancesByLot);
     if (parkingErr) {
       alert(parkingErr);
       return;
@@ -174,7 +174,7 @@ export default function AdminDashboard({
     safeStorage.setItem('companies', JSON.stringify(updatedCompanies));
 
     try {
-      await ensureFirestoreAuth();
+      await ensurePlatformAdminAuth();
       await updateDoc(doc(db, 'companies', targetId), {
         ...profileExtrasForFirestore(profileToSave),
         parentCompanyId: editingSubCompany.parentCompanyId,
@@ -183,6 +183,10 @@ export default function AdminDashboard({
       });
     } catch (err) {
       console.warn('Firestore sub-operator update failed:', err);
+      alert(
+        '❌ 하위 업체 위치·프로필 저장에 실패했습니다.\n최고관리자 Firebase 로그인(.env)을 확인하세요.'
+      );
+      return;
     }
 
     alert(`🏢 [${editingSubCompany.name}] 하위 업체 정보가 수정되었습니다.`);
@@ -233,7 +237,7 @@ export default function AdminDashboard({
       return;
     }
 
-    const parkingErr = validateParkingDistancesForm(editProfile.parkingDistances);
+    const parkingErr = validateLotParkingDistancesForm(editProfile.parkingDistancesByLot);
     if (parkingErr) {
       alert(parkingErr);
       return;
@@ -284,9 +288,9 @@ export default function AdminDashboard({
     onUpdateCompanies(updatedCompanies);
     safeStorage.setItem('companies', JSON.stringify(updatedCompanies));
 
-    // 3. Update in Firestore
+    // 3. Update in Firestore (주소·핀·거리·사진은 플랫폼 관리자 계정으로만 기록)
     try {
-      await ensureFirestoreAuth();
+      await ensurePlatformAdminAuth();
       await updateDoc(doc(db, 'companies', targetId), {
         name: editName.trim(),
         phone: editPhone.trim(),
@@ -300,6 +304,10 @@ export default function AdminDashboard({
       });
     } catch (err) {
       console.warn('Firestore updateDoc for partner edit failed:', err);
+      alert(
+        '❌ 가맹점 위치·사진 저장에 실패했습니다.\n최고관리자 Firebase 로그인(.env)을 확인하세요.'
+      );
+      return;
     }
 
     alert(`🏢 [${editName}] 업체 정보가 성공적으로 수정되었습니다.`);
@@ -416,7 +424,7 @@ export default function AdminDashboard({
       return;
     }
 
-    const parkingErr = validateParkingDistancesForm(newProfile.parkingDistances);
+    const parkingErr = validateLotParkingDistancesForm(newProfile.parkingDistancesByLot);
     if (parkingErr) {
       alert(parkingErr);
       return;
@@ -507,7 +515,7 @@ export default function AdminDashboard({
       return;
     }
 
-    const parkingErr = validateParkingDistancesForm(newProfile.parkingDistances);
+    const parkingErr = validateLotParkingDistancesForm(newProfile.parkingDistancesByLot);
     if (parkingErr) {
       alert(parkingErr);
       return;
@@ -846,6 +854,9 @@ export default function AdminDashboard({
                     onChange={setEditProfile}
                     companyId={editingPartner.companyId}
                   />
+                  <p className="text-[11px] text-indigo-600 font-bold bg-indigo-50 rounded-lg px-2.5 py-1.5">
+                    보험·주소·핀·T1/T2 거리·사진은 companies에 저장되며 B2C MY가 읽습니다. 가맹점은 확인만 가능합니다.
+                  </p>
 
                   <div className="flex gap-2 pt-3 border-t border-slate-100 sticky bottom-0 bg-white">
                     <button 

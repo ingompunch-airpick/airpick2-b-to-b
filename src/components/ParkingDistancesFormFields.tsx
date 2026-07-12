@@ -8,6 +8,10 @@ type Props = {
   onChangeT1: (next: TerminalParkingDistanceForm) => void;
   onChangeT2: (next: TerminalParkingDistanceForm) => void;
   variant?: 'light' | 'dark';
+  title?: string;
+  hint?: string;
+  /** 핀 섹션 안에 넣을 때 바깥 테두리 제거 */
+  nested?: boolean;
 };
 
 function TerminalSection({
@@ -106,9 +110,13 @@ export default function ParkingDistancesFormFields({
   onChangeT1,
   onChangeT2,
   variant = 'light',
+  title = '터미널별 주차장 거리',
+  hint = 'B2C 비교 화면 거리순 탭에서 사용합니다. 주차장 계약 변경 시 여기만 수정하면 됩니다.',
+  nested = false,
 }: Props) {
-  const sectionCls =
-    variant === 'dark'
+  const sectionCls = nested
+    ? 'space-y-3'
+    : variant === 'dark'
       ? 'rounded-xl border border-neutral-850 bg-neutral-900/40 p-3 space-y-3'
       : 'rounded-xl border border-slate-100 bg-slate-50/80 p-3 space-y-3';
 
@@ -122,12 +130,9 @@ export default function ParkingDistancesFormFields({
               : 'text-[12px] text-slate-700 block font-black'
           }
         >
-          터미널별 주차장 거리
+          {title}
         </label>
-        <p className="text-[11px] text-slate-400 mt-1">
-          B2C 비교 화면 <strong>거리순</strong> 탭에서 사용합니다. 주차장 계약 변경 시 여기만
-          수정하면 됩니다.
-        </p>
+        <p className="text-[11px] text-slate-400 mt-1">{hint}</p>
       </div>
 
       <TerminalSection terminal="T1" form={t1} onChange={onChangeT1} variant={variant} />

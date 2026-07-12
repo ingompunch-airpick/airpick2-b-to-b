@@ -2,7 +2,7 @@ import React, { useRef, useState } from 'react';
 import { ImagePlus, Loader2, X } from 'lucide-react';
 import type { FacilityType } from '../types';
 import type { PartnerProfileInput } from '../utils/companyProfile';
-import ParkingDistancesFormFields from './ParkingDistancesFormFields';
+import ParkingPinDistanceFields from './ParkingPinDistanceFields';
 import {
   MAX_PARKING_PHOTOS,
   normalizeCompanyParkingPhotos,
@@ -212,14 +212,30 @@ export default function PartnerProfileFormFields({
         </div>
       </div>
 
-      <ParkingDistancesFormFields
-        t1={profile.parkingDistances.T1}
-        t2={profile.parkingDistances.T2}
-        onChangeT1={(T1) =>
-          onChange({ ...profile, parkingDistances: { ...profile.parkingDistances, T1 } })
+      <ParkingPinDistanceFields
+        indoor={{ lat: profile.indoorParkingLat, lng: profile.indoorParkingLng }}
+        outdoor={{ lat: profile.outdoorParkingLat, lng: profile.outdoorParkingLng }}
+        showIndoor={showIndoor}
+        showOutdoor={showOutdoor}
+        onChangeIndoor={({ lat, lng }) =>
+          onChange({ ...profile, indoorParkingLat: lat, indoorParkingLng: lng })
         }
-        onChangeT2={(T2) =>
-          onChange({ ...profile, parkingDistances: { ...profile.parkingDistances, T2 } })
+        onChangeOutdoor={({ lat, lng }) =>
+          onChange({ ...profile, outdoorParkingLat: lat, outdoorParkingLng: lng })
+        }
+        indoorDistances={profile.parkingDistancesByLot.indoor}
+        outdoorDistances={profile.parkingDistancesByLot.outdoor}
+        onChangeIndoorDistances={(indoor) =>
+          onChange({
+            ...profile,
+            parkingDistancesByLot: { ...profile.parkingDistancesByLot, indoor },
+          })
+        }
+        onChangeOutdoorDistances={(outdoor) =>
+          onChange({
+            ...profile,
+            parkingDistancesByLot: { ...profile.parkingDistancesByLot, outdoor },
+          })
         }
         variant={variant}
       />

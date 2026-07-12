@@ -51,6 +51,36 @@ service cloud.firestore {
         && isValidCompanyId(resource.data.parentCompanyId);
     }
 
+    /** 가맹점이 덮어쓰면 안 되는 B2C MY 보험·위치·사진 필드 (최고관리자만) */
+    function touchesHqOnlyParkingFields() {
+      return request.resource.data.diff(resource.data).affectedKeys().hasAny([
+        'facilityType',
+        'is_indoor',
+        'supports_indoor',
+        'supports_outdoor',
+        'features',
+        'indoorParkingAddress',
+        'outdoorParkingAddress',
+        'indoorParkingLat',
+        'indoorParkingLng',
+        'outdoorParkingLat',
+        'outdoorParkingLng',
+        'parkingLots',
+        'parkingDistances',
+        'parkingDistancesIndoor',
+        'parkingDistancesOutdoor',
+        'image_url',
+        'image_urls',
+        'sharesParkingLocation',
+        'sharesPhotos',
+        'insurance',
+        'hasInsurance',
+        'insuranceProvider',
+        'insuranceLimit',
+        'sharesInsurance'
+      ]);
+    }
+
     function isValidReservationId(reservationId) {
       return reservationId.matches('^[a-zA-Z0-9_-]{1,128}$');
     }
@@ -108,8 +138,12 @@ service cloud.firestore {
       allow read: if true;
       allow create: if isPlatformAdmin() && isValidCompanyId(companyId)
         || isSubOperatorCreate(companyId);
-      // blockedDates·isOpen·요금 등 — Anonymous 로그인 후 제휴업체 B2B 수정
-      allow update: if isSignedIn() && isValidCompanyId(companyId);
+      // 가맹점: 요금·대면·직원·마감 등만 — 보험·주소·핀·거리·사진·시설유형은 최고관리자만
+      allow update: if isSignedIn() && isValidCompanyId(companyId)
+        && (
+          isPlatformAdmin()
+          || !touchesHqOnlyParkingFields()
+        );
       allow delete: if isPlatformAdmin() && isValidCompanyId(companyId)
         || isSubOperatorDelete();
     }

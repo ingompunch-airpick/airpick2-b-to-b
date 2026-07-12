@@ -12,9 +12,38 @@ import { doc, setDoc, deleteField } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import TimePickerModal from './TimePickerModal';
 import AdminDashboard from './AdminDashboard';
+import PartnerParkingProfileReadonly from './PartnerParkingProfileReadonly';
 import { isAirpickHeadquarters } from '../constants/platform';
 import { ensureFirestoreAuth } from '../lib/firebaseAuth';
 import { inferFacilityType } from '../utils/companyProfile';
+
+/** 최고관리자(제휴 가맹점 수정)만 companies에 쓰는 필드 — 가맹점 자체 저장에서 제외 */
+export const HQ_ONLY_COMPANY_PARKING_KEYS = [
+  'facilityType',
+  'is_indoor',
+  'supports_indoor',
+  'supports_outdoor',
+  'features',
+  'indoorParkingAddress',
+  'outdoorParkingAddress',
+  'indoorParkingLat',
+  'indoorParkingLng',
+  'outdoorParkingLat',
+  'outdoorParkingLng',
+  'parkingLots',
+  'parkingDistances',
+  'parkingDistancesIndoor',
+  'parkingDistancesOutdoor',
+  'image_url',
+  'image_urls',
+  'sharesParkingLocation',
+  'sharesPhotos',
+  'insurance',
+  'hasInsurance',
+  'insuranceProvider',
+  'insuranceLimit',
+  'sharesInsurance',
+] as const;
 
 // TimeSpinner is deprecated and replaced by unified TimePickerModal with firm Confirm actions.
 
@@ -548,6 +577,7 @@ export default function MasterSettingsView({
 
       // Direct Firestore update for this partner company item (cross-account sync source of truth)
       // NOTE: 로컬스토리지는 보조 캐시일 뿐이며, Firestore 저장 실패 시 타 기기/본사 화면에 반영되지 않습니다.
+      // 주소·핀·T1/T2 거리·사진·시설유형·보험은 최고관리자만 저장 (아래 payload에 포함하지 않음).
       try {
         await ensureFirestoreAuth();
         const docRef = doc(db, 'companies', companyInfo.id);
@@ -665,6 +695,8 @@ export default function MasterSettingsView({
             </span>
           </div>
 
+          {!isSuperAdmin && <PartnerParkingProfileReadonly company={currentCompany} />}
+
           {/* 3. 주차 요금 설정 */}
           <div className="bg-neutral-900/40 p-5 rounded-3xl border border-neutral-850 space-y-4">
             <div className="flex items-center gap-2 text-xs font-black text-amber-500 tracking-wider uppercase">
@@ -680,7 +712,7 @@ export default function MasterSettingsView({
             </p>
             <p className="text-[11px] text-amber-500/90 font-bold">
               현재 시설 유형: {facilityTypeLabel}
-              {!isSuperAdmin && ' · 시설 유형·위치·사진은 최고관리자(제휴 가맹점 수정)에서 변경'}
+              {!isSuperAdmin && ' · 보험·주소·핀·거리·사진은 최고관리자만 수정 (위 확인란)'}
             </p>
             
             <div className="space-y-4">

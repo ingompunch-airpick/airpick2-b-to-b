@@ -138,3 +138,67 @@ export function parkingDistancesForFirestore(
 ): Record<string, unknown> {
   return { parkingDistances: buildParkingDistancesFromForm(input) };
 }
+
+export type ParkingLotKind = 'indoor' | 'outdoor';
+
+export interface LotParkingDistancesFormInput {
+  indoor: ParkingDistancesFormInput;
+  outdoor: ParkingDistancesFormInput;
+}
+
+export const EMPTY_LOT_PARKING_DISTANCES_FORM: LotParkingDistancesFormInput = {
+  indoor: {
+    T1: { ...EMPTY_TERMINAL_PARKING_FORM },
+    T2: { ...EMPTY_TERMINAL_PARKING_FORM },
+  },
+  outdoor: {
+    T1: { ...EMPTY_TERMINAL_PARKING_FORM },
+    T2: { ...EMPTY_TERMINAL_PARKING_FORM },
+  },
+};
+
+
+/** 업체 문서 → 실내/야외 폼. 롯별 필드 없으면 레거시 parkingDistances로 양쪽 시드 */
+export function readLotParkingDistancesFormFromCompany(
+  company?: Partial<Company>
+): LotParkingDistancesFormInput {
+  const legacy = company?.parkingDistances;
+  const indoorSrc = company?.parkingDistancesIndoor ?? legacy;
+  const outdoorSrc = company?.parkingDistancesOutdoor ?? legacy;
+  return {
+    indoor: {
+      T1: readTerminalForm(indoorSrc?.T1),
+      T2: readTerminalForm(indoorSrc?.T2),
+    },
+    outdoor: {
+      T1: readTerminalForm(outdoorSrc?.T1),
+      T2: readTerminalForm(outdoorSrc?.T2),
+    },
+  };
+}
+
+export function buildLotParkingDistancesPayload(input: LotParkingDistancesFormInput): {
+  parkingDistancesIndoor: ParkingDistances | null;
+  parkingDistancesOutdoor: ParkingDistances | null;
+  parkingDistances: ParkingDistances | null;
+} {
+  const indoor = buildParkingDistancesFromForm(input.indoor);
+  const outdoor = buildParkingDistancesFromForm(input.outdoor);
+  const indoorOrNull = Object.keys(indoor).length > 0 ? indoor : null;
+  const outdoorOrNull = Object.keys(outdoor).length > 0 ? outdoor : null;
+  // 하위 호환: 대표 = 실내 우선, 없으면 야외 (B2C 구버전 폴백)
+  const primary = indoorOrNull ?? outdoorOrNull;
+  return {
+    parkingDistancesIndoor: indoorOrNull,
+    parkingDistancesOutdoor: outdoorOrNull,
+    parkingDistances: primary,
+  };
+}
+
+export function validateLotParkingDistancesForm(input: LotParkingDistancesFormInput): string | null {
+  const a = validateParkingDistancesForm(input.indoor);
+  if (a) return `실내: ${a}`;
+  const b = validateParkingDistancesForm(input.outdoor);
+  if (b) return `야외: ${b}`;
+  return null;
+}

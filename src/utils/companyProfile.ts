@@ -1,19 +1,34 @@
 import type { Company, CompanyInsurance, FacilityType } from '../types';
 import {
-  buildParkingDistancesFromForm,
-  EMPTY_PARKING_DISTANCES_FORM,
+  buildLotParkingDistancesPayload,
+  EMPTY_LOT_PARKING_DISTANCES_FORM,
   EMPTY_TERMINAL_PARKING_FORM,
-  readParkingDistancesFormFromCompany,
+  readLotParkingDistancesFormFromCompany,
+  validateLotParkingDistancesForm,
+  type LotParkingDistancesFormInput,
   type ParkingDistancesFormInput,
 } from './parkingDistances';
 
-export type { ParkingDistancesFormInput, TerminalParkingDistanceForm } from './parkingDistances';
-export { EMPTY_PARKING_DISTANCES_FORM, validateParkingDistancesForm } from './parkingDistances';
+export type {
+  LotParkingDistancesFormInput,
+  ParkingDistancesFormInput,
+  TerminalParkingDistanceForm,
+} from './parkingDistances';
+export {
+  EMPTY_LOT_PARKING_DISTANCES_FORM,
+  EMPTY_PARKING_DISTANCES_FORM,
+  validateLotParkingDistancesForm,
+  validateParkingDistancesForm,
+} from './parkingDistances';
 
 export interface PartnerProfileInput {
   facilityType: FacilityType;
   indoorParkingAddress: string;
   outdoorParkingAddress: string;
+  indoorParkingLat: string;
+  indoorParkingLng: string;
+  outdoorParkingLat: string;
+  outdoorParkingLng: string;
   /** 대표 주차장 사진 URL (B2C image_url) */
   imageUrl: string;
   /** 주차장 사진 목록 (최대 5장, 첫 장 = 대표) */
@@ -22,22 +37,32 @@ export interface PartnerProfileInput {
   insuranceProvider: string;
   insuranceProductName: string;
   insuranceCoverageLimitWon: string;
-  parkingDistances: ParkingDistancesFormInput;
+  parkingDistancesByLot: LotParkingDistancesFormInput;
 }
 
 export const DEFAULT_PARTNER_PROFILE: PartnerProfileInput = {
   facilityType: 'mixed',
   indoorParkingAddress: '',
   outdoorParkingAddress: '',
+  indoorParkingLat: '',
+  indoorParkingLng: '',
+  outdoorParkingLat: '',
+  outdoorParkingLng: '',
   imageUrl: '',
   imageUrls: [],
   insuranceEnrolled: false,
   insuranceProvider: '',
   insuranceProductName: '',
   insuranceCoverageLimitWon: '',
-  parkingDistances: {
-    T1: { ...EMPTY_TERMINAL_PARKING_FORM },
-    T2: { ...EMPTY_TERMINAL_PARKING_FORM },
+  parkingDistancesByLot: {
+    indoor: {
+      T1: { ...EMPTY_TERMINAL_PARKING_FORM },
+      T2: { ...EMPTY_TERMINAL_PARKING_FORM },
+    },
+    outdoor: {
+      T1: { ...EMPTY_TERMINAL_PARKING_FORM },
+      T2: { ...EMPTY_TERMINAL_PARKING_FORM },
+    },
   },
 };
 
@@ -115,13 +140,17 @@ export function readPartnerProfileFromCompany(company?: Company): PartnerProfile
     facilityType,
     indoorParkingAddress,
     outdoorParkingAddress,
+    indoorParkingLat: coordToFormString(raw.indoorParkingLat),
+    indoorParkingLng: coordToFormString(raw.indoorParkingLng),
+    outdoorParkingLat: coordToFormString(raw.outdoorParkingLat),
+    outdoorParkingLng: coordToFormString(raw.outdoorParkingLng),
     imageUrl: imageUrls[0] || primaryImage || '',
     imageUrls,
     insuranceEnrolled,
     insuranceProvider,
     insuranceProductName,
     insuranceCoverageLimitWon,
-    parkingDistances: readParkingDistancesFormFromCompany(company),
+    parkingDistancesByLot: readLotParkingDistancesFormFromCompany(company),
   };
 }
 
@@ -162,6 +191,18 @@ export function buildInsurancePayload(input: PartnerProfileInput): {
   };
 }
 
+
+function coordToFormString(raw: unknown): string {
+  if (raw == null || raw === '') return '';
+  return String(raw);
+}
+
+function parseOptionalCoord(raw: string): number | undefined {
+  const n = Number(String(raw || '').trim());
+  if (!Number.isFinite(n)) return undefined;
+  return n;
+}
+
 function buildParkingLots(input: PartnerProfileInput) {
   const lots: Array<{ type: 'indoor' | 'outdoor'; parkingAddress: string }> = [];
   const indoor = input.indoorParkingAddress.trim();
@@ -189,7 +230,7 @@ export function applyPartnerProfileToCompany(
   const outdoor = input.outdoorParkingAddress.trim();
   const insuranceFields = buildInsurancePayload(input);
   const parkingLots = buildParkingLots(input);
-  const parkingDistances = buildParkingDistancesFromForm(input.parkingDistances);
+  const lotDistances = buildLotParkingDistancesPayload(input.parkingDistancesByLot);
   const imageUrls = (input.imageUrls.length > 0
     ? input.imageUrls
     : input.imageUrl
@@ -211,13 +252,25 @@ export function applyPartnerProfileToCompany(
     image_urls: imageUrls,
     indoorParkingAddress: indoor || undefined,
     outdoorParkingAddress: outdoor || undefined,
+    indoorParkingLat: parseOptionalCoord(input.indoorParkingLat),
+    indoorParkingLng: parseOptionalCoord(input.indoorParkingLng),
+    outdoorParkingLat: parseOptionalCoord(input.outdoorParkingLat),
+    outdoorParkingLng: parseOptionalCoord(input.outdoorParkingLng),
     parkingLots: parkingLots.length > 0 ? parkingLots : undefined,
     insurance: insuranceFields.insurance,
     hasInsurance: insuranceFields.hasInsurance,
     insuranceProvider: insuranceFields.insuranceProvider,
     insuranceLimit: insuranceFields.insuranceLimit,
     sharesInsurance: true,
-    parkingDistances: Object.keys(parkingDistances).length > 0 ? parkingDistances : undefined,
+    sharesParkingLocation: Boolean(
+      indoor || outdoor || lotDistances.parkingDistancesIndoor || lotDistances.parkingDistancesOutdoor
+      || parseOptionalCoord(input.indoorParkingLat) != null
+      || parseOptionalCoord(input.outdoorParkingLat) != null
+    ),
+    sharesPhotos: imageUrls.length > 0,
+    parkingDistances: lotDistances.parkingDistances ?? undefined,
+    parkingDistancesIndoor: lotDistances.parkingDistancesIndoor ?? undefined,
+    parkingDistancesOutdoor: lotDistances.parkingDistancesOutdoor ?? undefined,
   };
 }
 
@@ -241,6 +294,14 @@ export function profileExtrasForFirestore(input: PartnerProfileInput): Record<st
     input
   );
 
+  const lotDistances = buildLotParkingDistancesPayload(input.parkingDistancesByLot);
+  const hasAddress = Boolean(
+    (company.indoorParkingAddress || '').trim() || (company.outdoorParkingAddress || '').trim()
+  );
+  const hasPin = company.indoorParkingLat != null || company.outdoorParkingLat != null;
+  const hasPhotos = (company.image_urls?.length || 0) > 0 || Boolean((company.image_url || '').trim());
+  const hasDistances = Boolean(lotDistances.parkingDistancesIndoor || lotDistances.parkingDistancesOutdoor);
+
   return {
     facilityType: company.facilityType,
     is_indoor: company.is_indoor,
@@ -251,12 +312,19 @@ export function profileExtrasForFirestore(input: PartnerProfileInput): Record<st
     image_urls: company.image_urls ?? [],
     indoorParkingAddress: company.indoorParkingAddress ?? '',
     outdoorParkingAddress: company.outdoorParkingAddress ?? '',
+    indoorParkingLat: company.indoorParkingLat ?? null,
+    indoorParkingLng: company.indoorParkingLng ?? null,
+    outdoorParkingLat: company.outdoorParkingLat ?? null,
+    outdoorParkingLng: company.outdoorParkingLng ?? null,
     parkingLots: company.parkingLots ?? [],
     insurance: company.insurance,
     hasInsurance: company.hasInsurance,
     insuranceProvider: company.insuranceProvider ?? '',
     insuranceLimit: company.insuranceLimit ?? null,
+    // B2C MY · 비교 화면 연동 플래그
     sharesInsurance: true,
-    parkingDistances: buildParkingDistancesFromForm(input.parkingDistances),
+    sharesParkingLocation: hasAddress || hasPin || hasDistances,
+    sharesPhotos: hasPhotos,
+    ...lotDistances,
   };
 }

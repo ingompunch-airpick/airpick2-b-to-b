@@ -50,6 +50,20 @@ export function buildReceiptUrl(
   return path ? `${base}${path}` : '';
 }
 
+/**
+ * 출고 완료 후기 작성 딥링크 — https://www.에어픽.kr/my?review={예약ID}
+ */
+export function buildReviewUrl(
+  reservation: Pick<Reservation, 'id'>,
+  origin: string = RECEIPT_PUBLIC_ORIGIN
+): string {
+  const id = (reservation.id || '').trim();
+  if (!id) return '';
+  const base = origin.replace(/\/$/, '');
+  const withWww = base.includes('://www.') ? base : base.replace('://', '://www.');
+  return `${withWww}/my?review=${encodeURIComponent(id)}`;
+}
+
 /** `2026-07-08` + `11:30` → `2026년 07월 08일 11시 30분` */
 export function formatKoreanDateTime(dateStr?: string, timeStr?: string): string {
   const date = (dateStr || '').trim();
