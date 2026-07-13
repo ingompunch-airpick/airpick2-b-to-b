@@ -28,9 +28,16 @@ export function getSafeDateString(val: unknown): string {
   return new Date().toISOString();
 }
 
-export function normalizeDateString(dStr: string | undefined | null): string {
-  if (!dStr) return '';
-  let clean = dStr.trim().replace(/[\.\/]/g, '-');
+export function normalizeDateString(dStr: string | undefined | null | unknown): string {
+  if (dStr == null || dStr === '') return '';
+  // Timestamp/숫자 등이 들어오면 문자열로 정규화
+  const asString =
+    typeof dStr === 'string'
+      ? dStr
+      : typeof dStr === 'number'
+        ? String(dStr)
+        : getSafeDateString(dStr).slice(0, 10);
+  let clean = asString.trim().replace(/[\.\/]/g, '-');
 
   if (clean.includes(' ')) {
     clean = clean.split(' ')[0];

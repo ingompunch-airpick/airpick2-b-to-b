@@ -409,8 +409,10 @@ export default function MasterSettingsView({
     if (!isSuperAdmin) {
       const p = (partners || []).find(x => x.companyId === companyInfo.id);
       if (p) {
-        setPartnerPassword(p.password || '');
-        setPartnerPhone(p.phone || companyInfo.phone || '');
+        setPartnerPassword(typeof p.password === 'string' ? p.password : '');
+        setPartnerPhone(
+          typeof p.phone === 'string' ? p.phone : companyInfo.phone || ''
+        );
       } else {
         setPartnerPhone(companyInfo.phone || '');
       }
@@ -478,8 +480,12 @@ export default function MasterSettingsView({
         valetFeeT2: valetT2On ? Math.trunc(valetFeeT2) : deleteField(),
       };
 
-      const cleanPassword = (partnerPassword || '').trim() || 'master1234';
-      const cleanPhone = (partnerPhone || companyInfo.phone || '1544-5746').trim();
+      const cleanPassword =
+        (typeof partnerPassword === 'string' ? partnerPassword.trim() : '') ||
+        'master1234';
+      const cleanPhone = String(
+        partnerPhone || companyInfo.phone || '1544-5746'
+      ).trim();
 
       let found = false;
       const updatedPartners = (partners || []).map(p => {

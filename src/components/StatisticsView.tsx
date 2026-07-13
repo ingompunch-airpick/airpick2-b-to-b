@@ -212,9 +212,14 @@ export default function StatisticsView({
   const getCompanyReservations = (allResList: Reservation[], compId: string) => {
     const list = allResList || [];
     return list.filter(r => {
-      const rCompId = (r.companyId || '').toLowerCase().trim();
-      const rCompName = (r.companyName || '').toLowerCase().replace(/\s+/g, '').trim();
-      const targetId = compId.toLowerCase().trim();
+      const rCompId = String(r.companyId || '').toLowerCase().trim();
+      const rCompName = String(r.companyName || '')
+        .toLowerCase()
+        .replace(/\s+/g, '')
+        .trim();
+      const targetId = String(compId || '')
+        .toLowerCase()
+        .trim();
       
       if (targetId === 'gayu' || targetId === 'gayu_partner') {
         return rCompId === 'gayu' || rCompId === 'gayu_partner' || rCompName.includes('가유');

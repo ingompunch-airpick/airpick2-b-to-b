@@ -32,7 +32,7 @@ function resolveInsuranceSummary(company: Company): {
   if (ins && typeof ins === 'object') {
     if (!ins.enrolled) return { enrolled: false, detail: '미가입' };
     const bits = [ins.provider, ins.productName]
-      .map((s) => (s || '').trim())
+      .map((s) => String(s ?? '').trim())
       .filter(Boolean);
     if (ins.coverageLimitWon != null) {
       bits.push(`한도 ${Number(ins.coverageLimitWon).toLocaleString()}원`);

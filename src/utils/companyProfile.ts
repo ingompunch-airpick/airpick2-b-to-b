@@ -300,10 +300,13 @@ export function profileExtrasForFirestore(input: PartnerProfileInput): Record<st
 
   const lotDistances = buildLotParkingDistancesPayload(input.parkingDistancesByLot);
   const hasAddress = Boolean(
-    (company.indoorParkingAddress || '').trim() || (company.outdoorParkingAddress || '').trim()
+    String(company.indoorParkingAddress || '').trim() ||
+      String(company.outdoorParkingAddress || '').trim()
   );
   const hasPin = company.indoorParkingLat != null || company.outdoorParkingLat != null;
-  const hasPhotos = (company.image_urls?.length || 0) > 0 || Boolean((company.image_url || '').trim());
+  const hasPhotos =
+    (company.image_urls?.length || 0) > 0 ||
+    Boolean(String(company.image_url || '').trim());
   const hasDistances = Boolean(lotDistances.parkingDistancesIndoor || lotDistances.parkingDistancesOutdoor);
 
   return {

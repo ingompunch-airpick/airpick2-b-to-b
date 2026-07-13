@@ -19,7 +19,9 @@ export function parseReceiptCodeFromPath(pathname: string): string | null {
 export function resolveReceiptLookupCode(
   reservation: Pick<Reservation, 'id' | 'receiptCode' | 'receiptToken'>
 ): string {
-  return (reservation.receiptToken || reservation.receiptCode || reservation.id || '').trim();
+  return String(
+    reservation.receiptToken || reservation.receiptCode || reservation.id || ''
+  ).trim();
 }
 
 /** B2B Hosting(`airpick-reservation`)용 — `/r/{token|code|id}` */
@@ -39,8 +41,8 @@ export function buildReceiptUrl(
   origin: string = RECEIPT_PUBLIC_ORIGIN
 ): string {
   const base = origin.replace(/\/$/, '');
-  const id = (reservation.id || '').trim();
-  const token = (reservation.receiptToken || '').trim();
+  const id = String(reservation.id || '').trim();
+  const token = String(reservation.receiptToken || '').trim();
 
   if (id && token) {
     return `${base}/r/${encodeURIComponent(id)}?t=${encodeURIComponent(token)}`;
@@ -57,7 +59,7 @@ export function buildReviewUrl(
   reservation: Pick<Reservation, 'id'>,
   origin: string = RECEIPT_PUBLIC_ORIGIN
 ): string {
-  const id = (reservation.id || '').trim();
+  const id = String(reservation.id || '').trim();
   if (!id) return '';
   const base = origin.replace(/\/$/, '');
   const withWww = base.includes('://www.') ? base : base.replace('://', '://www.');
@@ -66,8 +68,8 @@ export function buildReviewUrl(
 
 /** `2026-07-08` + `11:30` → `2026년 07월 08일 11시 30분` */
 export function formatKoreanDateTime(dateStr?: string, timeStr?: string): string {
-  const date = (dateStr || '').trim();
-  const time = (timeStr || '').trim();
+  const date = String(dateStr || '').trim();
+  const time = String(timeStr || '').trim();
   if (!date) return '-';
 
   const normalized = date.includes('T') ? date.split('T')[0] : date.split(' ')[0];

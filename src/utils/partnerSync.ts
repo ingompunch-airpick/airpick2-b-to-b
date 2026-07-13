@@ -111,7 +111,25 @@ export function readPartnersFromStorage(
     const saved = getItem('super_partners_list');
     if (!saved) return [];
     const parsed = JSON.parse(saved);
-    return Array.isArray(parsed) ? parsed : [];
+    if (!Array.isArray(parsed)) return [];
+    // 레거시 캐시에 password가 객체로 남은 경우 방어
+    return parsed
+      .filter((p): p is PartnerCompany => !!p && typeof p === 'object' && !!(p as PartnerCompany).companyId)
+      .map((p) => ({
+        ...p,
+        companyId: String(p.companyId || ''),
+        password: normalizePassword(p.password),
+        name: typeof p.name === 'string' ? p.name : String(p.name || p.companyId || ''),
+        phone: typeof p.phone === 'string' ? p.phone : String(p.phone || ''),
+        representative:
+          typeof p.representative === 'string'
+            ? p.representative
+            : String(p.representative || ''),
+        settlementMemo:
+          typeof p.settlementMemo === 'string' ? p.settlementMemo : String(p.settlementMemo || ''),
+        status: p.status === 'suspended' ? 'suspended' : 'active',
+        employees: Array.isArray(p.employees) ? p.employees : [],
+      }));
   } catch {
     return [];
   }
