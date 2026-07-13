@@ -57,6 +57,7 @@ import {
   monthLabelFromPrefix,
   shiftMonthPrefix,
 } from '../utils/hqAnalytics';
+import CustomDatePickerModal from './CustomDatePickerModal';
 
 function reservationDepartureOn(r: Reservation, ymd: string): boolean {
   return normalizeDateString(r.departureDate) === ymd;
@@ -69,9 +70,17 @@ function reservationExitOn(r: Reservation, ymd: string): boolean {
   return exitDate === ymd;
 }
 
-/** 당일 예약 = 오늘(KST) 접수(createdAt)한 건 */
+/** 선택일 예약 = 해당일(KST) 접수(createdAt)한 건 */
 function isTodayReserveRow(r: Reservation, ymd: string): boolean {
   return toKSTDateOnlyString(r.createdAt) === ymd;
+}
+
+/** YYYY-MM-DD ± N일 (달력일 기준) */
+function shiftYmd(ymd: string, deltaDays: number): string {
+  const [y, m, d] = ymd.split('-').map((n) => parseInt(n, 10));
+  if (!y || !m || !d) return ymd;
+  const next = new Date(Date.UTC(y, m - 1, d + deltaDays));
+  return next.toISOString().slice(0, 10);
 }
 
 interface StatisticsViewProps {
@@ -102,6 +111,7 @@ export default function StatisticsView({
   const [crmSearch, setCrmSearch] = useState('');
   const [crmTab, setCrmTab] = useState<'today_reserve' | 'today_parked' | 'today_released'>('today_reserve');
   const [crmSelected, setCrmSelected] = useState<Reservation | null>(null);
+  const [crmDatePickerOpen, setCrmDatePickerOpen] = useState(false);
   
   const [filterType, setFilterType] = useState<'this_month' | 'last_month'>('this_month');
   const [hqMonthPrefix, setHqMonthPrefix] = useState(() => getKSTDateOnlyString().substring(0, 7));
@@ -125,7 +135,10 @@ export default function StatisticsView({
   const getKSTDateString = () => getKSTDateOnlyString();
 
   const [todayStr, setTodayStr] = useState(() => getKSTDateString());
+  /** CRM 조회일 — 기본 오늘, 사용자가 다른 날 선택 가능 */
+  const [crmDate, setCrmDate] = useState(() => getKSTDateString());
   const currentMonthPrefix = todayStr.substring(0, 7); // "2026-05"
+  const crmDateIsToday = crmDate === todayStr;
 
   // Automatically refresh date-related views when midnight KST rolls over
   useEffect(() => {
@@ -141,6 +154,8 @@ export default function StatisticsView({
 
           setCurrentYear((cy) => cy === prevYear ? curYear : cy);
           setCurrentMonth((cm) => cm === prevMonth ? curMonth : cm);
+          // CRM이 “오늘”을 보고 있을 때만 따라감 — 과거/미래 조회 중이면 유지
+          setCrmDate((crm) => (crm === prevDate ? currentTodayKST : crm));
           return currentTodayKST;
         }
         return prevDate;
@@ -904,20 +919,20 @@ export default function StatisticsView({
       {(() => {
         const activeRes = reservations.filter(r => r.status !== 'cancelled');
         const crmCounts = {
-          today_reserve: activeRes.filter(r => isTodayReserveRow(r, todayStr)).length,
-          today_parked: activeRes.filter(r => reservationDepartureOn(r, todayStr) && isParked(r.status)).length,
+          today_reserve: activeRes.filter(r => isTodayReserveRow(r, crmDate)).length,
+          today_parked: activeRes.filter(r => reservationDepartureOn(r, crmDate) && isParked(r.status)).length,
           today_released: activeRes.filter(r =>
-            r.status === 'completed_out' && reservationExitOn(r, todayStr)
+            r.status === 'completed_out' && reservationExitOn(r, crmDate)
           ).length,
         };
-        const todayTotal = activeRes.filter(r => {
-          const isReserve = isTodayReserveRow(r, todayStr);
-          const isParkedRow = reservationDepartureOn(r, todayStr) && isParked(r.status);
-          const isOut = r.status === 'completed_out' && reservationExitOn(r, todayStr);
+        const dayTotal = activeRes.filter(r => {
+          const isReserve = isTodayReserveRow(r, crmDate);
+          const isParkedRow = reservationDepartureOn(r, crmDate) && isParked(r.status);
+          const isOut = r.status === 'completed_out' && reservationExitOn(r, crmDate);
           return isReserve || isParkedRow || isOut;
         });
-        const todayRevenue = todayTotal.reduce((s, r) => s + (r.totalPrice || 0), 0);
-        const todayGroupedMetrics = aggregateGroupedBookingSourceMetrics(todayTotal);
+        const dayRevenue = dayTotal.reduce((s, r) => s + (r.totalPrice || 0), 0);
+        const dayGroupedMetrics = aggregateGroupedBookingSourceMetrics(dayTotal);
 
         const crmFiltered = (() => {
           const q = crmSearch.trim().toLowerCase().replace(/[ㄱ-ㅎㅏ-ㅣ\s]+$/, '');
@@ -928,10 +943,10 @@ export default function StatisticsView({
             );
           }
           return activeRes.filter(r => {
-            if (crmTab === 'today_reserve') return isTodayReserveRow(r, todayStr);
-            if (crmTab === 'today_parked') return reservationDepartureOn(r, todayStr) && isParked(r.status);
+            if (crmTab === 'today_reserve') return isTodayReserveRow(r, crmDate);
+            if (crmTab === 'today_parked') return reservationDepartureOn(r, crmDate) && isParked(r.status);
             if (crmTab === 'today_released') {
-              return r.status === 'completed_out' && reservationExitOn(r, todayStr);
+              return r.status === 'completed_out' && reservationExitOn(r, crmDate);
             }
             return false;
           });
@@ -952,13 +967,13 @@ export default function StatisticsView({
               </h3>
               <div className="text-right">
                 <div className="flex items-center gap-2 text-[12px] font-mono text-zinc-500 justify-end">
-                  <span className="text-amber-500 font-bold">{todayTotal.length}건</span>
+                  <span className="text-amber-500 font-bold">{dayTotal.length}건</span>
                   <span>·</span>
-                  <span>{todayRevenue.toLocaleString()}원</span>
+                  <span>{dayRevenue.toLocaleString()}원</span>
                 </div>
                 <div className="flex items-center gap-1.5 mt-0.5 justify-end flex-wrap">
                   {GROUPED_SOURCE_ROWS.map(({ key }) => {
-                    const { count, revenue } = todayGroupedMetrics[key];
+                    const { count, revenue } = dayGroupedMetrics[key];
                     if (count === 0 && revenue === 0) return null;
                     return (
                       <span
@@ -971,6 +986,50 @@ export default function StatisticsView({
                   })}
                 </div>
               </div>
+            </div>
+
+            {/* CRM 조회일 */}
+            <div className="flex items-center gap-1.5 bg-[#1C1C1E] border border-neutral-800/60 rounded-xl p-1.5">
+              <button
+                type="button"
+                aria-label="이전 날"
+                onClick={() => setCrmDate((d) => shiftYmd(d, -1))}
+                className="shrink-0 w-9 h-9 flex items-center justify-center rounded-lg text-zinc-400 hover:text-white hover:bg-neutral-800/70 transition-colors"
+              >
+                <ChevronLeft size={16} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setCrmDatePickerOpen(true)}
+                className="flex-1 min-w-0 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[12px] font-bold text-white hover:bg-neutral-800/50 transition-colors"
+              >
+                <Calendar size={13} className="text-amber-500 shrink-0" />
+                <span className="text-zinc-500 font-semibold">조회일</span>
+                <span className="font-mono text-amber-400">{crmDate}</span>
+                {!crmDateIsToday && (
+                  <span className="text-[10px] text-zinc-500 font-semibold">(오늘 아님)</span>
+                )}
+              </button>
+              <button
+                type="button"
+                aria-label="다음 날"
+                onClick={() => setCrmDate((d) => shiftYmd(d, 1))}
+                className="shrink-0 w-9 h-9 flex items-center justify-center rounded-lg text-zinc-400 hover:text-white hover:bg-neutral-800/70 transition-colors"
+              >
+                <ChevronRight size={16} />
+              </button>
+              <button
+                type="button"
+                disabled={crmDateIsToday}
+                onClick={() => setCrmDate(todayStr)}
+                className={`shrink-0 px-2.5 h-9 rounded-lg text-[11px] font-black transition-colors ${
+                  crmDateIsToday
+                    ? 'text-zinc-600 cursor-default'
+                    : 'text-amber-400 bg-amber-500/10 border border-amber-500/25 hover:bg-amber-500/20'
+                }`}
+              >
+                오늘
+              </button>
             </div>
 
             {/* 검색 */}
@@ -1286,6 +1345,17 @@ export default function StatisticsView({
           </div>
         );
       })()}
+
+      <CustomDatePickerModal
+        isOpen={crmDatePickerOpen}
+        onClose={() => setCrmDatePickerOpen(false)}
+        initialValue={crmDate}
+        onSelect={(dateStr) => {
+          setCrmDate(dateStr);
+          setCrmDatePickerOpen(false);
+        }}
+        title="CRM 조회일 선택"
+      />
 
     </div>
   );
