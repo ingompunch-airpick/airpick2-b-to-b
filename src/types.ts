@@ -44,6 +44,11 @@ export interface Company {
   valetFeeT1?: number;
   /** 대면 입고 추가요금 (T2) — 0=무료 대면, 필드 없음=T2 대면 미제공 */
   valetFeeT2?: number;
+  /**
+   * 고객 만남 픽업지 안내 (선택).
+   * 예: T1 3번 출구, 실외 단기주차장 앞. 비우면 접수증에 연락 안내 표시.
+   */
+  pickupLocation?: string;
   /** B2B 마스터 — 시설 유형 */
   facilityType?: 'indoor' | 'outdoor' | 'mixed';
   /** B2C 손님 MY · 실내 주차장 도로명 주소 */

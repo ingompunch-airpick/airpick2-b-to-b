@@ -145,6 +145,19 @@ function GridCell({ label, value }: { label: string; value: string }) {
   );
 }
 
+function PickupLocationRow({ value }: { value: string }) {
+  return (
+    <div className="col-span-2 min-w-0 px-3 py-2.5">
+      <p className="text-[9px] font-bold tracking-wide text-[#9a8b78] uppercase">픽업지</p>
+      <p className="mt-0.5 text-[13px] font-black leading-snug text-[#1a1f2e] whitespace-pre-wrap break-words">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+const PICKUP_CONTACT_FALLBACK = '업체로 연락해 안내받으세요';
+
 /** 접수증 URL QR — 스캔 시 동일 접수증 페이지로 이동 */
 function ReceiptQrCode({ url, scanCode }: { url: string; scanCode: string }) {
   const [dataUrl, setDataUrl] = useState<string | null>(null);
@@ -255,6 +268,10 @@ export default function VehicleReceiptPage({ code }: VehicleReceiptPageProps) {
       (company as Company & { customerCenter?: string })?.customerCenter ||
       '1545-5746';
 
+    const pickupLocation =
+      (typeof company?.pickupLocation === 'string' && company.pickupLocation.trim()) ||
+      PICKUP_CONTACT_FALLBACK;
+
     const docNo =
       reservation.receiptCode ||
       reservation.id ||
@@ -278,6 +295,7 @@ export default function VehicleReceiptPage({ code }: VehicleReceiptPageProps) {
       totalPrice: `${(reservation.totalPrice ?? 0).toLocaleString()}원`,
       customerPhone: maskPhoneForDisplay(reservation.phone),
       companyPhone: maskPhoneForDisplay(companyPhone),
+      pickupLocation,
       companyName: reservation.companyName || company?.name || '에어픽',
       status: reservation.status,
       shareUrl: buildReceiptUrl(reservation),
@@ -376,6 +394,7 @@ export default function VehicleReceiptPage({ code }: VehicleReceiptPageProps) {
             <FlightGridCell label="귀국편" leg={view.arrivalLeg} />
             <GridCell label="고객 연락처" value={view.customerPhone} />
             <GridCell label="고객센터" value={view.companyPhone} />
+            <PickupLocationRow value={view.pickupLocation} />
           </div>
 
           <details className="mt-3 group print:open">

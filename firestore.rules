@@ -51,6 +51,7 @@ service cloud.firestore {
         'valetFeeT1',
         'valetFeeT2',
         // employees 는 upsertCompanyEmployees (Admin SDK) 만
+        'pickupLocation',
         'isOpen',
         'blockedDates',
         'cancelCutoffHours',

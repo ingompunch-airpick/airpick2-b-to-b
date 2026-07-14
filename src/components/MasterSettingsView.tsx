@@ -404,6 +404,7 @@ export default function MasterSettingsView({
   const [valetT2Enabled, setValetT2Enabled] = useState(false);
   const [valetFeeT1, setValetFeeT1] = useState(0);
   const [valetFeeT2, setValetFeeT2] = useState(0);
+  const [pickupLocation, setPickupLocation] = useState('');
 
   useEffect(() => {
     if (!isSuperAdmin) {
@@ -420,6 +421,9 @@ export default function MasterSettingsView({
       const c = (companies || []).find(x => x.id === companyInfo.id);
       if (c) {
         setPartnerRateText((c.features && c.features[0]) || '');
+        setPickupLocation(
+          typeof c.pickupLocation === 'string' ? c.pickupLocation : ''
+        );
         setOutdoorBasePrice(c.outdoorBasePrice ?? c.base_price ?? 0);
         setOutdoorBaseDays(c.outdoorBaseDays ?? c.base_days ?? 0);
         setOutdoorExtraPrice(c.outdoorExtraPrice ?? c.extra_day_price ?? 0);
@@ -543,12 +547,16 @@ export default function MasterSettingsView({
         peakSurcharge,
       });
 
+      const cleanPickupLocation = pickupLocation.trim();
+
       const updatedCompanies = dbCompanies.map(c => {
         if (c.id === companyInfo.id) {
           const next: Company = {
             ...c,
             ...pricingPayload,
           };
+          if (cleanPickupLocation) next.pickupLocation = cleanPickupLocation;
+          else delete next.pickupLocation;
           if (valetT1On) next.valetFeeT1 = Math.trunc(valetFeeT1);
           else delete next.valetFeeT1;
           if (valetT2On) next.valetFeeT2 = Math.trunc(valetFeeT2);
@@ -584,6 +592,7 @@ export default function MasterSettingsView({
           {
             ...pricingPayload,
             ...valetFirestorePayload,
+            pickupLocation: cleanPickupLocation || deleteField(),
             updatedAt: new Date().toISOString(),
           },
           { merge: true }
@@ -687,6 +696,33 @@ export default function MasterSettingsView({
           </div>
 
           {!isSuperAdmin && <PartnerParkingProfileReadonly company={currentCompany} />}
+
+          {/* 고객 만남 픽업지 (선택) — 접수증에 표시 */}
+          {!isSuperAdmin && (
+            <div className="bg-neutral-900/40 p-5 rounded-3xl border border-neutral-850 space-y-3">
+              <div className="flex items-center gap-2 text-xs font-black text-amber-500 tracking-wider uppercase">
+                <FileSpreadsheet size={14} className="text-amber-500" />
+                <span>고객 만남 픽업지 (선택)</span>
+              </div>
+              <p className="text-[12.5px] text-white/80 leading-relaxed">
+                적어두면 접수증에 픽업지가 표시됩니다. 비워두면 「업체로 연락해 안내받으세요」로
+                안내합니다.
+              </p>
+              <div>
+                <label className="text-[11px] text-white/80 font-bold block mb-1">
+                  픽업지 안내 문구
+                </label>
+                <input
+                  type="text"
+                  value={pickupLocation}
+                  onChange={(e) => setPickupLocation(e.target.value)}
+                  placeholder="예: T1 3번 출구 앞 / 실외 단기주차장 입구"
+                  maxLength={120}
+                  className="w-full px-3 py-2.5 bg-[#131315] border border-neutral-850 rounded-xl text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-amber-500/50"
+                />
+              </div>
+            </div>
+          )}
 
           {/* 3. 주차 요금 설정 */}
           <div className="bg-neutral-900/40 p-5 rounded-3xl border border-neutral-850 space-y-4">

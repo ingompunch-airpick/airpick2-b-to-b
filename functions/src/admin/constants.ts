@@ -43,6 +43,7 @@ export const ALLOWED_COMPANY_PATCH_KEYS = [
   'parkingDistances',
   'parkingDistancesIndoor',
   'parkingDistancesOutdoor',
+  'pickupLocation',
 ] as const;
 
 /** 신규 생성 시 추가로 허용 (요금·운영 기본값 등) */
