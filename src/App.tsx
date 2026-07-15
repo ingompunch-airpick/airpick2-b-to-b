@@ -40,6 +40,7 @@ import {
   resolveBlockedDatesForCompany,
 } from './utils/partnerSync';
 import { getCalculatePrice } from './utils/pricing';
+import { airportRegionLabel } from './utils/airport';
 import { getKSTDateOnlyString, getKSTDateTimeString } from './utils/kstDate';
 import { normalizeDateString, normalizeDocsArray } from './utils/reservationNormalize';
 import {
@@ -324,7 +325,7 @@ export default function App() {
     let targetCompanyInfo: CompanyInfo = {
       id: selectedId,
       name: '',
-      region: '인천공항 전역',
+      region: airportRegionLabel(),
       phone: '1545-5746',
       logo: '',
       isIndoor: true,
@@ -344,6 +345,7 @@ export default function App() {
         targetCompanyInfo.name = formatPartnerDisplayName(foundComp.name, foundComp.id);
         targetCompanyInfo.phone = foundComp.phone || '1545-5746';
         targetCompanyInfo.logo = foundComp.image_url || '';
+        targetCompanyInfo.region = airportRegionLabel(foundComp.airport);
       } else {
         targetCompanyInfo.name = selectedId;
       }
@@ -1108,10 +1110,11 @@ export default function App() {
       setIsMasterAdmin(true);
       setCurrentCompanyId(verified.companyId);
 
+      const foundComp = companies.find((c) => c.id === verified.companyId);
       const brandInfo: CompanyInfo = {
         id: verified.companyId,
         name: verified.name,
-        region: '인천공항 1터미널',
+        region: airportRegionLabel(foundComp?.airport),
         phone: verified.phone,
         logo: '',
       };
@@ -1774,6 +1777,7 @@ export default function App() {
                     setScratchModalTargetId={setScratchModalTargetId}
                     setSelectedParkingSpace={setSelectedParkingSpace}
                     showCompanyLabel={showCompanyNameOnCards}
+                    primaryCompanyId={currentCompanyId}
                   />
                 </motion.div>
               )}

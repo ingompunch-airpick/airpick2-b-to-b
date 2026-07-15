@@ -12,11 +12,16 @@ import {
   homepagePolicyMessage,
 } from '../utils/homepageBookingPolicy';
 import { getKSTDateOnlyString, getKSTDateTimeLocalString } from '../utils/kstDate';
-import { getCalculatePrice, mergePartnerPricing } from '../utils/pricing';
+import { getCalculatePrice, mergePartnerPricing, companyRouteNeedsTerminalSurcharge } from '../utils/pricing';
+import {
+  getDefaultTerminal,
+  resolveCompanyAirportId,
+} from '../utils/airport';
+import TerminalPicker from '../components/TerminalPicker';
 import { buildReceiptUrl } from '../utils/receipt';
 import { createReceiptToken } from '../utils/receiptToken';
 
-type Terminal = 'T1' | 'T2';
+type Terminal = string;
 
 function formatPhoneInput(raw: string): string {
   const d = raw.replace(/\D/g, '').slice(0, 11);
@@ -43,8 +48,8 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
   const [arrLocal, setArrLocal] = useState(() =>
     getKSTDateTimeLocalString(3 * 24 * 60 * 60 * 1000)
   );
-  const [departureTerminal, setDepartureTerminal] = useState<Terminal>('T1');
-  const [arrivalTerminal, setArrivalTerminal] = useState<Terminal>('T1');
+  const [departureTerminal, setDepartureTerminal] = useState<Terminal>('');
+  const [arrivalTerminal, setArrivalTerminal] = useState<Terminal>('');
   const [isIndoor, setIsIndoor] = useState(true);
 
   const [userName, setUserName] = useState('');
@@ -78,6 +83,10 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
           return;
         }
         setCompany(data);
+        const airportId = resolveCompanyAirportId(data);
+        const def = getDefaultTerminal(airportId);
+        setDepartureTerminal(def);
+        setArrivalTerminal(def);
         if (data.supports_indoor === false && data.supports_outdoor !== false) {
           setIsIndoor(false);
         } else {
@@ -104,7 +113,7 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
 
   const dep = splitLocal(depLocal);
   const arr = splitLocal(arrLocal);
-  const isT2 = departureTerminal === 'T2' || arrivalTerminal === 'T2';
+  const isT2 = companyRouteNeedsTerminalSurcharge(company, departureTerminal, arrivalTerminal);
 
   const totalPrice = useMemo(() => {
     if (!pricedCompany || !dep.date || !arr.date) return 0;
@@ -183,6 +192,7 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
         userId: auth.currentUser?.uid || 'guest',
         companyId: company.id,
         companyName: displayName,
+        airport: resolveCompanyAirportId(company),
         userName: userName.trim(),
         phone: phone.trim(),
         carModel: carModel.trim(),
@@ -408,10 +418,11 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
               />
             </FormRow>
             <FormRow label="출국 터미널" required>
-              <TerminalRadios
-                name="departureTerminal"
+              <TerminalPicker
+                airportId={resolveCompanyAirportId(company)}
                 value={departureTerminal}
                 onChange={setDepartureTerminal}
+                variant="homepage"
               />
             </FormRow>
             <FormRow label="출국 항공사" required>
@@ -455,10 +466,11 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
               />
             </FormRow>
             <FormRow label="입국 터미널" required>
-              <TerminalRadios
-                name="arrivalTerminal"
+              <TerminalPicker
+                airportId={resolveCompanyAirportId(company)}
                 value={arrivalTerminal}
                 onChange={setArrivalTerminal}
+                variant="homepage"
               />
             </FormRow>
             <FormRow label="입국 항공사" required>
@@ -565,38 +577,6 @@ function FormRow({
         </span>
       </div>
       <div className="px-3 py-3.5 sm:px-4">{children}</div>
-    </div>
-  );
-}
-
-function TerminalRadios({
-  name,
-  value,
-  onChange,
-}: {
-  name: string;
-  value: Terminal;
-  onChange: (v: Terminal) => void;
-}) {
-  return (
-    <div className="flex flex-wrap gap-4 py-1">
-      {(
-        [
-          { id: 'T1', label: '제1여객터미널' },
-          { id: 'T2', label: '제2여객터미널' },
-        ] as const
-      ).map((opt) => (
-        <label key={opt.id} className="flex cursor-pointer items-center gap-2.5 text-base text-stone-800">
-          <input
-            type="radio"
-            name={name}
-            checked={value === opt.id}
-            onChange={() => onChange(opt.id)}
-            className="size-5 accent-stone-900"
-          />
-          {opt.label}
-        </label>
-      ))}
     </div>
   );
 }

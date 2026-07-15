@@ -27,6 +27,7 @@ import {
   writeNewPartnerToFirestore,
   writeSubOperatorToFirestore,
 } from '../utils/partnerRegistration';
+import { resolveCompanyAirportId } from '../utils/airport';
 import {
   getPrimaryOperatorCandidates,
   isSubOperatorCompany,
@@ -580,12 +581,14 @@ export default function AdminDashboard({
       return;
     }
 
+    const parentCompany = companies.find((c) => c.id === newParentId);
     const skeleton = createSubOperatorSkeleton({
       companyId: cleanId,
       name: newName,
       phone: newPhone,
       representative: newRep,
       parentCompanyId: newParentId,
+      airport: resolveCompanyAirportId(parentCompany),
     });
     const newCompanyRaw = applyPartnerProfileToCompany(skeleton, profileToSave);
     const newCompany =

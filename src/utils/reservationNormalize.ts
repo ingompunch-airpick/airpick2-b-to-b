@@ -3,6 +3,7 @@ import { isWawaCompany } from './pricing';
 import { normalizeReservationStatus } from './reservationStatus';
 import { resolveFlightFields } from './flightFields';
 import { RESERVATION_CREATED_BY, resolveBookingSource } from './bookingSource';
+import { normalizeAirportId, normalizeTerminalCode } from './airport';
 
 export function getSafeDateString(val: unknown): string {
   if (!val) return new Date().toISOString();
@@ -93,14 +94,27 @@ export function normalizeDocsArray(items: unknown[]): Reservation[] {
         ? RESERVATION_CREATED_BY.HOMEPAGE
         : (r.createdBy as string | undefined);
 
+    const airport = normalizeAirportId(
+      typeof r.airport === 'string' ? r.airport : undefined
+    );
+    const departureTerminal = normalizeTerminalCode(
+      airport,
+      String(r.departureTerminal || r.entryTerminal || '')
+    );
+    const arrivalTerminal = normalizeTerminalCode(
+      airport,
+      String(r.arrivalTerminal || r.exitTerminal || '')
+    );
+
     return {
       ...(r as Reservation),
       createdBy,
       userId: String(r.userId || r.uid || 'external_system'),
       phone: String(r.phone || r.userPhone || ''),
       carNumber: finalCarNumber,
-      departureTerminal: (r.departureTerminal || r.entryTerminal || 'T1') as 'T1' | 'T2',
-      arrivalTerminal: (r.arrivalTerminal || r.exitTerminal || 'T1') as 'T1' | 'T2',
+      airport,
+      departureTerminal,
+      arrivalTerminal,
       totalPrice: finalPrice,
       departureDate: finalDate,
       arrivalDate,

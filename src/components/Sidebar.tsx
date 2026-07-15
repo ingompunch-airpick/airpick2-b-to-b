@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 import { AppView } from '../types';
 import { isAirpickHeadquarters } from '../constants/platform';
+import { airportRegionLabel } from '../utils/airport';
 import {
   areReservationAlertsEnabled,
   requestReservationNotificationPermission,
@@ -81,7 +82,7 @@ export default function Sidebar({
 
   const safeCompanyInfo = {
     name: isAirpickHeadquarters(currentCompanyId) ? '에어픽' : (companyInfo?.name || '와와'),
-    region: isAirpickHeadquarters(currentCompanyId) ? '플랫폼 본사' : (companyInfo?.region || '인천공항 1터미널'),
+    region: isAirpickHeadquarters(currentCompanyId) ? '플랫폼 본사' : (companyInfo?.region || airportRegionLabel()),
     phone: companyInfo?.phone || '1545-5746',
     logo: isAirpickHeadquarters(currentCompanyId) ? '' : (companyInfo?.logo || '')
   };

@@ -1,6 +1,6 @@
 import type { Company, ParkingDistanceEntry, ParkingDistances } from '../types';
 
-export type AirportTerminal = 'T1' | 'T2';
+export type AirportTerminal = string;
 
 /** 폼 입력용 — 숫자 필드는 문자열로 관리 */
 export interface TerminalParkingDistanceForm {

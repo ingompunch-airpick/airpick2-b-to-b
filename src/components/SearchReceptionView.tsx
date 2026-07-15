@@ -15,7 +15,13 @@ import { Company, Reservation, AppView, CompanyInfo } from '../types';
 import ReservationCard from './ReservationCard';
 import CustomDatePickerModal from './CustomDatePickerModal';
 import TimePickerModal from './TimePickerModal';
-import { getCalculatePrice, checkIsNightSurcharge, mergePartnerPricing, getParkingDayCount } from '../utils/pricing';
+import { getCalculatePrice, checkIsNightSurcharge, mergePartnerPricing, getParkingDayCount, companyRouteNeedsTerminalSurcharge } from '../utils/pricing';
+import {
+  getDefaultTerminal,
+  normalizeTerminalCode,
+  resolveCompanyAirportId,
+} from '../utils/airport';
+import TerminalPicker from './TerminalPicker';
 import { getKSTDateTimeLocalString } from '../utils/kstDate';
 import { formatPartnerDisplayName, resolveRequiredCompanyId } from '../utils/companyDisplay';
 import { persistReservationStores } from '../utils/reservationScope';
@@ -26,10 +32,6 @@ function cn(...classes: (string | boolean | undefined)[]) {
 }
 
 import AirlinePicker from './AirlinePicker';
-
-function isT2Route(departure: 'T1' | 'T2', arrival: 'T1' | 'T2') {
-  return departure === 'T2' || arrival === 'T2';
-}
 
 import {
   bookingSourceBadgeClass,
@@ -102,10 +104,10 @@ export default function SearchReceptionView({
   const [editSearchedCarNumber, setEditSearchedCarNumber] = useState('');
   const [editSearchedDepartureDate, setEditSearchedDepartureDate] = useState('');
   const [editSearchedDepartureTime, setEditSearchedDepartureTime] = useState('');
-  const [editSearchedDepartureTerminal, setEditSearchedDepartureTerminal] = useState<'T1' | 'T2'>('T1');
+  const [editSearchedDepartureTerminal, setEditSearchedDepartureTerminal] = useState('');
   const [editSearchedArrivalDate, setEditSearchedArrivalDate] = useState('');
   const [editSearchedArrivalTime, setEditSearchedArrivalTime] = useState('');
-  const [editSearchedArrivalTerminal, setEditSearchedArrivalTerminal] = useState<'T1' | 'T2'>('T2');
+  const [editSearchedArrivalTerminal, setEditSearchedArrivalTerminal] = useState('');
   const [editSearchedIsIndoor, setEditSearchedIsIndoor] = useState(true);
   const [editSearchedDepartureAirline, setEditSearchedDepartureAirline] = useState('');
   const [editSearchedDepartureFlight, setEditSearchedDepartureFlight] = useState('');
@@ -131,6 +133,19 @@ export default function SearchReceptionView({
       setSelectedCompanyId('');
     }
   }, [intakeCompanyOptions, currentCompanyId, receptionSubMode]);
+
+  const intakeAirportId = useMemo(() => {
+    const activeCompId = resolveRequiredCompanyId(selectedCompanyId, currentCompanyId);
+    const partnerObj = companies.find((c) => c.id === activeCompId);
+    return resolveCompanyAirportId(partnerObj);
+  }, [selectedCompanyId, currentCompanyId, companies]);
+
+  useEffect(() => {
+    const def = getDefaultTerminal(intakeAirportId);
+    setDepartureTerminal(def);
+    setArrivalTerminal(def);
+  }, [intakeAirportId]);
+
   const [userName, setUserName] = useState('');
   const [carModel, setCarModel] = useState('');
   const [carNumber, setCarNumber] = useState('');
@@ -142,8 +157,8 @@ export default function SearchReceptionView({
   const [intakeEndDate, setIntakeEndDate] = useState<string>(() => getKSTDateTimeLocalString(3 * 24 * 60 * 60 * 1000));
   
   // Terminals — 홈페이지와 동일하게 출국/입국 분리
-  const [departureTerminal, setDepartureTerminal] = useState<'T1' | 'T2'>('T1');
-  const [arrivalTerminal, setArrivalTerminal] = useState<'T1' | 'T2'>('T1');
+  const [departureTerminal, setDepartureTerminal] = useState('');
+  const [arrivalTerminal, setArrivalTerminal] = useState('');
   const [departureAirline, setDepartureAirline] = useState('');
   const [departureFlight, setDepartureFlight] = useState('');
   const [arrivalAirline, setArrivalAirline] = useState('');
@@ -336,7 +351,7 @@ export default function SearchReceptionView({
       return;
     }
 
-    const isT2 = isT2Route(departureTerminal, arrivalTerminal);
+    const isT2 = companyRouteNeedsTerminalSurcharge(partner, departureTerminal, arrivalTerminal);
     const totalPrice = getCalculatePrice(partner, intakeStartDate, intakeEndDate, isIndoor, isT2);
     const id = createReservationId();
     const targetUserId = user ? user.uid : 'anonymous_guest';
@@ -346,6 +361,7 @@ export default function SearchReceptionView({
       userId: targetUserId,
       companyId: partner.id,
       companyName: partner.name,
+      airport: resolveCompanyAirportId(partnerObj),
       userName: userName.trim() || '테스트고객',
       carModel: carModel.trim() || '제네시스 GV80',
       carNumber: carNumber.trim() || '12가 3456',
@@ -414,8 +430,8 @@ export default function SearchReceptionView({
       setIsIndoor(true);
       setIntakeStartDate(getKSTDateTimeLocalString(0));
       setIntakeEndDate(getKSTDateTimeLocalString(3 * 24 * 60 * 60 * 1000));
-      setDepartureTerminal('T1');
-      setArrivalTerminal('T1');
+      setDepartureTerminal(getDefaultTerminal(intakeAirportId));
+      setArrivalTerminal(getDefaultTerminal(intakeAirportId));
       setDepartureAirline('');
       setDepartureFlight('');
       setArrivalAirline('');
@@ -450,7 +466,11 @@ export default function SearchReceptionView({
 
     const depFullStr = `${editSearchedDepartureDate}T${editSearchedDepartureTime}`;
     const arrFullStr = `${editSearchedArrivalDate}T${editSearchedArrivalTime}`;
-    const isT2 = isT2Route(editSearchedDepartureTerminal, editSearchedArrivalTerminal);
+    const isT2 = companyRouteNeedsTerminalSurcharge(
+      partnerObj,
+      editSearchedDepartureTerminal,
+      editSearchedArrivalTerminal
+    );
     const computedPrice = getCalculatePrice(partner, depFullStr, arrFullStr, editSearchedIsIndoor, isT2);
 
     const updatePayload: Partial<Reservation> = {
@@ -629,10 +649,17 @@ export default function SearchReceptionView({
                         setEditSearchedCarNumber(target.carNumber || '');
                         setEditSearchedDepartureDate(target.departureDate || '');
                         setEditSearchedDepartureTime(target.departureTime || '');
-                        setEditSearchedDepartureTerminal(target.departureTerminal || 'T1');
+                        const editAirport = resolveCompanyAirportId(
+                          companies.find((c) => c.id === target.companyId) || { airport: target.airport }
+                        );
+                        setEditSearchedDepartureTerminal(
+                          normalizeTerminalCode(editAirport, target.departureTerminal)
+                        );
                         setEditSearchedArrivalDate(target.arrivalDate || '');
                         setEditSearchedArrivalTime(target.arrivalTime || '');
-                        setEditSearchedArrivalTerminal(target.arrivalTerminal || 'T1');
+                        setEditSearchedArrivalTerminal(
+                          normalizeTerminalCode(editAirport, target.arrivalTerminal)
+                        );
                         setEditSearchedIsIndoor(target.isIndoor !== false);
                         setEditSearchedDepartureAirline(target.departureAirline || '');
                         setEditSearchedDepartureFlight(target.departureFlight || '');
@@ -649,6 +676,7 @@ export default function SearchReceptionView({
                       setScratchModalTargetId={setScratchModalTargetId}
                       setSelectedParkingSpace={setSelectedParkingSpace}
                       showCompanyLabel={showCompanyLabel}
+                      primaryCompanyId={currentCompanyId}
                     />
                   ))}
                 </div>
@@ -791,10 +819,12 @@ export default function SearchReceptionView({
                   </div>
                   <div className="mt-2">
                     <span className="text-[11px] text-zinc-500 font-bold block mb-1">출국 터미널</span>
-                    <div className="grid grid-cols-2 gap-2 p-1 bg-neutral-950 rounded-xl border border-neutral-850">
-                      <button type="button" onClick={() => setDepartureTerminal('T1')} className={cn("py-1.5 text-[12px] font-bold rounded-lg", departureTerminal === 'T1' ? "bg-amber-500/95 text-neutral-950" : "text-zinc-500")}>제1터미널 (T1)</button>
-                      <button type="button" onClick={() => setDepartureTerminal('T2')} className={cn("py-1.5 text-[12px] font-bold rounded-lg", departureTerminal === 'T2' ? "bg-amber-500/95 text-neutral-950" : "text-zinc-500")}>제2터미널 (T2)</button>
-                    </div>
+                    <TerminalPicker
+                      airportId={intakeAirportId}
+                      value={departureTerminal}
+                      onChange={setDepartureTerminal}
+                      className="p-1 bg-neutral-950 rounded-xl border border-neutral-850"
+                    />
                   </div>
                 </div>
               </div>
@@ -830,10 +860,12 @@ export default function SearchReceptionView({
                   </div>
                   <div className="mt-2">
                     <span className="text-[11px] text-zinc-500 font-bold block mb-1">입국 터미널</span>
-                    <div className="grid grid-cols-2 gap-2 p-1 bg-neutral-950 rounded-xl border border-neutral-850">
-                      <button type="button" onClick={() => setArrivalTerminal('T1')} className={cn("py-1.5 text-[12px] font-bold rounded-lg", arrivalTerminal === 'T1' ? "bg-amber-500/95 text-neutral-950" : "text-zinc-500")}>제1터미널 (T1)</button>
-                      <button type="button" onClick={() => setArrivalTerminal('T2')} className={cn("py-1.5 text-[12px] font-bold rounded-lg", arrivalTerminal === 'T2' ? "bg-amber-500/95 text-neutral-950" : "text-zinc-500")}>제2터미널 (T2)</button>
-                    </div>
+                    <TerminalPicker
+                      airportId={intakeAirportId}
+                      value={arrivalTerminal}
+                      onChange={setArrivalTerminal}
+                      className="p-1 bg-neutral-950 rounded-xl border border-neutral-850"
+                    />
                   </div>
                 </div>
               </div>
@@ -938,7 +970,7 @@ export default function SearchReceptionView({
             
             const diffDays = getParkingDayCount(intakeStartDate, intakeEndDate);
 
-            const isT2 = isT2Route(departureTerminal, arrivalTerminal);
+            const isT2 = companyRouteNeedsTerminalSurcharge(partner, departureTerminal, arrivalTerminal);
             const baseDays = isIndoor ? (Number(partner.indoorBaseDays) || 1) : (Number(partner.outdoorBaseDays) || 1);
             const basePrice = isIndoor ? (Number(partner.indoorBasePrice) ?? 20000) : (Number(partner.outdoorBasePrice) ?? 10000);
             const extraPrice = isIndoor ? (Number(partner.indoorExtraPrice) ?? 10000) : (Number(partner.outdoorExtraPrice) ?? 5000);
@@ -1185,16 +1217,17 @@ export default function SearchReceptionView({
 
                 <div className="flex gap-2.5 pt-1 text-[12px]">
                   <span className="text-zinc-500 font-bold my-auto">입고 터미널:</span>
-                  <button 
-                    type="button" 
-                    onClick={() => setEditSearchedDepartureTerminal('T1')} 
-                    className={cn("px-2.5 py-1 rounded-md transition-all font-black cursor-pointer", editSearchedDepartureTerminal === 'T1' ? "bg-[#00D2FF] text-neutral-950" : "bg-[#2C2C2E] text-zinc-400")}
-                  >1터미널</button>
-                  <button 
-                    type="button" 
-                    onClick={() => setEditSearchedDepartureTerminal('T2')} 
-                    className={cn("px-2.5 py-1 rounded-md transition-all font-black cursor-pointer", editSearchedDepartureTerminal === 'T2' ? "bg-[#FFB800] text-neutral-950" : "bg-[#2C2C2E] text-zinc-400")}
-                  >2터미널</button>
+                  <TerminalPicker
+                    airportId={resolveCompanyAirportId(
+                      companies.find((c) => c.id === editingSearchedRes.companyId) || {
+                        airport: editingSearchedRes.airport,
+                      }
+                    )}
+                    value={editSearchedDepartureTerminal}
+                    onChange={setEditSearchedDepartureTerminal}
+                    variant="zinc"
+                    size="sm"
+                  />
                 </div>
               </div>
 
@@ -1231,16 +1264,17 @@ export default function SearchReceptionView({
 
                 <div className="flex gap-2.5 pt-1 text-[12px]">
                   <span className="text-zinc-500 font-bold my-auto">반납 터미널:</span>
-                  <button 
-                    type="button" 
-                    onClick={() => setEditSearchedArrivalTerminal('T1')} 
-                    className={cn("px-2.5 py-1 rounded-md transition-all font-black cursor-pointer", editSearchedArrivalTerminal === 'T1' ? "bg-[#00D2FF] text-neutral-950" : "bg-[#2C2C2E] text-zinc-400")}
-                  >1터미널</button>
-                  <button 
-                    type="button" 
-                    onClick={() => setEditSearchedArrivalTerminal('T2')} 
-                    className={cn("px-2.5 py-1 rounded-md transition-all font-black cursor-pointer", editSearchedArrivalTerminal === 'T2' ? "bg-[#FFB800] text-neutral-950" : "bg-[#2C2C2E] text-zinc-400")}
-                  >2터미널</button>
+                  <TerminalPicker
+                    airportId={resolveCompanyAirportId(
+                      companies.find((c) => c.id === editingSearchedRes.companyId) || {
+                        airport: editingSearchedRes.airport,
+                      }
+                    )}
+                    value={editSearchedArrivalTerminal}
+                    onChange={setEditSearchedArrivalTerminal}
+                    variant="zinc"
+                    size="sm"
+                  />
                 </div>
               </div>
 

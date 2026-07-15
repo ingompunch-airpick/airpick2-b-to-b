@@ -1,7 +1,15 @@
 ﻿import React, { useState } from 'react';
 import { ArrowLeft, Car, MapPin, Calendar, Clock, User, Phone, Layers, Edit, Trash2, X, Check, AlertTriangle } from 'lucide-react';
 import { Company, Reservation } from '../types';
-import { mergePartnerPricing } from '../utils/pricing';
+import { mergePartnerPricing, companyRouteNeedsTerminalSurcharge } from '../utils/pricing';
+import {
+  getDefaultTerminal,
+  normalizeTerminalCode,
+  normalizeAirportId,
+  resolveCompanyAirportId,
+  terminalShortLabel,
+} from '../utils/airport';
+import TerminalPicker from './TerminalPicker';
 
 function splitDateTime(val?: string): { date: string; time: string } {
   if (!val) return { date: '', time: '' };
@@ -68,8 +76,8 @@ export default function ParkingDepartureView({
   const [editDepartureTime, setEditDepartureTime] = useState('');
   const [editArrivalDate, setEditArrivalDate] = useState('');
   const [editArrivalTime, setEditArrivalTime] = useState('');
-  const [editDepartureTerminal, setEditDepartureTerminal] = useState<'T1' | 'T2'>('T1');
-  const [editArrivalTerminal, setEditArrivalTerminal] = useState<'T1' | 'T2'>('T1');
+  const [editDepartureTerminal, setEditDepartureTerminal] = useState('');
+  const [editArrivalTerminal, setEditArrivalTerminal] = useState('');
   const [editActualParkingDate, setEditActualParkingDate] = useState('');
   const [editActualParkingClock, setEditActualParkingClock] = useState('');
   const [editPaymentChoice, setEditPaymentChoice] = useState<'unpaid' | 'paid'>('unpaid');
@@ -97,8 +105,11 @@ export default function ParkingDepartureView({
     setEditDepartureTime(normTime(res.departureTime));
     setEditArrivalDate(res.arrivalDate || '');
     setEditArrivalTime(normTime(res.arrivalTime));
-    setEditDepartureTerminal(res.departureTerminal || 'T1');
-    setEditArrivalTerminal(res.arrivalTerminal || 'T1');
+    const airportId = normalizeAirportId(
+      res.airport || resolveCompanyAirportId(companies.find((c) => c.id === res.companyId))
+    );
+    setEditDepartureTerminal(normalizeTerminalCode(airportId, res.departureTerminal));
+    setEditArrivalTerminal(normalizeTerminalCode(airportId, res.arrivalTerminal));
     const actual = splitDateTime(res.actualParkingTime);
     setEditActualParkingDate(actual.date);
     setEditActualParkingClock(actual.time);
@@ -137,7 +148,7 @@ export default function ParkingDepartureView({
           scheduleStart || `${editDepartureDate} ${editDepartureTime || '00:00'}`,
           scheduleEnd || `${editArrivalDate} ${editArrivalTime || '00:00'}`,
           editIsIndoor,
-          editDepartureTerminal === 'T2'
+          companyRouteNeedsTerminalSurcharge(co, editDepartureTerminal, editArrivalTerminal)
         );
       }
 
@@ -354,7 +365,15 @@ export default function ParkingDepartureView({
                   <Calendar size={11} className="text-zinc-500 shrink-0" />
                   <span>
                     입고 예정: <span className="font-bold text-zinc-300">{res.departureDate} {res.departureTime}</span>
-                    <span className="text-zinc-600 ml-1">({res.departureTerminal || 'T1'})</span>
+                    <span className="text-zinc-600 ml-1">
+                      ({terminalShortLabel(
+                        normalizeAirportId(
+                          res.airport ||
+                            resolveCompanyAirportId(companies.find((c) => c.id === res.companyId))
+                        ),
+                        res.departureTerminal || getDefaultTerminal(res.airport)
+                      )})
+                    </span>
                   </span>
                 </div>
                 {res.actualParkingTime && (
@@ -369,7 +388,15 @@ export default function ParkingDepartureView({
                   <Calendar size={11} className="text-zinc-500 shrink-0" />
                   <span>
                     출차 예정: <span className="font-bold text-zinc-300">{res.arrivalDate} {res.arrivalTime}</span>
-                    <span className="text-zinc-600 ml-1">({res.arrivalTerminal || 'T1'})</span>
+                    <span className="text-zinc-600 ml-1">
+                      ({terminalShortLabel(
+                        normalizeAirportId(
+                          res.airport ||
+                            resolveCompanyAirportId(companies.find((c) => c.id === res.companyId))
+                        ),
+                        res.arrivalTerminal || getDefaultTerminal(res.airport)
+                      )})
+                    </span>
                   </span>
                 </div>
                 {typeof res.totalPrice === 'number' && (
@@ -519,22 +546,17 @@ export default function ParkingDepartureView({
 
                 <div>
                   <label className="text-[11.5px] text-zinc-500 font-black block mb-1">입고 터미널</label>
-                  <div className="grid grid-cols-2 gap-2 bg-[#1C1C1E]/50 border border-neutral-850 p-1 rounded-xl">
-                    {(['T1', 'T2'] as const).map((t) => (
-                      <button
-                        key={t}
-                        type="button"
-                        onClick={() => setEditDepartureTerminal(t)}
-                        className={`py-2 text-[13px] font-black rounded-lg transition-all ${
-                          editDepartureTerminal === t
-                            ? 'bg-amber-500 text-neutral-950'
-                            : 'text-zinc-400 hover:text-white'
-                        }`}
-                      >
-                        {t === 'T1' ? '1터미널' : '2터미널'}
-                      </button>
-                    ))}
-                  </div>
+                  <TerminalPicker
+                    airportId={normalizeAirportId(
+                      editingRes?.airport ||
+                        resolveCompanyAirportId(
+                          companies.find((c) => c.id === editingRes?.companyId)
+                        )
+                    )}
+                    value={editDepartureTerminal}
+                    onChange={setEditDepartureTerminal}
+                    className="p-1 bg-[#1C1C1E]/50 border border-neutral-850 rounded-xl"
+                  />
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 font-mono">
@@ -588,22 +610,17 @@ export default function ParkingDepartureView({
 
                 <div>
                   <label className="text-[11.5px] text-zinc-500 font-black block mb-1">출차 터미널</label>
-                  <div className="grid grid-cols-2 gap-2 bg-[#1C1C1E]/50 border border-neutral-850 p-1 rounded-xl">
-                    {(['T1', 'T2'] as const).map((t) => (
-                      <button
-                        key={t}
-                        type="button"
-                        onClick={() => setEditArrivalTerminal(t)}
-                        className={`py-2 text-[13px] font-black rounded-lg transition-all ${
-                          editArrivalTerminal === t
-                            ? 'bg-amber-500 text-neutral-950'
-                            : 'text-zinc-400 hover:text-white'
-                        }`}
-                      >
-                        {t === 'T1' ? '1터미널' : '2터미널'}
-                      </button>
-                    ))}
-                  </div>
+                  <TerminalPicker
+                    airportId={normalizeAirportId(
+                      editingRes?.airport ||
+                        resolveCompanyAirportId(
+                          companies.find((c) => c.id === editingRes?.companyId)
+                        )
+                    )}
+                    value={editArrivalTerminal}
+                    onChange={setEditArrivalTerminal}
+                    className="p-1 bg-[#1C1C1E]/50 border border-neutral-850 rounded-xl"
+                  />
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 font-mono">

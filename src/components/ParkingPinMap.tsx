@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ICN_TERMINAL_COORDS, parseLatLng } from '../utils/airportDistance';
+import { defaultMapCenter, parseLatLng } from '../utils/airportDistance';
 import {
   geocodeQuery,
   getNaverMapClientId,
@@ -7,10 +7,7 @@ import {
   reverseGeocodeLatLng,
 } from '../lib/naverMaps';
 
-const DEFAULT_CENTER = {
-  lat: ICN_TERMINAL_COORDS.T1.lat,
-  lng: ICN_TERMINAL_COORDS.T1.lng,
-};
+const DEFAULT_CENTER = defaultMapCenter('ICN');
 
 type Props = {
   lat: string;

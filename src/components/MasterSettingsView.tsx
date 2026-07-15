@@ -17,6 +17,12 @@ import { isAirpickHeadquarters } from '../constants/platform';
 import { ensureFirestoreAuth } from '../lib/firebaseAuth';
 import { upsertCompanyEmployees } from '../lib/partnerLoginApi';
 import { inferFacilityType } from '../utils/companyProfile';
+import {
+  airportShortName,
+  getAirport,
+  getAirportTerminals,
+  resolveCompanyAirportId,
+} from '../utils/airport';
 
 /** 최고관리자(제휴 가맹점 수정)만 companies에 쓰는 필드 — 가맹점 자체 저장에서 제외 */
 export const HQ_ONLY_COMPANY_PARKING_KEYS = [
@@ -454,6 +460,14 @@ export default function MasterSettingsView({
     () => (companies || []).find((c) => c.id === companyInfo.id),
     [companies, companyInfo.id]
   );
+  const airportId = resolveCompanyAirportId(currentCompany);
+  const airportShort = airportShortName(airportId);
+  const airportTerminals = getAirportTerminals(airportId);
+  const surchargeTerminal = airportTerminals.find((t) =>
+    getAirport(airportId).surchargeTerminalCodes.includes(t.code)
+  );
+  const primaryTerminal = airportTerminals[0];
+  const secondaryTerminal = airportTerminals[1];
   const facilityType = useMemo(() => inferFacilityType(currentCompany), [currentCompany]);
   const showOutdoorMatrix = facilityType === 'outdoor' || facilityType === 'mixed';
   const showIndoorMatrix = facilityType === 'indoor' || facilityType === 'mixed';
@@ -728,7 +742,7 @@ export default function MasterSettingsView({
           <div className="bg-neutral-900/40 p-5 rounded-3xl border border-neutral-850 space-y-4">
             <div className="flex items-center gap-2 text-xs font-black text-amber-500 tracking-wider uppercase">
               <FileSpreadsheet size={14} className="text-amber-500" />
-              <span>[1] 인천공항 세부 요금제 매트릭스 설정</span>
+              <span>[1] {airportShort} 세부 요금제 매트릭스 설정</span>
             </div>
             <p className="text-[12.5px] text-white/80 leading-relaxed mb-1">
               {facilityType === 'mixed'
@@ -835,11 +849,13 @@ export default function MasterSettingsView({
                 </div>
               </div>
 
-              {/* 제2여객터미널(T2) 이동 추가요금 */}
+              {/* 터미널 이동 추가요금 */}
               <div className="p-3 bg-[#131315] border border-neutral-850 rounded-xl space-y-3">
-                <span className="text-[12px] text-white font-bold block">● 제2여객터미널(T2) 이동 추가요금 (Terminal Surcharge)</span>
+                <span className="text-[12px] text-white font-bold block">
+                  ● {surchargeTerminal?.label || '터미널'} 이동 추가요금 (Terminal Surcharge)
+                </span>
                 <PriceInput
-                  label="제2여객터미널(T2) 이동 추가요금 (원)"
+                  label={`${surchargeTerminal?.label || '터미널'} 이동 추가요금 (원)`}
                   value={t2Surcharge}
                   onChange={setT2Surcharge}
                   focusColorClass="focus-within:border-amber-500"
@@ -914,7 +930,7 @@ export default function MasterSettingsView({
 
             {valetEnabled && (
               <div className="space-y-3">
-                {/* 제1여객터미널(T1) */}
+                {/* 제1여객터미널 */}
                 <div className="p-3 bg-[#131315] border border-neutral-850 rounded-xl space-y-3">
                   <label className="flex items-center gap-2 cursor-pointer select-none">
                     <input
@@ -923,11 +939,13 @@ export default function MasterSettingsView({
                       onChange={(e) => setValetT1Enabled(e.target.checked)}
                       className="w-4 h-4 rounded border-neutral-800 text-amber-500 focus:ring-amber-500 bg-[#1C1C1E] cursor-pointer"
                     />
-                    <span className="text-[12px] text-white font-bold">제1여객터미널(T1) 대면 제공</span>
+                    <span className="text-[12px] text-white font-bold">
+                      {primaryTerminal?.label || '제1터미널'} 대면 제공
+                    </span>
                   </label>
                   {valetT1Enabled && (
                     <PriceInput
-                      label="T1 대면 추가요금 (원)"
+                      label={`${primaryTerminal?.shortLabel || 'T1'} 대면 추가요금 (원)`}
                       value={valetFeeT1}
                       onChange={setValetFeeT1}
                       focusColorClass="focus-within:border-amber-500"
@@ -936,7 +954,7 @@ export default function MasterSettingsView({
                   )}
                 </div>
 
-                {/* 제2여객터미널(T2) */}
+                {/* 제2여객터미널 */}
                 <div className="p-3 bg-[#131315] border border-neutral-850 rounded-xl space-y-3">
                   <label className="flex items-center gap-2 cursor-pointer select-none">
                     <input
@@ -945,11 +963,13 @@ export default function MasterSettingsView({
                       onChange={(e) => setValetT2Enabled(e.target.checked)}
                       className="w-4 h-4 rounded border-neutral-800 text-amber-500 focus:ring-amber-500 bg-[#1C1C1E] cursor-pointer"
                     />
-                    <span className="text-[12px] text-white font-bold">제2여객터미널(T2) 대면 제공</span>
+                    <span className="text-[12px] text-white font-bold">
+                      {secondaryTerminal?.label || '제2터미널'} 대면 제공
+                    </span>
                   </label>
                   {valetT2Enabled && (
                     <PriceInput
-                      label="T2 대면 추가요금 (원)"
+                      label={`${secondaryTerminal?.shortLabel || 'T2'} 대면 추가요금 (원)`}
                       value={valetFeeT2}
                       onChange={setValetFeeT2}
                       focusColorClass="focus-within:border-amber-500"

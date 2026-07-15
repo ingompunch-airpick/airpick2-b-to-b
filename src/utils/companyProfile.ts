@@ -1,4 +1,5 @@
 import type { Company, CompanyInsurance, FacilityType } from '../types';
+import { airportTerminalCodes, normalizeAirportId } from './airport';
 import {
   buildLotParkingDistancesPayload,
   EMPTY_LOT_PARKING_DISTANCES_FORM,
@@ -23,6 +24,8 @@ export {
 
 export interface PartnerProfileInput {
   facilityType: FacilityType;
+  /** 운영 공항 — HQ만 설정. 기본 ICN */
+  airport: 'ICN' | 'GMP';
   indoorParkingAddress: string;
   outdoorParkingAddress: string;
   indoorParkingLat: string;
@@ -42,6 +45,7 @@ export interface PartnerProfileInput {
 
 export const DEFAULT_PARTNER_PROFILE: PartnerProfileInput = {
   facilityType: 'mixed',
+  airport: 'ICN',
   indoorParkingAddress: '',
   outdoorParkingAddress: '',
   indoorParkingLat: '',
@@ -138,6 +142,7 @@ export function readPartnerProfileFromCompany(company?: Company): PartnerProfile
 
   return {
     facilityType,
+    airport: normalizeAirportId(company.airport),
     indoorParkingAddress,
     outdoorParkingAddress,
     indoorParkingLat: coordToFormString(raw.indoorParkingLat),
@@ -247,6 +252,8 @@ export function applyPartnerProfileToCompany(
 
   return {
     ...company,
+    airport: normalizeAirportId(input.airport),
+    terminals: airportTerminalCodes(input.airport),
     facilityType,
     is_indoor: facilityType === 'indoor' || facilityType === 'mixed',
     supports_indoor: facilityType === 'indoor' || facilityType === 'mixed',
@@ -310,6 +317,8 @@ export function profileExtrasForFirestore(input: PartnerProfileInput): Record<st
   const hasDistances = Boolean(lotDistances.parkingDistancesIndoor || lotDistances.parkingDistancesOutdoor);
 
   return {
+    airport: company.airport ?? 'ICN',
+    terminals: company.terminals ?? [],
     facilityType: company.facilityType,
     is_indoor: company.is_indoor,
     supports_indoor: company.supports_indoor,

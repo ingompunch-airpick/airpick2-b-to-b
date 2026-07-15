@@ -12,6 +12,12 @@ import {
 } from '../utils/bookingSource';
 import type { DepartureAlertLevel } from '../utils/departureImminent';
 import { formatDepartureCountdown, getMinutesUntilDeparture } from '../utils/departureImminent';
+import {
+  getAirport,
+  getDefaultTerminal,
+  normalizeAirportId,
+  terminalShortLabel,
+} from '../utils/airport';
 
 function cn(...classes: (string | boolean | undefined | null)[]) {
   return classes.filter(Boolean).join(' ');
@@ -25,8 +31,13 @@ interface ReservationCardProps {
   activeCounterTab?: ReservationStatus;
   /** 출차 임박·지연 강조 */
   departureAlert?: DepartureAlertLevel | null;
-  /** @deprecated 업체명 뱃지 미사용 — 유입은 에어픽만 표시 */
+  /**
+   * 대표+하위 통합 그룹일 때 true.
+   * 하위(대표 id와 다른 companyId) 예약만 가격 왼쪽에 업체명 텍스트 표시.
+   */
   showCompanyLabel?: boolean;
+  /** 로그인 대표 업체 id — 하위 여부 판별용 */
+  primaryCompanyId?: string;
   setAdminEditingReservationId: (id: string) => void;
   setDriverDetailRes: (res: Reservation) => void;
   handleUpdateValetStatus: (id: string, status: ReservationStatus, extra?: any) => void;
@@ -41,7 +52,8 @@ export default function ReservationCard({
   isAdminModeActive,
   activeCounterTab,
   departureAlert = null,
-  showCompanyLabel: _showCompanyLabel = false,
+  showCompanyLabel = false,
+  primaryCompanyId = '',
   setAdminEditingReservationId,
   setDriverDetailRes,
   handleUpdateValetStatus,
@@ -52,7 +64,16 @@ export default function ReservationCard({
   // 실제 배정된 자리만 표시(없으면 미지정), 실내/야외는 접수 시 결정된 등급(res.isIndoor) 사용
   const computedSpace = res.parkingSpace || '미지정';
   const isOutOrCompletedIn = (res.status || '').includes('out') || res.status === 'completed_in';
-  const isT1 = ((!res.status.includes('out') && res.status !== 'completed_in') ? res.departureTerminal : res.arrivalTerminal) === 'T1';
+  const airportId = normalizeAirportId(res.airport);
+  const activeTerminalCode =
+    (!res.status.includes('out') && res.status !== 'completed_in')
+      ? res.departureTerminal
+      : res.arrivalTerminal;
+  const terminalCode = activeTerminalCode || getDefaultTerminal(airportId);
+  const isSurchargeTerminal = getAirport(airportId).surchargeTerminalCodes.some(
+    (c) => c.toUpperCase() === String(terminalCode).trim().toUpperCase()
+  );
+  const terminalBadgeText = terminalShortLabel(airportId, terminalCode);
   const isIndoor = res.isIndoor !== false;
   const showUnpaidBadge = isReservationUnpaid(res);
   const bookingSource = resolveBookingSourceFromReservation(res);
@@ -61,6 +82,16 @@ export default function ReservationCard({
 
   const badgeColorClass = statusBadgeColorClass(res.status);
   const minutesUntilDeparture = departureAlert ? getMinutesUntilDeparture(res) : null;
+
+  const resCompanyId = (res.companyId || '').trim().toLowerCase();
+  const primaryId = (primaryCompanyId || '').trim().toLowerCase();
+  const subCompanyName =
+    showCompanyLabel &&
+    resCompanyId &&
+    primaryId &&
+    resCompanyId !== primaryId
+      ? (res.companyName || '').trim() || resCompanyId
+      : '';
 
   return (
     <div 
@@ -106,13 +137,13 @@ export default function ReservationCard({
             </span>
           )}
 
-          {isT1 ? (
-            <span className="text-[13px] px-2 py-0.5 rounded-[6px] font-semibold bg-[#00D2FF]/10 text-[#00D2FF] border border-[#00D2FF]/20 shrink-0">
-              1터미널
+          {isSurchargeTerminal ? (
+            <span className="text-[13px] px-2 py-0.5 rounded-[6px] font-semibold bg-[#FFB800]/10 text-[#FFB800] border border-[#FFB800]/20 shrink-0">
+              {terminalBadgeText}
             </span>
           ) : (
-            <span className="text-[13px] px-2 py-0.5 rounded-[6px] font-semibold bg-[#FFB800]/10 text-[#FFB800] border border-[#FFB800]/20 shrink-0">
-              2터미널
+            <span className="text-[13px] px-2 py-0.5 rounded-[6px] font-semibold bg-[#00D2FF]/10 text-[#00D2FF] border border-[#00D2FF]/20 shrink-0">
+              {terminalBadgeText}
             </span>
           )}
 
@@ -223,10 +254,17 @@ export default function ReservationCard({
           </div>
         )}
 
-        {/* Quiet, small Price Label at bottom corner */}
-        <span className="text-toss-label tabular-nums text-[var(--color-toss-fg-muted)]">
-          {res.totalPrice?.toLocaleString()}원
-        </span>
+        {/* Quiet price — 하위 업체명은 뱃지 대신 가격 왼쪽 텍스트 */}
+        <div className="flex items-baseline justify-end gap-1.5 min-w-0">
+          {subCompanyName ? (
+            <span className="text-toss-label text-[var(--color-toss-fg-muted)] truncate max-w-[7.5rem]">
+              {subCompanyName}
+            </span>
+          ) : null}
+          <span className="text-toss-label tabular-nums text-[var(--color-toss-fg-muted)] shrink-0">
+            {res.totalPrice?.toLocaleString()}원
+          </span>
+        </div>
       </div>
     </div>
   );

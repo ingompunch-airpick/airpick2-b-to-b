@@ -36,19 +36,19 @@ function withPinDistances(
 ): ParkingDistancesFormInput {
   const pin = parseLatLng(lat, lng);
   if (!pin) return distances;
-  const d = distancesFromParkingPin(pin);
+  const d = distancesFromParkingPin(pin, 'ICN');
   return {
     T1: {
       ...distances.T1,
-      distanceKm: String(d.T1.distanceKm),
-      driveMinutes: String(d.T1.driveMinutes),
+      distanceKm: String(d.T1?.distanceKm ?? ''),
+      driveMinutes: String(d.T1?.driveMinutes ?? ''),
       parkingLotName: '',
       parkingLotAddress: '',
     },
     T2: {
       ...distances.T2,
-      distanceKm: String(d.T2.distanceKm),
-      driveMinutes: String(d.T2.driveMinutes),
+      distanceKm: String(d.T2?.distanceKm ?? ''),
+      driveMinutes: String(d.T2?.driveMinutes ?? ''),
       parkingLotName: '',
       parkingLotAddress: '',
     },

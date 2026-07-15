@@ -3,6 +3,8 @@ import {
   adminCreateCompany,
   adminDeleteCompany,
 } from '../lib/adminCompanyApi';
+import { DEFAULT_AIRPORT_ID } from '../constants/airports';
+import { airportTerminalCodes, type AirportId } from '../utils/airport';
 
 export const DEFAULT_SETTLEMENT_MEMO = '지급 기본 정산 기준 보류';
 
@@ -32,15 +34,18 @@ export interface CreatePartnerCompanyInput {
   name: string;
   phone: string;
   representative: string;
+  airport?: AirportId;
 }
 
 /** 신규 제휴업체 Firestore companies/{id} 기본 스키마 */
 export function createPartnerCompanySkeleton(input: CreatePartnerCompanyInput): Company {
+  const airport = input.airport || DEFAULT_AIRPORT_ID;
   return {
     id: input.companyId,
     name: input.name.trim(),
     phone: input.phone.trim(),
     representative: input.representative.trim(),
+    airport,
     is_indoor: true,
     supports_indoor: true,
     supports_outdoor: true,
@@ -52,7 +57,7 @@ export function createPartnerCompanySkeleton(input: CreatePartnerCompanyInput): 
     features: ['기본 자율 요금 설정 상태'],
     image_url:
       'https://images.unsplash.com/photo-1542282088-fe8426682b8f?auto=format&fit=crop&q=80',
-    terminals: ['T1', 'T2'],
+    terminals: airportTerminalCodes(airport),
     isOpen: true,
     outdoorBasePrice: 15000,
     outdoorBaseDays: 1,
@@ -114,6 +119,7 @@ export interface CreateSubOperatorInput {
   phone: string;
   representative: string;
   parentCompanyId: string;
+  airport?: AirportId;
 }
 
 /** 하위 업체 — B2C 전용, partners/비밀번호 없음 */
@@ -123,6 +129,7 @@ export function createSubOperatorSkeleton(input: CreateSubOperatorInput): Compan
     name: input.name,
     phone: input.phone,
     representative: input.representative,
+    airport: input.airport || DEFAULT_AIRPORT_ID,
   });
   return {
     ...base,

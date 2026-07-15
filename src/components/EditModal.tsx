@@ -10,6 +10,7 @@ import {
   isExternalCustomerBooking,
 } from '../utils/bookingSource';
 import AirlinePicker from './AirlinePicker';
+import { normalizeAirportId, terminalLabel } from '../utils/airport';
 
 function cn(...classes: (string | boolean | undefined | null)[]) {
   return classes.filter(Boolean).join(' ');
@@ -320,11 +321,17 @@ export default function EditModal({
             <div className="flex flex-wrap items-center gap-2 pt-1">
               <span className="text-[12px] font-black text-[#8E8E93]">출국 터미널</span>
               <span className="text-xs font-bold text-white bg-[#2C2C2E] px-2 py-1 rounded-md">
-                {driverDetailRes.departureTerminal === 'T2' ? '제2터미널 (T2)' : '제1터미널 (T1)'}
+                {terminalLabel(
+                  normalizeAirportId(driverDetailRes.airport),
+                  driverDetailRes.departureTerminal
+                )}
               </span>
               <span className="text-[12px] font-black text-[#8E8E93] ml-2">입국 터미널</span>
               <span className="text-xs font-bold text-white bg-[#2C2C2E] px-2 py-1 rounded-md">
-                {driverDetailRes.arrivalTerminal === 'T2' ? '제2터미널 (T2)' : '제1터미널 (T1)'}
+                {terminalLabel(
+                  normalizeAirportId(driverDetailRes.airport),
+                  driverDetailRes.arrivalTerminal
+                )}
               </span>
               {(() => {
                 const source = resolveBookingSourceFromReservation(driverDetailRes);

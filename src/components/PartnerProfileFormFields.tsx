@@ -9,6 +9,7 @@ import {
   uploadCompanyParkingImages,
 } from '../lib/companyPhotos';
 import { readImageFilesAsDataUrls } from '../utils/imageFile';
+import { getEnabledAirports, type AirportId } from '../utils/airport';
 
 type Props = {
   profile: PartnerProfileInput;
@@ -125,6 +126,35 @@ export default function PartnerProfileFormFields({
 
   return (
     <div className="space-y-3">
+      <div className={sectionCls}>
+        <div>
+          <label className={labelCls}>운영 공항 *</label>
+          <p className={hintCls}>
+            업체당 공항 1곳. 김포는 추후 활성화 예정입니다.
+          </p>
+          <div className="grid grid-cols-2 gap-2">
+            {getEnabledAirports().map((a) => {
+              const active = profile.airport === a.id;
+              return (
+                <button
+                  key={a.id}
+                  type="button"
+                  onClick={() => set('airport', a.id as AirportId)}
+                  className={`px-2 py-2 rounded-xl text-left border transition-all ${
+                    active ? facilityActiveCls : facilityIdleCls
+                  }`}
+                >
+                  <span className="block text-[12px] font-black">{a.shortName}</span>
+                  <span className="block text-[10px] font-medium mt-0.5 opacity-80">
+                    {a.terminals.map((t) => t.shortLabel).join(' · ')}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
       <div className={sectionCls}>
         <div>
           <label className={labelCls}>주차 시설 유형 *</label>

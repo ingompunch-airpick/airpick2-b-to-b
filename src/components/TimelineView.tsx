@@ -35,6 +35,8 @@ interface TimelineViewProps {
   setScratchModalTargetId: (id: string | null) => void;
   setSelectedParkingSpace: (space: string) => void;
   showCompanyLabel?: boolean;
+  /** 로그인 대표 업체 id — 하위 예약 업체명 표시용 */
+  primaryCompanyId?: string;
 }
 
 export default function TimelineView({
@@ -53,6 +55,7 @@ export default function TimelineView({
   setScratchModalTargetId,
   setSelectedParkingSpace,
   showCompanyLabel = false,
+  primaryCompanyId = '',
 }: TimelineViewProps) {
   const [nowTick, setNowTick] = useState(() => Date.now());
 
@@ -259,7 +262,7 @@ export default function TimelineView({
       {loadingReservations ? (
         <div className="py-20 text-center space-y-3 font-sans">
           <RefreshCw className="animate-spin text-amber-500 mx-auto" size={24} />
-          <p className="text-toss-body">인천공항 안전 배차 위탁장 동기화 중...</p>
+          <p className="text-toss-body">안전 배차 위탁장 동기화 중...</p>
         </div>
       ) : sortedTimelineReservations.length > 0 ? (
         <div className="space-y-4 font-sans">
@@ -279,6 +282,7 @@ export default function TimelineView({
                 setScratchModalTargetId={setScratchModalTargetId}
                 setSelectedParkingSpace={setSelectedParkingSpace}
                 showCompanyLabel={showCompanyLabel}
+                primaryCompanyId={primaryCompanyId}
               />
             ))}
           </div>

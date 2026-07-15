@@ -19,6 +19,7 @@ export const ALLOWED_COMPANY_PATCH_KEYS = [
   'status',
   'isOperatorPrimary',
   'parentCompanyId',
+  'airport',
   'facilityType',
   'is_indoor',
   'supports_indoor',

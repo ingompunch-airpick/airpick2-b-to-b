@@ -1,6 +1,7 @@
 ﻿import React, { useState } from 'react';
 import { ArrowLeft, Trash2, CreditCard, Landmark, Coins, Check, Search, CheckCircle2 } from 'lucide-react';
 import { Reservation, PaymentMethod } from '../types';
+import { airportShortName, terminalShortLabel } from '../utils/airport';
 
 interface PaymentChangeViewProps {
   onBack: () => void;
@@ -212,7 +213,9 @@ export default function PaymentChangeView({ onBack, reservations, onUpdatePaymen
                     </div>
                     <div className="mt-1.5 flex items-center gap-2">
                       <p className="text-xs font-medium text-amber-500/90 select-all tracking-wide">{res.carNumber}</p>
-                      <p className="text-[12px] text-zinc-500">인천공항 {res.departureTerminal}</p>
+                      <p className="text-[12px] text-zinc-500">
+                        {airportShortName(res.airport)} {terminalShortLabel(res.airport, res.departureTerminal)}
+                      </p>
                     </div>
                   </div>
 

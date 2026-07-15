@@ -9,7 +9,12 @@ import {
   formatKoreanFromIso,
   maskPhoneForDisplay,
 } from '../utils/receipt';
-import { isAdmitted, isCompletedOut, isParked } from '../utils/reservationStatus';
+import {
+  airportShortName,
+  normalizeAirportId,
+  normalizeTerminalCode,
+  terminalBadgeLabel,
+} from '../utils/airport';
 
 const STANDARD_TERMS = [
   {
@@ -46,24 +51,27 @@ function statusBadgeLabel(status: Reservation['status']): string {
   return '접수 완료';
 }
 
-function formatTerminal(terminal?: string): 'T1' | 'T2' {
-  const t = (terminal || '').trim().toUpperCase();
-  return t === 'T2' ? 'T2' : 'T1';
+function formatTerminalBadge(
+  airportId: string,
+  terminal?: string
+): string {
+  return terminalBadgeLabel(airportId, normalizeTerminalCode(airportId, terminal));
 }
 
 interface FlightLegView {
-  terminal: 'T1' | 'T2';
+  terminal: string;
   airline: string;
   flightNo: string;
 }
 
 function buildFlightLeg(
+  airportId: string,
   airline?: string,
   flightNo?: string,
   terminal?: string
 ): FlightLegView {
   return {
-    terminal: formatTerminal(terminal),
+    terminal: formatTerminalBadge(airportId, terminal),
     airline: (airline || '').trim(),
     flightNo: (flightNo || '').trim(),
   };
@@ -101,12 +109,12 @@ function Perforation() {
   );
 }
 
-function TerminalBadge({ terminal }: { terminal: 'T1' | 'T2' }) {
-  const isT1 = terminal === 'T1';
+function TerminalBadge({ terminal }: { terminal: string }) {
+  const isPrimaryStyle = terminal === 'T1' || terminal === '국내선';
   return (
     <span
       className={`inline-flex shrink-0 rounded px-1.5 py-0.5 text-[10px] font-black leading-none ${
-        isT1
+        isPrimaryStyle
           ? 'bg-blue-100 text-blue-600 print:bg-transparent print:text-blue-700'
           : 'bg-red-100 text-red-600 print:bg-transparent print:text-red-700'
       }`}
@@ -239,14 +247,17 @@ export default function VehicleReceiptPage({ code }: VehicleReceiptPageProps) {
 
     const flight = resolveFlightFields(reservation as unknown as Record<string, unknown>);
     const destination = (flight.destination || '').trim() || '-';
-    const departureTerminal = formatTerminal(reservation.departureTerminal);
+    const airportId = normalizeAirportId(reservation.airport || company?.airport);
+    const departureBadge = formatTerminalBadge(airportId, reservation.departureTerminal);
 
     const departureLeg = buildFlightLeg(
+      airportId,
       flight.departureAirline,
       flight.departureFlight,
       reservation.departureTerminal
     );
     const arrivalLeg = buildFlightLeg(
+      airportId,
       flight.arrivalAirline,
       flight.arrivalFlight,
       reservation.arrivalTerminal
@@ -291,7 +302,7 @@ export default function VehicleReceiptPage({ code }: VehicleReceiptPageProps) {
       departureLeg,
       arrivalLeg,
       airlineLabel: airlineHeaderLabel(flight.departureAirline || flight.arrivalAirline, flight.departureFlight || flight.arrivalFlight),
-      routeFrom: `ICN · ${departureTerminal}`,
+      routeFrom: `${airportShortName(airportId)} · ${departureBadge}`,
       totalPrice: `${(reservation.totalPrice ?? 0).toLocaleString()}원`,
       customerPhone: maskPhoneForDisplay(reservation.phone),
       companyPhone: maskPhoneForDisplay(companyPhone),

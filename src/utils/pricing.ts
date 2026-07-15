@@ -1,4 +1,5 @@
 import type { Company } from '../types';
+import { needsTerminalSurcharge } from './airport';
 
 /** wawavalet.com 과 동일한 와와 요금 (기본 4만 = 2일까지 / 3일째부터 실외 5천·실내 1만 / 야간 입·출고 각 2만 19~05) */
 export const WAWA_FEE_DEFAULTS: Partial<Company> = {
@@ -126,6 +127,7 @@ export function getCalculatePrice(
   start: string,
   end: string,
   indoor = true,
+  /** true면 터미널 이동 할증(t2Surcharge) 적용 — needsTerminalSurcharge()로 계산 */
   isT2 = false
 ): number {
   if (!company) return 0;
@@ -191,4 +193,13 @@ export function getCalculatePrice(
   }
 
   return calculated;
+}
+
+/** 업체 airport + 출국/귀국 터미널로 이동 할증 여부 */
+export function companyRouteNeedsTerminalSurcharge(
+  company: Pick<Company, 'airport'> | null | undefined,
+  departureTerminal?: string | null,
+  arrivalTerminal?: string | null
+): boolean {
+  return needsTerminalSurcharge(company?.airport, departureTerminal, arrivalTerminal);
 }

@@ -8,6 +8,7 @@ import {
   signInPlatformAdminWithPassword,
 } from '../lib/firebaseAuth';
 import { verifyPartnerLogin } from '../lib/partnerLoginApi';
+import { airportRegionLabel } from '../utils/airport';
 
 interface ConsolidatedGateProps {
   onLoginSuccess: (roles: {
@@ -79,7 +80,9 @@ export default function ConsolidatedGate({ onLoginSuccess, partners, companies }
       const wawaCompany: CompanyInfo = {
         id: 'wawa',
         name: '와와',
-        region: '인천공항 전역',
+        region: airportRegionLabel(
+          companies.find((c) => c.id === 'wawa')?.airport
+        ),
         phone: '1545-5746',
         logo: 'https://images.unsplash.com/photo-1545179605-1296651e9d43?q=80&w=200&auto=format&fit=crop',
         isIndoor: true,
@@ -137,15 +140,11 @@ export default function ConsolidatedGate({ onLoginSuccess, partners, companies }
         password: cleanPassword,
       });
 
+      const foundComp = companies.find((c) => c.id === verified.companyId);
       const brandInfo: CompanyInfo = {
         id: verified.companyId,
         name: verified.name,
-        region:
-          verified.supports_indoor && verified.supports_outdoor
-            ? '실내+실외 혼합'
-            : verified.supports_indoor
-              ? '실내'
-              : '실외',
+        region: airportRegionLabel(foundComp?.airport),
         phone: verified.phone || '010-0000-0000',
         logo: verified.image_url || '',
         isIndoor: verified.is_indoor,

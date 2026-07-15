@@ -15,6 +15,11 @@ export interface Company {
   /** B2C 갤러리용 추가 사진 (첫 장은 image_url과 동일하게 유지) */
   image_urls?: string[];
   terminals: string[];
+  /**
+   * 운영 공항. 미설정 시 ICN으로 취급.
+   * 1차: ICN만 활성. 업체당 공항 1개.
+   */
+  airport?: 'ICN' | 'GMP';
   booking_url?: string;
   distance_score?: number;
   is_recommended?: boolean;
@@ -73,9 +78,9 @@ export interface Company {
   sharesPhotos?: boolean;
   /** @deprecated 레거시 단일 거리 — parkingDistancesIndoor/Outdoor 우선 */
   parkingDistances?: ParkingDistances;
-  /** 실내 대표 주차장 → T1/T2 거리 */
+  /** 실내 대표 주차장 → 터미널별 거리 */
   parkingDistancesIndoor?: ParkingDistances;
-  /** 야외 대표 주차장 → T1/T2 거리 */
+  /** 야외 대표 주차장 → 터미널별 거리 */
   parkingDistancesOutdoor?: ParkingDistances;
   /** 대표 업체 — B2B 통합 로그인·예약 통합 관리 */
   isOperatorPrimary?: boolean;
@@ -83,7 +88,7 @@ export interface Company {
   parentCompanyId?: string;
 }
 
-/** 터미널(T1/T2)별 주차장 ↔ 공항 거리 */
+/** 터미널별 주차장 ↔ 공항 거리 (키: T1/T2 또는 DOM/INT 등) */
 export interface ParkingDistanceEntry {
   distanceKm: number;
   driveMinutes?: number;
@@ -96,6 +101,7 @@ export interface ParkingDistanceEntry {
 export interface ParkingDistances {
   T1?: ParkingDistanceEntry;
   T2?: ParkingDistanceEntry;
+  [terminalCode: string]: ParkingDistanceEntry | undefined;
 }
 
 export interface CompanyInsurance {
@@ -171,10 +177,13 @@ export interface Reservation {
   phone: string;
   departureDate: string;
   departureTime: string;
-  departureTerminal: 'T1' | 'T2';
+  /** 터미널 코드 — ICN: T1/T2, GMP: DOM/INT. 미설정·레거시는 정규화에서 보정 */
+  departureTerminal: string;
   arrivalDate: string;
   arrivalTime: string;
-  arrivalTerminal: 'T1' | 'T2';
+  arrivalTerminal: string;
+  /** 예약 시점 공항 (업체 airport 스탬프). 미설정 시 ICN */
+  airport?: 'ICN' | 'GMP';
   totalPrice: number;
   status: ReservationStatus;
   createdAt: string;
