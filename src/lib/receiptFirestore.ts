@@ -13,7 +13,7 @@ export async function fetchCompanyById(companyId: string): Promise<Company | nul
 }
 
 async function queryReservationByField(
-  field: 'receiptCode' | 'receiptToken',
+  field: 'receiptCode' | 'receiptToken' | 'receiptLinkCode',
   value: string
 ): Promise<Reservation | null> {
   const snap = await getDocs(
@@ -26,7 +26,7 @@ async function queryReservationByField(
   return normalized[0] ?? null;
 }
 
-/** 문서 ID · `receiptCode` · `receiptToken`(홈페이지) 로 예약 조회 */
+/** 문서 ID · `receiptCode` · `receiptToken` · `receiptLinkCode` 로 예약 조회 */
 export async function fetchReservationByLookupCode(code: string): Promise<Reservation | null> {
   const lookup = code.trim();
   if (!lookup) return null;
@@ -42,5 +42,8 @@ export async function fetchReservationByLookupCode(code: string): Promise<Reserv
   const byReceiptCode = await queryReservationByField('receiptCode', lookup);
   if (byReceiptCode) return byReceiptCode;
 
-  return queryReservationByField('receiptToken', lookup);
+  const byToken = await queryReservationByField('receiptToken', lookup);
+  if (byToken) return byToken;
+
+  return queryReservationByField('receiptLinkCode', lookup);
 }

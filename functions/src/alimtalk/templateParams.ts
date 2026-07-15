@@ -1,9 +1,9 @@
 import type { AlimtalkTemplateParams, ReservationSnapshot } from './types';
-import { buildReceiptUrl } from './receiptUrl';
+import { buildReceiptUrl, resolveReceiptPathCode } from './receiptUrl';
 
 /**
  * NHN 신규 계정 제한(-1028): 변수 치환 시 14자 초과 불가.
- * 긴 URL은 본문 변수 대신 WL 버튼(linkMo)으로 보내고,
+ * 접수증 경로는 `#{토큰}`(≤12) + 템플릿 버튼 URL 조합.
  * 본문 `#{접수증링크}` 에는 짧은 안내 문구만 넣는다.
  */
 const MAX_VAR_LEN = 14;
@@ -14,10 +14,15 @@ export function clampAlimtalkValue(value: string, max = MAX_VAR_LEN): string {
   return trimmed.slice(0, max);
 }
 
-function baseParams(reservation: ReservationSnapshot): Pick<AlimtalkTemplateParams, '고객명' | '차량번호'> {
+function baseParams(reservation: ReservationSnapshot): Pick<
+  AlimtalkTemplateParams,
+  '고객명' | '차량번호' | '토큰'
+> {
+  const pathCode = resolveReceiptPathCode(reservation);
   return {
     고객명: clampAlimtalkValue(reservation.userName?.trim() || '고객'),
     차량번호: clampAlimtalkValue((reservation.carNumber || '-').replace(/\s+/g, '')),
+    ...(pathCode ? { 토큰: clampAlimtalkValue(pathCode) } : {}),
   };
 }
 

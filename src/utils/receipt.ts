@@ -20,8 +20,10 @@ export function parseReceiptCodeFromPath(pathname: string): string | null {
 }
 
 export function resolveReceiptLookupCode(
-  reservation: Pick<Reservation, 'id' | 'receiptCode' | 'receiptToken'>
+  reservation: Pick<Reservation, 'id' | 'receiptCode' | 'receiptToken' | 'receiptLinkCode'>
 ): string {
+  const link = String(reservation.receiptLinkCode || '').trim();
+  if (link) return link;
   return String(
     reservation.receiptToken || reservation.receiptCode || reservation.id || ''
   ).trim();
@@ -29,17 +31,21 @@ export function resolveReceiptLookupCode(
 
 /** B2B Hosting(`airpick-reservation`)용 — `/r/{token|code|id}` */
 export function buildReceiptPath(
-  reservation: Pick<Reservation, 'id' | 'receiptCode' | 'receiptToken'>
+  reservation: Pick<Reservation, 'id' | 'receiptCode' | 'receiptToken' | 'receiptLinkCode'>
 ): string {
   const code = resolveReceiptLookupCode(reservation);
   return code ? `/r/${encodeURIComponent(code)}` : '';
 }
 
 export function buildReceiptUrl(
-  reservation: Pick<Reservation, 'id' | 'receiptCode' | 'receiptToken'>,
+  reservation: Pick<Reservation, 'id' | 'receiptCode' | 'receiptToken' | 'receiptLinkCode'>,
   origin: string = RECEIPT_PUBLIC_ORIGIN
 ): string {
   const base = origin.replace(/\/$/, '');
+  const link = String(reservation.receiptLinkCode || '').trim();
+  if (link) {
+    return `${base}/r/${encodeURIComponent(link)}`;
+  }
   const token = String(reservation.receiptToken || '').trim();
   if (token) {
     return `${base}/r/${encodeURIComponent(token)}`;

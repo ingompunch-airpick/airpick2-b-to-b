@@ -1,4 +1,5 @@
 import * as admin from 'firebase-admin';
+import * as nodeCrypto from 'crypto';
 import {
   ALIMTALK_TEMPLATE_CODES,
   DEFAULT_COMPANY_PHONE,
@@ -6,7 +7,7 @@ import {
 } from './constants';
 import { sendAlimtalkMessage, type NhnAlimtalkConfig, type NhnAlimtalkButton } from './nhnClient';
 import { normalizeRecipientPhone } from './phone';
-import { buildReceiptUrl, buildReviewUrl } from './receiptUrl';
+import { buildReceiptUrl, buildReviewUrl, resolveReceiptPathCode } from './receiptUrl';
 import {
   buildCheckinParams,
   buildCheckoutParams,
@@ -181,6 +182,28 @@ async function markAlimtalkSent(
   });
 }
 
+function createShortReceiptLinkCode(): string {
+  return nodeCrypto.randomBytes(6).toString('hex');
+}
+
+/**
+ * 구형 32자 receiptToken 예약 — 알림톡 #{토큰}(≤14)용 receiptLinkCode 부여.
+ * 신규 12자 토큰은 그대로 사용.
+ */
+async function ensureReceiptPathCode(
+  reservationId: string,
+  reservation: ReservationSnapshot
+): Promise<ReservationSnapshot> {
+  if (resolveReceiptPathCode(reservation)) return reservation;
+
+  const code = createShortReceiptLinkCode();
+  await admin.firestore().doc(`reservations/${reservationId}`).set(
+    { receiptLinkCode: code, updatedAt: new Date().toISOString() },
+    { merge: true }
+  );
+  return { ...reservation, receiptLinkCode: code };
+}
+
 export async function processReservationAlimtalk(
   reservationId: string,
   beforeData: FirebaseFirestore.DocumentData | undefined,
@@ -219,8 +242,18 @@ export async function processReservationAlimtalk(
     return;
   }
 
+  let reservationForSend = after!;
+  try {
+    reservationForSend = await ensureReceiptPathCode(reservationId, after!);
+  } catch (err) {
+    console.error('[alimtalk] ensureReceiptPathCode failed', {
+      reservationId,
+      err: err instanceof Error ? err.message : String(err),
+    });
+  }
+
   const companyPhone = events.includes('checkout')
-    ? await fetchCompanyPhone(after?.companyId)
+    ? await fetchCompanyPhone(reservationForSend.companyId)
     : DEFAULT_COMPANY_PHONE;
 
   for (const eventType of events) {
@@ -231,8 +264,8 @@ export async function processReservationAlimtalk(
     }
 
     const templateCode = ALIMTALK_TEMPLATE_CODES[eventType];
-    const templateParameter = resolveTemplateParams(eventType, after!, companyPhone);
-    const button = resolveAlimtalkButton(eventType, after!);
+    const templateParameter = resolveTemplateParams(eventType, reservationForSend, companyPhone);
+    const button = resolveAlimtalkButton(eventType, reservationForSend);
     if (!button) {
       console.warn('[alimtalk] skipped — button link empty', { reservationId, eventType });
       await markAlimtalkSent(reservationId, eventType, {

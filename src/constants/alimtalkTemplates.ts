@@ -32,10 +32,9 @@ export const ALIMTALK_RESERVE_TEMPLATE = {
 아래 링크를 클릭하시면 접수증을 확인하실 수 있습니다.
 #{접수증링크}`,
   extra: '공항 도착 30분 전 전화 주세요.',
-  variables: ['고객명', '차량번호', '접수증링크'] as const,
+  variables: ['고객명', '차량번호', '접수증링크', '토큰'] as const,
 };
 
-export const ALIMTALK_CHECKIN_TEMPLATE = {
   code: ALIMTALK_TEMPLATE_CODES.checkin,
   name: '에어픽_입차완료',
   category: '003002',
@@ -46,7 +45,7 @@ export const ALIMTALK_CHECKIN_TEMPLATE = {
 아래 링크를 클릭하시면 차량보관증을 확인하실 수 있습니다.
 #{접수증링크}`,
   extra: '출국 전 문의사항은 업체로 연락 주세요.',
-  variables: ['고객명', '차량번호', '접수증링크'] as const,
+  variables: ['고객명', '차량번호', '접수증링크', '토큰'] as const,
 };
 
 export const ALIMTALK_CHECKOUT_TEMPLATE = {

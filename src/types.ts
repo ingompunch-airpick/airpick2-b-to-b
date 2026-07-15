@@ -198,6 +198,11 @@ export interface Reservation {
   receiptCode?: string; // e.g. "1770207629_BEIAKF"
   /** 홈페이지 예약 공개 접수증 조회용 토큰 */
   receiptToken?: string;
+  /**
+   * 알림톡 버튼용 짧은 코드(≤14). 구형 32자 receiptToken 예약에만 부여.
+   * 신규 예약은 receiptToken 자체가 12자라 불필요.
+   */
+  receiptLinkCode?: string;
   
   // Real completion tracking fields
   actualParkingTime?: string;
