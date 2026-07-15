@@ -1,7 +1,10 @@
 import type { Reservation } from '../types';
 
-/** 공개 접수증·보관증 링크 기본 도메인 (퓨니코드 — 알림톡·SMS에 안전) */
-export const RECEIPT_PUBLIC_ORIGIN = 'https://xn--oh5b1bw17d.kr';
+/** 공개 접수증·보관증 — B2B Hosting */
+export const RECEIPT_PUBLIC_ORIGIN = 'https://airpick-reservation.web.app';
+
+/** 출고 후기 — B2C 에어픽.kr */
+export const REVIEW_PUBLIC_ORIGIN = 'https://www.xn--oh5b1bw17d.kr';
 
 const RECEIPT_PATH_RE = /\/r\/([^/?#]+)/;
 
@@ -32,20 +35,14 @@ export function buildReceiptPath(
   return code ? `/r/${encodeURIComponent(code)}` : '';
 }
 
-/**
- * 공개 도메인(에어픽.kr = B2C Hosting)용.
- * B2C 접수증: `/r/{reservationId}?t={receiptToken}`
- */
 export function buildReceiptUrl(
   reservation: Pick<Reservation, 'id' | 'receiptCode' | 'receiptToken'>,
   origin: string = RECEIPT_PUBLIC_ORIGIN
 ): string {
   const base = origin.replace(/\/$/, '');
-  const id = String(reservation.id || '').trim();
   const token = String(reservation.receiptToken || '').trim();
-
-  if (id && token) {
-    return `${base}/r/${encodeURIComponent(id)}?t=${encodeURIComponent(token)}`;
+  if (token) {
+    return `${base}/r/${encodeURIComponent(token)}`;
   }
 
   const path = buildReceiptPath(reservation);
@@ -57,13 +54,12 @@ export function buildReceiptUrl(
  */
 export function buildReviewUrl(
   reservation: Pick<Reservation, 'id'>,
-  origin: string = RECEIPT_PUBLIC_ORIGIN
+  origin: string = REVIEW_PUBLIC_ORIGIN
 ): string {
   const id = String(reservation.id || '').trim();
   if (!id) return '';
   const base = origin.replace(/\/$/, '');
-  const withWww = base.includes('://www.') ? base : base.replace('://', '://www.');
-  return `${withWww}/my?review=${encodeURIComponent(id)}`;
+  return `${base}/my?review=${encodeURIComponent(id)}`;
 }
 
 /** `2026-07-08` + `11:30` → `2026년 07월 08일 11시 30분` */

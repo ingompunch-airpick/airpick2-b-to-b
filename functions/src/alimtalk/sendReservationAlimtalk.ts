@@ -15,6 +15,8 @@ import {
 import type { AlimtalkTemplateParams, ReservationSnapshot } from './types';
 import { resolveBookingSource } from '../sheets/bookingSource';
 
+const CLAIM_TTL_MS = 90_000;
+
 function snapshotFromData(id: string, data: FirebaseFirestore.DocumentData | undefined): ReservationSnapshot | null {
   if (!data) return null;
   return { id, ...data } as ReservationSnapshot;
@@ -80,14 +82,24 @@ export function resolveAlimtalkEvents(
   const events: AlimtalkEventType[] = [];
 
   const needsSend = (key: AlimtalkEventType) => {
-    const record = after.alimtalkSent?.[key];
-    // 성공 기록만 스킵 — 실패(error)는 재시도
-    return !record || Boolean(record.error);
+    const record = after.alimtalkSent?.[key] as
+      | { requestId?: string; error?: string; claimAt?: string }
+      | undefined;
+    if (!record) return true;
+    if (record.error) return true;
+    // requestId 있으면 성공 — claimAt만 있으면 mark 실패·중단으로 간주 → 재시도
+    if (record.requestId) return false;
+    return true;
   };
 
   if (!before) {
     if (needsSend('reserve')) events.push('reserve');
     return events;
+  }
+
+  // secretKey 오류 등 이전 실패분 — 상태 변화 없어도 문서 갱신 시 재시도
+  if (after.alimtalkSent?.reserve?.error && needsSend('reserve')) {
+    events.push('reserve');
   }
 
   if (before.status === after.status) return events;
@@ -102,16 +114,61 @@ export function resolveAlimtalkEvents(
   return events;
 }
 
+type SentRecordPayload = {
+  templateCode: string;
+  recipientNo: string;
+  requestId?: string;
+  error?: string;
+  buttonUrl?: string;
+};
+
+/** 동시 트리거(시트 sync 등)로 알림톡이 두 번 나가는 것 방지 */
+async function tryClaimAlimtalkSend(
+  reservationId: string,
+  eventType: AlimtalkEventType
+): Promise<boolean> {
+  const ref = admin.firestore().doc(`reservations/${reservationId}`);
+  try {
+    return await admin.firestore().runTransaction(async (tx) => {
+      const snap = await tx.get(ref);
+      const record = (snap.data()?.alimtalkSent || {})[eventType] as
+        | {
+            requestId?: string;
+            error?: string;
+            claimAt?: string;
+          }
+        | undefined;
+
+      // 이미 성공
+      if (record?.requestId && !record.error) return false;
+
+      // 다른 인스턴스가 claim 중
+      const claimMs = Date.parse(String(record?.claimAt || ''));
+      if (
+        Number.isFinite(claimMs) &&
+        Date.now() - claimMs < CLAIM_TTL_MS &&
+        !record?.requestId
+      ) {
+        return false;
+      }
+
+      tx.update(ref, {
+        [`alimtalkSent.${eventType}.claimAt`]: new Date().toISOString(),
+      });
+      return true;
+    });
+  } catch (error) {
+    console.warn('[alimtalk] claim failed', { reservationId, eventType, error });
+    return false;
+  }
+}
+
 async function markAlimtalkSent(
   reservationId: string,
   eventType: AlimtalkEventType,
-  record: {
-    templateCode: string;
-    recipientNo: string;
-    requestId?: string;
-    error?: string;
-  }
+  record: SentRecordPayload
 ): Promise<void> {
+  // 맵 통째 교체로 claimAt 제거 — nested FieldValue.delete() 는 Firestore에서 불가
   await admin.firestore().doc(`reservations/${reservationId}`).update({
     [`alimtalkSent.${eventType}`]: {
       sentAt: new Date().toISOString(),
@@ -119,6 +176,7 @@ async function markAlimtalkSent(
       recipientNo: record.recipientNo,
       ...(record.requestId ? { requestId: record.requestId } : {}),
       ...(record.error ? { error: record.error } : {}),
+      ...(record.buttonUrl ? { buttonUrl: record.buttonUrl } : {}),
     },
   });
 }
@@ -166,14 +224,26 @@ export async function processReservationAlimtalk(
     : DEFAULT_COMPANY_PHONE;
 
   for (const eventType of events) {
+    const claimed = await tryClaimAlimtalkSend(reservationId, eventType);
+    if (!claimed) {
+      console.log('[alimtalk] skipped — already claimed or sent', { reservationId, eventType });
+      continue;
+    }
+
     const templateCode = ALIMTALK_TEMPLATE_CODES[eventType];
     const templateParameter = resolveTemplateParams(eventType, after!, companyPhone);
     const button = resolveAlimtalkButton(eventType, after!);
     if (!button) {
       console.warn('[alimtalk] skipped — button link empty', { reservationId, eventType });
+      await markAlimtalkSent(reservationId, eventType, {
+        templateCode,
+        recipientNo,
+        error: 'button link empty',
+      });
       continue;
     }
     const buttons: NhnAlimtalkButton[] = [button];
+    const buttonUrl = button.linkMo || '';
 
     try {
       const result = await sendAlimtalkMessage(
@@ -189,24 +259,32 @@ export async function processReservationAlimtalk(
           templateCode,
           recipientNo,
           requestId: result.requestId,
+          buttonUrl,
         });
         console.log('[alimtalk] sent', {
           reservationId,
           eventType,
           templateCode,
           requestId: result.requestId,
+          buttonUrl,
         });
-      } else {
-        // 버튼 없는 템플릿이면 본문만 재시도 (신규제한 대응: URL은 짧은 문구)
-        const retryWithoutButtons =
-          result.resultCode === -3000 ||
+        continue;
+      }
+
+      // 접수/입차는 버튼(접수증) 없이 성공 처리하지 않음 — 홈/대표링크만 열리는 것 방지
+      const allowButtonless =
+        eventType === 'checkout' &&
+        (result.resultCode === -3000 ||
           result.resultCode === -3019 ||
-          (result.resultMessage || '').toLowerCase().includes('button');
+          (result.resultMessage || '').toLowerCase().includes('button'));
 
-        const finalResult = retryWithoutButtons
-          ? await sendAlimtalkMessage(config, templateCode, recipientNo, templateParameter)
-          : result;
-
+      if (allowButtonless) {
+        const finalResult = await sendAlimtalkMessage(
+          config,
+          templateCode,
+          recipientNo,
+          templateParameter
+        );
         if (finalResult.ok) {
           await markAlimtalkSent(reservationId, eventType, {
             templateCode,
@@ -219,29 +297,48 @@ export async function processReservationAlimtalk(
             templateCode,
             requestId: finalResult.requestId,
           });
-        } else {
-          await markAlimtalkSent(reservationId, eventType, {
-            templateCode,
-            recipientNo,
-            error: finalResult.resultMessage ?? 'send failed',
-          });
-          console.error('[alimtalk] send failed', {
-            reservationId,
-            eventType,
-            templateCode,
-            resultCode: finalResult.resultCode,
-            resultMessage: finalResult.resultMessage,
-          });
+          continue;
         }
+        await markAlimtalkSent(reservationId, eventType, {
+          templateCode,
+          recipientNo,
+          buttonUrl,
+          error: finalResult.resultMessage ?? 'send failed',
+        });
+        console.error('[alimtalk] send failed', {
+          reservationId,
+          eventType,
+          templateCode,
+          resultCode: finalResult.resultCode,
+          resultMessage: finalResult.resultMessage,
+          buttonUrl,
+        });
+        continue;
       }
+
+      await markAlimtalkSent(reservationId, eventType, {
+        templateCode,
+        recipientNo,
+        buttonUrl,
+        error: result.resultMessage ?? 'send failed',
+      });
+      console.error('[alimtalk] send failed', {
+        reservationId,
+        eventType,
+        templateCode,
+        resultCode: result.resultCode,
+        resultMessage: result.resultMessage,
+        buttonUrl,
+      });
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
       await markAlimtalkSent(reservationId, eventType, {
         templateCode,
         recipientNo,
+        buttonUrl,
         error: message,
       });
-      console.error('[alimtalk] exception', { reservationId, eventType, message });
+      console.error('[alimtalk] exception', { reservationId, eventType, message, buttonUrl });
     }
   }
 }

@@ -7,7 +7,8 @@ import type { Reservation } from '../types';
  */
 
 export const ALIMTALK_SENDER_PROFILE = '@airpickup';
-export const ALIMTALK_REPRESENTATIVE_LINK = 'https://xn--oh5b1bw17d.kr/';
+/** 카카오 채널 대표 링크 — 버튼 WL은 RECEIPT_PUBLIC_ORIGIN(B2B Hosting) 사용 */
+export const ALIMTALK_REPRESENTATIVE_LINK = 'https://airpick-reservation.web.app/';
 
 export const ALIMTALK_TEMPLATE_CODES = {
   /** 예약 접수 — 카테고리 003001 예약완료/예약내역 */
