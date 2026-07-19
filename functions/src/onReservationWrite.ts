@@ -3,6 +3,7 @@ import { defineSecret, defineString } from 'firebase-functions/params';
 import { buildNhnConfigFromEnv, processReservationAlimtalk } from './alimtalk/sendReservationAlimtalk';
 import { buildSheetsConfigFromEnv } from './sheets/syncReservation';
 import { processReservationSheetsArchive } from './sheets/processReservationSheets';
+import { enforceHourlyCapacityOnCreate } from './hourlyCapacity';
 
 const alimtalkEnabled = defineString('ALIMTALK_ENABLED', { default: 'false' });
 const nhnAppKey = defineString('NHN_ALIMTALK_APP_KEY', { default: '' });
@@ -32,6 +33,7 @@ function applyRuntimeEnv(): void {
 
 /**
  * 예약 Firestore 변경 시:
+ * - 시간당 한도 초과 신규건 자동취소 (백스톱)
  * - Google Sheets 장부 동기화 (탭: 에어픽 / 와와 / 가유 / …)
  * - NHN 알림톡 발송 (활성화 시)
  */
@@ -50,6 +52,12 @@ export const onReservationSync = onDocumentWritten(
     if (!afterData) return;
 
     applyRuntimeEnv();
+
+    // 신규 생성 시 한도 초과면 즉시 취소하고 알림톡·시트는 이 턴에서 스킵
+    if (!beforeData) {
+      const rejected = await enforceHourlyCapacityOnCreate(reservationId, afterData);
+      if (rejected) return;
+    }
 
     await processReservationSheetsArchive(
       reservationId,

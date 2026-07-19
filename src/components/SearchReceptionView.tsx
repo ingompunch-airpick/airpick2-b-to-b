@@ -10,6 +10,7 @@ import {
   Settings
 } from 'lucide-react';
 import { createReservationId, persistReservation, patchReservation } from '../lib/reservationFirestore';
+import { assertHourlyCapacityAvailable } from '../lib/hourlyCapacityFirestore';
 import { User } from 'firebase/auth';
 import { Company, Reservation, AppView, CompanyInfo } from '../types';
 import ReservationCard from './ReservationCard';
@@ -347,6 +348,19 @@ export default function SearchReceptionView({
 
     if (partnerObj && partnerObj.isOpen === false) {
       alert('전체 예약이 마감된 상태입니다. 앱 예약 마감 설정 또는 홈페이지 마감과 동일하게 적용됩니다.');
+      setIsSubmittingBooking(false);
+      return;
+    }
+
+    try {
+      await assertHourlyCapacityAvailable(
+        partnerObj || partner,
+        partner.id,
+        depDateStr,
+        depTimeStr
+      );
+    } catch (capErr) {
+      alert(capErr instanceof Error ? capErr.message : '해당 시간대 예약이 마감되었습니다.');
       setIsSubmittingBooking(false);
       return;
     }

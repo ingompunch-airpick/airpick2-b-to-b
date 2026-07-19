@@ -11,6 +11,12 @@ import {
   checkHomepageBookingPolicy,
   homepagePolicyMessage,
 } from '../utils/homepageBookingPolicy';
+import {
+  formatHourLabel,
+  isHourlyCapActive,
+} from '../utils/hourlyCapacity';
+import { assertHourlyCapacityAvailable, checkHourlyCapacityForBooking } from '../lib/hourlyCapacityFirestore';
+import type { HourlyCapacityResult } from '../utils/hourlyCapacity';
 import { getKSTDateOnlyString, getKSTDateTimeLocalString } from '../utils/kstDate';
 import { getCalculatePrice, mergePartnerPricing, companyRouteNeedsTerminalSurcharge } from '../utils/pricing';
 import {
@@ -67,6 +73,7 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
   const [done, setDone] = useState<{ id: string; receiptUrl: string } | null>(null);
+  const [hourlyHint, setHourlyHint] = useState<HourlyCapacityResult | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -131,6 +138,30 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
     return checkHomepageBookingPolicy(company, dep.date, arr.date);
   }, [company, dep.date, arr.date]);
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!company || !isHourlyCapActive(company) || !dep.date || !dep.time) {
+        setHourlyHint(null);
+        return;
+      }
+      try {
+        const result = await checkHourlyCapacityForBooking(
+          company,
+          company.id,
+          dep.date,
+          dep.time
+        );
+        if (!cancelled) setHourlyHint(result);
+      } catch {
+        if (!cancelled) setHourlyHint(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [company, dep.date, dep.time]);
+
   const showIndoor =
     company?.supports_indoor !== false || company?.facilityType === 'mixed' || company?.facilityType === 'indoor';
   const showOutdoor =
@@ -155,6 +186,7 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
     if (!arrivalAirline.trim()) return '귀국 항공사를 선택해 주세요.';
     if (!arrivalFlight.trim()) return '귀국 편명을 입력해 주세요.';
     if (policyError) return homepagePolicyMessage(policyError);
+    if (hourlyHint && !hourlyHint.ok) return hourlyHint.message;
     return null;
   };
 
@@ -177,6 +209,8 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
         setFormError(homepagePolicyMessage(recheck));
         return;
       }
+
+      await assertHourlyCapacityAvailable(company, company.id, dep.date, dep.time);
 
       const id = createReservationId();
       const receiptToken = createReceiptToken();
@@ -416,6 +450,17 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
                 className={inputClass}
                 required
               />
+              {company && isHourlyCapActive(company) && hourlyHint ? (
+                <p
+                  className={`mt-1.5 text-[12px] font-semibold ${
+                    hourlyHint.ok ? 'text-stone-500' : 'text-red-600'
+                  }`}
+                >
+                  {hourlyHint.ok
+                    ? `${formatHourLabel(hourlyHint.hour)} · 남은 ${hourlyHint.remaining}대 (시간당 ${hourlyHint.max}대)`
+                    : hourlyHint.message}
+                </p>
+              ) : null}
             </FormRow>
             <FormRow label="출국 터미널" required>
               <TerminalPicker

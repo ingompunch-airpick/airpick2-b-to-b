@@ -94,6 +94,8 @@ service cloud.firestore {
         'blockedDates',
         'cancelCutoffHours',
         'sameDayBookingBlocked',
+        'hourlyCapEnabled',
+        'maxCarsPerHour',
         'phone',
         'updatedAt'
       ]);

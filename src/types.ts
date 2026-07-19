@@ -31,6 +31,14 @@ export interface Company {
   cancelCutoffHours?: number;
   /** true면 당일(입고일=오늘) 예약 B2C에서 차단 */
   sameDayBookingBlocked?: boolean;
+  /**
+   * 시간당 입고 대수 한도 (기본 OFF).
+   * 켜면 입고 시각(departureTime) 기준 같은 시간대에 maxCarsPerHour대까지만 접수.
+   * 홈페이지·에어픽·현장 접수 모두 같은 reservations 카운트를 씀.
+   */
+  hourlyCapEnabled?: boolean;
+  /** 시간당 최대 대수 (1–99). hourlyCapEnabled일 때만 적용 */
+  maxCarsPerHour?: number;
   // Matrix pricing settings
   outdoorBasePrice?: number;
   outdoorBaseDays?: number;

@@ -798,13 +798,21 @@ export default function App() {
     blockedDates: string[];
     cancelCutoffHours: number;
     sameDayBookingBlocked: boolean;
+    hourlyCapEnabled: boolean;
+    maxCarsPerHour: number;
   }) => {
     const targetId = isAirpickHeadquarters(currentCompanyId)
       ? AIRPICK_HQ_ID
       : (currentCompanyId || '').trim();
     if (!targetId) return;
 
-    const { blockedDates: newBlockedDates, cancelCutoffHours, sameDayBookingBlocked } = settings;
+    const {
+      blockedDates: newBlockedDates,
+      cancelCutoffHours,
+      sameDayBookingBlocked,
+      hourlyCapEnabled,
+      maxCarsPerHour,
+    } = settings;
 
     localStorage.setItem(`${targetId}_blockedDates`, JSON.stringify(newBlockedDates));
     setCompanies((prev) => {
@@ -813,6 +821,8 @@ export default function App() {
         blockedDates: newBlockedDates,
         cancelCutoffHours,
         sameDayBookingBlocked,
+        hourlyCapEnabled,
+        maxCarsPerHour,
       };
       if (idx >= 0) {
         return prev.map((c) => (c.id === targetId ? { ...c, ...patch } : c));
@@ -836,6 +846,8 @@ export default function App() {
           blockedDates: newBlockedDates,
           cancelCutoffHours,
           sameDayBookingBlocked,
+          hourlyCapEnabled,
+          maxCarsPerHour,
           updatedAt: new Date().toISOString(),
         },
         { merge: true }
@@ -2133,6 +2145,15 @@ export default function App() {
         sameDayBookingBlocked={(() => {
           const matched = companies.find(c => c.id === currentCompanyId);
           return matched?.sameDayBookingBlocked !== false;
+        })()}
+        hourlyCapEnabled={(() => {
+          const matched = companies.find(c => c.id === currentCompanyId);
+          return matched?.hourlyCapEnabled === true;
+        })()}
+        maxCarsPerHour={(() => {
+          const matched = companies.find(c => c.id === currentCompanyId);
+          const n = matched?.maxCarsPerHour;
+          return typeof n === 'number' && n > 0 ? n : 5;
         })()}
         onSave={handleSaveBookingSettings}
         companyIsOpen={(() => {

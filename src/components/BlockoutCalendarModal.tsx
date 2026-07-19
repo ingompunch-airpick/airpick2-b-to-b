@@ -1,5 +1,6 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { X, ChevronLeft, ChevronRight, CalendarRange, Info, Check, Power } from 'lucide-react';
+import { normalizeMaxCarsPerHour } from '../utils/hourlyCapacity';
 
 interface BlockoutCalendarModalProps {
   isOpen: boolean;
@@ -7,10 +8,14 @@ interface BlockoutCalendarModalProps {
   blockedDates: string[];
   cancelCutoffHours?: number;
   sameDayBookingBlocked?: boolean;
+  hourlyCapEnabled?: boolean;
+  maxCarsPerHour?: number;
   onSave: (settings: {
     blockedDates: string[];
     cancelCutoffHours: number;
     sameDayBookingBlocked: boolean;
+    hourlyCapEnabled: boolean;
+    maxCarsPerHour: number;
   }) => Promise<void>;
   companyIsOpen: boolean;
   onToggleCompanyOpen: (isOpen: boolean) => Promise<void>;
@@ -23,6 +28,8 @@ export default function BlockoutCalendarModal({
   blockedDates,
   cancelCutoffHours = 3,
   sameDayBookingBlocked = true,
+  hourlyCapEnabled = false,
+  maxCarsPerHour = 5,
   onSave,
   companyIsOpen,
   onToggleCompanyOpen,
@@ -39,24 +46,29 @@ export default function BlockoutCalendarModal({
   });
 
   const [localBlocked, setLocalBlocked] = useState<string[]>(() => [...blockedDates]);
-  const [localCancelCutoffHours, setLocalCancelCutoffHours] = useState<number>(cancelCutoffHours);
   const [localSameDayBlocked, setLocalSameDayBlocked] = useState<boolean>(sameDayBookingBlocked);
+  const [localHourlyCapEnabled, setLocalHourlyCapEnabled] = useState<boolean>(hourlyCapEnabled);
+  const [localMaxCarsPerHour, setLocalMaxCarsPerHour] = useState<number>(
+    normalizeMaxCarsPerHour(maxCarsPerHour) || 5
+  );
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (!isOpen) return;
     setLocalBlocked([...blockedDates]);
-    setLocalCancelCutoffHours(cancelCutoffHours);
     setLocalSameDayBlocked(sameDayBookingBlocked);
-  }, [isOpen, blockedDates, cancelCutoffHours, sameDayBookingBlocked]);
+    setLocalHourlyCapEnabled(hourlyCapEnabled === true);
+    setLocalMaxCarsPerHour(normalizeMaxCarsPerHour(maxCarsPerHour) || 5);
+  }, [isOpen, blockedDates, sameDayBookingBlocked, hourlyCapEnabled, maxCarsPerHour]);
 
   if (!isOpen) return null;
 
   // Sync state when open state changed safely without side-effects 
   const handleReset = () => {
     setLocalBlocked([...blockedDates]);
-    setLocalCancelCutoffHours(cancelCutoffHours);
     setLocalSameDayBlocked(sameDayBookingBlocked);
+    setLocalHourlyCapEnabled(hourlyCapEnabled === true);
+    setLocalMaxCarsPerHour(normalizeMaxCarsPerHour(maxCarsPerHour) || 5);
   };
 
   const monthsKR = [
@@ -116,10 +128,13 @@ export default function BlockoutCalendarModal({
     try {
       await onSave({
         blockedDates: localBlocked,
-        cancelCutoffHours: Math.max(0, Math.min(72, localCancelCutoffHours || 0)),
+        // 셀프취소 마감 UI는 우선 숨김 — 기존 DB 값은 유지
+        cancelCutoffHours: Math.max(0, Math.min(72, cancelCutoffHours || 0)),
         sameDayBookingBlocked: localSameDayBlocked,
+        hourlyCapEnabled: localHourlyCapEnabled,
+        maxCarsPerHour: Math.max(1, normalizeMaxCarsPerHour(localMaxCarsPerHour) || 1),
       });
-      alert('예약·취소 정책이 성공적으로 저장되었습니다.');
+      alert('예약 정책이 성공적으로 저장되었습니다.');
       onClose();
     } catch (err) {
       console.error(err);
@@ -197,30 +212,11 @@ export default function BlockoutCalendarModal({
             </div>
           </div>
 
-          {/* B2C 예약·취소 정책 (companies 문서 — 에어픽 앱에서 읽음) */}
+          {/* B2C 예약 정책 (companies 문서 — 에어픽 앱에서 읽음) */}
           <div className="px-4.5 pb-4 border-b border-neutral-800/30 space-y-3">
-            <h4 className="text-[12.5px] font-black text-white px-1">에어픽 앱 예약·취소 정책</h4>
+            <h4 className="text-[12.5px] font-black text-white px-1">에어픽 앱 예약 정책</h4>
             <div className="p-3.5 bg-[#141416]/90 border border-neutral-800/85 rounded-2xl space-y-3">
-              <div>
-                <label className="text-[12px] font-black text-zinc-300 block mb-1.5">
-                  고객 셀프취소 마감 (입고 N시간 전)
-                </label>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    min={0}
-                    max={72}
-                    value={localCancelCutoffHours}
-                    onChange={(e) => setLocalCancelCutoffHours(Number(e.target.value) || 0)}
-                    className="w-20 px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-white text-sm font-bold text-center"
-                  />
-                  <span className="text-[12px] text-zinc-400 font-bold">시간 전까지 취소 허용</span>
-                </div>
-                <p className="text-[11px] text-zinc-500 mt-1.5 leading-relaxed">
-                  미설정 시 에어픽 앱 기본값(3시간)이 적용됩니다.
-                </p>
-              </div>
-              <div className="flex items-center justify-between gap-3 pt-1 border-t border-neutral-800/60">
+              <div className="flex items-center justify-between gap-3">
                 <div>
                   <p className="text-[12px] font-black text-zinc-200">당일 예약 차단</p>
                   <p className="text-[11px] text-zinc-500 mt-0.5">입고일=오늘인 예약을 에어픽 앱에서 막습니다</p>
@@ -236,6 +232,43 @@ export default function BlockoutCalendarModal({
                 >
                   {localSameDayBlocked ? '차단 ON' : '허용'}
                 </button>
+              </div>
+
+              <div className="pt-2 border-t border-neutral-800/60 space-y-2.5">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-[12px] font-black text-zinc-200">시간당 입고 대수 한도</p>
+                    <p className="text-[11px] text-zinc-500 mt-0.5">
+                      입고 시각 기준. 홈·에어픽·현장 예약을 합산합니다
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => setLocalHourlyCapEnabled((v) => !v)}
+                    className={`px-3 py-1.5 rounded-xl text-[12px] font-black border shrink-0 ${
+                      localHourlyCapEnabled
+                        ? 'bg-amber-500/15 text-amber-400 border-amber-500/30'
+                        : 'bg-neutral-900 text-zinc-400 border-neutral-800'
+                    }`}
+                  >
+                    {localHourlyCapEnabled ? '사용 ON' : 'OFF'}
+                  </button>
+                </div>
+                {localHourlyCapEnabled ? (
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="number"
+                      min={1}
+                      max={99}
+                      value={localMaxCarsPerHour}
+                      onChange={(e) =>
+                        setLocalMaxCarsPerHour(normalizeMaxCarsPerHour(e.target.value) || 1)
+                      }
+                      className="w-20 px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-white text-sm font-bold text-center"
+                    />
+                    <span className="text-[12px] text-zinc-400 font-bold">대 / 시간</span>
+                  </div>
+                ) : null}
               </div>
             </div>
           </div>
