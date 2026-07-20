@@ -6,9 +6,17 @@ import { processReservationSheetsArchive } from './sheets/processReservationShee
 import { enforceHourlyCapacityOnCreate } from './hourlyCapacity';
 
 const alimtalkEnabled = defineString('ALIMTALK_ENABLED', { default: 'false' });
+const alimtalkProvider = defineString('ALIMTALK_PROVIDER', { default: 'nhn' });
 const nhnAppKey = defineString('NHN_ALIMTALK_APP_KEY', { default: '' });
 const nhnSecretKey = defineString('NHN_ALIMTALK_SECRET_KEY', { default: '' });
 const nhnSenderKey = defineString('NHN_ALIMTALK_SENDER_KEY', { default: '' });
+const ncpAccessKey = defineString('NCP_ALIMTALK_ACCESS_KEY', { default: '' });
+const ncpSecretKey = defineString('NCP_ALIMTALK_SECRET_KEY', { default: '' });
+const ncpServiceId = defineString('NCP_ALIMTALK_SERVICE_ID', { default: '' });
+const ncpPlusFriendId = defineString('NCP_ALIMTALK_PLUS_FRIEND_ID', { default: '@airpickup' });
+const ncpTemplateReserve = defineString('NCP_ALIMTALK_TEMPLATE_RESERVE', { default: 'reservation' });
+const ncpTemplateCheckin = defineString('NCP_ALIMTALK_TEMPLATE_CHECKIN', { default: '' });
+const ncpTemplateCheckout = defineString('NCP_ALIMTALK_TEMPLATE_CHECKOUT', { default: '' });
 
 const sheetsArchiveEnabled = defineString('SHEETS_ARCHIVE_ENABLED', { default: 'false' });
 const sheetsSpreadsheetId = defineString('GOOGLE_SHEETS_SPREADSHEET_ID', {
@@ -18,9 +26,17 @@ const sheetsServiceAccountJson = defineSecret('GOOGLE_SHEETS_SERVICE_ACCOUNT_JSO
 
 function applyRuntimeEnv(): void {
   process.env.ALIMTALK_ENABLED = alimtalkEnabled.value();
+  process.env.ALIMTALK_PROVIDER = alimtalkProvider.value();
   process.env.NHN_ALIMTALK_APP_KEY = nhnAppKey.value();
   process.env.NHN_ALIMTALK_SECRET_KEY = nhnSecretKey.value();
   process.env.NHN_ALIMTALK_SENDER_KEY = nhnSenderKey.value();
+  process.env.NCP_ALIMTALK_ACCESS_KEY = ncpAccessKey.value();
+  process.env.NCP_ALIMTALK_SECRET_KEY = ncpSecretKey.value();
+  process.env.NCP_ALIMTALK_SERVICE_ID = ncpServiceId.value();
+  process.env.NCP_ALIMTALK_PLUS_FRIEND_ID = ncpPlusFriendId.value();
+  process.env.NCP_ALIMTALK_TEMPLATE_RESERVE = ncpTemplateReserve.value();
+  process.env.NCP_ALIMTALK_TEMPLATE_CHECKIN = ncpTemplateCheckin.value();
+  process.env.NCP_ALIMTALK_TEMPLATE_CHECKOUT = ncpTemplateCheckout.value();
 
   process.env.SHEETS_ARCHIVE_ENABLED = sheetsArchiveEnabled.value();
   process.env.GOOGLE_SHEETS_SPREADSHEET_ID = sheetsSpreadsheetId.value();
@@ -35,7 +51,7 @@ function applyRuntimeEnv(): void {
  * 예약 Firestore 변경 시:
  * - 시간당 한도 초과 신규건 자동취소 (백스톱)
  * - Google Sheets 장부 동기화 (탭: 에어픽 / 와와 / 가유 / …)
- * - NHN 알림톡 발송 (활성화 시)
+ * - 알림톡 발송 (NHN 또는 NCP, 활성화 시)
  */
 export const onReservationSync = onDocumentWritten(
   {

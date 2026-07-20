@@ -1,27 +1,6 @@
 import { NHN_ALIMTALK_API_BASE } from './constants';
+import type { AlimtalkButton, AlimtalkSendResult, NhnAlimtalkConfig } from './shared';
 import type { AlimtalkTemplateParams } from './types';
-
-export interface NhnAlimtalkConfig {
-  appKey: string;
-  secretKey: string;
-  senderKey: string;
-}
-
-export interface NhnAlimtalkButton {
-  ordering: number;
-  type: 'WL' | 'AC' | 'AL' | 'DS' | 'BK' | 'MD' | 'BC' | 'BT';
-  name: string;
-  linkMo?: string;
-  linkPc?: string;
-}
-
-export interface NhnSendResult {
-  ok: boolean;
-  requestId?: string;
-  resultCode?: number;
-  resultMessage?: string;
-  recipientSeq?: number;
-}
 
 interface NhnResponseBody {
   header?: {
@@ -39,13 +18,13 @@ interface NhnResponseBody {
   };
 }
 
-export async function sendAlimtalkMessage(
+export async function sendNhnAlimtalkMessage(
   config: NhnAlimtalkConfig,
   templateCode: string,
   recipientNo: string,
   templateParameter: AlimtalkTemplateParams,
-  buttons?: NhnAlimtalkButton[]
-): Promise<NhnSendResult> {
+  buttons?: AlimtalkButton[]
+): Promise<AlimtalkSendResult> {
   const url = `${NHN_ALIMTALK_API_BASE}/appkeys/${config.appKey}/messages`;
 
   const recipient: Record<string, unknown> = {
@@ -73,7 +52,6 @@ export async function sendAlimtalkMessage(
   const header = body.header;
   const sendResult = body.message?.sendResults?.[0];
 
-  // header 성공이어도 recipient 단위 실패 가능
   const recipientFailed =
     typeof sendResult?.resultCode === 'number' && sendResult.resultCode !== 0;
 
@@ -94,3 +72,7 @@ export async function sendAlimtalkMessage(
     recipientSeq: sendResult?.recipientSeq,
   };
 }
+
+// 하위 호환 re-export
+export type { AlimtalkButton as NhnAlimtalkButton, NhnAlimtalkConfig };
+export type { AlimtalkSendResult as NhnSendResult };

@@ -1,11 +1,16 @@
 import * as admin from 'firebase-admin';
 import * as nodeCrypto from 'crypto';
 import {
-  ALIMTALK_TEMPLATE_CODES,
   DEFAULT_COMPANY_PHONE,
   type AlimtalkEventType,
 } from './constants';
-import { sendAlimtalkMessage, type NhnAlimtalkConfig, type NhnAlimtalkButton } from './nhnClient';
+import {
+  buildAlimtalkConfigFromEnv,
+  isNcpTemplateReady,
+  resolveTemplateCode,
+  sendAlimtalkMessage,
+} from './provider';
+import type { AlimtalkButton } from './shared';
 import { normalizeRecipientPhone } from './phone';
 import { buildReceiptUrl, buildReviewUrl, resolveReceiptPathCode } from './receiptUrl';
 import {
@@ -49,7 +54,7 @@ function resolveTemplateParams(
 function resolveAlimtalkButton(
   eventType: AlimtalkEventType,
   reservation: ReservationSnapshot
-): NhnAlimtalkButton | null {
+): AlimtalkButton | null {
   if (eventType === 'checkout') {
     const reviewUrl = buildReviewUrl(reservation);
     if (!reviewUrl) return null;
@@ -208,7 +213,7 @@ export async function processReservationAlimtalk(
   reservationId: string,
   beforeData: FirebaseFirestore.DocumentData | undefined,
   afterData: FirebaseFirestore.DocumentData | undefined,
-  config: NhnAlimtalkConfig | null
+  config: ReturnType<typeof buildAlimtalkConfigFromEnv>
 ): Promise<void> {
   const before = snapshotFromData(reservationId, beforeData);
   const after = snapshotFromData(reservationId, afterData);
@@ -229,9 +234,10 @@ export async function processReservationAlimtalk(
   if (events.length === 0) return;
 
   if (!config) {
-    console.log('[alimtalk] skipped — NHN credentials or ALIMTALK_ENABLED not configured', {
+    console.log('[alimtalk] skipped — credentials or ALIMTALK_ENABLED not configured', {
       reservationId,
       events,
+      provider: process.env.ALIMTALK_PROVIDER || 'nhn',
     });
     return;
   }
@@ -257,13 +263,32 @@ export async function processReservationAlimtalk(
     : DEFAULT_COMPANY_PHONE;
 
   for (const eventType of events) {
+    if (
+      config.provider === 'ncp' &&
+      !isNcpTemplateReady(eventType, {
+        provider: config.provider,
+        templateCodes: config.templateCodes,
+      })
+    ) {
+      console.log('[alimtalk] skipped — NCP template not configured yet', {
+        reservationId,
+        eventType,
+        hint: 'set NCP_ALIMTALK_TEMPLATE_CHECKIN / CHECKOUT after reserve works',
+      });
+      continue;
+    }
+
     const claimed = await tryClaimAlimtalkSend(reservationId, eventType);
     if (!claimed) {
       console.log('[alimtalk] skipped — already claimed or sent', { reservationId, eventType });
       continue;
     }
 
-    const templateCode = ALIMTALK_TEMPLATE_CODES[eventType];
+    const templateCode = resolveTemplateCode(eventType, config.provider);
+    if (!templateCode) {
+      console.log('[alimtalk] skipped — empty template code', { reservationId, eventType });
+      continue;
+    }
     const templateParameter = resolveTemplateParams(eventType, reservationForSend, companyPhone);
     const button = resolveAlimtalkButton(eventType, reservationForSend);
     if (!button) {
@@ -275,7 +300,7 @@ export async function processReservationAlimtalk(
       });
       continue;
     }
-    const buttons: NhnAlimtalkButton[] = [button];
+    const buttons: AlimtalkButton[] = [button];
     const buttonUrl = button.linkMo || '';
 
     try {
@@ -376,14 +401,4 @@ export async function processReservationAlimtalk(
   }
 }
 
-export function buildNhnConfigFromEnv(): NhnAlimtalkConfig | null {
-  if (process.env.ALIMTALK_ENABLED !== 'true') return null;
-
-  const appKey = process.env.NHN_ALIMTALK_APP_KEY?.trim();
-  const secretKey = process.env.NHN_ALIMTALK_SECRET_KEY?.trim();
-  const senderKey = process.env.NHN_ALIMTALK_SENDER_KEY?.trim();
-
-  if (!appKey || !secretKey || !senderKey) return null;
-
-  return { appKey, secretKey, senderKey };
-}
+export { buildAlimtalkConfigFromEnv as buildNhnConfigFromEnv };

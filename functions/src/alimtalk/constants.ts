@@ -17,3 +17,6 @@ export const DEFAULT_COMPANY_PHONE = '1545-5746';
 
 export const NHN_ALIMTALK_API_BASE =
   'https://kakaotalk-bizmessage.api.nhncloudservice.com/alimtalk/v2.3';
+
+/** 네이버 클라우드 SENS 알림톡 v2 */
+export const NCP_ALIMTALK_API_BASE = 'https://sens.apigw.ntruss.com';
