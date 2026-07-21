@@ -15,6 +15,7 @@ import {
   normalizeTerminalCode,
   terminalBadgeLabel,
 } from '../utils/airport';
+import { isAdmitted, isCompletedOut, isParked } from '../utils/reservationStatus';
 
 const STANDARD_TERMS = [
   {
@@ -113,7 +114,7 @@ function TerminalBadge({ terminal }: { terminal: string }) {
   const isPrimaryStyle = terminal === 'T1' || terminal === '국내선';
   return (
     <span
-      className={`inline-flex shrink-0 rounded px-1.5 py-0.5 text-[10px] font-black leading-none ${
+      className={`inline-flex shrink-0 rounded px-1.5 py-0.5 text-[11px] font-black leading-none ${
         isPrimaryStyle
           ? 'bg-blue-100 text-blue-600 print:bg-transparent print:text-blue-700'
           : 'bg-red-100 text-red-600 print:bg-transparent print:text-red-700'
@@ -134,30 +135,59 @@ function FlightGridCell({
   const detail = [leg.airline, leg.flightNo].filter(Boolean).join(' ') || '-';
 
   return (
-    <div className="min-w-0 px-3 py-2.5">
-      <p className="text-[9px] font-bold tracking-wide text-[#9a8b78] uppercase">{label}</p>
+    <div className="min-w-0 px-3 py-3">
+      <p className="text-[11px] font-bold tracking-wide text-[#9a8b78]">{label}</p>
       <div className="mt-1 flex min-w-0 items-center gap-1.5">
         <TerminalBadge terminal={leg.terminal} />
-        <p className="min-w-0 truncate text-[13px] font-black text-[#1a1f2e]">{detail}</p>
+        <p className="min-w-0 text-[15px] font-black leading-snug text-[#1a1f2e] break-words">
+          {detail}
+        </p>
       </div>
     </div>
   );
 }
 
-function GridCell({ label, value }: { label: string; value: string }) {
+function toTelHref(phone: string): string | null {
+  const digits = phone.replace(/\D/g, '');
+  if (digits.length < 9) return null;
+  return `tel:${digits}`;
+}
+
+function GridCell({
+  label,
+  value,
+  tel,
+}: {
+  label: string;
+  value: string;
+  /** true면 탭 시 전화 앱 연결 */
+  tel?: boolean;
+}) {
+  const href = tel ? toTelHref(value) : null;
   return (
-    <div className="min-w-0 px-3 py-2.5">
-      <p className="text-[9px] font-bold tracking-wide text-[#9a8b78] uppercase">{label}</p>
-      <p className="mt-0.5 truncate text-[13px] font-black text-[#1a1f2e] tabular-nums">{value}</p>
+    <div className="min-w-0 px-3 py-3">
+      <p className="text-[11px] font-bold tracking-wide text-[#9a8b78]">{label}</p>
+      {href ? (
+        <a
+          href={href}
+          className="mt-1 block text-[16px] font-black leading-snug text-[#1a4a9e] tabular-nums break-words underline underline-offset-2 decoration-[#1a4a9e]/40"
+        >
+          {value}
+        </a>
+      ) : (
+        <p className="mt-1 text-[16px] font-black leading-snug text-[#1a1f2e] tabular-nums break-words">
+          {value}
+        </p>
+      )}
     </div>
   );
 }
 
 function PickupLocationRow({ value }: { value: string }) {
   return (
-    <div className="col-span-2 min-w-0 px-3 py-2.5">
-      <p className="text-[9px] font-bold tracking-wide text-[#9a8b78] uppercase">픽업지</p>
-      <p className="mt-0.5 text-[13px] font-black leading-snug text-[#1a1f2e] whitespace-pre-wrap break-words">
+    <div className="col-span-2 min-w-0 px-3 py-3">
+      <p className="text-[11px] font-bold tracking-wide text-[#9a8b78]">픽업지</p>
+      <p className="mt-1 text-[16px] font-black leading-snug text-[#1a1f2e] whitespace-pre-wrap break-words">
         {value}
       </p>
     </div>
@@ -363,7 +393,7 @@ export default function VehicleReceiptPage({ code }: VehicleReceiptPageProps) {
             {view.companyName} · No. {view.docNo}
           </p>
 
-          <div className="mt-4 flex items-center gap-2 text-[11px] font-bold">
+          <div className="mt-4 flex items-center gap-2 text-[14px] font-bold">
             <span className="shrink-0 text-white/90 print:text-neutral-800">{view.routeFrom}</span>
             <span className="min-w-0 flex-1 border-t border-dashed border-white/20 print:border-neutral-300" />
             <span className="shrink-0 text-[#d4a853] text-base leading-none" aria-hidden>
@@ -372,7 +402,7 @@ export default function VehicleReceiptPage({ code }: VehicleReceiptPageProps) {
             <span className="min-w-0 flex-1 border-t border-dashed border-white/20 print:border-neutral-300" />
             <span className="shrink-0 truncate text-white/90 print:text-neutral-800">{view.destination}</span>
             {view.airlineLabel ? (
-              <span className="ml-1 shrink-0 text-[10px] font-semibold text-white/40 print:text-neutral-400">
+              <span className="ml-1 shrink-0 text-[11px] font-semibold text-white/40 print:text-neutral-400">
                 {view.airlineLabel}
               </span>
             ) : null}
@@ -383,28 +413,28 @@ export default function VehicleReceiptPage({ code }: VehicleReceiptPageProps) {
 
         {/* ── Body ── */}
         <div className="bg-[#f4efe6] px-4 pb-3 pt-4 print:bg-white">
-          <p className="text-[9px] font-bold tracking-[0.15em] text-[#9a8b78]">차량 번호</p>
-          <p className="mt-0.5 text-[1.75rem] font-black leading-none tracking-wide text-[#1a1f2e] tabular-nums">
+          <p className="text-[11px] font-bold tracking-[0.15em] text-[#9a8b78]">차량 번호</p>
+          <p className="mt-0.5 text-[2rem] font-black leading-none tracking-wide text-[#1a1f2e] tabular-nums">
             {view.carNumber}
           </p>
-          <p className="mt-1.5 text-xs font-semibold text-[#6b6358]">
+          <p className="mt-1.5 text-[13px] font-semibold text-[#6b6358]">
             {view.carModel} · {view.userName}
           </p>
 
-          <div className="mt-4 flex items-center justify-between rounded-xl bg-[#1c2233] px-4 py-3 ring-1 ring-[#d4a853]/25 print:bg-neutral-200 print:ring-neutral-400">
-            <span className="text-[11px] font-bold text-[#e8dcc8] print:text-neutral-700">총 주차 금액</span>
-            <span className="text-xl font-black tabular-nums text-[#f0c14a] print:text-neutral-900">
+          <div className="mt-4 flex items-center justify-between rounded-xl bg-[#1c2233] px-4 py-3.5 ring-1 ring-[#d4a853]/25 print:bg-neutral-200 print:ring-neutral-400">
+            <span className="text-[13px] font-bold text-[#e8dcc8] print:text-neutral-700">총 주차 금액</span>
+            <span className="text-[1.35rem] font-black tabular-nums text-[#f0c14a] print:text-neutral-900">
               {view.totalPrice}
             </span>
           </div>
 
           <div className="mt-3 grid grid-cols-2 divide-x divide-y divide-[#e8e0d4] overflow-hidden rounded-xl border border-[#e8e0d4] bg-white/50 print:divide-neutral-200 print:border-neutral-200 print:bg-white">
             <GridCell label="접수일시" value={view.intakeAt} />
-            <GridCell label="도착일시" value={view.arrivalAt} />
+            <GridCell label="출차예정" value={view.arrivalAt} />
             <FlightGridCell label="출국편" leg={view.departureLeg} />
             <FlightGridCell label="귀국편" leg={view.arrivalLeg} />
             <GridCell label="고객 연락처" value={view.customerPhone} />
-            <GridCell label="고객센터" value={view.companyPhone} />
+            <GridCell label="고객센터" value={view.companyPhone} tel />
             <PickupLocationRow value={view.pickupLocation} />
           </div>
 
