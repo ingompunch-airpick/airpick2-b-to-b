@@ -126,6 +126,15 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // ── customers (방문 횟수 — 전화 숫자 키) ───────────────────────────────
+
+    match /customers/{phoneKey} {
+      allow read: if isSignedIn();
+
+      // 생성·갱신은 Cloud Functions(Admin SDK)만 — 클라이언트 조작 방지
+      allow create, update, delete: if false;
+    }
+
     // ── companies ──────────────────────────────────────────────────────────
 
     match /companies/{companyId} {

@@ -1,4 +1,5 @@
 import type { Reservation } from '../types';
+import { formatPhoneDisplay } from './phone';
 
 /** 공개 접수증·보관증 — B2B Hosting */
 export const RECEIPT_PUBLIC_ORIGIN = 'https://airpick-reservation.web.app';
@@ -102,10 +103,5 @@ export function formatKoreanFromIso(iso?: string): string {
 }
 
 export function maskPhoneForDisplay(phone?: string): string {
-  const digits = (phone || '').replace(/\D/g, '');
-  if (digits.length < 10) return phone || '-';
-  if (digits.length === 11) {
-    return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
-  }
-  return phone || '-';
+  return formatPhoneDisplay(phone);
 }

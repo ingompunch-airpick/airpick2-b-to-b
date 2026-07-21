@@ -58,6 +58,8 @@ import {
   shiftMonthPrefix,
 } from '../utils/hqAnalytics';
 import CustomDatePickerModal from './CustomDatePickerModal';
+import { fetchCustomerVisitCount } from '../lib/customerVisit';
+import { formatPhoneDisplay, normalizePhoneDigits } from '../utils/phone';
 
 function reservationDepartureOn(r: Reservation, ymd: string): boolean {
   return normalizeDateString(r.departureDate) === ymd;
@@ -111,7 +113,38 @@ export default function StatisticsView({
   const [crmSearch, setCrmSearch] = useState('');
   const [crmTab, setCrmTab] = useState<'today_reserve' | 'today_parked' | 'today_released'>('today_reserve');
   const [crmSelected, setCrmSelected] = useState<Reservation | null>(null);
+  const [crmVisitCount, setCrmVisitCount] = useState<number | null>(null);
   const [crmDatePickerOpen, setCrmDatePickerOpen] = useState(false);
+
+  useEffect(() => {
+    if (!crmSelected) {
+      setCrmVisitCount(null);
+      return;
+    }
+    let cancelled = false;
+    const localFallback = reservations.filter((r) => {
+      const samePhone =
+        normalizePhoneDigits(r.phone) &&
+        normalizePhoneDigits(r.phone) === normalizePhoneDigits(crmSelected.phone);
+      const sameName =
+        (r.userName || '').trim() &&
+        (r.userName || '').trim() === (crmSelected.userName || '').trim();
+      return samePhone || sameName;
+    }).length;
+
+    setCrmVisitCount(localFallback);
+    (async () => {
+      try {
+        const remote = await fetchCustomerVisitCount(crmSelected.phone);
+        if (!cancelled && remote != null) setCrmVisitCount(remote);
+      } catch {
+        /* keep local fallback */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [crmSelected, reservations]);
   
   const [filterType, setFilterType] = useState<'this_month' | 'last_month'>('this_month');
   const [hqMonthPrefix, setHqMonthPrefix] = useState(() => getKSTDateOnlyString().substring(0, 7));
@@ -1259,9 +1292,7 @@ export default function StatisticsView({
       </div>
 
       {/* CRM 상세 모달 */}
-      {crmSelected && (() => {
-        const visitCount = reservations.filter(r => r.userName === crmSelected.userName || r.phone === crmSelected.phone).length;
-        return (
+      {crmSelected && (
           <div className="fixed inset-0 z-[150] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-4">
             <div className="w-full max-w-md bg-[#1C1C1E] border border-neutral-800 rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[88vh] text-zinc-100">
               <div className="p-4 border-b border-neutral-800/70 flex items-center justify-between bg-neutral-900/60">
@@ -1276,7 +1307,10 @@ export default function StatisticsView({
                   <div>
                     <p className="text-[11px] text-amber-500 font-mono font-bold">고객 정보</p>
                     <h4 className="text-sm font-black text-white">{crmSelected.userName} 고객님</h4>
-                    <p className="text-[12px] text-zinc-400 mt-0.5">누적 예약 <span className="text-amber-500 font-bold">{visitCount}회</span></p>
+                    <p className="text-[12px] text-zinc-400 mt-0.5">
+                      누적 예약{' '}
+                      <span className="text-amber-500 font-bold">{crmVisitCount ?? '…'}회</span>
+                    </p>
                   </div>
                   <Award size={18} className="text-amber-500" />
                 </div>
@@ -1286,7 +1320,7 @@ export default function StatisticsView({
                     ['출고일시', `${crmSelected.arrivalDate} ${crmSelected.arrivalTime}`],
                     ['주차구역', crmSelected.parkingSpace || '-'],
                     ['결제금액', `${(crmSelected.totalPrice||0).toLocaleString()}원`],
-                    ['연락처', crmSelected.phone],
+                    ['연락처', formatPhoneDisplay(crmSelected.phone)],
                   ].map(([label, val]) => (
                     <div key={label} className="flex justify-between">
                       <span className="text-zinc-500">{label}</span>
@@ -1294,7 +1328,7 @@ export default function StatisticsView({
                     </div>
                   ))}
                 </div>
-                <a href={`tel:${crmSelected.phone}`} className="flex items-center justify-center gap-2 w-full py-3 bg-amber-500 text-neutral-950 rounded-xl font-black text-xs">
+                <a href={`tel:${normalizePhoneDigits(crmSelected.phone) || crmSelected.phone}`} className="flex items-center justify-center gap-2 w-full py-3 bg-amber-500 text-neutral-950 rounded-xl font-black text-xs">
                   <PhoneCall size={14} />즉시 통화
                 </a>
                 {onEditReservation && crmSelected.status !== 'cancelled' && crmSelected.status !== 'completed_out' && (
@@ -1343,8 +1377,7 @@ export default function StatisticsView({
               </div>
             </div>
           </div>
-        );
-      })()}
+      )}
 
       <CustomDatePickerModal
         isOpen={crmDatePickerOpen}

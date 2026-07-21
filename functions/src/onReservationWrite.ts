@@ -4,6 +4,7 @@ import { buildNhnConfigFromEnv, processReservationAlimtalk } from './alimtalk/se
 import { buildSheetsConfigFromEnv } from './sheets/syncReservation';
 import { processReservationSheetsArchive } from './sheets/processReservationSheets';
 import { enforceHourlyCapacityOnCreate } from './hourlyCapacity';
+import { bumpCustomerVisitOnCreate } from './customerVisit';
 
 const alimtalkEnabled = defineString('ALIMTALK_ENABLED', { default: 'false' });
 const alimtalkProvider = defineString('ALIMTALK_PROVIDER', { default: 'nhn' });
@@ -73,6 +74,14 @@ export const onReservationSync = onDocumentWritten(
     if (!beforeData) {
       const rejected = await enforceHourlyCapacityOnCreate(reservationId, afterData);
       if (rejected) return;
+      try {
+        await bumpCustomerVisitOnCreate(reservationId, afterData);
+      } catch (err) {
+        console.error('[customerVisit] bump failed', {
+          reservationId,
+          err: err instanceof Error ? err.message : String(err),
+        });
+      }
     }
 
     await processReservationSheetsArchive(

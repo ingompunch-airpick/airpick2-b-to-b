@@ -164,6 +164,12 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // customers/{phoneKey} — visitCount (Functions만 쓰기)
+    match /customers/{phoneKey} {
+      allow read: if isSignedIn();
+      allow create, update, delete: if false;
+    }
+
     // ── companies ──────────────────────────────────────────────────────────
 
     match /companies/{companyId} {

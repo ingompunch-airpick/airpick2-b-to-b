@@ -4,6 +4,7 @@ import { normalizeReservationStatus } from './reservationStatus';
 import { resolveFlightFields } from './flightFields';
 import { RESERVATION_CREATED_BY, resolveBookingSource } from './bookingSource';
 import { normalizeAirportId, normalizeTerminalCode } from './airport';
+import { normalizePhoneDigits } from './phone';
 
 export function getSafeDateString(val: unknown): string {
   if (!val) return new Date().toISOString();
@@ -110,7 +111,7 @@ export function normalizeDocsArray(items: unknown[]): Reservation[] {
       ...(r as Reservation),
       createdBy,
       userId: String(r.userId || r.uid || 'external_system'),
-      phone: String(r.phone || r.userPhone || ''),
+      phone: normalizePhoneDigits(String(r.phone || r.userPhone || '')) || String(r.phone || r.userPhone || ''),
       carNumber: finalCarNumber,
       airport,
       departureTerminal,

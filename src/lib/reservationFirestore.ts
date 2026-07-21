@@ -2,6 +2,7 @@ import { doc, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import type { Reservation } from '../types';
 import { ensureFirestoreAuth } from './firebaseAuth';
+import { normalizePhoneDigits } from '../utils/phone';
 
 export { ensureFirestoreAuth, ensurePlatformAdminAuth } from './firebaseAuth';
 
@@ -21,12 +22,21 @@ export function stripUndefinedFields<T extends Record<string, unknown>>(obj: T):
   return out;
 }
 
+function withNormalizedPhone<T extends Record<string, unknown>>(payload: T): T {
+  if (typeof payload.phone !== 'string') return payload;
+  const digits = normalizePhoneDigits(payload.phone);
+  if (!digits) return payload;
+  return { ...payload, phone: digits };
+}
+
 export async function persistReservation(
   id: string,
   payload: Omit<Reservation, 'id'>
 ): Promise<void> {
   await ensureFirestoreAuth();
-  const clean = stripUndefinedFields(payload as Record<string, unknown>);
+  const clean = stripUndefinedFields(
+    withNormalizedPhone(payload as Record<string, unknown>)
+  );
   await setDoc(doc(db, 'reservations', id), clean);
 }
 
@@ -35,6 +45,8 @@ export async function patchReservation(
   payload: Partial<Reservation>
 ): Promise<void> {
   await ensureFirestoreAuth();
-  const clean = stripUndefinedFields(payload as Record<string, unknown>);
+  const clean = stripUndefinedFields(
+    withNormalizedPhone(payload as Record<string, unknown>)
+  );
   await updateDoc(doc(db, 'reservations', id), clean);
 }
