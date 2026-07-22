@@ -128,6 +128,12 @@ export function isDriverTimelineHidden(status: ReservationStatus | string): bool
   return norm === 'completed_out' || norm === 'cancelled';
 }
 
+/** 아직 입고(주차) 처리 전 — 출고예정 탭에서 예정만 표시할 때 사용 */
+export function isNotYetAdmitted(status: ReservationStatus | string): boolean {
+  const norm = normalizeReservationStatus(status);
+  return norm === 'pending' || norm === 'pending_in';
+}
+
 /** 기사 타임라인 상단 탭과 상태 매칭 */
 export function matchesDriverTab(
   status: ReservationStatus | string,
@@ -135,6 +141,10 @@ export function matchesDriverTab(
 ): boolean {
   const norm = normalizeReservationStatus(status);
   if (tab === 'pending') return norm === 'pending';
+  // 출고예정: 주차완료 + 아직 미입고(예약만 된 차) — arrivalDate로 물량 미리 보기
+  if (tab === 'completed_in') {
+    return norm === 'completed_in' || norm === 'pending' || norm === 'pending_in';
+  }
   return norm === tab;
 }
 

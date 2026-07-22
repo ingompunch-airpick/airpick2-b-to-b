@@ -1458,7 +1458,10 @@ export default function App() {
     return visibleReservations.filter(r => {
       const rArr = normalizeDateString(r.arrivalDate);
       const selDate = normalizeDateString(selectedDate);
-      if (r.status !== 'completed_in') return false;
+      // 출고예정: 주차완료 + 미입고(예약·입고 진행 중) — 출차예정일 기준 물량
+      if (r.status !== 'completed_in' && r.status !== 'pending' && r.status !== 'pending_in') {
+        return false;
+      }
       if (selDate) {
         if (rArr !== selDate) return false;
       }
@@ -1777,6 +1780,7 @@ export default function App() {
                     isAdminModeActive={isAdminModeActive}
                     reservations={visibleReservations}
                     selectedDate={selectedDate}
+                    setSelectedDate={setSelectedDate}
                     setDatePickerTarget={setDatePickerTarget}
                     activeCounterTab={activeCounterTab}
                     loadingReservations={loadingReservations}

@@ -1,10 +1,15 @@
 ﻿import React, { useState, useMemo, useEffect } from 'react';
-import { Search, Calendar, X, RefreshCw, Car, FileText } from 'lucide-react';
+import { Search, X, RefreshCw, Car, FileText } from 'lucide-react';
 import { Reservation, ReservationStatus, AppView } from '../types';
 import ReservationCard from './ReservationCard';
 import DepartureImminentBanner from './DepartureImminentBanner';
+import DateNavBar from './DateNavBar';
 import { normalizeDateString } from '../utils/reservationNormalize';
-import { isDriverTimelineHidden, matchesDriverTab } from '../utils/reservationStatus';
+import {
+  isDriverTimelineHidden,
+  isNotYetAdmitted,
+  matchesDriverTab,
+} from '../utils/reservationStatus';
 import {
   collectDepartureAlerts,
   getDepartureAlertLevel,
@@ -19,6 +24,7 @@ interface TimelineViewProps {
   isAdminModeActive: boolean;
   reservations: Reservation[];
   selectedDate: string;
+  setSelectedDate: (date: string) => void;
   setDatePickerTarget: (target: 'selectedDate' | null) => void;
   activeCounterTab: ReservationStatus;
   loadingReservations: boolean;
@@ -43,6 +49,7 @@ export default function TimelineView({
   isAdminModeActive,
   reservations,
   selectedDate,
+  setSelectedDate,
   setDatePickerTarget,
   activeCounterTab,
   loadingReservations,
@@ -135,7 +142,14 @@ export default function TimelineView({
       const bDep = normalizeDateString(b.departureDate);
       const aArr = normalizeDateString(a.arrivalDate);
       const bArr = normalizeDateString(b.arrivalDate);
-      
+
+      // 출고예정: 주차중(작업 가능) 먼저, 미입고(예정만) 아래
+      if (activeCounterTab === 'completed_in' && !isAdminModeActive) {
+        const aPreview = isNotYetAdmitted(a.status) ? 1 : 0;
+        const bPreview = isNotYetAdmitted(b.status) ? 1 : 0;
+        if (aPreview !== bPreview) return aPreview - bPreview;
+      }
+
       if (activeCounterTab === 'completed_in' || activeCounterTab === 'request_out') {
         const timeA = `${aArr || ''} ${a.arrivalTime || ''}`;
         const timeB = `${bArr || ''} ${b.arrivalTime || ''}`;
@@ -205,15 +219,15 @@ export default function TimelineView({
               )}
             </div>
 
-            {/* 2. Query Date Picker Block */}
-            <div 
-              onClick={() => setDatePickerTarget('selectedDate')}
-              className="relative flex items-center bg-[#2C2C2E] rounded-[16px] px-3.5 py-3 md:col-span-3 cursor-pointer hover:bg-neutral-850 transition-colors h-[42px] overflow-hidden"
-            >
-              <div className="flex items-center w-full justify-start pointer-events-none z-10">
-                <Calendar size={13} className="text-[#8E8E93] mr-2 shrink-0" />
-                <span className="text-sm text-white font-mono leading-none">{selectedDate}</span>
-              </div>
+            {/* 2. Query Date Picker Block — 어제/내일 + 달력 */}
+            <div className="md:col-span-3">
+              <DateNavBar
+                selectedDate={selectedDate}
+                onChangeDate={setSelectedDate}
+                onOpenCalendar={() => setDatePickerTarget('selectedDate')}
+                compact
+                showLabel={false}
+              />
             </div>
 
             {/* 3. Query Criterion Radio Buttons */}
@@ -241,21 +255,13 @@ export default function TimelineView({
         </div>
       )}
 
-      {/* Driver Mode Date Picker Bar */}
+      {/* Driver Mode Date Picker Bar — 어제/내일 화살표 + 달력 + 오늘 */}
       {!isAdminModeActive && (
-        <div 
-          onClick={() => setDatePickerTarget('selectedDate')}
-          className="relative flex items-center justify-between bg-[#1C1C1E] p-4 rounded-[22px] overflow-hidden w-full h-[54px] cursor-pointer hover:bg-[#2C2C2E] transition-colors font-sans"
-        >
-          <div className="flex w-full items-center justify-between pointer-events-none z-10">
-            <div className="flex items-center gap-2">
-              <span className="text-toss-body text-white">조회 날짜 설정</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="text-toss-label text-amber-400 tabular-nums">{selectedDate}</span>
-            </div>
-          </div>
-        </div>
+        <DateNavBar
+          selectedDate={selectedDate}
+          onChangeDate={setSelectedDate}
+          onOpenCalendar={() => setDatePickerTarget('selectedDate')}
+        />
       )}
 
       {/* Timeline list cards display */}

@@ -9,7 +9,6 @@ import {
   Check, 
   Building2, 
   ArrowRight, 
-  Calendar, 
   Car, 
   ClipboardList,
   ShieldCheck,
@@ -40,6 +39,7 @@ import {
 } from '../utils/reservationStatus';
 import { normalizeDateString } from '../utils/reservationNormalize';
 import { getKSTDateOnlyString, toKSTDateOnlyString } from '../utils/kstDate';
+import DateNavBar from './DateNavBar';
 import {
   aggregateGroupedBookingSourceMetrics,
   groupedBookingSourceBadgeClass,
@@ -75,14 +75,6 @@ function reservationExitOn(r: Reservation, ymd: string): boolean {
 /** 선택일 예약 = 해당일(KST) 접수(createdAt)한 건 */
 function isTodayReserveRow(r: Reservation, ymd: string): boolean {
   return toKSTDateOnlyString(r.createdAt) === ymd;
-}
-
-/** YYYY-MM-DD ± N일 (달력일 기준) */
-function shiftYmd(ymd: string, deltaDays: number): string {
-  const [y, m, d] = ymd.split('-').map((n) => parseInt(n, 10));
-  if (!y || !m || !d) return ymd;
-  const next = new Date(Date.UTC(y, m - 1, d + deltaDays));
-  return next.toISOString().slice(0, 10);
 }
 
 interface StatisticsViewProps {
@@ -171,7 +163,6 @@ export default function StatisticsView({
   /** CRM 조회일 — 기본 오늘, 사용자가 다른 날 선택 가능 */
   const [crmDate, setCrmDate] = useState(() => getKSTDateString());
   const currentMonthPrefix = todayStr.substring(0, 7); // "2026-05"
-  const crmDateIsToday = crmDate === todayStr;
 
   // Automatically refresh date-related views when midnight KST rolls over
   useEffect(() => {
@@ -1022,48 +1013,11 @@ export default function StatisticsView({
             </div>
 
             {/* CRM 조회일 */}
-            <div className="flex items-center gap-1.5 bg-[#1C1C1E] border border-neutral-800/60 rounded-xl p-1.5">
-              <button
-                type="button"
-                aria-label="이전 날"
-                onClick={() => setCrmDate((d) => shiftYmd(d, -1))}
-                className="shrink-0 w-9 h-9 flex items-center justify-center rounded-lg text-zinc-400 hover:text-white hover:bg-neutral-800/70 transition-colors"
-              >
-                <ChevronLeft size={16} />
-              </button>
-              <button
-                type="button"
-                onClick={() => setCrmDatePickerOpen(true)}
-                className="flex-1 min-w-0 flex items-center justify-center gap-1.5 py-2 rounded-lg text-[12px] font-bold text-white hover:bg-neutral-800/50 transition-colors"
-              >
-                <Calendar size={13} className="text-amber-500 shrink-0" />
-                <span className="text-zinc-500 font-semibold">조회일</span>
-                <span className="font-mono text-amber-400">{crmDate}</span>
-                {!crmDateIsToday && (
-                  <span className="text-[10px] text-zinc-500 font-semibold">(오늘 아님)</span>
-                )}
-              </button>
-              <button
-                type="button"
-                aria-label="다음 날"
-                onClick={() => setCrmDate((d) => shiftYmd(d, 1))}
-                className="shrink-0 w-9 h-9 flex items-center justify-center rounded-lg text-zinc-400 hover:text-white hover:bg-neutral-800/70 transition-colors"
-              >
-                <ChevronRight size={16} />
-              </button>
-              <button
-                type="button"
-                disabled={crmDateIsToday}
-                onClick={() => setCrmDate(todayStr)}
-                className={`shrink-0 px-2.5 h-9 rounded-lg text-[11px] font-black transition-colors ${
-                  crmDateIsToday
-                    ? 'text-zinc-600 cursor-default'
-                    : 'text-amber-400 bg-amber-500/10 border border-amber-500/25 hover:bg-amber-500/20'
-                }`}
-              >
-                오늘
-              </button>
-            </div>
+            <DateNavBar
+              selectedDate={crmDate}
+              onChangeDate={setCrmDate}
+              onOpenCalendar={() => setCrmDatePickerOpen(true)}
+            />
 
             {/* 검색 */}
             <div className="relative">

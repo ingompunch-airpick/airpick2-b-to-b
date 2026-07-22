@@ -2,7 +2,7 @@
 import { PlusCircle, Bell, CheckCircle2 } from 'lucide-react';
 import { Reservation, ReservationStatus } from '../types';
 import { isReservationUnpaid } from '../utils/paymentStatus';
-import { isPending, statusBadgeColorClass, statusToLabel } from '../utils/reservationStatus';
+import { isNotYetAdmitted, isPending, statusBadgeColorClass, statusToLabel } from '../utils/reservationStatus';
 import {
   bookingSourceBadgeClass,
   bookingSourceCardClass,
@@ -64,9 +64,15 @@ export default function ReservationCard({
   // 실제 배정된 자리만 표시(없으면 미지정), 실내/야외는 접수 시 결정된 등급(res.isIndoor) 사용
   const computedSpace = res.parkingSpace || '미지정';
   const isOutOrCompletedIn = (res.status || '').includes('out') || res.status === 'completed_in';
+  /** 출고예정 탭에서 아직 미입고인 차 — 정보 유지 + 흐림 + 큰 「미입고」 */
+  const isExitScheduleNotAdmitted =
+    !isAdminModeActive &&
+    activeCounterTab === 'completed_in' &&
+    isNotYetAdmitted(res.status);
+  const showAsExitSchedule = isOutOrCompletedIn || isExitScheduleNotAdmitted;
   const airportId = normalizeAirportId(res.airport);
   const activeTerminalCode =
-    (!res.status.includes('out') && res.status !== 'completed_in')
+    (!res.status.includes('out') && res.status !== 'completed_in' && !isExitScheduleNotAdmitted)
       ? res.departureTerminal
       : res.arrivalTerminal;
   const terminalCode = activeTerminalCode || getDefaultTerminal(airportId);
@@ -113,7 +119,7 @@ export default function ReservationCard({
       id={`card-${res.id}`}
     >
       {/* Left Details Panel */}
-      <div className="space-y-2">
+      <div className={cn('space-y-2 min-w-0', isExitScheduleNotAdmitted && 'opacity-40')}>
         {/* 1st Row: Dynamic Soft Pills/Badges (Toss Aesthetic) */}
         <div className="flex flex-wrap items-center gap-1.5">
           {/* 에어픽(B2C) 유입만 표시 — 홈페이지·현장은 뱃지 없음 */}
@@ -185,8 +191,8 @@ export default function ReservationCard({
           </span>
           
           <span className="text-toss-body leading-none shrink-0 tabular-nums">
-            {isOutOrCompletedIn ? '출차예정' : '입고예정'}{' '}
-            {isOutOrCompletedIn ? res.arrivalTime : res.departureTime}
+            {showAsExitSchedule ? '출차예정' : '입고예정'}{' '}
+            {showAsExitSchedule ? res.arrivalTime : res.departureTime}
           </span>
 
           <span className="text-toss-caption leading-none shrink-0">
@@ -198,6 +204,11 @@ export default function ReservationCard({
       {/* Right Operations & Price Panel */}
       <div className="flex flex-row md:flex-col justify-between md:justify-center items-center md:items-end gap-2 border-t border-neutral-900/10 md:border-t-0 pt-2.5 md:pt-0 shrink-0">
         {!isAdminModeActive && (
+          isExitScheduleNotAdmitted ? (
+            <span className="text-[22px] font-black text-zinc-100 tracking-tight leading-none select-none px-1">
+              미입고
+            </span>
+          ) : (
           <div className="flex items-center gap-1.5 shrink-0">
             {isPending(res.status) && (
               <button
@@ -252,10 +263,14 @@ export default function ReservationCard({
               </button>
             )}
           </div>
+          )
         )}
 
         {/* Quiet price — 하위 업체명은 뱃지 대신 가격 왼쪽 텍스트 */}
-        <div className="flex items-baseline justify-end gap-1.5 min-w-0">
+        <div className={cn(
+          'flex items-baseline justify-end gap-1.5 min-w-0',
+          isExitScheduleNotAdmitted && 'opacity-40'
+        )}>
           {subCompanyName ? (
             <span className="text-toss-label text-[var(--color-toss-fg-muted)] truncate max-w-[7.5rem]">
               {subCompanyName}

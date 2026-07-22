@@ -23,3 +23,11 @@ export function getKSTDateTimeLocalString(addedMs = 0): string {
   const kstDate = new Date(Date.now() + 9 * 60 * 60 * 1000 + addedMs);
   return kstDate.toISOString().slice(0, 16);
 }
+
+/** YYYY-MM-DD ± N일 (달력일 기준, UTC date math — KST 날짜 문자열에 안전) */
+export function shiftYmd(ymd: string, deltaDays: number): string {
+  const [y, m, d] = ymd.split('-').map((n) => parseInt(n, 10));
+  if (!y || !m || !d) return ymd;
+  const next = new Date(Date.UTC(y, m - 1, d + deltaDays));
+  return next.toISOString().slice(0, 10);
+}
