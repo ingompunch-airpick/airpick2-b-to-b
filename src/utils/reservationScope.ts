@@ -33,35 +33,38 @@ export function filterReservationsForCompany(
 }
 
 interface StorageLike {
-  setItem: (key: string, value: string) => void;
+  setItem?: (key: string, value: string) => void;
+  getItem?: (key: string) => string | null;
+  removeItem?: (key: string) => void;
 }
 
-/** 전체 예약 배열 변경 시 — 업체 키에는 해당 업체(또는 통합 그룹) 것만, Firestore 캐시에는 전체 저장 */
+/**
+ * @deprecated 예약은 Firestore가 단일 소스. 로컬 이중 저장은 더 이상 하지 않음.
+ * 호출부는 호환을 위해 남겨 두되 no-op.
+ */
 export function persistReservationStores(
-  storage: StorageLike,
-  allReservations: Reservation[],
-  activeCompanyId: string,
-  options?: { cacheFirestore?: boolean; operatorCompanyIds?: string[] }
+  _storage: StorageLike,
+  _allReservations: Reservation[],
+  _activeCompanyId: string,
+  _options?: { cacheFirestore?: boolean; operatorCompanyIds?: string[] }
 ): void {
-  if (options?.cacheFirestore) {
-    storage.setItem('firestore_reservations_cache', JSON.stringify(allReservations));
+  /* no-op — Firestore realtime subscription is the source of truth */
+}
+
+/** 예전 `{업체}_reservations` / `firestore_reservations_cache` 잔여 키 정리 */
+export function clearLegacyReservationLocalCaches(
+  storage: StorageLike = typeof localStorage !== 'undefined' ? localStorage : {}
+): void {
+  try {
+    storage.removeItem?.('firestore_reservations_cache');
+    const keys =
+      typeof localStorage !== 'undefined' ? Object.keys(localStorage) : [];
+    for (const key of keys) {
+      if (key.endsWith('_reservations') || key.endsWith('_drivers')) {
+        storage.removeItem?.(key);
+      }
+    }
+  } catch {
+    /* ignore */
   }
-
-  if (!activeCompanyId || isAirpickHeadquarters(activeCompanyId)) {
-    return;
-  }
-
-  const ids =
-    options?.operatorCompanyIds && options.operatorCompanyIds.length > 0
-      ? options.operatorCompanyIds
-      : [activeCompanyId];
-
-  const scoped =
-    ids.length > 1
-      ? allReservations.filter((r) =>
-          ids.some((id) => reservationBelongsToCompany(r, id))
-        )
-      : filterReservationsForCompany(allReservations, activeCompanyId);
-
-  storage.setItem(`${activeCompanyId}_reservations`, JSON.stringify(scoped));
 }

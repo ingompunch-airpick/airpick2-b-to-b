@@ -105,12 +105,13 @@ export default function EditModal({
       adminMemo: driverEditAdminMemo,
       parkingSpace: driverEditLinkerMemo,
       linkerMemo: driverEditLinkerMemo,
-      destination: driverEditDestination.trim() || undefined,
-      departureAirline: driverEditDeptAirline.trim() || undefined,
-      departureFlight: driverEditDeptFlight.trim() || undefined,
-      arrivalAirline: driverEditArrAirline.trim() || undefined,
-      arrivalFlight: driverEditArrFlight.trim() || undefined,
-      inboundFlight: driverEditArrFlight.trim() || undefined,
+      // 빈 문자열로 저장해 필드 비우기 가능 (undefined는 Firestore 거부·strip 시 무시됨)
+      destination: driverEditDestination.trim(),
+      departureAirline: driverEditDeptAirline.trim(),
+      departureFlight: driverEditDeptFlight.trim(),
+      arrivalAirline: driverEditArrAirline.trim(),
+      arrivalFlight: driverEditArrFlight.trim(),
+      inboundFlight: driverEditArrFlight.trim(),
       carNumber: driverEditCarNumber,
       carModel: driverEditCarModel,
       departureDate: driverEditDepartureDate,
@@ -122,7 +123,7 @@ export default function EditModal({
       updatedAt: new Date().toISOString(),
     };
     if (!hideReservationPassword) {
-      updateData.reservationPassword = driverEditReservationPassword.trim() || undefined;
+      updateData.reservationPassword = driverEditReservationPassword.trim();
     }
     onSave(updateData);
   };

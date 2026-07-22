@@ -28,7 +28,7 @@ import { motion, AnimatePresence } from 'motion/react';
 // --- Modular Typed Constants and Data ---
 import { Company, Reservation, ReservationStatus, PaymentMethod, AppView, CompanyInfo, PartnerCompany } from './types';
 import { formatPartnerDisplayName, resolveRequiredCompanyId } from './utils/companyDisplay';
-import { persistReservationStores } from './utils/reservationScope';
+import { persistReservationStores, clearLegacyReservationLocalCaches } from './utils/reservationScope';
 import {
   filterReservationsForOperatorGroup,
   formatOperatorGroupLabel,
@@ -38,6 +38,8 @@ import {
   mergePartnersFromFirestore,
   readPartnersFromStorage,
   resolveBlockedDatesForCompany,
+  sanitizePartnersForStorage,
+  writePartnersToStorage,
 } from './utils/partnerSync';
 import { getCalculatePrice } from './utils/pricing';
 import { airportRegionLabel } from './utils/airport';
@@ -51,6 +53,7 @@ import { buildCheckoutRetentionFields } from './lib/reservationRetention';
 import { AIRPICK_HQ_ID, isAirpickHeadquarters, normalizePlatformCompanyId } from './constants/platform';
 import { ensureFirestoreAuth, ensurePlatformAdminAuth, formatPlatformAdminAuthError, isPlatformAdminEmail, signInPlatformAdminWithPassword } from './lib/firebaseAuth';
 import { verifyPartnerLogin } from './lib/partnerLoginApi';
+import { patchReservation } from './lib/reservationFirestore';
 import { isPending, normalizeReservationStatus } from './utils/reservationStatus';
 import { cn } from './lib/utils';
 import {
@@ -181,13 +184,15 @@ function AdminDashboard({
   companies, 
   partners,
   onUpdatePartners,
-  onUpdateCompanies
+  onUpdateCompanies,
+  reservations = [],
 }: { 
   onClose: () => void; 
   companies: Company[]; 
   partners: PartnerCompany[];
   onUpdatePartners: (updated: PartnerCompany[]) => void;
   onUpdateCompanies: (updated: Company[]) => void;
+  reservations?: Reservation[];
 }) {
   return (
     <AdminDashboardComponent
@@ -196,6 +201,7 @@ function AdminDashboard({
       partners={partners}
       onUpdatePartners={onUpdatePartners}
       onUpdateCompanies={onUpdateCompanies}
+      reservations={reservations}
     />
   );
 }
@@ -217,14 +223,23 @@ export default function App() {
   });
 
   const [partners, setPartners] = useState<PartnerCompany[]>(() => {
+    try {
+      sessionStorage.removeItem('b2b_partner_gate_session');
+    } catch {
+      /* ignore */
+    }
     const saved = localStorage.getItem('super_partners_list');
     if (saved) {
       try {
         const parsed = JSON.parse(saved);
-        if (parsed && Array.isArray(parsed) && parsed.length > 0) return parsed;
+        if (parsed && Array.isArray(parsed) && parsed.length > 0) {
+          const cleaned = sanitizePartnersForStorage(parsed);
+          writePartnersToStorage(cleaned);
+          return cleaned;
+        }
       } catch (_) {}
     }
-    localStorage.setItem('super_partners_list', JSON.stringify(DEFAULT_PARTNERS));
+    writePartnersToStorage(DEFAULT_PARTNERS);
     return DEFAULT_PARTNERS;
   });
 
@@ -266,42 +281,12 @@ export default function App() {
     };
   });
 
-  const [reservations, setReservations] = useState<Reservation[]>(() => {
-    const compId = localStorage.getItem('current_company_id') || '';
-    if (!compId) return [];
-    if (isAirpickHeadquarters(compId)) {
-      const allRes: Reservation[] = [];
-      const seenIds = new Set<string>();
-      const keys = localStorage.getAllKeys();
-      keys.forEach((key) => {
-        if (key && key.endsWith('_reservations')) {
-          try {
-            const items = JSON.parse(localStorage.getItem(key) || '[]');
-            if (Array.isArray(items)) {
-              items.forEach((item: Reservation) => {
-                if (item && item.id && !seenIds.has(item.id)) {
-                  seenIds.add(item.id);
-                  allRes.push(item);
-                }
-              });
-            }
-          } catch (_) {}
-        }
-      });
-      if (allRes.length > 0) return normalizeDocsArray(allRes);
-      return [];
-    }
+  const [reservations, setReservations] = useState<Reservation[]>([]);
 
-    const local = localStorage.getItem(`${compId}_reservations`);
-    if (local) {
-      try {
-        const parsed = JSON.parse(local);
-        if (parsed && parsed.length > 0) return normalizeDocsArray(parsed);
-      } catch (_) {}
-    }
-
-    return [];
-  });
+  // 예전 예약 로컬 캐시 1회 정리 (Firestore가 단일 소스)
+  useEffect(() => {
+    clearLegacyReservationLocalCaches();
+  }, []);
 
   const getDropdownOptions = () => {
     const options = [
@@ -487,49 +472,7 @@ export default function App() {
     localStorage.setItem('current_company_id', currentCompanyId);
 
     if (!isLoggedIn) {
-      if (isAirpickHeadquarters(currentCompanyId)) {
-        const allRes: Reservation[] = [];
-        const seenIds = new Set<string>();
-        const keys = localStorage.getAllKeys();
-        keys.forEach((key) => {
-          if (key && key.endsWith('_reservations')) {
-            try {
-              const items = JSON.parse(localStorage.getItem(key) || '[]');
-              if (Array.isArray(items)) {
-                items.forEach((item: Reservation) => {
-                  if (item && item.id && !seenIds.has(item.id)) {
-                    seenIds.add(item.id);
-                    allRes.push(item);
-                  }
-                });
-              }
-            } catch (_) {}
-          }
-        });
-        if (allRes.length > 0) {
-          setReservations(normalizeDocsArray(allRes));
-        } else {
-          setReservations([]);
-        }
-      } else {
-        const cached = localStorage.getItem('firestore_reservations_cache');
-        if (cached) {
-          try {
-            setReservations(normalizeDocsArray(JSON.parse(cached)));
-          } catch (_) {
-            setReservations([]);
-          }
-        } else {
-          const local = localStorage.getItem(`${currentCompanyId}_reservations`);
-          if (local) {
-            try {
-              setReservations(normalizeDocsArray(JSON.parse(local)));
-            } catch (_) {
-              setReservations([]);
-            }
-          }
-        }
-      }
+      setReservations([]);
     }
 
   }, [currentCompanyId, companyInfo.id, companyInfo.name, isLoggedIn]);
@@ -678,17 +621,17 @@ export default function App() {
 
   const handleSaveDriverReservationEdit = async (updateData: Partial<Reservation>) => {
     if (!driverDetailRes || !driverDetailRes.id) return;
-    
-    const docRef = doc(db, 'reservations', driverDetailRes.id);
+
+    const resId = driverDetailRes.id;
 
     setReservations(prev => {
-      const updated = prev.map(r => r.id === driverDetailRes.id ? { ...r, ...updateData } : r);
+      const updated = prev.map(r => r.id === resId ? { ...r, ...updateData } : r);
       persistScopedReservations(updated);
       return updated;
     });
 
     try {
-      await updateDoc(docRef, updateData);
+      await patchReservation(resId, updateData);
     } catch (err) {
       console.warn("Local storage updated. Firestore direct update failed/offline:", err);
     }
@@ -942,12 +885,12 @@ export default function App() {
         setCompanies([]);
       }
 
-      // Firestore companies → super_partners_list (password 덮어쓰기 방지)
+      // Firestore companies → super_partners_list (비밀번호는 캐시에 저장하지 않음)
       setPartners((prev) => {
         const storedPartners = readPartnersFromStorage((key) => localStorage.getItem(key));
         const mergedList = mergePartnersFromFirestore(data, prev, storedPartners);
-        localStorage.setItem('super_partners_list', JSON.stringify(mergedList));
-        return mergedList;
+        writePartnersToStorage(mergedList);
+        return sanitizePartnersForStorage(mergedList);
       });
 
     }, (error) => {
@@ -1014,7 +957,6 @@ export default function App() {
       reservationsPrevRef.current = data;
 
       setReservations(data);
-      localStorage.setItem('firestore_reservations_cache', JSON.stringify(data));
       setLoadingReservations(false);
     };
 
@@ -1148,52 +1090,7 @@ export default function App() {
       return;
     } catch (err) {
       const msg = err instanceof Error ? err.message : String(err);
-      // 업체를 못 찾은 경우에만 아래 레거시 fallback 계속
-      if (!msg.includes('없거나') && !msg.includes('not-found') && !msg.includes('일치하는 업체')) {
-        setLoginError(msg);
-        return;
-      }
-    }
-    
-    // Fallbacks
-    const savedMasterEmail = (localStorage.getItem('master_account_email') || 'master@gayoo.com').trim().toLowerCase();
-    const savedMasterPassword = localStorage.getItem('master_account_password') || 'master1234';
-
-    if (inputEmailClean === savedMasterEmail && loginPassword === savedMasterPassword) {
-      setIsSuperAdmin(false);
-      setIsLocalAdmin(true);
-      setIsMasterAdmin(true);
-      setIsAdminModeActive(true);
-      const partnerId = resolveRequiredCompanyId(companyInfo.id, currentCompanyId);
-      if (!partnerId) {
-        setLoginError('업체 정보가 없습니다. Gate에서 다시 로그인해 주세요.');
-        return;
-      }
-      setCurrentCompanyId(partnerId);
-      localStorage.setItem('current_company_id', partnerId);
-      localStorage.setItem('local_is_super_admin', 'false');
-      localStorage.setItem('local_is_admin', 'true');
-      localStorage.setItem('local_is_master_admin', 'true');
-      localStorage.setItem('local_is_admin_mode_active', 'true');
-      setCurrentView('statistics');
-      setShowLoginModal(false);
-      alert(`제휴업체 [${companyInfo.name}]의 마스터 관리자 인증이 성공 통과하여 관리자 모드가 활성화되었습니다!`);
-    } else if (loginPassword === 'admin1234') {
-      setIsSuperAdmin(false);
-      setIsLocalAdmin(true);
-      setIsMasterAdmin(false);
-      setIsAdminModeActive(true);
-      localStorage.setItem('local_is_super_admin', 'false');
-      localStorage.setItem('local_is_admin', 'true');
-      localStorage.setItem('local_is_master_admin', 'false');
-      localStorage.setItem('local_is_admin_mode_active', 'true');
-      if (isLegacyAdminOnlyView(currentView)) {
-        setCurrentView('statistics');
-      }
-      setShowLoginModal(false);
-      alert(`${loginEmail} 님 서명이 성공 통과하여 업체 관리자 모드가 승인되었습니다!`);
-    } else {
-      setLoginError('인증이 기각되었습니다. 아이디와 보안 비밀번호를 재확인 바랍니다.');
+      setLoginError(msg || '인증이 기각되었습니다. 아이디와 보안 비밀번호를 재확인 바랍니다.');
     }
   };
 
@@ -1345,13 +1242,12 @@ export default function App() {
       updatedBy: operatorName,
       updatedAt: new Date().toISOString(),
     };
-    // Optimistically update React state and localStorage instantly
+    // Optimistically update React state (Firestore 구독이 최종 동기화)
     setReservations(prev => {
       const updated = prev.map(r => r.id === resId ? {
         ...r,
         ...patch,
       } : r);
-      persistScopedReservations(updated);
       return updated;
     });
 
@@ -1865,7 +1761,7 @@ export default function App() {
                     partners={partners}
                     onUpdatePartners={(updatedPartners) => {
                       setPartners(updatedPartners);
-                      localStorage.setItem('super_partners_list', JSON.stringify(updatedPartners));
+                      writePartnersToStorage(updatedPartners);
                     }}
                     isSuperAdmin={isSuperAdmin}
                     isEmployee={isEmployee}
@@ -1881,6 +1777,9 @@ export default function App() {
                             ? matched.cancelCutoffHours
                             : 3,
                         sameDayBookingBlocked: matched?.sameDayBookingBlocked !== false,
+                        hourlyCapEnabled: matched?.hourlyCapEnabled === true,
+                        maxCarsPerHour:
+                          typeof matched?.maxCarsPerHour === 'number' ? matched.maxCarsPerHour : 0,
                       });
                     }}
                   />
@@ -2024,9 +1923,10 @@ export default function App() {
                   onClose={() => setShowAdminModal(false)} 
                   companies={companies} 
                   partners={partners}
+                  reservations={reservations}
                   onUpdatePartners={(updatedPartners) => {
                     setPartners(updatedPartners);
-                    localStorage.setItem('super_partners_list', JSON.stringify(updatedPartners));
+                    writePartnersToStorage(updatedPartners);
                   }}
                   onUpdateCompanies={(updatedCompanies) => {
                     setCompanies(updatedCompanies);

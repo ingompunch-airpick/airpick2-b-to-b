@@ -25,7 +25,6 @@ import {
 import TerminalPicker from './TerminalPicker';
 import { getKSTDateTimeLocalString } from '../utils/kstDate';
 import { formatPartnerDisplayName, resolveRequiredCompanyId } from '../utils/companyDisplay';
-import { persistReservationStores } from '../utils/reservationScope';
 import { getOperatorIntakeCompanyOptions } from '../utils/operatorHierarchy';
 
 function cn(...classes: (string | boolean | undefined)[]) {
@@ -409,28 +408,14 @@ export default function SearchReceptionView({
     try {
       await persistReservation(id, bookingPayload);
       onUpdateReservations((prev) => {
-        const updated = [{ id, ...bookingPayload }, ...prev.filter((r) => r.id !== id)];
-        persistReservationStores(window.localStorage, updated, currentCompanyId, {
-          cacheFirestore: true,
-          operatorCompanyIds,
-        });
-        return updated;
+        return [{ id, ...bookingPayload }, ...prev.filter((r) => r.id !== id)];
       });
       alert(`차량 번호 ${bookingPayload.carNumber} 현장 접수가 완료됐습니다.\n\n(Firestore에 저장됨 · ID: ${id})`);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
-      onUpdateReservations(prev => {
-        const updated = [{ id, ...bookingPayload }, ...prev];
-        persistReservationStores(window.localStorage, updated, currentCompanyId, {
-          cacheFirestore: true,
-          operatorCompanyIds,
-        });
-        return updated;
-      });
       alert(
-        `차량 번호 ${bookingPayload.carNumber} 접수가 이 폰에만 저장됐습니다.\n\n` +
-          `Firestore 저장 실패 — Console에 문서가 없을 수 있습니다.\n` +
-          `인터넷·로그인(익명 인증)을 확인한 뒤 다시 접수해 주세요.\n\n` +
+        `차량 번호 ${bookingPayload.carNumber} 접수가 저장되지 않았습니다.\n\n` +
+          `인터넷·로그인 상태를 확인한 뒤 다시 접수해 주세요.\n\n` +
           `오류: ${msg}`
       );
     } finally {
@@ -502,30 +487,28 @@ export default function SearchReceptionView({
       startDate: depFullStr.replace('T', ' '),
       endDate: arrFullStr.replace('T', ' '),
       totalPrice: computedPrice,
-      departureAirline: editSearchedDepartureAirline.trim() || undefined,
-      departureFlight: editSearchedDepartureFlight.trim() || undefined,
-      arrivalAirline: editSearchedArrivalAirline.trim() || undefined,
-      arrivalFlight: editSearchedArrivalFlight.trim() || undefined,
-      destination: editSearchedDestination.trim() || undefined,
-      customerNotes: editSearchedCustomerNotes.trim() || undefined,
-      userRequest: editSearchedCustomerNotes.trim() || undefined,
+      departureAirline: editSearchedDepartureAirline.trim(),
+      departureFlight: editSearchedDepartureFlight.trim(),
+      arrivalAirline: editSearchedArrivalAirline.trim(),
+      arrivalFlight: editSearchedArrivalFlight.trim(),
+      destination: editSearchedDestination.trim(),
+      customerNotes: editSearchedCustomerNotes.trim(),
+      userRequest: editSearchedCustomerNotes.trim(),
       updatedAt: new Date().toISOString(),
       updatedBy: isEmployee ? employeeName : (isSuperAdmin ? '본사 마스터(최고관리자)' : '업체 마스터'),
     };
     if (!isExternalCustomerBooking(editingSearchedRes)) {
-      updatePayload.reservationPassword = editSearchedReservationPassword.trim() || undefined;
+      updatePayload.reservationPassword = editSearchedReservationPassword.trim();
     }
 
     try {
       await patchReservation(editingSearchedRes.id || '', updatePayload);
+      onUpdateReservations((prev) =>
+        prev.map((r) => (r.id === editingSearchedRes.id ? { ...r, ...updatePayload } : r))
+      );
       alert('예약 정보가 수정됐습니다.');
     } catch (_) {
-      onUpdateReservations(prev => {
-        const updated = prev.map(r => r.id === editingSearchedRes.id ? { ...r, ...updatePayload } : r);
-        persistReservationStores(window.localStorage, updated, activeCompId, { cacheFirestore: true });
-        return updated;
-      });
-      alert('수정 내용이 이 폰에 저장됐습니다.\n\n인터넷 연결 후 다시 저장해 주세요.');
+      alert('수정 저장에 실패했습니다.\n\n인터넷 연결 후 다시 저장해 주세요.');
     } finally {
       setEditingSearchedRes(null);
     }

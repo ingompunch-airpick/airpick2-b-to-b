@@ -21,33 +21,6 @@ export interface VerifyPartnerLoginResult {
   employeeRole?: 'admin' | 'driver';
 }
 
-const PARTNER_SESSION_KEY = 'b2b_partner_gate_session';
-
-export function rememberPartnerGateSession(companyId: string, masterPassword: string): void {
-  try {
-    sessionStorage.setItem(
-      PARTNER_SESSION_KEY,
-      JSON.stringify({ companyId, masterPassword, at: Date.now() })
-    );
-  } catch {
-    /* ignore */
-  }
-}
-
-export function readPartnerGateMasterPassword(companyId: string): string {
-  try {
-    const raw = sessionStorage.getItem(PARTNER_SESSION_KEY);
-    if (!raw) return '';
-    const parsed = JSON.parse(raw) as { companyId?: string; masterPassword?: string };
-    if (parsed.companyId === companyId && typeof parsed.masterPassword === 'string') {
-      return parsed.masterPassword;
-    }
-  } catch {
-    /* ignore */
-  }
-  return '';
-}
-
 function callableErrorMessage(err: unknown): string {
   if (err && typeof err === 'object') {
     const e = err as { message?: string };
@@ -85,23 +58,21 @@ export async function verifyPartnerLogin(input: {
         console.warn('signInWithCustomToken failed (login still ok):', tokenErr);
       }
     }
-    if (data.kind === 'master') {
-      rememberPartnerGateSession(data.companyId, input.password);
-    }
     return data;
   } catch (err) {
     throw new Error(callableErrorMessage(err));
   }
 }
 
-/** 직원 목록 저장 (비밀번호 → secrets) */
+/**
+ * 직원 목록 저장 (비밀번호 → secrets).
+ * 권한은 Gate 로그인 시 발급된 Auth 토큰 기준 — 마스터 비번을 브라우저에 저장하지 않음.
+ */
 export async function upsertCompanyEmployees(input: {
   companyId: string;
   employees: Employee[];
   masterPassword?: string;
 }): Promise<{ ok: true; companyId: string; count: number }> {
-  const masterPassword =
-    input.masterPassword?.trim() || readPartnerGateMasterPassword(input.companyId);
   const call = httpsCallable<
     { companyId: string; employees: Employee[]; masterPassword?: string },
     { ok: true; companyId: string; count: number }
@@ -109,7 +80,7 @@ export async function upsertCompanyEmployees(input: {
   try {
     const result = await call({
       companyId: input.companyId,
-      masterPassword: masterPassword || undefined,
+      masterPassword: input.masterPassword?.trim() || undefined,
       employees: input.employees.map((e) => ({
         id: e.id,
         name: e.name,

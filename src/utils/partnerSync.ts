@@ -1,8 +1,33 @@
-import type { Company, PartnerCompany } from '../types';
+import type { Company, Employee, PartnerCompany } from '../types';
 import { isAirpickHeadquarters } from '../constants/platform';
 import { isSubOperatorCompany } from './operatorHierarchy';
 
+export const PARTNERS_STORAGE_KEY = 'super_partners_list';
+
 const LEGACY_DEFAULT_PASSWORD = '1234';
+
+/** 브라우저 캐시에 비밀번호를 남기지 않음 (로그인·직원 비번은 secrets/Callable) */
+export function sanitizePartnersForStorage(partners: PartnerCompany[]): PartnerCompany[] {
+  return partners.map((p) => ({
+    ...p,
+    password: '',
+    employees: (p.employees || []).map(
+      (e): Employee => ({
+        id: e.id,
+        name: e.name,
+        loginId: e.loginId,
+        role: e.role || 'driver',
+      })
+    ),
+  }));
+}
+
+export function writePartnersToStorage(
+  partners: PartnerCompany[],
+  setItem: (key: string, value: string) => void = (k, v) => localStorage.setItem(k, v)
+): void {
+  setItem(PARTNERS_STORAGE_KEY, JSON.stringify(sanitizePartnersForStorage(partners)));
+}
 
 function normalizePassword(value?: unknown): string {
   if (value == null) return '';
@@ -47,7 +72,7 @@ export function companyDocToPartner(company: Company): PartnerCompany {
     representative: company.representative || '',
     phone: company.phone || '',
     settlementMemo: raw.settlementMemo || '지급 기본 정산 기준 보류',
-    status: raw.status || 'active',
+    status: raw.status === 'suspended' ? 'suspended' : 'active',
     employees: raw.employees || [],
   };
 }

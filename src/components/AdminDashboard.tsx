@@ -28,6 +28,7 @@ import {
   writeSubOperatorToFirestore,
 } from '../utils/partnerRegistration';
 import { resolveCompanyAirportId } from '../utils/airport';
+import { writePartnersToStorage } from '../utils/partnerSync';
 import {
   getPrimaryOperatorCandidates,
   isSubOperatorCompany,
@@ -106,13 +107,16 @@ export default function AdminDashboard({
   companies, 
   partners,
   onUpdatePartners,
-  onUpdateCompanies
+  onUpdateCompanies,
+  reservations = [],
 }: { 
   onClose: () => void; 
   companies: Company[]; 
   partners: PartnerCompany[];
   onUpdatePartners: (updated: PartnerCompany[]) => void;
   onUpdateCompanies: (updated: Company[]) => void;
+  /** Firestore 예약 — 업체별 통계용 (로컬 캐시 대체) */
+  reservations?: Reservation[];
 }) {
   const [activeTab, setActiveTab] = useState<'create' | 'partners'>('create');
   const [registerKind, setRegisterKind] = useState<'primary' | 'sub'>('primary');
@@ -309,7 +313,7 @@ export default function AdminDashboard({
         return p;
       });
       onUpdatePartners(updatedPartners);
-      safeStorage.setItem('super_partners_list', JSON.stringify(updatedPartners));
+      writePartnersToStorage(updatedPartners, (k, v) => safeStorage.setItem(k, v));
 
       const updatedCompanies = companies.map((c) => {
         if (c.id === targetId) {
@@ -362,24 +366,15 @@ export default function AdminDashboard({
     }
   };
 
-  // Stats calculation for each partner company
+  // Stats calculation for each partner company (Firestore reservations)
   const computeStats = (compId: string) => {
     if (!compId) return { todayCompleted: 0, monthlyCompleted: 0, monthlyRevenue: 0 };
-    const localKey = `${compId}_reservations`;
-    const local = safeStorage.getItem(localKey);
-    let list: Reservation[] = [];
-    if (local) {
-      try { 
-        const parsed = JSON.parse(local);
-        if (Array.isArray(parsed)) {
-          list = parsed;
-        }
-      } catch (_) {}
-    }
-    
-    if (!Array.isArray(list)) {
-      list = [];
-    }
+    const ids = resolveOperatorCompanyIds(compId, companies);
+    const idSet = new Set(ids.map((id) => id.toLowerCase()));
+    const list = reservations.filter((r) => {
+      const cid = (r.companyId || '').trim().toLowerCase();
+      return cid && idSet.has(cid);
+    });
     
     const todayStr = getKSTDateOnlyString();
     const thisMonthStr = getKSTMonthOnlyString();
@@ -424,7 +419,7 @@ export default function AdminDashboard({
       return p;
     });
     onUpdatePartners(updated);
-    safeStorage.setItem('super_partners_list', JSON.stringify(updated));
+    writePartnersToStorage(updated, (k, v) => safeStorage.setItem(k, v));
 
     void adminSetCompanyStatus({ companyId: id, status: nextStatus }).catch((err) => {
       console.warn('adminSetCompanyStatus failed:', err);
@@ -524,7 +519,7 @@ export default function AdminDashboard({
 
     const nextList = appendPartnerToList(partners, newPartner);
     onUpdatePartners(nextList);
-    safeStorage.setItem('super_partners_list', JSON.stringify(nextList));
+    writePartnersToStorage(nextList, (k, v) => safeStorage.setItem(k, v));
 
     const nextCompanies = mergeCompanyIntoList(companies || [], newCompany);
     onUpdateCompanies(nextCompanies);
@@ -629,7 +624,7 @@ export default function AdminDashboard({
       // 1. Delete from partners list
       const nextPartners = partners.filter(p => p.companyId !== companyId);
       onUpdatePartners(nextPartners);
-      safeStorage.setItem('super_partners_list', JSON.stringify(nextPartners));
+      writePartnersToStorage(nextPartners, (k, v) => safeStorage.setItem(k, v));
 
       // 2. Delete from companies list
       const nextCompanies = companies.filter(c => c.id !== companyId);

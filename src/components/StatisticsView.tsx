@@ -273,33 +273,13 @@ export default function StatisticsView({
     const localMergedRes: Reservation[] = [];
     const seenIds = new Set<string>();
     
-    // Grab all reservations from the passed allReservations prop (which is Firestore reservations in App)
+    // Grab all reservations from the passed allReservations prop (Firestore)
     (allReservations || []).forEach(r => {
       if (r && r.id) {
         seenIds.add(r.id);
         localMergedRes.push(r);
       }
     });
-
-    // Also parse and merge from company-isolated local storages to ensure 100% correct, bulletproof summation of offline/local partner entries
-    try {
-      const keys = Object.keys(localStorage);
-      keys.forEach((key) => {
-        if (key && key.endsWith('_reservations')) {
-          try {
-            const items = JSON.parse(localStorage.getItem(key) || '[]');
-            if (Array.isArray(items)) {
-              items.forEach((r: Reservation) => {
-                if (r && r.id && !seenIds.has(r.id)) {
-                  seenIds.add(r.id);
-                  localMergedRes.push(r);
-                }
-              });
-            }
-          } catch (_) {}
-        }
-      });
-    } catch (_) {}
 
     const masterActiveRes = localMergedRes.filter(r => r.status !== 'cancelled');
 

@@ -16,6 +16,7 @@ import PartnerParkingProfileReadonly from './PartnerParkingProfileReadonly';
 import { isAirpickHeadquarters } from '../constants/platform';
 import { ensureFirestoreAuth } from '../lib/firebaseAuth';
 import { upsertCompanyEmployees } from '../lib/partnerLoginApi';
+import { writePartnersToStorage } from '../utils/partnerSync';
 import { inferFacilityType } from '../utils/companyProfile';
 import {
   airportShortName,
@@ -333,7 +334,7 @@ export default function MasterSettingsView({
     if (!found) {
       updatedPartners.push({
         companyId: companyInfo.id,
-        password: partnerPassword || '',
+        password: '',
         name: companyInfo.name,
         representative: '제휴 사장님',
         phone: partnerPhone || companyInfo.phone || '1545-5746',
@@ -346,7 +347,7 @@ export default function MasterSettingsView({
     if (onUpdatePartners) {
       onUpdatePartners(updatedPartners);
     }
-    localStorage.setItem('super_partners_list', JSON.stringify(updatedPartners));
+    writePartnersToStorage(updatedPartners);
 
     setEmpName('');
     setEmpLoginId('');
@@ -384,7 +385,7 @@ export default function MasterSettingsView({
     if (onUpdatePartners) {
       onUpdatePartners(updatedPartners);
     }
-    localStorage.setItem('super_partners_list', JSON.stringify(updatedPartners));
+    writePartnersToStorage(updatedPartners);
     alert(`[${empName}] 기사가 안전하게 해임(삭제)되었습니다.`);
   };
 
@@ -498,9 +499,6 @@ export default function MasterSettingsView({
         valetFeeT2: valetT2On ? Math.trunc(valetFeeT2) : deleteField(),
       };
 
-      const cleanPassword =
-        (typeof partnerPassword === 'string' ? partnerPassword.trim() : '') ||
-        'master1234';
       const cleanPhone = String(
         partnerPhone || companyInfo.phone || '1544-5746'
       ).trim();
@@ -511,7 +509,8 @@ export default function MasterSettingsView({
           found = true;
           return {
             ...p,
-            password: isEmployee ? (p.password || 'master1234') : (partnerPassword ? cleanPassword : p.password),
+            // 비밀번호는 secrets/Callable로만 관리 — 로컬 캐시에 저장하지 않음
+            password: '',
             phone: cleanPhone
           };
         }
@@ -520,7 +519,7 @@ export default function MasterSettingsView({
       if (!found) {
         updatedPartners.push({
           companyId: companyInfo.id,
-          password: isEmployee ? 'master1234' : (cleanPassword || 'master1234'),
+          password: '',
           name: companyInfo.name,
           representative: '제휴 사장님',
           phone: cleanPhone,
@@ -532,7 +531,7 @@ export default function MasterSettingsView({
       if (onUpdatePartners) {
         onUpdatePartners(updatedPartners);
       }
-      localStorage.setItem('super_partners_list', JSON.stringify(updatedPartners));
+      writePartnersToStorage(updatedPartners);
 
       const savedCompaniesStr = localStorage.getItem('companies');
       let dbCompanies: Company[] = [];
@@ -646,9 +645,10 @@ export default function MasterSettingsView({
           onClose={() => onBack?.()}
           companies={companies || []}
           partners={partners || []}
+          reservations={reservations}
           onUpdatePartners={(updated) => {
             onUpdatePartners?.(updated);
-            localStorage.setItem('super_partners_list', JSON.stringify(updated));
+            writePartnersToStorage(updated);
           }}
           onUpdateCompanies={(updated) => {
             onUpdateCompanies?.(updated);

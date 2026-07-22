@@ -165,16 +165,14 @@ export type StorageAdapter = {
   removeItem?: (key: string) => void;
 };
 
-export function initPartnerLocalPartitions(companyId: string, storage: StorageAdapter): void {
-  const reservationsKey = `${companyId}_reservations`;
-  if (!storage.getItem(reservationsKey)) {
-    storage.setItem(reservationsKey, JSON.stringify([]));
-  }
+export function initPartnerLocalPartitions(_companyId: string, _storage: StorageAdapter): void {
+  // 예약 로컬 파티션은 더 이상 사용하지 않음 (Firestore 단일 소스)
 }
 
 export function removePartnerLocalPartitions(companyId: string, storage: StorageAdapter): void {
   storage.removeItem?.(`${companyId}_reservations`);
   storage.removeItem?.(`${companyId}_drivers`);
+  storage.removeItem?.('firestore_reservations_cache');
 }
 
 export function mergeCompanyIntoList(companies: Company[], company: Company): Company[] {

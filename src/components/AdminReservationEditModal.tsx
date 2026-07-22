@@ -8,7 +8,6 @@ import {
 } from 'lucide-react';
 import { db } from '../firebase';
 import { doc, updateDoc } from 'firebase/firestore';
-import { persistReservationStores } from '../utils/reservationScope';
 import { Reservation } from '../types';
 
 function cn(...classes: (string | boolean | undefined)[]) {
@@ -102,14 +101,14 @@ export default function AdminReservationEditModal({
     try {
       const docRef = doc(db, 'reservations', targetReservationForEdit.id || '');
       await updateDoc(docRef, updatePayload);
+      onUpdateReservations((prev) =>
+        prev.map((r) =>
+          r.id === targetReservationForEdit.id ? { ...r, ...updatePayload } : r
+        )
+      );
       alert("관리자 권한의 정밀 수납 예약 데이터 수동 제어가 완료되었습니다.");
     } catch (_) {
-      onUpdateReservations(prev => {
-        const updated = prev.map(r => r.id === targetReservationForEdit.id ? { ...r, ...updatePayload } : r);
-        persistReservationStores(window.localStorage, updated, currentCompanyId, { cacheFirestore: true });
-        return updated;
-      });
-      alert("강제 오프라인 임시 저장으로 예약 데이터가 갱신되었습니다.");
+      alert("저장에 실패했습니다. 인터넷 연결 후 다시 시도해 주세요.");
     } finally {
       onClose();
     }
