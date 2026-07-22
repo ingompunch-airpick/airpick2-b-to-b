@@ -6,10 +6,14 @@ import {
   paymentChoiceToMethod,
   reservationToPaymentChoice,
 } from '../utils/paymentStatus';
-import { uploadReservationImages } from '../lib/reservationPhotos';
+import {
+  mergeReservationImageUrls,
+  uploadReservationImages,
+} from '../lib/reservationPhotos';
 import { ensureFirestoreAuth } from '../lib/reservationFirestore';
 import { resolveRequiredCompanyId } from '../utils/companyDisplay';
 import { readImageFilesAsDataUrls, safePersistPhotoDraft } from '../utils/imageFile';
+import { buildScratchPhotoSet } from '../lib/scratchPhotos';
 import InlineVehicleCamera from './InlineVehicleCamera';
 
 // Standalone class-combiner utility for safe use within components
@@ -36,12 +40,19 @@ export default function ScratchModal({
   handleUpdateValetStatus,
   getKSTDateTimeString,
 }: ScratchModalProps) {
+  /** 입고 사진 최소 장수 — 0장 입고는 사고 대응 불가 */
+  const MIN_CHECKIN_PHOTOS = 1;
+  /** 이보다 적으면 입고 전 확인 (전·후·좌·우 등) */
+  const RECOMMENDED_CHECKIN_PHOTOS = 4;
+
   const [uploadedPhotos, setUploadedPhotos] = useState<string[]>([]);
   const [paymentChoice, setPaymentChoice] = useState<'unpaid' | 'paid'>('unpaid');
   const [isUploading, setIsUploading] = useState(false);
   const [inlineCameraOpen, setInlineCameraOpen] = useState(false);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
+  /** 모달 세션 중 한 번이라도 쌓인 최대 장수 — 스냅샷/초안이 줄어든 값으로 덮어쓰지 않게 */
+  const sessionMaxPhotoCountRef = useRef(0);
 
   const addImageFiles = async (files: FileList | null) => {
     if (!files?.length) return;
@@ -73,34 +84,75 @@ export default function ScratchModal({
     });
   }, [scratchModalTargetId]);
 
-  // Synchronize when the target reservation changes
+  // 모달을 연 직후(대상 ID 변경 시)에만 초안/기존 사진을 불러옴.
+  // targetReservationForScratch 객체는 onSnapshot마다 바뀌므로 deps에 넣으면
+  // 촬영 중 localStorage 옛 초안(1장)으로 메모리上的 여러 장이 덮어씌워질 수 있음.
   useEffect(() => {
-    if (scratchModalTargetId && targetReservationForScratch) {
-      setPaymentChoice(reservationToPaymentChoice(targetReservationForScratch));
-      const tempKey = `reservation_temp_photos_${scratchModalTargetId}`;
-      const savedTemp = localStorage.getItem(tempKey);
-      if (savedTemp) {
-        try {
-          const parsed = JSON.parse(savedTemp);
-          if (Array.isArray(parsed)) {
-            setUploadedPhotos(parsed);
-            return;
-          }
-        } catch (_) {}
-      }
-      setUploadedPhotos(targetReservationForScratch.images || []);
-    } else {
+    if (!scratchModalTargetId) {
       setUploadedPhotos([]);
       setInlineCameraOpen(false);
+      sessionMaxPhotoCountRef.current = 0;
+      return;
     }
+
+    sessionMaxPhotoCountRef.current = 0;
+
+    if (targetReservationForScratch) {
+      setPaymentChoice(reservationToPaymentChoice(targetReservationForScratch));
+    }
+
+    const serverImages = targetReservationForScratch?.images || [];
+    let draftImages: string[] = [];
+    const tempKey = `reservation_temp_photos_${scratchModalTargetId}`;
+    const savedTemp = localStorage.getItem(tempKey);
+    if (savedTemp) {
+      try {
+        const parsed = JSON.parse(savedTemp);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          draftImages = parsed;
+        }
+      } catch {
+        /* ignore */
+      }
+    }
+
+    // 짧은 초안(용량 초과로 1장만 남은 경우)이 서버/긴 목록을 덮지 않게 장수가 많은 쪽을 사용
+    const initial =
+      draftImages.length >= serverImages.length ? draftImages : serverImages;
+    sessionMaxPhotoCountRef.current = initial.length;
+    setUploadedPhotos(initial);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- 모달 오픈(ID) 시에만 초기화
+  }, [scratchModalTargetId]);
+
+  // 결제 선택만 예약 스냅샷과 동기화 (사진 배열은 건드리지 않음)
+  useEffect(() => {
+    if (!scratchModalTargetId || !targetReservationForScratch) return;
+    setPaymentChoice(reservationToPaymentChoice(targetReservationForScratch));
   }, [scratchModalTargetId, targetReservationForScratch]);
+
+  // 다른 폰에서 이미 올린 사진이 서버에 더 많으면 화면 목록을 그쪽으로 맞춤 (절대 줄이지 않음)
+  const serverImageCount = targetReservationForScratch?.images?.length ?? 0;
+  useEffect(() => {
+    if (!scratchModalTargetId || !targetReservationForScratch) return;
+    const serverImages = targetReservationForScratch.images || [];
+    setUploadedPhotos((prev) => {
+      if (serverImages.length <= prev.length) return prev;
+      sessionMaxPhotoCountRef.current = Math.max(
+        sessionMaxPhotoCountRef.current,
+        serverImages.length
+      );
+      return serverImages;
+    });
+  }, [scratchModalTargetId, serverImageCount, targetReservationForScratch]);
 
   // Live save to localStorage whenever uploadedPhotos changes
   useEffect(() => {
-    if (scratchModalTargetId) {
-      const tempKey = `reservation_temp_photos_${scratchModalTargetId}`;
-      safePersistPhotoDraft(tempKey, uploadedPhotos);
+    if (!scratchModalTargetId) return;
+    if (uploadedPhotos.length > sessionMaxPhotoCountRef.current) {
+      sessionMaxPhotoCountRef.current = uploadedPhotos.length;
     }
+    const tempKey = `reservation_temp_photos_${scratchModalTargetId}`;
+    safePersistPhotoDraft(tempKey, uploadedPhotos);
   }, [uploadedPhotos, scratchModalTargetId]);
 
   // Remove a photo from list
@@ -275,7 +327,26 @@ export default function ScratchModal({
             </div>
 
             {/* Footer */}
-            <div className="p-4 border-t border-neutral-850 flex gap-2.5 bg-neutral-900/60">
+            <div className="p-4 border-t border-neutral-850 space-y-2.5 bg-neutral-900/60">
+              <p
+                className={cn(
+                  'text-center text-[11px] font-bold',
+                  uploadedPhotos.length === 0
+                    ? 'text-rose-400'
+                    : uploadedPhotos.length < RECOMMENDED_CHECKIN_PHOTOS
+                      ? 'text-amber-400'
+                      : 'text-emerald-400'
+                )}
+              >
+                {uploadedPhotos.length === 0
+                  ? '사진 없음 — 촬영 후 입고하세요'
+                  : `촬영 ${uploadedPhotos.length}장${
+                      uploadedPhotos.length < RECOMMENDED_CHECKIN_PHOTOS
+                        ? ` · ${RECOMMENDED_CHECKIN_PHOTOS}장 이상 권장`
+                        : ''
+                    }`}
+              </p>
+              <div className="flex gap-2.5">
               <button 
                 type="button"
                 disabled={isUploading}
@@ -292,34 +363,57 @@ export default function ScratchModal({
                 disabled={isUploading}
                 onClick={async () => {
                   if (!scratchModalTargetId) return;
+
+                  if (uploadedPhotos.length < MIN_CHECKIN_PHOTOS) {
+                    alert(
+                      '차량 사진이 없습니다.\n사고·클레임 대비를 위해 사진을 찍은 뒤 입고해 주세요.'
+                    );
+                    return;
+                  }
+
+                  if (uploadedPhotos.length < RECOMMENDED_CHECKIN_PHOTOS) {
+                    const ok = window.confirm(
+                      `지금 ${uploadedPhotos.length}장만 있습니다.\n` +
+                        `보통 전·후·좌·우 등 ${RECOMMENDED_CHECKIN_PHOTOS}장 이상 촬영합니다.\n\n` +
+                        `이대로 입고할까요? (취소하면 사진을 더 추가할 수 있습니다)`
+                    );
+                    if (!ok) return;
+                  }
+
                   const isIndoorVal = targetReservationForScratch.isIndoor !== false;
                   setIsUploading(true);
                   try {
-                    let imageUrls: string[] = [];
-                    if (uploadedPhotos.length > 0) {
-                      const companyId = resolveRequiredCompanyId(
-                        targetReservationForScratch.companyId
-                      );
-                      if (!companyId) {
-                        alert('예약에 업체 정보가 없어 사진을 업로드할 수 없습니다.');
-                        return;
-                      }
-                      imageUrls = await uploadReservationImages(
-                        scratchModalTargetId,
-                        companyId,
-                        uploadedPhotos
+                    const companyId = resolveRequiredCompanyId(
+                      targetReservationForScratch.companyId
+                    );
+                    if (!companyId) {
+                      alert('예약에 업체 정보가 없어 사진을 업로드할 수 없습니다.');
+                      return;
+                    }
+                    const imageUrls = await uploadReservationImages(
+                      scratchModalTargetId,
+                      companyId,
+                      uploadedPhotos
+                    );
+
+                    if (imageUrls.length < uploadedPhotos.length) {
+                      throw new Error(
+                        `올린 사진 ${uploadedPhotos.length}장 중 ${imageUrls.length}장만 저장됐습니다. 다시 시도해 주세요.`
                       );
                     }
+
+                    // 다른 기기에서 이미 저장된 사진을 짧은 목록으로 덮어쓰지 않음
+                    const finalImages = mergeReservationImageUrls(
+                      targetReservationForScratch.images,
+                      imageUrls
+                    );
 
                     await handleUpdateValetStatus(scratchModalTargetId, 'completed_in', {
                       parkingSpace: isIndoorVal ? '실내 주차장' : '실외 주차장',
                       isIndoor: isIndoorVal,
                       actualParkingTime: getKSTDateTimeString(),
-                      images: imageUrls,
-                      scratchPhotos: {
-                        synced: true,
-                        updatedAt: new Date().toISOString(),
-                      },
+                      images: finalImages,
+                      scratchPhotos: buildScratchPhotoSet(finalImages, true),
                       paymentMethod: paymentChoiceToMethod(paymentChoice),
                     });
 
@@ -350,6 +444,7 @@ export default function ScratchModal({
                   </>
                 )}
               </button>
+              </div>
             </div>
           </motion.div>
         </div>

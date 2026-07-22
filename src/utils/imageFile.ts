@@ -120,5 +120,11 @@ export function safePersistPhotoDraft(key: string, photos: string[]): void {
   } catch {
     // Android WebView localStorage 용량 초과 — 화면 상태는 유지, 업로드는 가능
     console.warn('Photo draft not saved to localStorage (quota)');
+    // 예전에 저장된 1장짜리 초안이 남아 촬영 중 덮어쓰기에 쓰이지 않게 제거
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      /* ignore */
+    }
   }
 }

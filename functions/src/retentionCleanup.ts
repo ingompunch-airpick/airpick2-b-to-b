@@ -3,46 +3,19 @@ import {
   RESERVATION_DATA_RETENTION_DAYS,
   addDaysToIso,
   resolvePurgeSchedule,
-  safeStorageCompanyId,
 } from './retention';
 
 const BATCH_LIMIT = 200;
 
+/**
+ * 차량 사진 Storage는 절대 삭제하지 않는다.
+ * (운영 지시: 사진 저장소는 무슨 일이 있어도 건드리지 않음)
+ */
 function db() {
   return admin.firestore();
 }
 
-function bucket() {
-  return admin.storage().bucket();
-}
-
-async function deleteReservationStorage(companyId: unknown, reservationId: string): Promise<void> {
-  const prefix = `reservations/${safeStorageCompanyId(companyId)}/${reservationId}/`;
-  try {
-    await bucket().deleteFiles({ prefix });
-  } catch (err) {
-    console.warn(`[retention] storage delete failed prefix=${prefix}`, err);
-  }
-}
-
-async function purgeStorageRetentionQueue(nowIso: string): Promise<number> {
-  const snap = await db()
-    .collection('storage_retention')
-    .where('storagePurgeAt', '<=', nowIso)
-    .limit(BATCH_LIMIT)
-    .get();
-
-  let count = 0;
-  for (const docSnap of snap.docs) {
-    const data = docSnap.data();
-    await deleteReservationStorage(data.companyId, docSnap.id);
-    await docSnap.ref.delete();
-    count += 1;
-  }
-  return count;
-}
-
-async function purgeReservationsPastStorage(nowIso: string): Promise<number> {
+async function clearDueStoragePurgeMarkers(nowIso: string): Promise<number> {
   const snap = await db()
     .collection('reservations')
     .where('storagePurgeAt', '<=', nowIso)
@@ -52,24 +25,32 @@ async function purgeReservationsPastStorage(nowIso: string): Promise<number> {
   let count = 0;
   for (const docSnap of snap.docs) {
     const data = docSnap.data();
-    await deleteReservationStorage(data.companyId, docSnap.id);
-
     const schedule = resolvePurgeSchedule(data);
     const extendedPurgeAt = schedule
       ? freshDataPurgeAt(schedule.completedOutAt)
       : null;
-    // 사진은 만료됐지만 예약 문서는 현재 정책상 아직 보관이면 파일만 지움
+
+    // 사진 파일·images 필드는 유지. 만료 마커만 정리.
     if (extendedPurgeAt && extendedPurgeAt > nowIso) {
       await docSnap.ref.update({
-        images: [],
-        storagePurgedAt: nowIso,
         storagePurgeAt: admin.firestore.FieldValue.delete(),
         dataPurgeAt: extendedPurgeAt,
       });
-      count += 1;
-      continue;
+    } else {
+      await docSnap.ref.update({
+        storagePurgeAt: admin.firestore.FieldValue.delete(),
+      });
     }
+    count += 1;
+  }
+  return count;
+}
 
+/** storage_retention 큐도 파일 삭제 없이 문서만 비움 */
+async function drainStorageRetentionQueue(): Promise<number> {
+  const snap = await db().collection('storage_retention').limit(BATCH_LIMIT).get();
+  let count = 0;
+  for (const docSnap of snap.docs) {
     await docSnap.ref.delete();
     count += 1;
   }
@@ -96,6 +77,7 @@ async function purgeReservationsPastData(nowIso: string): Promise<number> {
     const data = docSnap.data();
     const schedule = resolvePurgeSchedule(data);
     if (!schedule) {
+      // 예약 문서만 삭제. Storage 사진은 절대 삭제하지 않음.
       await docSnap.ref.delete();
       count += 1;
       continue;
@@ -107,21 +89,7 @@ async function purgeReservationsPastData(nowIso: string): Promise<number> {
       continue;
     }
 
-    if (schedule.storagePurgeAt <= nowIso) {
-      await deleteReservationStorage(data.companyId, docSnap.id);
-      await docSnap.ref.delete();
-      count += 1;
-      continue;
-    }
-
-    await db()
-      .collection('storage_retention')
-      .doc(docSnap.id)
-      .set({
-        companyId: data.companyId || 'unknown',
-        storagePurgeAt: schedule.storagePurgeAt,
-        completedOutAt: schedule.completedOutAt,
-      });
+    // 예전엔 여기서 Storage도 지웠음 — 금지. Firestore 예약 문서만 제거.
     await docSnap.ref.delete();
     count += 1;
   }
@@ -145,21 +113,7 @@ async function purgeLegacyCompletedOut(nowIso: string): Promise<number> {
     if (!schedule) continue;
     if (schedule.dataPurgeAt > nowIso) continue;
 
-    if (schedule.storagePurgeAt <= nowIso) {
-      await deleteReservationStorage(data.companyId, docSnap.id);
-      await docSnap.ref.delete();
-      count += 1;
-      continue;
-    }
-
-    await db()
-      .collection('storage_retention')
-      .doc(docSnap.id)
-      .set({
-        companyId: data.companyId || 'unknown',
-        storagePurgeAt: schedule.storagePurgeAt,
-        completedOutAt: schedule.completedOutAt,
-      });
+    // Storage 삭제 금지. 예약 문서만 제거.
     await docSnap.ref.delete();
     count += 1;
   }
@@ -174,8 +128,8 @@ export async function runRetentionCleanup(): Promise<{
 }> {
   const nowIso = new Date().toISOString();
 
-  const storageQueue = await purgeStorageRetentionQueue(nowIso);
-  const storageDue = await purgeReservationsPastStorage(nowIso);
+  const storageQueue = await drainStorageRetentionQueue();
+  const storageDue = await clearDueStoragePurgeMarkers(nowIso);
   const dataDue = await purgeReservationsPastData(nowIso);
   const legacy = await purgeLegacyCompletedOut(nowIso);
 

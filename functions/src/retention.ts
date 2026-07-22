@@ -2,6 +2,7 @@
 export const RESERVATION_DATA_RETENTION_DAYS = 90;
 
 /** 출차 후 Storage 차량 사진 보관 일수 */
+/** 출차 후 Storage 차량 사진 — 자동 삭제 금지(운영 지시). 스케줄 필드만 기록될 수 있음. */
 export const PHOTO_STORAGE_RETENTION_DAYS = 30;
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;

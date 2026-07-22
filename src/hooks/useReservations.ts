@@ -16,6 +16,8 @@ import {
   subscribeScopedReservations,
 } from '../utils/reservationQuery';
 import { buildCheckoutRetentionFields } from '../lib/reservationRetention';
+import { mergeReservationImageUrls } from '../lib/reservationPhotos';
+import { buildScratchPhotoSet } from '../lib/scratchPhotos';
 import { isAirpickHeadquarters } from '../constants/platform';
 import { ensureFirestoreAuth } from '../lib/firebaseAuth';
 import { patchReservation } from '../lib/reservationFirestore';
@@ -239,16 +241,27 @@ export function useReservations({
         nextStatus === 'completed_out'
           ? buildCheckoutRetentionFields(extraFields?.actualExitTime)
           : {};
-      const patch = {
+
+      let patch: Record<string, unknown> = {
         status: nextStatus,
         ...extraFields,
         ...retentionPatch,
         updatedBy: operatorName,
         updatedAt: new Date().toISOString(),
       };
-      setReservations((prev) =>
-        prev.map((r) => (r.id === resId ? { ...r, ...patch } : r))
-      );
+
+      setReservations((prev) => {
+        const current = prev.find((r) => r.id === resId);
+        if (extraFields?.images) {
+          const merged = mergeReservationImageUrls(current?.images, extraFields.images);
+          patch = {
+            ...patch,
+            images: merged,
+            scratchPhotos: buildScratchPhotoSet(merged, true),
+          };
+        }
+        return prev.map((r) => (r.id === resId ? { ...r, ...patch } : r));
+      });
 
       try {
         await updateDoc(doc(db, 'reservations', resId), patch);
@@ -289,9 +302,17 @@ export function useReservations({
     async (resId: string, imageUrls: string[]) => {
       const operatorName = resolveOperatorLabel({ isEmployee, employeeName, isSuperAdmin });
       await ensureFirestoreAuth();
+
+      let merged = imageUrls;
+      setReservations((prev) => {
+        const current = prev.find((r) => r.id === resId);
+        merged = mergeReservationImageUrls(current?.images, imageUrls);
+        return prev;
+      });
+
       try {
         await updateDoc(doc(db, 'reservations', resId), {
-          images: imageUrls,
+          images: merged,
           updatedBy: operatorName,
           updatedAt: new Date().toISOString(),
         });
@@ -307,7 +328,7 @@ export function useReservations({
       setReservations((prev) =>
         prev.map((r) =>
           r.id === resId
-            ? { ...r, images: imageUrls, updatedBy: operatorName, updatedAt: new Date().toISOString() }
+            ? { ...r, images: merged, updatedBy: operatorName, updatedAt: new Date().toISOString() }
             : r
         )
       );

@@ -9,6 +9,22 @@ export function isRemoteImageUrl(value: string): boolean {
   return (v.startsWith('http://') || v.startsWith('https://')) && !v.startsWith('data:');
 }
 
+/** 이미 서버에 있는 사진 + 이번 업로드를 합침 (짧은 목록으로 덮어쓰지 않음) */
+export function mergeReservationImageUrls(
+  existing: string[] | undefined,
+  next: string[] | undefined
+): string[] {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const raw of [...(existing || []), ...(next || [])]) {
+    const u = raw?.trim();
+    if (!u || !isRemoteImageUrl(u) || seen.has(u)) continue;
+    seen.add(u);
+    out.push(u);
+  }
+  return out;
+}
+
 function withTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
   return new Promise((resolve, reject) => {
     const timer = setTimeout(

@@ -88,69 +88,65 @@ function PhotoCard({
           </p>
         </div>
 
-        <div className="shrink-0">
-          {saved ? (
-            <span className="text-[11px] font-bold px-2.5 py-1.5 rounded-lg border text-emerald-400 bg-emerald-500/5 border-emerald-500/20 flex items-center gap-1">
+        <div className="shrink-0 flex items-center gap-1.5">
+          {saved && (
+            <span className="text-[11px] font-bold px-2 py-1.5 rounded-lg border text-emerald-400 bg-emerald-500/5 border-emerald-500/20 flex items-center gap-1">
               <CheckCircle2 size={11} />
-              저장 완료
+              저장됨
             </span>
-          ) : (
-            <button
-              type="button"
-              disabled={isSaving}
-              onClick={triggerPicker}
-              className="px-3 py-2 bg-amber-500 hover:bg-amber-400 active:scale-95 text-neutral-950 rounded-xl text-[12px] font-black flex items-center gap-1.5 transition-all disabled:opacity-50"
-            >
-              {isSaving ? (
-                <RefreshCw className="animate-spin" size={12} />
-              ) : (
-                <>
-                  <Camera size={12} />
-                  {previews.length > 0 ? '추가' : '업로드'}
-                </>
-              )}
-            </button>
           )}
+          <button
+            type="button"
+            disabled={isSaving}
+            onClick={triggerPicker}
+            className="px-3 py-2 bg-amber-500 hover:bg-amber-400 active:scale-95 text-neutral-950 rounded-xl text-[12px] font-black flex items-center gap-1.5 transition-all disabled:opacity-50"
+          >
+            {isSaving ? (
+              <RefreshCw className="animate-spin" size={12} />
+            ) : (
+              <>
+                <Camera size={12} />
+                {previews.length > 0 ? '추가' : '업로드'}
+              </>
+            )}
+          </button>
         </div>
       </div>
 
       {/* 업로드 영역 */}
       <div className="px-3.5 pb-3.5 space-y-2.5">
-        {/* 업로드 버튼 (크게) */}
-        {!saved && (
-          <button
-            type="button"
-            disabled={isSaving}
-            onClick={triggerPicker}
-            className="w-full border-2 border-dashed border-neutral-750 hover:border-amber-500/60 rounded-xl py-4 flex flex-col items-center gap-1.5 bg-neutral-950/50 transition-all disabled:opacity-40"
-          >
-            {isSaving ? (
-              <>
-                <RefreshCw className="animate-spin text-amber-500" size={22} />
-                <span className="text-[12px] text-amber-500 font-bold">사진 올리는 중…</span>
-              </>
-            ) : (
-              <>
-                <Camera className="text-amber-500/80" size={22} />
-                <span className="text-[13px] font-black text-zinc-200">사진 추가하기</span>
-                <span className="text-[11px] text-zinc-500">여러 장 선택 가능</span>
-              </>
-            )}
-          </button>
-        )}
+        <button
+          type="button"
+          disabled={isSaving}
+          onClick={triggerPicker}
+          className="w-full border-2 border-dashed border-neutral-750 hover:border-amber-500/60 rounded-xl py-4 flex flex-col items-center gap-1.5 bg-neutral-950/50 transition-all disabled:opacity-40"
+        >
+          {isSaving ? (
+            <>
+              <RefreshCw className="animate-spin text-amber-500" size={22} />
+              <span className="text-[12px] text-amber-500 font-bold">사진 올리는 중…</span>
+            </>
+          ) : (
+            <>
+              <Camera className="text-amber-500/80" size={22} />
+              <span className="text-[13px] font-black text-zinc-200">
+                {previews.length > 0 ? '사진 더 추가하기' : '사진 추가하기'}
+              </span>
+              <span className="text-[11px] text-zinc-500">여러 장 선택 가능 · 저장 후에도 추가 가능</span>
+            </>
+          )}
+        </button>
 
-        {/* 에러 */}
         {error && (
           <p className="text-[12px] text-rose-400 font-bold bg-rose-500/10 rounded-lg px-3 py-2">
             {error}
           </p>
         )}
 
-        {/* 저장 완료 */}
         {saved && (
           <div className="flex items-center gap-1.5 text-[12px] text-emerald-400 font-bold">
             <CheckCircle2 size={13} />
-            {previews.length}장 저장 완료 — 사진 더 추가하려면 오른쪽 「추가」 버튼
+            {previews.length}장 저장됨 — 위 버튼으로 계속 추가할 수 있습니다
           </div>
         )}
 
