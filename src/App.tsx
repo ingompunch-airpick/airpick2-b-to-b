@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo, useRef } from 'react';
+﻿import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { 
   Menu,
   ShieldCheck, 
@@ -7,64 +7,21 @@ import {
   Lock,
   CalendarRange
 } from 'lucide-react';
-import { 
-  collection, 
-  onSnapshot, 
-  doc, 
-  setDoc, 
-  getDoc,
-  getDocs,
-  updateDoc,
-} from 'firebase/firestore';
-import { 
-  onAuthStateChanged, 
-  signOut, 
-  signInAnonymously,
-  User
-} from 'firebase/auth';
-import { db, auth, handleFirestoreError, OperationType } from './firebase';
 import { motion, AnimatePresence } from 'motion/react';
 
 // --- Modular Typed Constants and Data ---
-import { Company, Reservation, ReservationStatus, PaymentMethod, AppView, CompanyInfo, PartnerCompany } from './types';
-import { formatPartnerDisplayName, resolveRequiredCompanyId } from './utils/companyDisplay';
-import { persistReservationStores, clearLegacyReservationLocalCaches } from './utils/reservationScope';
-import {
-  filterReservationsForOperatorGroup,
-  formatOperatorGroupLabel,
-  resolveOperatorCompanyIds,
-} from './utils/operatorHierarchy';
-import {
-  mergePartnersFromFirestore,
-  readPartnersFromStorage,
-  resolveBlockedDatesForCompany,
-  sanitizePartnersForStorage,
-  writePartnersToStorage,
-} from './utils/partnerSync';
+import { Company, Reservation, ReservationStatus, AppView, PartnerCompany } from './types';
+import { formatPartnerDisplayName } from './utils/companyDisplay';
+import { writePartnersToStorage } from './utils/partnerSync';
 import { getCalculatePrice } from './utils/pricing';
-import { airportRegionLabel } from './utils/airport';
 import { getKSTDateOnlyString, getKSTDateTimeString } from './utils/kstDate';
-import { normalizeDateString, normalizeDocsArray } from './utils/reservationNormalize';
-import {
-  fetchScopedReservations,
-  subscribeScopedReservations,
-} from './utils/reservationQuery';
-import { buildCheckoutRetentionFields } from './lib/reservationRetention';
-import { AIRPICK_HQ_ID, isAirpickHeadquarters, normalizePlatformCompanyId } from './constants/platform';
-import { ensureFirestoreAuth, ensurePlatformAdminAuth, formatPlatformAdminAuthError, isPlatformAdminEmail, signInPlatformAdminWithPassword } from './lib/firebaseAuth';
-import { verifyPartnerLogin } from './lib/partnerLoginApi';
-import { patchReservation } from './lib/reservationFirestore';
-import { isPending, normalizeReservationStatus } from './utils/reservationStatus';
+import { AIRPICK_HQ_ID, isAirpickHeadquarters } from './constants/platform';
+import { isPending } from './utils/reservationStatus';
 import { cn } from './lib/utils';
-import {
-  areReservationAlertsEnabled,
-  findNewIncomingReservations,
-  notifyNewReservation,
-  requestReservationNotificationPermission,
-  setReservationAlertsEnabled,
-  wasNotificationPermissionAsked,
-  markNotificationPermissionAsked,
-} from './utils/reservationNotifications';
+import { useReservations } from './hooks/useReservations';
+import { useSession } from './hooks/useSession';
+import { useCompanies } from './hooks/useCompanies';
+import { useAppNavigation } from './hooks/useAppNavigation';
 
 // --- Sub-views Imports ---
 import Sidebar from './components/Sidebar';
@@ -83,34 +40,6 @@ import EditModal from './components/EditModal';
 import SearchReceptionView from './components/SearchReceptionView';
 import TimelineView from './components/TimelineView';
 import AdminReservationEditModal from './components/AdminReservationEditModal';
-
-/** 관리자 모드 전용 화면 — 기사 모드에서 진입 시 timeline으로 보냄 */
-const ADMIN_ONLY_VIEWS: AppView[] = ['statistics', 'master_settings'];
-/** 기사 모드 전용 화면 — 관리자 모드에서 진입 시 statistics로 보냄 */
-const DRIVER_ONLY_VIEWS: AppView[] = [
-  'timeline',
-  'search_reception',
-  'payment_change',
-  'scratch_images',
-  'service_history',
-  'parking_departure',
-  'cancelled_list',
-];
-const HQ_ADMIN_VIEWS: AppView[] = ['statistics', 'master_settings'];
-
-/** dead code 정리 전 localStorage·history에 남을 수 있는 레거시 화면 */
-function resolveLegacyAppView(view: AppView | string): AppView {
-  if (view === 'parkingRegister') return 'statistics';
-  return view as AppView;
-}
-
-function isLegacyAdminOnlyView(view: AppView | string): boolean {
-  return ADMIN_ONLY_VIEWS.includes(resolveLegacyAppView(view));
-}
-
-function isPartnerDriverContext(companyId: string, adminModeActive: boolean): boolean {
-  return !adminModeActive && !isAirpickHeadquarters(companyId);
-}
 
 // --- Safe Storage Fallback for Sandboxed Web Views & Private Browsing Mode ---
 const safeStorage = (() => {
@@ -176,8 +105,6 @@ const safeStorage = (() => {
 // Shadow standard localStorage with safeStorage wrapper
 const localStorage = safeStorage;
 
-const DEFAULT_PARTNERS: PartnerCompany[] = [];
-
 // --- Component: AdminDashboard (Contained in modal) ---
 function AdminDashboard({ 
   onClose, 
@@ -208,150 +135,84 @@ function AdminDashboard({
 
 // --- Main Core App Component ---
 export default function App() {
-  const [user, setUser] = useState<User | null>(null);
-  const [companies, setCompanies] = useState<Company[]>(() => {
-    const saved = localStorage.getItem('companies');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (parsed && Array.isArray(parsed)) {
-          return parsed;
-        }
-      } catch (_) {}
-    }
-    return [];
+  const companiesRef = useRef<Company[]>([]);
+  const setCurrentViewRef = useRef<React.Dispatch<React.SetStateAction<AppView>>>(() => {});
+  const setCurrentViewBridge = useCallback<React.Dispatch<React.SetStateAction<AppView>>>(
+    (value) => {
+      setCurrentViewRef.current(value);
+    },
+    []
+  );
+
+  const {
+    user,
+    isLoggedIn,
+    currentCompanyId,
+    setCurrentCompanyId,
+    companyInfo,
+    setCompanyInfo,
+    isAdminModeActive,
+    setIsAdminModeActive,
+    isSuperAdmin,
+    isEmployee,
+    employeeName,
+    employeeRole,
+    isAdmin,
+    showLoginModal,
+    setShowLoginModal,
+    loginEmail,
+    setLoginEmail,
+    loginPassword,
+    setLoginPassword,
+    loginError,
+    handleCredentialLogin,
+    handleGateLoginSuccess,
+    handleOperatorLogout,
+  } = useSession({ companiesRef, setCurrentView: setCurrentViewBridge });
+
+  const {
+    companies,
+    setCompanies,
+    partners,
+    setPartners,
+    activeBlockedDates,
+    getDropdownOptions,
+    handleCompanySwitch,
+    handleSaveBookingSettings,
+    handleToggleCompanyOpen,
+  } = useCompanies({
+    isLoggedIn,
+    currentCompanyId,
+    companyInfo,
+    isSuperAdmin,
+    isAdminModeActive,
+    setCurrentCompanyId,
+    setCompanyInfo,
+    setIsAdminModeActive,
+    setCurrentView: setCurrentViewBridge,
   });
+  companiesRef.current = companies;
 
-  const [partners, setPartners] = useState<PartnerCompany[]>(() => {
-    try {
-      sessionStorage.removeItem('b2b_partner_gate_session');
-    } catch {
-      /* ignore */
-    }
-    const saved = localStorage.getItem('super_partners_list');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (parsed && Array.isArray(parsed) && parsed.length > 0) {
-          const cleaned = sanitizePartnersForStorage(parsed);
-          writePartnersToStorage(cleaned);
-          return cleaned;
-        }
-      } catch (_) {}
-    }
-    writePartnersToStorage(DEFAULT_PARTNERS);
-    return DEFAULT_PARTNERS;
+  const {
+    currentView,
+    setCurrentView,
+    isSidebarOpen,
+    setIsSidebarOpen,
+    showAdminModal,
+    setShowAdminModal,
+    handleNavigate,
+    enterAdminMode,
+    enterDriverMode,
+    showPartnerDriverView,
+  } = useAppNavigation({
+    isLoggedIn,
+    currentCompanyId,
+    isSuperAdmin,
+    isAdmin,
+    isAdminModeActive,
+    setIsAdminModeActive,
   });
-
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(() => {
-    return localStorage.getItem('is_logged_in') === 'true';
-  });
-  
-  // Track currently active company ID for dynamic partition isolation
-  const [currentCompanyId, setCurrentCompanyId] = useState<string>(() => {
-    return normalizePlatformCompanyId(localStorage.getItem('current_company_id')) || '';
-  });
-
-  const [companyInfo, setCompanyInfo] = useState<CompanyInfo>(() => {
-    const saved = localStorage.getItem('master_company_info');
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved);
-        if (parsed && typeof parsed === 'object') {
-          const id = String(parsed.id || '').trim();
-          return {
-            ...parsed,
-            id,
-            name: parsed.name
-              ? formatPartnerDisplayName(parsed.name, id)
-              : formatPartnerDisplayName('', id) || '',
-            region: parsed.region || '',
-            phone: parsed.phone || '',
-            logo: parsed.logo || '',
-          };
-        }
-      } catch (e) {}
-    }
-    return {
-      id: '',
-      name: '',
-      region: '',
-      phone: '',
-      logo: '',
-    };
-  });
-
-  const [reservations, setReservations] = useState<Reservation[]>([]);
-
-  // 예전 예약 로컬 캐시 1회 정리 (Firestore가 단일 소스)
-  useEffect(() => {
-    clearLegacyReservationLocalCaches();
-  }, []);
-
-  const getDropdownOptions = () => {
-    const options = [
-      { id: AIRPICK_HQ_ID, name: '에어픽' },
-    ];
-    
-    // Add other companies dynamically from Firestore
-    (companies || []).forEach(c => {
-      if (c.id && !isAirpickHeadquarters(c.id)) {
-        options.push({
-          id: c.id,
-          name: formatPartnerDisplayName(c.name, c.id)
-        });
-      }
-    });
-    
-    return options;
-  };
-
-  const handleCompanySwitch = (selectedId: string) => {
-    let targetCompanyInfo: CompanyInfo = {
-      id: selectedId,
-      name: '',
-      region: airportRegionLabel(),
-      phone: '1545-5746',
-      logo: '',
-      isIndoor: true,
-      facilityType: 'mixed',
-      ratePolicy: ''
-    };
-
-    if (isAirpickHeadquarters(selectedId)) {
-      targetCompanyInfo.name = '에어픽';
-      // 본사는 기사 타임라인이 아닌 통합 관제(관리자) 화면만 허용
-      setIsAdminModeActive(true);
-      localStorage.setItem('local_is_admin_mode_active', 'true');
-      setCurrentView('statistics');
-    } else {
-      const foundComp = (companies || []).find(c => c.id === selectedId);
-      if (foundComp) {
-        targetCompanyInfo.name = formatPartnerDisplayName(foundComp.name, foundComp.id);
-        targetCompanyInfo.phone = foundComp.phone || '1545-5746';
-        targetCompanyInfo.logo = foundComp.image_url || '';
-        targetCompanyInfo.region = airportRegionLabel(foundComp.airport);
-      } else {
-        targetCompanyInfo.name = selectedId;
-      }
-      if (isSuperAdmin) {
-        setCurrentView(isAdminModeActive ? 'statistics' : 'timeline');
-      }
-    }
-
-    // Update states
-    setCurrentCompanyId(selectedId);
-    setCompanyInfo(targetCompanyInfo);
-
-    // Sync with localStorage
-    localStorage.setItem('current_company_id', selectedId);
-    localStorage.setItem('master_company_info', JSON.stringify(targetCompanyInfo));
-  };
-
-  // Custom navigation structure: 'timeline' serves as the default driver dashboard (WORKER)
-  const [currentView, setCurrentView] = useState<AppView>('timeline');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [showAdminModal, setShowAdminModal] = useState(false);
+  setCurrentViewRef.current = setCurrentView;
 
   // Custom Date Picker State
   const [datePickerTarget, setDatePickerTarget] = useState<'selectedDate' | null>(null);
@@ -373,219 +234,45 @@ export default function App() {
   // High-level filtering state for the 4 status counters in the timeline tab
   // Selected counter filter can be 'pending', 'pending_in', 'request_out', 'confirmed'
   const [activeCounterTab, setActiveCounterTab] = useState<ReservationStatus>('pending');
-  const [isAdminModeActive, setIsAdminModeActive] = useState<boolean>(() => {
-    return localStorage.getItem('is_logged_in') === 'true' && localStorage.getItem('local_is_admin_mode_active') === 'true';
-  });
-  const [isLocalAdmin, setIsLocalAdmin] = useState<boolean>(() => {
-    return localStorage.getItem('is_logged_in') === 'true' && localStorage.getItem('local_is_admin') === 'true';
-  });
-  const [isMasterAdmin, setIsMasterAdmin] = useState<boolean>(() => {
-    return localStorage.getItem('is_logged_in') === 'true' && localStorage.getItem('local_is_master_admin') === 'true';
-  });
-
-  // Check Admin claims
-  const [isSuperAdmin, setIsSuperAdmin] = useState<boolean>(() => {
-    return localStorage.getItem('is_logged_in') === 'true' && localStorage.getItem('local_is_super_admin') === 'true';
-  });
-
-  const [isEmployee, setIsEmployee] = useState<boolean>(() => {
-    return localStorage.getItem('is_logged_in') === 'true' && localStorage.getItem('local_is_employee') === 'true';
-  });
-
-  const [employeeName, setEmployeeName] = useState<string>(() => {
-    return localStorage.getItem('is_logged_in') === 'true' ? (localStorage.getItem('local_employee_name') || '') : '';
-  });
-
-  const [employeeRole, setEmployeeRole] = useState<'admin' | 'driver'>(() => {
-    return localStorage.getItem('is_logged_in') === 'true' 
-      ? ((localStorage.getItem('local_employee_role') as 'admin' | 'driver') || 'driver') 
-      : 'driver';
-  });
-
-  const isAdmin = isLocalAdmin || isSuperAdmin || isMasterAdmin || user?.email === 'drive5746@gmail.com' || user?.email === 'ingompunch@gmail.com' || (isEmployee && employeeRole === 'admin');
-
-
-
-  useEffect(() => {
-    if (!isAdmin) {
-      setIsAdminModeActive(false);
-    }
-  }, [isAdmin]);
-
-  // Safety redirect: If showAdminModal is true but isSuperAdmin is false, reset showAdminModal to false.
-  useEffect(() => {
-    if (!isSuperAdmin) {
-      setShowAdminModal(false);
-    }
-  }, [isSuperAdmin]);
-
-  // Synchronize browser/app back button behaviors to safely return to standard dashboards
-  useEffect(() => {
-    if (!window.history.state || !window.history.state.controlled) {
-      window.history.replaceState({ view: currentView, controlled: true }, '');
-    }
-
-    const handlePopState = () => {
-      if (isSuperAdmin && isAirpickHeadquarters(currentCompanyId)) {
-        if (currentView !== 'statistics') {
-          setCurrentView('statistics');
-          window.history.pushState({ view: 'statistics', controlled: true }, '');
-        }
-        return;
-      }
-
-      if (isAdminModeActive && isAdmin) {
-        // If they are inside Admin Mode, and on any sub-views (like master_settings, cancelled_list),
-        // they must return to 'statistics' (the primary Dashboard).
-        if (currentView !== 'statistics') {
-          setCurrentView('statistics');
-          window.history.pushState({ view: 'statistics', controlled: true }, '');
-        } else {
-          // If already on statistics, go back to the standard main driver view ('timeline')
-          setCurrentView('timeline');
-          window.history.pushState({ view: 'timeline', controlled: true }, '');
-        }
-      } else {
-        // Non-admin back behavior defaults safely to timeline
-        if (currentView !== 'timeline') {
-          setCurrentView('timeline');
-          window.history.pushState({ view: 'timeline', controlled: true }, '');
-        }
-      }
-    };
-
-    window.addEventListener('popstate', handlePopState);
-    return () => {
-      window.removeEventListener('popstate', handlePopState);
-    };
-  }, [currentView, isAdminModeActive, isAdmin, isSuperAdmin, currentCompanyId]);
-
-  // Keep pushing view state changes into standard history tracking
-  useEffect(() => {
-    if (window.history.state && window.history.state.view !== currentView) {
-      window.history.pushState({ view: currentView, controlled: true }, '');
-    }
-  }, [currentView]);
-
-  // Watch for currentCompanyId and companyInfo changes (do not overwrite Firestore sync with stale local cache)
-  useEffect(() => {
-    localStorage.setItem('current_company_id', currentCompanyId);
-
-    if (!isLoggedIn) {
-      setReservations([]);
-    }
-
-  }, [currentCompanyId, companyInfo.id, companyInfo.name, isLoggedIn]);
-
-  // View/mode sync: 관리자↔기사 전환·본사 모드 시 currentView를 허용된 화면으로 강제 정렬 (빈 화면 방지)
-  useEffect(() => {
-    if (!isLoggedIn) return;
-
-    if ((currentView as string) === 'parkingRegister') {
-      setCurrentView(isAdminModeActive && isAdmin ? 'statistics' : 'timeline');
-      return;
-    }
-
-    // 슈퍼관리자 + 에어픽 본사: 기사 타임라인 등 제휴업체 전용 화면 차단
-    if (isSuperAdmin && isAirpickHeadquarters(currentCompanyId)) {
-      if (!isAdminModeActive) {
-        setIsAdminModeActive(true);
-        localStorage.setItem('local_is_admin_mode_active', 'true');
-      }
-      if (!HQ_ADMIN_VIEWS.includes(currentView)) {
-        setCurrentView('statistics');
-      }
-      return;
-    }
-
-    if (isAdminModeActive && isAdmin) {
-      if (isAirpickHeadquarters(currentCompanyId) && !HQ_ADMIN_VIEWS.includes(currentView)) {
-        setCurrentView('statistics');
-        return;
-      }
-      if (DRIVER_ONLY_VIEWS.includes(currentView)) {
-        setCurrentView('statistics');
-      }
-    } else if (isLegacyAdminOnlyView(currentView)) {
-      setCurrentView('timeline');
-    }
-  }, [isLoggedIn, isAdminModeActive, isAdmin, isSuperAdmin, currentView, currentCompanyId]);
-
-  // Filter core reservations — 단독 업체 또는 대표+하위 통합 그룹
-  const operatorCompanyIds = useMemo(() => {
-    if (isAirpickHeadquarters(currentCompanyId)) return [];
-    return resolveOperatorCompanyIds(currentCompanyId, companies);
-  }, [currentCompanyId, companies]);
-
-  const operatorGroupLabel = useMemo(
-    () => formatOperatorGroupLabel(currentCompanyId, companies),
-    [currentCompanyId, companies]
-  );
-
-  const showCompanyNameOnCards = operatorCompanyIds.length > 1;
-
-  const persistScopedReservations = (updated: Reservation[], cacheFirestore = true) => {
-    persistReservationStores(localStorage, updated, currentCompanyId, {
-      cacheFirestore,
-      operatorCompanyIds,
-    });
-  };
-
-  const visibleReservations = useMemo(() => {
-    const normalized = normalizeDocsArray(reservations);
-    if (isAirpickHeadquarters(currentCompanyId)) return normalized;
-    return filterReservationsForOperatorGroup(normalized, operatorCompanyIds);
-  }, [reservations, currentCompanyId, operatorCompanyIds]);
 
   const [selectedDate, setSelectedDate] = useState<string>(() => {
     return getKSTDateOnlyString();
   });
 
+  const {
+    reservations,
+    setReservations,
+    loadingReservations,
+    visibleReservations,
+    operatorCompanyIds,
+    operatorGroupLabel,
+    showCompanyNameOnCards,
+    incomingReservationToast,
+    showAlertPermissionBanner,
+    enableReservationAlerts,
+    dismissReservationAlertsBanner,
+    handleUpdateValetStatus,
+    handleUpdatePaymentMethod,
+    handleUpdateReservationImages,
+    handlePatchReservationFields,
+    countPending,
+    countPendingIn,
+    countRequestOut,
+    countConfirmed,
+  } = useReservations({
+    isLoggedIn,
+    currentCompanyId,
+    companies,
+    companyInfo,
+    selectedDate,
+    isEmployee,
+    employeeName,
+    isSuperAdmin,
+  });
+
   // Scratch Photo Upload Modal states
   const [scratchModalTargetId, setScratchModalTargetId] = useState<string | null>(null);
   const [selectedParkingSpace, setSelectedParkingSpace] = useState<string>('');
-
-  const reservationsBootstrappedRef = useRef(false);
-  const reservationsPrevRef = useRef<Reservation[]>([]);
-  const currentCompanyIdRef = useRef(currentCompanyId);
-  const operatorCompanyIdsRef = useRef(operatorCompanyIds);
-  const companyAlertLabelRef = useRef(
-    formatPartnerDisplayName(companyInfo.name, companyInfo.id) || currentCompanyId
-  );
-  const [incomingReservationToast, setIncomingReservationToast] = useState<{
-    id: string;
-    carNumber: string;
-    userName: string;
-  } | null>(null);
-  const [showAlertPermissionBanner, setShowAlertPermissionBanner] = useState(false);
-
-  useEffect(() => {
-    currentCompanyIdRef.current = currentCompanyId;
-    operatorCompanyIdsRef.current = operatorCompanyIds;
-    companyAlertLabelRef.current =
-      operatorGroupLabel ||
-      formatPartnerDisplayName(companyInfo.name, companyInfo.id) ||
-      currentCompanyId;
-  }, [currentCompanyId, operatorCompanyIds, operatorGroupLabel, companyInfo.name, companyInfo.id]);
-
-  useEffect(() => {
-    if (!incomingReservationToast) return;
-    const timer = window.setTimeout(() => setIncomingReservationToast(null), 6000);
-    return () => window.clearTimeout(timer);
-  }, [incomingReservationToast]);
-
-  useEffect(() => {
-    if (!isLoggedIn) {
-      reservationsBootstrappedRef.current = false;
-      reservationsPrevRef.current = [];
-      setShowAlertPermissionBanner(false);
-      return;
-    }
-    if (typeof Notification === 'undefined') return;
-    if (Notification.permission !== 'default') return;
-    if (wasNotificationPermissionAsked()) return;
-    setShowAlertPermissionBanner(true);
-  }, [isLoggedIn]);
 
   const superAdminCompanySwitchRef = useRef(currentCompanyId);
   useEffect(() => {
@@ -599,15 +286,6 @@ export default function App() {
     }
     superAdminCompanySwitchRef.current = currentCompanyId;
   }, [currentCompanyId, isSuperAdmin]);
-
-  // Loading states
-  const [loadingReservations, setLoadingReservations] = useState(false);
-
-  // Business configuration — blockedDates는 companies/{id}.blockedDates 단일 소스
-  const activeBlockedDates = useMemo(
-    () => resolveBlockedDatesForCompany(currentCompanyId, companies, (key) => localStorage.getItem(key)),
-    [currentCompanyId, companies]
-  );
 
   const [showBlockoutModal, setShowBlockoutModal] = useState<boolean>(false);
 
@@ -623,19 +301,7 @@ export default function App() {
     if (!driverDetailRes || !driverDetailRes.id) return;
 
     const resId = driverDetailRes.id;
-
-    setReservations(prev => {
-      const updated = prev.map(r => r.id === resId ? { ...r, ...updateData } : r);
-      persistScopedReservations(updated);
-      return updated;
-    });
-
-    try {
-      await patchReservation(resId, updateData);
-    } catch (err) {
-      console.warn("Local storage updated. Firestore direct update failed/offline:", err);
-    }
-
+    await handlePatchReservationFields(resId, updateData);
     setDriverDetailRes(null);
   };
 
@@ -672,726 +338,9 @@ export default function App() {
     setDriverDetailRes(null);
   };
 
-  // Auth credentials form (for activating Admin setting options)
-  const [showLoginModal, setShowLoginModal] = useState(false);
-  const [loginEmail, setLoginEmail] = useState('');
-  const [loginPassword, setLoginPassword] = useState('');
-  const [loginError, setLoginError] = useState('');
-
-  // 1. Monitor Authenticated State
-  useEffect(() => {
-    const unsub = onAuthStateChanged(auth, (u) => {
-      setUser(u);
-    });
-    return () => unsub();
-  }, []);
-
-  // 레거시 system_settings/config.blockedDates → companies/airpick 1회 이전
-  useEffect(() => {
-    if (!isLoggedIn) return;
-
-    let cancelled = false;
-    (async () => {
-      try {
-        await ensureFirestoreAuth();
-        const legacySnap = await getDoc(doc(db, 'system_settings', 'config'));
-        const legacyDates = legacySnap.data()?.blockedDates;
-        if (!Array.isArray(legacyDates) || legacyDates.length === 0) return;
-
-        const airpickSnap = await getDoc(doc(db, 'companies', AIRPICK_HQ_ID));
-        const current = airpickSnap.data()?.blockedDates;
-        if (Array.isArray(current) && current.length > 0) return;
-
-        await setDoc(
-          doc(db, 'companies', AIRPICK_HQ_ID),
-          {
-            id: AIRPICK_HQ_ID,
-            name: '에어픽',
-            blockedDates: legacyDates,
-            updatedAt: new Date().toISOString(),
-          },
-          { merge: true }
-        );
-
-        if (cancelled) return;
-        localStorage.setItem(`${AIRPICK_HQ_ID}_blockedDates`, JSON.stringify(legacyDates));
-        setCompanies((prev) => {
-          const idx = prev.findIndex((c) => c.id === AIRPICK_HQ_ID);
-          if (idx >= 0) {
-            return prev.map((c) =>
-              c.id === AIRPICK_HQ_ID ? { ...c, blockedDates: legacyDates } : c
-            );
-          }
-          return [
-            ...prev,
-            { id: AIRPICK_HQ_ID, name: '에어픽', blockedDates: legacyDates } as Company,
-          ];
-        });
-      } catch (err) {
-        console.warn('blockedDates legacy migration skipped:', err);
-      }
-    })();
-
-    return () => {
-      cancelled = true;
-    };
-  }, [isLoggedIn]);
-
-  const handleSaveBookingSettings = async (settings: {
-    blockedDates: string[];
-    cancelCutoffHours: number;
-    sameDayBookingBlocked: boolean;
-    hourlyCapEnabled: boolean;
-    maxCarsPerHour: number;
-  }) => {
-    const targetId = isAirpickHeadquarters(currentCompanyId)
-      ? AIRPICK_HQ_ID
-      : (currentCompanyId || '').trim();
-    if (!targetId) return;
-
-    const {
-      blockedDates: newBlockedDates,
-      cancelCutoffHours,
-      sameDayBookingBlocked,
-      hourlyCapEnabled,
-      maxCarsPerHour,
-    } = settings;
-
-    localStorage.setItem(`${targetId}_blockedDates`, JSON.stringify(newBlockedDates));
-    setCompanies((prev) => {
-      const idx = prev.findIndex((c) => c.id === targetId);
-      const patch = {
-        blockedDates: newBlockedDates,
-        cancelCutoffHours,
-        sameDayBookingBlocked,
-        hourlyCapEnabled,
-        maxCarsPerHour,
-      };
-      if (idx >= 0) {
-        return prev.map((c) => (c.id === targetId ? { ...c, ...patch } : c));
-      }
-      const fallbackName = isAirpickHeadquarters(targetId)
-        ? '에어픽'
-        : formatPartnerDisplayName(companyInfo?.name, targetId) || targetId;
-      return [...prev, { id: targetId, name: fallbackName, ...patch } as Company];
-    });
-
-    try {
-      if (isAirpickHeadquarters(targetId)) {
-        await ensurePlatformAdminAuth();
-      } else {
-        await ensureFirestoreAuth();
-      }
-      await setDoc(
-        doc(db, 'companies', targetId),
-        {
-          id: targetId,
-          blockedDates: newBlockedDates,
-          cancelCutoffHours,
-          sameDayBookingBlocked,
-          hourlyCapEnabled,
-          maxCarsPerHour,
-          updatedAt: new Date().toISOString(),
-        },
-        { merge: true }
-      );
-    } catch (err: unknown) {
-      console.warn(`Firestore booking settings save failed for companies/${targetId}:`, err);
-      throw err;
-    }
-  };
-
-  const handleToggleCompanyOpen = async (companyId: string, isOpen: boolean) => {
-    // Optimistically update companies state to show instant toggles in UI
-    setCompanies(prev => {
-      const idx = prev.findIndex(c => c.id === companyId);
-      if (idx > -1) {
-        return prev.map(c => c.id === companyId ? { ...c, isOpen } : c);
-      } else {
-        const fallBackName = (companyInfo && companyInfo.id === companyId)
-          ? companyInfo.name
-          : formatPartnerDisplayName(companyInfo?.name, companyId) || companyId;
-        return [...prev, { id: companyId, name: fallBackName, isOpen } as Company];
-      }
-    });
-
-    try {
-      await ensureFirestoreAuth();
-      const docRef = doc(db, 'companies', companyId);
-      await setDoc(docRef, { isOpen }, { merge: true });
-    } catch (err: any) {
-      console.warn(`Firestore setDoc for companies/${companyId} failed:`, err);
-    }
-  };
-
-  // 2. Perform Automatic Credentials Auth if missing, ensuring security conformance
-  useEffect(() => {
-    const checkAndAuth = async () => {
-      if (!auth.currentUser) {
-        try {
-          await signInAnonymously(auth);
-        } catch (e: any) {
-          console.warn("Anonymous auth restricted or disabled (safe to ignore offline):", e);
-        }
-      }
-    };
-    checkAndAuth();
-  }, []);
-
-  // Automated database clean-up routine triggered once on container boot (Now only ensures 'wawa' master company exists without sweeping or purging)
-  useEffect(() => {
-    const triggerDBCleanup = async () => {
-      try {
-        const compSnap = await getDocs(collection(db, 'companies'));
-        let wawaExists = false;
-        for (const d of compSnap.docs) {
-          if (d.id === 'wawa') {
-            wawaExists = true;
-            break;
-          }
-        }
-        // companies create는 Rules상 클라이언트 불가 — 누락 시 Functions/콘솔로 생성
-        if (!wawaExists) {
-          console.warn(
-            "companies/wawa 문서가 없습니다. 클라이언트 생성은 Rules에서 차단됩니다. 본사 Callable 또는 Console로 생성하세요."
-          );
-        }
-      } catch (err) {
-        console.warn("Automated master DB validation on load bypassed:", err);
-      }
-    };
-    triggerDBCleanup();
-  }, []);
-
-  // 3. Load Available Partner Companies List from Firestore
-  useEffect(() => {
-    const unsub = onSnapshot(collection(db, 'companies'), (snap) => {
-      const data = snap.docs.map(d => ({ id: d.id, ...d.data() } as Company));
-
-      if (data.length > 0) {
-        setCompanies(data);
-        localStorage.setItem('companies', JSON.stringify(data));
-      } else {
-        const saved = localStorage.getItem('companies');
-        if (saved) {
-          try {
-            const parsed = JSON.parse(saved);
-            if (parsed && Array.isArray(parsed)) {
-              setCompanies(parsed);
-              return;
-            }
-          } catch (_) {}
-        }
-        setCompanies([]);
-      }
-
-      // Firestore companies → super_partners_list (비밀번호는 캐시에 저장하지 않음)
-      setPartners((prev) => {
-        const storedPartners = readPartnersFromStorage((key) => localStorage.getItem(key));
-        const mergedList = mergePartnersFromFirestore(data, prev, storedPartners);
-        writePartnersToStorage(mergedList);
-        return sanitizePartnersForStorage(mergedList);
-      });
-
-    }, (error) => {
-      handleFirestoreError(error, OperationType.LIST, 'companies');
-      const saved = localStorage.getItem('companies');
-      if (saved) {
-        try {
-          const parsed = JSON.parse(saved);
-            if (parsed && Array.isArray(parsed)) {
-              setCompanies(parsed);
-              return;
-            }
-        } catch (_) {}
-      }
-      setCompanies([]);
-    });
-    return () => unsub();
-  }, []);
-
-
-
-  const reservationSyncScopeKey = useMemo(() => {
-    if (isAirpickHeadquarters(currentCompanyId)) return 'hq';
-    return operatorCompanyIds.slice().sort().join('|') || currentCompanyId;
-  }, [currentCompanyId, operatorCompanyIds]);
-
-  // 4. Real-time Reservations Sync — 업체·입고일 범위로 Firestore 쿼리 (전체 컬렉션 로드 방지)
-  useEffect(() => {
-    if (!isLoggedIn) return;
-
-    let cancelled = false;
-    reservationsBootstrappedRef.current = false;
-    reservationsPrevRef.current = [];
-
-    const syncScope = {
-      isHqScope: isAirpickHeadquarters(currentCompanyId),
-      operatorCompanyIds:
-        operatorCompanyIds.length > 0 ? operatorCompanyIds : [currentCompanyId],
-    };
-
-    const applySnapshot = (rawData: unknown[]) => {
-      if (cancelled) return;
-      const data = normalizeDocsArray(rawData).sort((a, b) => b.createdAt.localeCompare(a.createdAt));
-
-      if (reservationsBootstrappedRef.current && areReservationAlertsEnabled()) {
-        const incoming = findNewIncomingReservations(
-          reservationsPrevRef.current,
-          data,
-          currentCompanyIdRef.current,
-          operatorCompanyIdsRef.current
-        );
-        for (const res of incoming) {
-          if (!res.id) continue;
-          notifyNewReservation(res, companyAlertLabelRef.current);
-          setIncomingReservationToast({
-            id: res.id,
-            carNumber: res.carNumber || '차량미상',
-            userName: res.userName || '',
-          });
-        }
-      } else {
-        reservationsBootstrappedRef.current = true;
-      }
-      reservationsPrevRef.current = data;
-
-      setReservations(data);
-      setLoadingReservations(false);
-    };
-
-    const bootstrapAuthAndListen = async () => {
-      setLoadingReservations(true);
-      if (!auth.currentUser) {
-        try {
-          await signInAnonymously(auth);
-        } catch (e: any) {
-          console.warn('Anonymous auth before reservations sync:', e);
-        }
-      }
-
-      if (cancelled) return;
-
-      try {
-        const rows = await fetchScopedReservations(db, syncScope);
-        if (!cancelled) {
-          applySnapshot(rows);
-        }
-      } catch (err) {
-        handleFirestoreError(err, OperationType.LIST, 'reservations');
-        if (!cancelled) setLoadingReservations(false);
-      }
-
-      const unsub = subscribeScopedReservations(
-        db,
-        syncScope,
-        (rows) => applySnapshot(rows),
-        (err) => {
-          console.warn('reservations onSnapshot error:', err);
-          handleFirestoreError(err, OperationType.LIST, 'reservations');
-          if (!cancelled) setLoadingReservations(false);
-        }
-      );
-
-      return unsub;
-    };
-
-    let unsub: (() => void) | undefined;
-    bootstrapAuthAndListen().then((u) => {
-      unsub = u;
-    });
-
-    return () => {
-      cancelled = true;
-      unsub?.();
-    };
-  }, [isLoggedIn, reservationSyncScopeKey, currentCompanyId, operatorCompanyIds]);
-
-  // Login handler
-  const handleCredentialLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setLoginError('');
-    
-    const inputEmailClean = loginEmail.trim().toLowerCase();
-
-    // 본사 Firebase Auth 이메일 로그인 (우선)
-    if (isPlatformAdminEmail(inputEmailClean)) {
-      try {
-        const user = await signInPlatformAdminWithPassword(inputEmailClean, loginPassword);
-        setIsSuperAdmin(true);
-        setIsLocalAdmin(true);
-        setIsMasterAdmin(false);
-        setIsAdminModeActive(true);
-        const hqInfo: CompanyInfo = {
-          id: AIRPICK_HQ_ID,
-          name: '에어픽',
-          region: '플랫폼 본사',
-          phone: '1545-5746',
-          logo: '',
-        };
-        setCurrentCompanyId(AIRPICK_HQ_ID);
-        setCompanyInfo(hqInfo);
-        localStorage.setItem('current_company_id', AIRPICK_HQ_ID);
-        localStorage.setItem('master_company_info', JSON.stringify(hqInfo));
-        localStorage.setItem('local_is_super_admin', 'true');
-        localStorage.setItem('local_is_admin', 'true');
-        localStorage.setItem('local_is_master_admin', 'false');
-        localStorage.setItem('local_is_admin_mode_active', 'true');
-        setCurrentView('statistics');
-        setShowLoginModal(false);
-        alert(`최고관리자 ${user.email} 님 마스터 자격 인증이 완료되었습니다!`);
-      } catch (err) {
-        setLoginError(formatPlatformAdminAuthError(err));
-      }
-      return;
-    }
-
-    if (loginEmail.trim().toLowerCase() === 'airpick') {
-      setLoginError(
-        '본사는 등록된 관리자 이메일로 로그인하세요. (업체 ID `airpick` 은 더 이상 사용하지 않습니다.)'
-      );
-      return;
-    }
-
-    // 제휴 업체 마스터 — 서버 비밀번호 검증
-    try {
-      const verified = await verifyPartnerLogin({
-        loginId: inputEmailClean,
-        password: loginPassword,
-      });
-      setIsSuperAdmin(false);
-      setIsLocalAdmin(true);
-      setIsMasterAdmin(true);
-      setCurrentCompanyId(verified.companyId);
-
-      const foundComp = companies.find((c) => c.id === verified.companyId);
-      const brandInfo: CompanyInfo = {
-        id: verified.companyId,
-        name: verified.name,
-        region: airportRegionLabel(foundComp?.airport),
-        phone: verified.phone,
-        logo: '',
-      };
-      setCompanyInfo(brandInfo);
-      setIsAdminModeActive(true);
-      setCurrentView('statistics');
-      localStorage.setItem('master_company_info', JSON.stringify(brandInfo));
-      localStorage.setItem('current_company_id', verified.companyId);
-      localStorage.setItem('local_is_super_admin', 'false');
-      localStorage.setItem('local_is_admin', 'true');
-      localStorage.setItem('local_is_master_admin', 'true');
-      localStorage.setItem('local_is_admin_mode_active', 'true');
-      localStorage.setItem(
-        'operator_company_ids',
-        JSON.stringify(resolveOperatorCompanyIds(verified.companyId, companies))
-      );
-      setShowLoginModal(false);
-      alert(`제휴업체 [${verified.name}]의 마스터 관리자 인증이 성공 통과하여 관리자 모드가 활성화되었습니다!`);
-      return;
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      setLoginError(msg || '인증이 기각되었습니다. 아이디와 보안 비밀번호를 재확인 바랍니다.');
-    }
-  };
-
-  // Consolidated Gateway Login Success Handler
-  const handleGateLoginSuccess = (roles: {
-    isSuperAdmin: boolean;
-    isLocalAdmin: boolean;
-    isMasterAdmin: boolean;
-    isAdminModeActive: boolean;
-    companyId: string;
-    companyInfo: CompanyInfo;
-    isEmployee?: boolean;
-    employeeName?: string;
-    employeeRole?: 'admin' | 'driver';
-  }) => {
-    setIsLoggedIn(true);
-    setIsSuperAdmin(roles.isSuperAdmin);
-    setIsLocalAdmin(roles.isLocalAdmin);
-    setIsMasterAdmin(roles.isMasterAdmin);
-    setIsAdminModeActive(roles.isAdminModeActive);
-    const companyId = normalizePlatformCompanyId(roles.companyId) || roles.companyId;
-    const normalizedInfo =
-      isAirpickHeadquarters(companyId)
-        ? { ...roles.companyInfo, id: AIRPICK_HQ_ID, name: '에어픽', region: '플랫폼 본사' }
-        : roles.companyInfo;
-    setCurrentCompanyId(companyId);
-    setCompanyInfo(normalizedInfo);
-    setIsEmployee(roles.isEmployee || false);
-    setEmployeeName(roles.employeeName || '');
-    setEmployeeRole(roles.employeeRole || 'driver');
-
-    localStorage.setItem('is_logged_in', 'true');
-    localStorage.setItem('local_is_super_admin', roles.isSuperAdmin ? 'true' : 'false');
-    localStorage.setItem('local_is_admin', roles.isLocalAdmin ? 'true' : 'false');
-    localStorage.setItem('local_is_master_admin', roles.isMasterAdmin ? 'true' : 'false');
-    localStorage.setItem('local_is_admin_mode_active', roles.isAdminModeActive ? 'true' : 'false');
-    localStorage.setItem('current_company_id', companyId);
-    localStorage.setItem('master_company_info', JSON.stringify(normalizedInfo));
-    localStorage.setItem('local_is_employee', roles.isEmployee ? 'true' : 'false');
-    localStorage.setItem('local_employee_name', roles.employeeName || '');
-    localStorage.setItem('local_employee_role', roles.employeeRole || 'driver');
-
-    const opIds = resolveOperatorCompanyIds(companyId, companies);
-    localStorage.setItem('operator_company_ids', JSON.stringify(opIds));
-
-    const shouldStartInAdmin =
-      roles.isAdminModeActive &&
-      (roles.isSuperAdmin || roles.isLocalAdmin || roles.isMasterAdmin || roles.employeeRole === 'admin');
-    setCurrentView(shouldStartInAdmin ? 'statistics' : 'timeline');
-
-    ensureFirestoreAuth().catch((err) => {
-      console.warn('Firebase auth after gate login:', err);
-    });
-  };
-
-  // Logout handler
-  const handleOperatorLogout = async () => {
-    try {
-      setIsLoggedIn(false);
-      setIsSuperAdmin(false);
-      setIsLocalAdmin(false);
-      setIsMasterAdmin(false);
-      setIsAdminModeActive(false);
-      setIsEmployee(false);
-      setEmployeeName('');
-      setEmployeeRole('driver');
-      setCurrentCompanyId('');
-      setCurrentView('timeline');
-      setCompanyInfo({
-        id: '',
-        name: '',
-        region: '',
-        phone: '',
-        logo: '',
-      });
-      
-      localStorage.removeItem('is_logged_in');
-      localStorage.removeItem('local_is_super_admin');
-      localStorage.removeItem('local_is_admin');
-      localStorage.removeItem('local_is_master_admin');
-      localStorage.removeItem('local_is_admin_mode_active');
-      localStorage.removeItem('local_is_employee');
-      localStorage.removeItem('local_employee_name');
-      localStorage.removeItem('local_employee_role');
-      localStorage.removeItem('current_company_id');
-      localStorage.removeItem('master_company_info');
-      localStorage.removeItem('firestore_reservations_cache');
-      localStorage.removeItem('operator_company_ids');
-      
-      await signOut(auth);
-      try {
-        await signInAnonymously(auth);
-      } catch (anonErr) {
-        console.warn("Silent ignore: signInAnonymously restricted during logout", anonErr);
-      }
-      alert("안전하게 로그아웃되었습니다. 통합 로그인 화면(Gate)으로 이동합니다.");
-    } catch (err) {
-      setIsLoggedIn(false);
-      setIsSuperAdmin(false);
-      setIsLocalAdmin(false);
-      setIsMasterAdmin(false);
-      setIsAdminModeActive(false);
-      setIsEmployee(false);
-      setEmployeeName('');
-      setEmployeeRole('driver');
-      setCurrentCompanyId('');
-      setCurrentView('timeline');
-      setCompanyInfo({
-        id: '',
-        name: '',
-        region: '',
-        phone: '',
-        logo: '',
-      });
-      
-      localStorage.removeItem('is_logged_in');
-      localStorage.removeItem('local_is_super_admin');
-      localStorage.removeItem('local_is_admin');
-      localStorage.removeItem('local_is_master_admin');
-      localStorage.removeItem('local_is_admin_mode_active');
-      localStorage.removeItem('local_is_employee');
-      localStorage.removeItem('local_employee_name');
-      localStorage.removeItem('local_employee_role');
-      localStorage.removeItem('current_company_id');
-      localStorage.removeItem('master_company_info');
-      localStorage.removeItem('firestore_reservations_cache');
-      localStorage.removeItem('operator_company_ids');
-      console.error(err);
-    }
-  };
-
-
-
-  // Mutate schedule states (Worker transition flow)
-  const handleUpdateValetStatus = async (
-    resId: string,
-    nextStatus: ReservationStatus,
-    extraFields?: Partial<Reservation>
-  ) => {
-    const operatorName = isEmployee ? employeeName : (isSuperAdmin ? '본사 마스터(최고관리자)' : '업체 마스터');
-    const retentionPatch =
-      nextStatus === 'completed_out'
-        ? buildCheckoutRetentionFields(extraFields?.actualExitTime)
-        : {};
-    const patch = {
-      status: nextStatus,
-      ...extraFields,
-      ...retentionPatch,
-      updatedBy: operatorName,
-      updatedAt: new Date().toISOString(),
-    };
-    // Optimistically update React state (Firestore 구독이 최종 동기화)
-    setReservations(prev => {
-      const updated = prev.map(r => r.id === resId ? {
-        ...r,
-        ...patch,
-      } : r);
-      return updated;
-    });
-
-    try {
-      const docRef = doc(db, 'reservations', resId);
-      await updateDoc(docRef, patch);
-    } catch (err: any) {
-      console.warn("Firestore status update run locally or failed, state already migrated:", err);
-    }
-  };
-
-  // Mutate payment methods (From 결제변경 subsystem)
-  const handleUpdatePaymentMethod = async (resId: string, method: PaymentMethod) => {
-    const operatorName = isEmployee ? employeeName : (isSuperAdmin ? '본사 마스터(최고관리자)' : '업체 마스터');
-    try {
-      const docRef = doc(db, 'reservations', resId);
-      await updateDoc(docRef, { 
-        paymentMethod: method,
-        updatedBy: operatorName,
-        updatedAt: new Date().toISOString()
-      });
-      setReservations(prev => {
-        const updated = prev.map(r => r.id === resId ? { ...r, paymentMethod: method, updatedBy: operatorName, updatedAt: new Date().toISOString() } : r);
-        persistScopedReservations(updated);
-        return updated;
-      });
-    } catch (err: any) {
-      setReservations(prev => {
-        const updated = prev.map(r => r.id === resId ? { ...r, paymentMethod: method, updatedBy: operatorName, updatedAt: new Date().toISOString() } : r);
-        persistScopedReservations(updated);
-        return updated;
-      });
-    }
-  };
-
-  // 사이드바 「③ 차량 사진 업로드」— images[] 필드, images/ 폴더
-  const handleUpdateReservationImages = async (resId: string, imageUrls: string[]) => {
-    const operatorName = isEmployee ? employeeName : (isSuperAdmin ? '본사 마스터(최고관리자)' : '업체 마스터');
-    await ensureFirestoreAuth();
-    try {
-      await updateDoc(doc(db, 'reservations', resId), {
-        images: imageUrls,
-        updatedBy: operatorName,
-        updatedAt: new Date().toISOString(),
-      });
-    } catch (err: unknown) {
-      const code = (err as { code?: string })?.code;
-      if (code === 'not-found') {
-        throw new Error('Firestore에 이 예약 문서가 없습니다. 타임라인에서 입고 처리 후 다시 시도해 주세요.');
-      }
-      throw err;
-    }
-    setReservations((prev) => {
-      const updated = prev.map((r) =>
-        r.id === resId ? { ...r, images: imageUrls, updatedBy: operatorName, updatedAt: new Date().toISOString() } : r
-      );
-      persistScopedReservations(updated);
-      return updated;
-    });
-  };
-
   const targetReservationForScratch = useMemo(() => {
     return reservations.find(r => r.id === scratchModalTargetId);
   }, [reservations, scratchModalTargetId]);
-
-  // 4-step counters and counts
-  const countPending = useMemo(() => {
-    return visibleReservations.filter(r => {
-      const rDep = normalizeDateString(r.departureDate);
-      const selDate = normalizeDateString(selectedDate);
-      if (!isPending(r.status)) return false;
-      if (selDate) {
-        if (rDep !== selDate) return false;
-      }
-      return true;
-    }).length;
-  }, [visibleReservations, selectedDate]);
-
-  const countPendingIn = useMemo(() => {
-    return visibleReservations.filter(r => {
-      const rDep = normalizeDateString(r.departureDate);
-      const selDate = normalizeDateString(selectedDate);
-      if (r.status !== 'pending_in') return false;
-      if (selDate) {
-        if (rDep !== selDate) return false;
-      }
-      return true;
-    }).length;
-  }, [visibleReservations, selectedDate]);
-
-  const countRequestOut = useMemo(() => {
-    return visibleReservations.filter(r => {
-      const rArr = normalizeDateString(r.arrivalDate);
-      const selDate = normalizeDateString(selectedDate);
-      if (r.status !== 'request_out') return false;
-      if (selDate) {
-        if (rArr !== selDate) return false;
-      }
-      return true;
-    }).length;
-  }, [visibleReservations, selectedDate]);
-
-  const countConfirmed = useMemo(() => {
-    return visibleReservations.filter(r => {
-      const rArr = normalizeDateString(r.arrivalDate);
-      const selDate = normalizeDateString(selectedDate);
-      // 출고예정: 주차완료 + 미입고(예약·입고 진행 중) — 출차예정일 기준 물량
-      if (r.status !== 'completed_in' && r.status !== 'pending' && r.status !== 'pending_in') {
-        return false;
-      }
-      if (selDate) {
-        if (rArr !== selDate) return false;
-      }
-      return true;
-    }).length;
-  }, [visibleReservations, selectedDate]);
-
-  const showPartnerDriverView = isPartnerDriverContext(currentCompanyId, isAdminModeActive);
-
-  const handleNavigate = (view: AppView) => {
-    if (isSuperAdmin && isAirpickHeadquarters(currentCompanyId)) {
-      if (HQ_ADMIN_VIEWS.includes(view)) {
-        setCurrentView(view);
-      } else {
-        setCurrentView('statistics');
-      }
-      return;
-    }
-
-    if (isAdminModeActive && isAdmin) {
-      if (isAirpickHeadquarters(currentCompanyId) && !HQ_ADMIN_VIEWS.includes(view)) {
-        setCurrentView('statistics');
-        return;
-      }
-      if (DRIVER_ONLY_VIEWS.includes(view)) {
-        setCurrentView('statistics');
-        return;
-      }
-    } else if (isLegacyAdminOnlyView(view)) {
-      setCurrentView('timeline');
-      return;
-    }
-    setCurrentView(view);
-  };
 
   if (!isLoggedIn) {
     return (
@@ -1418,21 +367,14 @@ export default function App() {
             <div className="flex flex-col gap-1 shrink-0">
               <button
                 type="button"
-                onClick={async () => {
-                  await requestReservationNotificationPermission();
-                  setShowAlertPermissionBanner(false);
-                }}
+                onClick={() => { void enableReservationAlerts(); }}
                 className="px-3 py-1.5 rounded-lg bg-amber-500 text-neutral-950 text-[11px] font-black"
               >
                 알림 켜기
               </button>
               <button
                 type="button"
-                onClick={() => {
-                  setReservationAlertsEnabled(false);
-                  markNotificationPermissionAsked();
-                  setShowAlertPermissionBanner(false);
-                }}
+                onClick={dismissReservationAlertsBanner}
                 className="px-3 py-1.5 rounded-lg text-zinc-500 text-[10px] font-bold"
               >
                 나중에
@@ -1535,13 +477,7 @@ export default function App() {
                   <div className="flex bg-[#121214] p-0.5 rounded-xl border border-neutral-800/65 font-black shrink-0" id="admin-mode-toggle">
                     <button
                       type="button"
-                      onClick={() => {
-                        setIsAdminModeActive(true);
-                        localStorage.setItem('local_is_admin_mode_active', 'true');
-                        if (DRIVER_ONLY_VIEWS.includes(currentView)) {
-                          setCurrentView('statistics');
-                        }
-                      }}
+                      onClick={enterAdminMode}
                       className={cn(
                         "px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-[12px] font-black transition-all cursor-pointer flex items-center justify-center gap-1",
                         isAdminModeActive 
@@ -1554,13 +490,7 @@ export default function App() {
                     </button>
                     <button
                       type="button"
-                      onClick={() => {
-                        setIsAdminModeActive(false);
-                        localStorage.setItem('local_is_admin_mode_active', 'false');
-                        if (isLegacyAdminOnlyView(currentView)) {
-                          setCurrentView('timeline');
-                        }
-                      }}
+                      onClick={enterDriverMode}
                       className={cn(
                         "px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-[12px] font-black transition-all cursor-pointer flex items-center justify-center gap-1",
                         !isAdminModeActive 
@@ -1851,13 +781,7 @@ export default function App() {
                     companies={companies}
                     getCalculatePrice={getCalculatePrice}
                     onReservationPatch={(resId, patch) => {
-                      setReservations(prev => {
-                        const updated = prev.map(r =>
-                          r.id === resId ? { ...r, ...patch } : r
-                        );
-                        persistScopedReservations(updated);
-                        return updated;
-                      });
+                      void handlePatchReservationFields(resId, patch);
                     }}
                   />
                 </motion.div>

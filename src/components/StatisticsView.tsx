@@ -240,13 +240,6 @@ export default function StatisticsView({
     return list;
   }, [filterType, todayStr]);
 
-  const flowPeriodSourceMetrics = useMemo(() => {
-    const dateSet = new Set(datesRange);
-    return aggregateGroupedBookingSourceMetrics(activeReservations, (r) =>
-      dateSet.has(normalizeDateString(r.departureDate))
-    );
-  }, [activeReservations, datesRange]);
-
   // Helper matching reservation list dynamically to each major node
   const getCompanyReservations = (allResList: Reservation[], compId: string) => {
     const list = allResList || [];
@@ -752,13 +745,13 @@ export default function StatisticsView({
 
   // --- Daily flow data (A+C: 월 요약 + 미니 막대 + 현재 재차) ---
   const dailyFlow = datesRange.map((date) => {
-    const dayRes = activeReservations.filter(r => reservationDepartureOn(r, date));
-    const admittedCount = dayRes.filter(r => isAdmitted(r.status)).length;
-    const exitedCount = activeReservations.filter(r =>
-      isCompletedOut(r.status) && reservationExitOn(r, date)
+    const admittedCount = activeReservations.filter(
+      (r) => reservationDepartureOn(r, date) && isAdmitted(r.status)
     ).length;
-    const sourceMetrics = aggregateGroupedBookingSourceMetrics(dayRes);
-    return { date, admittedCount, exitedCount, sourceMetrics };
+    const exitedCount = activeReservations.filter(
+      (r) => isCompletedOut(r.status) && reservationExitOn(r, date)
+    ).length;
+    return { date, admittedCount, exitedCount };
   });
 
   // Scaling base for the mini bars (avoid divide-by-zero)
@@ -850,7 +843,7 @@ export default function StatisticsView({
 
         <div className="pt-1.5 space-y-4">
           <div>
-            <span className="text-[12px] text-[#8E8E93] font-bold block mb-0.5">오늘 총 매출액</span>
+            <span className="text-[12px] text-[#8E8E93] font-bold block mb-0.5">오늘 총 매출액 · 입고일 기준</span>
             <div className="text-2xl font-black text-amber-400 tracking-tight font-mono">
               {todaySales.toLocaleString()}원
             </div>
@@ -929,15 +922,6 @@ export default function StatisticsView({
             r.status === 'completed_out' && reservationExitOn(r, crmDate)
           ).length,
         };
-        const dayTotal = activeRes.filter(r => {
-          const isReserve = isTodayReserveRow(r, crmDate);
-          const isParkedRow = reservationDepartureOn(r, crmDate) && isParked(r.status);
-          const isOut = r.status === 'completed_out' && reservationExitOn(r, crmDate);
-          return isReserve || isParkedRow || isOut;
-        });
-        const dayRevenue = dayTotal.reduce((s, r) => s + (r.totalPrice || 0), 0);
-        const dayGroupedMetrics = aggregateGroupedBookingSourceMetrics(dayTotal);
-
         const crmFiltered = (() => {
           const q = crmSearch.trim().toLowerCase().replace(/[ㄱ-ㅎㅏ-ㅣ\s]+$/, '');
           if (q) {
@@ -964,32 +948,14 @@ export default function StatisticsView({
 
         return (
           <div className="space-y-3 pt-1 border-t border-neutral-800/60">
-            <div className="flex items-center justify-between px-0.5">
+            <div className="px-0.5">
               <h3 className="text-[12.5px] text-zinc-400 font-black tracking-wider flex items-center gap-1.5">
                 <ClipboardList size={13} className="text-amber-500" />
                 주차접수 현황
               </h3>
-              <div className="text-right">
-                <div className="flex items-center gap-2 text-[12px] font-mono text-zinc-500 justify-end">
-                  <span className="text-amber-500 font-bold">{dayTotal.length}건</span>
-                  <span>·</span>
-                  <span>{dayRevenue.toLocaleString()}원</span>
-                </div>
-                <div className="flex items-center gap-1.5 mt-0.5 justify-end flex-wrap">
-                  {GROUPED_SOURCE_ROWS.map(({ key }) => {
-                    const { count, revenue } = dayGroupedMetrics[key];
-                    if (count === 0 && revenue === 0) return null;
-                    return (
-                      <span
-                        key={key}
-                        className={`text-[9.5px] font-bold px-1.5 py-0.5 rounded border ${groupedBookingSourceBadgeClass(key)}`}
-                      >
-                        {groupedBookingSourceLabel(key)} {count}건 · {revenue.toLocaleString()}원
-                      </span>
-                    );
-                  })}
-                </div>
-              </div>
+              <p className="text-[10px] text-zinc-600 font-bold mt-1">
+                예약·주차·출차 조회용입니다. 매출 금액은 위 통계를 보세요.
+              </p>
             </div>
 
             {/* CRM 조회일 */}
@@ -1136,27 +1102,9 @@ export default function StatisticsView({
             </div>
           )}
 
-          <div className="bg-[#1C1C1E] border border-neutral-800/40 rounded-2xl p-3 space-y-1.5">
-            <span className="text-[11px] text-zinc-500 font-bold block">
-              기간 매출 ({filterType === 'this_month' ? '이번 달' : '지난 달'} · 입고일 기준)
-            </span>
-            {GROUPED_SOURCE_ROWS.map(({ key, label }) => {
-              const { count, revenue } = flowPeriodSourceMetrics[key];
-              return (
-                <div key={key} className="flex items-center justify-between text-[11px] font-mono">
-                  <span className={`text-[10px] font-black px-1.5 py-0.5 rounded border ${groupedBookingSourceBadgeClass(key)}`}>
-                    {label}
-                  </span>
-                  <span className="text-zinc-400">{count}건</span>
-                  <span className="text-zinc-200 font-bold">{revenue.toLocaleString()}원</span>
-                </div>
-              );
-            })}
-          </div>
-
-          {/* 날짜별 미니 막대 리스트 */}
+          {/* 날짜별 미니 막대 리스트 — 입·출 대수만 (매출은 위 통계 카드) */}
           <div className="bg-[#1C1C1E] border border-neutral-800/40 rounded-2xl overflow-hidden divide-y divide-[#1D1D20] max-h-72 overflow-y-auto font-mono">
-            {dailyFlow.map(({ date, admittedCount, exitedCount, sourceMetrics }) => {
+            {dailyFlow.map(({ date, admittedCount, exitedCount }) => {
               const dateObj = new Date(date);
               const daysArr = ['일', '월', '화', '수', '목', '금', '토'];
               const dow = dateObj.getDay();
@@ -1186,23 +1134,6 @@ export default function StatisticsView({
                       <span className="text-emerald-400">출 {exitedCount}</span>
                     </div>
                   </div>
-
-                  {(sourceMetrics['airpick-b2c'].revenue > 0 || sourceMetrics.other.revenue > 0) && (
-                    <div className="flex gap-2 mb-2 flex-wrap">
-                      {GROUPED_SOURCE_ROWS.map(({ key }) => {
-                        const { count, revenue } = sourceMetrics[key];
-                        if (count === 0 && revenue === 0) return null;
-                        return (
-                          <span
-                            key={key}
-                            className={`text-[9px] font-bold px-1.5 py-0.5 rounded border ${groupedBookingSourceBadgeClass(key)}`}
-                          >
-                            {groupedBookingSourceLabel(key)} {revenue.toLocaleString()}원
-                          </span>
-                        );
-                      })}
-                    </div>
-                  )}
 
                   <div className="space-y-1">
                     <div className="flex items-center gap-1.5">

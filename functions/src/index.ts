@@ -21,7 +21,7 @@ if (!admin.apps.length) {
   admin.initializeApp();
 }
 
-/** 매일 04:00 KST — 출차 7일 후 예약 삭제, 30일 후 Storage 사진 삭제 */
+/** 매일 04:00 KST — 출차 90일 후 예약 삭제, 30일 후 Storage 사진 삭제 */
 export const purgeExpiredReservationData = onSchedule(
   {
     schedule: '0 4 * * *',
