@@ -3,7 +3,7 @@ import { airportTerminalCodes, normalizeAirportId } from './airport';
 import {
   buildLotParkingDistancesPayload,
   EMPTY_LOT_PARKING_DISTANCES_FORM,
-  EMPTY_TERMINAL_PARKING_FORM,
+  EMPTY_LOT_PARKING_DISTANCES_FORM_FOR,
   readLotParkingDistancesFormFromCompany,
   validateLotParkingDistancesForm,
   type LotParkingDistancesFormInput,
@@ -17,6 +17,7 @@ export type {
 } from './parkingDistances';
 export {
   EMPTY_LOT_PARKING_DISTANCES_FORM,
+  EMPTY_LOT_PARKING_DISTANCES_FORM_FOR,
   EMPTY_PARKING_DISTANCES_FORM,
   validateLotParkingDistancesForm,
   validateParkingDistancesForm,
@@ -58,16 +59,7 @@ export const DEFAULT_PARTNER_PROFILE: PartnerProfileInput = {
   insuranceProvider: '',
   insuranceProductName: '',
   insuranceCoverageLimitWon: '',
-  parkingDistancesByLot: {
-    indoor: {
-      T1: { ...EMPTY_TERMINAL_PARKING_FORM },
-      T2: { ...EMPTY_TERMINAL_PARKING_FORM },
-    },
-    outdoor: {
-      T1: { ...EMPTY_TERMINAL_PARKING_FORM },
-      T2: { ...EMPTY_TERMINAL_PARKING_FORM },
-    },
-  },
+  parkingDistancesByLot: EMPTY_LOT_PARKING_DISTANCES_FORM_FOR('ICN'),
 };
 
 export function inferFacilityType(company?: Partial<Company>): FacilityType {

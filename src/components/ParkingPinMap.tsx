@@ -7,9 +7,8 @@ import {
   reverseGeocodeLatLng,
 } from '../lib/naverMaps';
 
-const DEFAULT_CENTER = defaultMapCenter('ICN');
-
 type Props = {
+  airportId?: string | null;
   lat: string;
   lng: string;
   /** address는 검색/역지오코딩 후 세 번째 인자로 전달 */
@@ -18,11 +17,13 @@ type Props = {
 };
 
 export default function ParkingPinMap({
+  airportId = 'ICN',
   lat,
   lng,
   onChange,
   heightClass = 'h-56',
 }: Props) {
+  const DEFAULT_CENTER = defaultMapCenter(airportId);
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<naver.maps.Map | null>(null);
   const markerRef = useRef<naver.maps.Marker | null>(null);
@@ -235,7 +236,7 @@ export default function ParkingPinMap({
               void handleSearch();
             }
           }}
-          placeholder="주소·건물명 검색 (예: 인천광역시 중구 공항로)"
+          placeholder="주소·건물명 검색"
           className="flex-1 min-w-0 px-3 py-2 border border-slate-200 bg-white text-slate-900 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
         />
         <button

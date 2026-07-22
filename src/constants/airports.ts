@@ -1,6 +1,6 @@
 /**
  * 공항 플러그인 설정.
- * 1차: ICN만 enabled. GMP는 자리만 두고 OFF.
+ * ICN·GMP 활성. 추가 공항은 AIRPORTS에 터미널만 정의하면 됨.
  */
 
 export type AirportId = 'ICN' | 'GMP';
@@ -59,7 +59,6 @@ export const AIRPORTS: Record<AirportId, AirportConfig> = {
       T2: { lat: 37.46874, lng: 126.4334 },
     },
   },
-  /** 김포 — 구조만 준비, enabled: false */
   GMP: {
     id: 'GMP',
     name: '김포국제공항',
@@ -67,7 +66,7 @@ export const AIRPORTS: Record<AirportId, AirportConfig> = {
     regionLabel: '김포공항 전역',
     defaultTerminal: 'DOM',
     surchargeTerminalCodes: ['INT'],
-    enabled: false,
+    enabled: true,
     terminals: [
       {
         code: 'DOM',

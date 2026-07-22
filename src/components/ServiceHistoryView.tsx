@@ -2,6 +2,7 @@
 import { ArrowLeft, Copy, User, Calendar, Car, Tag, Landmark, ExternalLink, ClipboardCheck } from 'lucide-react';
 import { Reservation } from '../types';
 import { isAdmitted, isCompletedOut } from '../utils/reservationStatus';
+import { airportShortName } from '../utils/airport';
 
 interface ServiceHistoryViewProps {
   onBack: () => void;
@@ -80,7 +81,8 @@ export default function ServiceHistoryView({ onBack, reservations }: ServiceHist
       formattedDate = dateObj.toLocaleDateString('ko-KR', options).replace(/ /g, '');
     } catch (_) {}
 
-    const heading = `${formattedDate} 와와주차장 인천`;
+    const region = airportShortName(res.airport).replace(/공항$/, '') || '인천';
+    const heading = `${formattedDate} · ${region}`;
     if (!acc[heading]) {
       acc[heading] = [];
     }

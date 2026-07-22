@@ -1,4 +1,5 @@
 import type { Company, ParkingDistanceEntry, ParkingDistances } from '../types';
+import { airportTerminalCodes, normalizeAirportId } from './airport';
 
 export type AirportTerminal = string;
 
@@ -19,15 +20,47 @@ export const EMPTY_TERMINAL_PARKING_FORM: TerminalParkingDistanceForm = {
   effectiveFrom: '',
 };
 
-export interface ParkingDistancesFormInput {
-  T1: TerminalParkingDistanceForm;
-  T2: TerminalParkingDistanceForm;
+/** 터미널 코드 → 폼 (ICN: T1/T2, GMP: DOM/INT …) */
+export type ParkingDistancesFormInput = Record<string, TerminalParkingDistanceForm>;
+
+export function emptyParkingDistancesForm(
+  terminalCodes: string[]
+): ParkingDistancesFormInput {
+  const out: ParkingDistancesFormInput = {};
+  for (const code of terminalCodes) {
+    out[code] = { ...EMPTY_TERMINAL_PARKING_FORM };
+  }
+  return out;
 }
 
-export const EMPTY_PARKING_DISTANCES_FORM: ParkingDistancesFormInput = {
-  T1: { ...EMPTY_TERMINAL_PARKING_FORM },
-  T2: { ...EMPTY_TERMINAL_PARKING_FORM },
-};
+function resolveTerminalCodes(
+  airportOrCodes?: string | string[] | null,
+  company?: Partial<Company>
+): string[] {
+  if (Array.isArray(airportOrCodes) && airportOrCodes.length > 0) {
+    return airportOrCodes;
+  }
+  if (typeof airportOrCodes === 'string' && airportOrCodes.trim()) {
+    return airportTerminalCodes(airportOrCodes);
+  }
+  if (company?.airport) {
+    return airportTerminalCodes(company.airport);
+  }
+  if (company?.terminals && company.terminals.length > 0) {
+    return company.terminals;
+  }
+  return airportTerminalCodes(normalizeAirportId(null));
+}
+
+export function EMPTY_PARKING_DISTANCES_FORM_FOR(
+  airportId?: string | null
+): ParkingDistancesFormInput {
+  return emptyParkingDistancesForm(airportTerminalCodes(airportId));
+}
+
+/** @deprecated ICN 기본 — 새 코드는 emptyParkingDistancesForm / EMPTY_PARKING_DISTANCES_FORM_FOR 사용 */
+export const EMPTY_PARKING_DISTANCES_FORM: ParkingDistancesFormInput =
+  emptyParkingDistancesForm(['T1', 'T2']);
 
 function readTerminalForm(entry?: ParkingDistanceEntry): TerminalParkingDistanceForm {
   if (!entry) return { ...EMPTY_TERMINAL_PARKING_FORM };
@@ -41,13 +74,16 @@ function readTerminalForm(entry?: ParkingDistanceEntry): TerminalParkingDistance
 }
 
 export function readParkingDistancesFormFromCompany(
-  company?: Partial<Company>
+  company?: Partial<Company>,
+  terminalCodes?: string[]
 ): ParkingDistancesFormInput {
+  const codes = resolveTerminalCodes(terminalCodes, company);
   const pd = company?.parkingDistances;
-  return {
-    T1: readTerminalForm(pd?.T1),
-    T2: readTerminalForm(pd?.T2),
-  };
+  const out: ParkingDistancesFormInput = {};
+  for (const code of codes) {
+    out[code] = readTerminalForm(pd?.[code]);
+  }
+  return out;
 }
 
 function parseOptionalNonNegativeInt(raw: string, label: string): number | undefined {
@@ -98,17 +134,18 @@ function parseTerminalEntry(
   return entry;
 }
 
-/** 폼 → Firestore parkingDistances. T1/T2 중 distanceKm 없는 터미널은 제외 */
+/** 폼 → Firestore parkingDistances. distanceKm 없는 터미널은 제외 */
 export function buildParkingDistancesFromForm(
   input: ParkingDistancesFormInput
 ): ParkingDistances {
   const now = new Date().toISOString();
   const result: ParkingDistances = {};
 
-  const t1 = parseTerminalEntry(input.T1, 'T1', now);
-  const t2 = parseTerminalEntry(input.T2, 'T2', now);
-  if (t1) result.T1 = t1;
-  if (t2) result.T2 = t2;
+  for (const [code, form] of Object.entries(input || {})) {
+    if (!form) continue;
+    const entry = parseTerminalEntry(form, code, now);
+    if (entry) result[code] = entry;
+  }
 
   return result;
 }
@@ -146,34 +183,43 @@ export interface LotParkingDistancesFormInput {
   outdoor: ParkingDistancesFormInput;
 }
 
-export const EMPTY_LOT_PARKING_DISTANCES_FORM: LotParkingDistancesFormInput = {
-  indoor: {
-    T1: { ...EMPTY_TERMINAL_PARKING_FORM },
-    T2: { ...EMPTY_TERMINAL_PARKING_FORM },
-  },
-  outdoor: {
-    T1: { ...EMPTY_TERMINAL_PARKING_FORM },
-    T2: { ...EMPTY_TERMINAL_PARKING_FORM },
-  },
-};
+export function emptyLotParkingDistancesForm(
+  terminalCodes: string[]
+): LotParkingDistancesFormInput {
+  return {
+    indoor: emptyParkingDistancesForm(terminalCodes),
+    outdoor: emptyParkingDistancesForm(terminalCodes),
+  };
+}
 
+export function EMPTY_LOT_PARKING_DISTANCES_FORM_FOR(
+  airportId?: string | null
+): LotParkingDistancesFormInput {
+  return emptyLotParkingDistancesForm(airportTerminalCodes(airportId));
+}
+
+/** @deprecated ICN 기본 */
+export const EMPTY_LOT_PARKING_DISTANCES_FORM: LotParkingDistancesFormInput =
+  emptyLotParkingDistancesForm(['T1', 'T2']);
 
 /** 업체 문서 → 실내/야외 폼. 롯별 필드 없으면 레거시 parkingDistances로 양쪽 시드 */
 export function readLotParkingDistancesFormFromCompany(
   company?: Partial<Company>
 ): LotParkingDistancesFormInput {
+  const codes = resolveTerminalCodes(undefined, company);
   const legacy = company?.parkingDistances;
   const indoorSrc = company?.parkingDistancesIndoor ?? legacy;
   const outdoorSrc = company?.parkingDistancesOutdoor ?? legacy;
+  const readSide = (src?: ParkingDistances): ParkingDistancesFormInput => {
+    const out: ParkingDistancesFormInput = {};
+    for (const code of codes) {
+      out[code] = readTerminalForm(src?.[code]);
+    }
+    return out;
+  };
   return {
-    indoor: {
-      T1: readTerminalForm(indoorSrc?.T1),
-      T2: readTerminalForm(indoorSrc?.T2),
-    },
-    outdoor: {
-      T1: readTerminalForm(outdoorSrc?.T1),
-      T2: readTerminalForm(outdoorSrc?.T2),
-    },
+    indoor: readSide(indoorSrc),
+    outdoor: readSide(outdoorSrc),
   };
 }
 

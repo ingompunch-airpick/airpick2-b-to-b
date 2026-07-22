@@ -12,6 +12,7 @@ import { motion, AnimatePresence } from 'motion/react';
 // --- Modular Typed Constants and Data ---
 import { Company, Reservation, ReservationStatus, AppView, PartnerCompany } from './types';
 import { formatPartnerDisplayName } from './utils/companyDisplay';
+import { airportShortName } from './utils/airport';
 import { writePartnersToStorage } from './utils/partnerSync';
 import { getCalculatePrice } from './utils/pricing';
 import { getKSTDateOnlyString, getKSTDateTimeString } from './utils/kstDate';
@@ -441,7 +442,9 @@ export default function App() {
                   <h1 className="text-toss-title flex items-center gap-1.5 leading-none" id="partner-header-brand">
                     {formatPartnerDisplayName(companyInfo.name, companyInfo.id)} 
                     <span className="text-toss-caption text-amber-400 font-semibold bg-amber-500/10 px-2 py-0.5 rounded-[6px]">
-                      인천
+                      {airportShortName(
+                        companies.find((c) => c.id === companyInfo.id)?.airport
+                      ).replace(/공항$/, '') || '인천'}
                     </span>
                   </h1>
                   {operatorGroupLabel && (

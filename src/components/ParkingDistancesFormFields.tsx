@@ -1,12 +1,15 @@
 import React from 'react';
 import type { AirportTerminal } from '../utils/parkingDistances';
-import type { TerminalParkingDistanceForm } from '../utils/parkingDistances';
+import type {
+  ParkingDistancesFormInput,
+  TerminalParkingDistanceForm,
+} from '../utils/parkingDistances';
+import { getAirportTerminals, type AirportId } from '../utils/airport';
 
 type Props = {
-  t1: TerminalParkingDistanceForm;
-  t2: TerminalParkingDistanceForm;
-  onChangeT1: (next: TerminalParkingDistanceForm) => void;
-  onChangeT2: (next: TerminalParkingDistanceForm) => void;
+  airportId?: AirportId | string | null;
+  distances: ParkingDistancesFormInput;
+  onChange: (terminalCode: string, next: TerminalParkingDistanceForm) => void;
   variant?: 'light' | 'dark';
   title?: string;
   hint?: string;
@@ -16,11 +19,13 @@ type Props = {
 
 function TerminalSection({
   terminal,
+  label,
   form,
   onChange,
   variant,
 }: {
   terminal: AirportTerminal;
+  label: string;
   form: TerminalParkingDistanceForm;
   onChange: (next: TerminalParkingDistanceForm) => void;
   variant: 'light' | 'dark';
@@ -48,7 +53,7 @@ function TerminalSection({
   return (
     <div className={panelCls}>
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-black text-amber-500">{terminal} 터미널</span>
+        <span className="text-xs font-black text-amber-500">{label}</span>
         <span className="text-[10px] text-zinc-500">B2C 거리순 정렬 기준</span>
       </div>
 
@@ -83,15 +88,15 @@ function TerminalSection({
 }
 
 export default function ParkingDistancesFormFields({
-  t1,
-  t2,
-  onChangeT1,
-  onChangeT2,
+  airportId = 'ICN',
+  distances,
+  onChange,
   variant = 'light',
   title = '터미널별 주차장 거리',
   hint = 'B2C 비교 화면 거리순 탭에서 사용합니다. 핀으로 자동 계산된 km·분을 필요 시 수정하세요.',
   nested = false,
 }: Props) {
+  const terminals = getAirportTerminals(airportId);
   const sectionCls = nested
     ? 'space-y-3'
     : variant === 'dark'
@@ -113,8 +118,22 @@ export default function ParkingDistancesFormFields({
         <p className="text-[11px] text-slate-400 mt-1">{hint}</p>
       </div>
 
-      <TerminalSection terminal="T1" form={t1} onChange={onChangeT1} variant={variant} />
-      <TerminalSection terminal="T2" form={t2} onChange={onChangeT2} variant={variant} />
+      {terminals.map((t) => (
+        <TerminalSection
+          key={t.code}
+          terminal={t.code}
+          label={t.label}
+          form={distances[t.code] || {
+            distanceKm: '',
+            driveMinutes: '',
+            parkingLotName: '',
+            parkingLotAddress: '',
+            effectiveFrom: '',
+          }}
+          onChange={(next) => onChange(t.code, next)}
+          variant={variant}
+        />
+      ))}
     </div>
   );
 }

@@ -117,7 +117,7 @@ export default function PartnerParkingProfileReadonly({ company }: { company?: C
             <span>보험 · 위치 · 사진 (확인 전용)</span>
           </div>
           <p className="text-[12px] text-white/70 mt-1.5 leading-relaxed">
-            B2C 손님 MY에 표시되는 보험·주소·지도 핀·T1/T2 거리·사진입니다. 수정은
+            B2C 손님 MY에 표시되는 보험·주소·지도 핀·터미널 거리·사진입니다. 수정은
             최고관리자만 가능합니다.
           </p>
         </div>

@@ -18,9 +18,11 @@ import CustomDatePickerModal from './CustomDatePickerModal';
 import TimePickerModal from './TimePickerModal';
 import { getCalculatePrice, checkIsNightSurcharge, mergePartnerPricing, getParkingDayCount, companyRouteNeedsTerminalSurcharge } from '../utils/pricing';
 import {
+  getAirport,
   getDefaultTerminal,
   normalizeTerminalCode,
   resolveCompanyAirportId,
+  terminalLabel,
 } from '../utils/airport';
 import TerminalPicker from './TerminalPicker';
 import { getKSTDateTimeLocalString } from '../utils/kstDate';
@@ -1023,7 +1025,15 @@ export default function SearchReceptionView({
                     );
                   })()}
                   <div className="flex justify-between font-semibold">
-                    <span>제2여객터미널(T2) 이동 추가요금</span>
+                    <span>
+                      {(() => {
+                        const aid = resolveCompanyAirportId(partner);
+                        const code = getAirport(aid).surchargeTerminalCodes[0];
+                        return code
+                          ? `${terminalLabel(aid, code)} 이동 추가요금`
+                          : '터미널 이동 추가요금';
+                      })()}
+                    </span>
                     <span className={cn("font-mono", isT2 ? "text-amber-400" : "text-zinc-500")}>
                       {isT2 ? `+${t2Charge.toLocaleString()}원` : '0원'}
                     </span>

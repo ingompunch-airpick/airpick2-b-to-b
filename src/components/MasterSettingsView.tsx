@@ -480,7 +480,7 @@ export default function MasterSettingsView({
       // 대면 입고 검증: ON이면 T1·T2 중 최소 1개, 각 요금은 0 이상 정수
       if (valetEnabled) {
         if (!valetT1Enabled && !valetT2Enabled) {
-          alert('대면 입고를 제공하려면 T1·T2 중 최소 한 곳을 선택해 주세요.');
+          alert('대면 입고를 제공하려면 터미널을 최소 한 곳 선택해 주세요.');
           return;
         }
         const feeInvalid = (fee: number, on: boolean) =>
@@ -980,7 +980,7 @@ export default function MasterSettingsView({
 
                 {!valetT1Enabled && !valetT2Enabled && (
                   <p className="text-[11px] text-red-400 font-bold px-1">
-                    ※ 대면 입고 제공 시 T1·T2 중 최소 한 곳을 선택해야 합니다.
+                    ※ 대면 입고 제공 시 터미널을 최소 한 곳 선택해야 합니다.
                   </p>
                 )}
               </div>

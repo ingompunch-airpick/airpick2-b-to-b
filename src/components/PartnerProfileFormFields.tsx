@@ -10,6 +10,7 @@ import {
 } from '../lib/companyPhotos';
 import { readImageFilesAsDataUrls } from '../utils/imageFile';
 import { getEnabledAirports, type AirportId } from '../utils/airport';
+import { EMPTY_LOT_PARKING_DISTANCES_FORM_FOR } from '../utils/companyProfile';
 
 type Props = {
   profile: PartnerProfileInput;
@@ -130,7 +131,7 @@ export default function PartnerProfileFormFields({
         <div>
           <label className={labelCls}>운영 공항 *</label>
           <p className={hintCls}>
-            업체당 공항 1곳. 김포는 추후 활성화 예정입니다.
+            업체당 공항 1곳. 선택하면 터미널(T1·T2 / 국내선·국제선)이 자동으로 맞춰집니다.
           </p>
           <div className="grid grid-cols-2 gap-2">
             {getEnabledAirports().map((a) => {
@@ -139,7 +140,13 @@ export default function PartnerProfileFormFields({
                 <button
                   key={a.id}
                   type="button"
-                  onClick={() => set('airport', a.id as AirportId)}
+                  onClick={() =>
+                    onChange({
+                      ...profile,
+                      airport: a.id as AirportId,
+                      parkingDistancesByLot: EMPTY_LOT_PARKING_DISTANCES_FORM_FOR(a.id),
+                    })
+                  }
                   className={`px-2 py-2 rounded-xl text-left border transition-all ${
                     active ? facilityActiveCls : facilityIdleCls
                   }`}
@@ -236,10 +243,13 @@ export default function PartnerProfileFormFields({
       </div>
 
       <ParkingPinDistanceFields
+        airportId={profile.airport}
         indoor={{ lat: profile.indoorParkingLat, lng: profile.indoorParkingLng }}
         outdoor={{ lat: profile.outdoorParkingLat, lng: profile.outdoorParkingLng }}
         showIndoor={showIndoor}
         showOutdoor={showOutdoor}
+        indoorDistances={profile.parkingDistancesByLot.indoor}
+        outdoorDistances={profile.parkingDistancesByLot.outdoor}
         onUpdateIndoor={({ lat, lng, address, distances }) =>
           onChange({
             ...profileRef.current,
@@ -264,8 +274,6 @@ export default function PartnerProfileFormFields({
             },
           })
         }
-        indoorDistances={profile.parkingDistancesByLot.indoor}
-        outdoorDistances={profile.parkingDistancesByLot.outdoor}
         variant={variant}
       />
 

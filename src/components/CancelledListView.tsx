@@ -2,6 +2,7 @@
 import { motion, AnimatePresence } from 'motion/react';
 import { Search, Undo2, Ban, ShieldAlert, Calendar, Car, Coins, FileText, ChevronRight } from 'lucide-react';
 import { Reservation, AppView } from '../types';
+import { terminalBadgeLabel } from '../utils/airport';
 
 interface CancelledListViewProps {
   reservations: Reservation[];
@@ -136,19 +137,15 @@ export default function CancelledListView({ reservations, onUpdateStatus, onBack
                     <div className="text-zinc-300 font-medium leading-normal space-y-1">
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="font-mono">{res.departureDate} ({res.departureTime})</span>
-                        {res.departureTerminal === 'T1' ? (
-                          <span className="text-[10.5px] px-1 rounded bg-[#00D2FF]/10 text-[#00D2FF] border border-[#00D2FF]/20 font-black">1터</span>
-                        ) : (
-                          <span className="text-[10.5px] px-1 rounded bg-[#FFB800]/10 text-[#FFB800] border border-[#FFB800]/20 font-black">2터</span>
-                        )}
+                        <span className="text-[10.5px] px-1 rounded bg-[#00D2FF]/10 text-[#00D2FF] border border-[#00D2FF]/20 font-black">
+                          {terminalBadgeLabel(res.airport, res.departureTerminal)}
+                        </span>
                       </div>
                       <div className="flex items-center gap-1.5 flex-wrap">
                         <span className="font-mono">~ {res.arrivalDate} ({res.arrivalTime})</span>
-                        {res.arrivalTerminal === 'T1' ? (
-                          <span className="text-[10.5px] px-1 rounded bg-[#00D2FF]/10 text-[#00D2FF] border border-[#00D2FF]/20 font-black">1터</span>
-                        ) : (
-                          <span className="text-[10.5px] px-1 rounded bg-[#FFB800]/10 text-[#FFB800] border border-[#FFB800]/20 font-black">2터</span>
-                        )}
+                        <span className="text-[10.5px] px-1 rounded bg-[#FFB800]/10 text-[#FFB800] border border-[#FFB800]/20 font-black">
+                          {terminalBadgeLabel(res.airport, res.arrivalTerminal)}
+                        </span>
                       </div>
                     </div>
                   </div>

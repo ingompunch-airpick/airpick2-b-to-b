@@ -17,7 +17,7 @@ type Props = {
 
 /**
  * 공항 설정표 기준 터미널 선택.
- * ICN → T1/T2, (나중) GMP → 국내선/국제선.
+ * ICN → T1/T2, GMP → 국내선/국제선 (airportId로 터미널 목록 결정).
  */
 export default function TerminalPicker({
   airportId,
