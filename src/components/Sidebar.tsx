@@ -21,6 +21,7 @@ import {
   requestReservationNotificationPermission,
   setReservationAlertsEnabled,
 } from '../utils/reservationNotifications';
+import { registerPartnerPushDevice } from '../lib/partnerPush';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -39,6 +40,7 @@ interface SidebarProps {
   employeeName?: string;
   employeeRole?: 'admin' | 'driver';
   currentCompanyId?: string;
+  operatorCompanyIds?: string[];
   companyInfo?: {
     id?: string;
     name: string;
@@ -65,17 +67,31 @@ export default function Sidebar({
   employeeName = '',
   employeeRole = 'driver',
   currentCompanyId,
+  operatorCompanyIds = [],
   companyInfo
 }: SidebarProps) {
   const [alertsEnabled, setAlertsEnabled] = React.useState(() => areReservationAlertsEnabled());
 
   const toggleAlerts = async () => {
     const next = !alertsEnabled;
-    if (next && typeof Notification !== 'undefined' && Notification.permission === 'default') {
-      await requestReservationNotificationPermission();
+    if (next) {
+      if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+        await requestReservationNotificationPermission();
+      }
+      setReservationAlertsEnabled(true);
+      setAlertsEnabled(true);
+      if (currentCompanyId && !isAirpickHeadquarters(currentCompanyId)) {
+        const scopes =
+          operatorCompanyIds.length > 0 ? operatorCompanyIds : [currentCompanyId];
+        void registerPartnerPushDevice({
+          companyId: currentCompanyId,
+          scopeCompanyIds: scopes,
+        });
+      }
+      return;
     }
-    setReservationAlertsEnabled(next);
-    setAlertsEnabled(next);
+    setReservationAlertsEnabled(false);
+    setAlertsEnabled(false);
   };
 
   if (!isOpen) return null;

@@ -7,6 +7,14 @@
         { "fieldPath": "companyId", "order": "ASCENDING" },
         { "fieldPath": "departureDate", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "fcmTokens",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "enabled", "order": "ASCENDING" },
+        { "fieldPath": "scopeCompanyIds", "arrayConfig": "CONTAINS" }
+      ]
     }
   ],
   "fieldOverrides": []

@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">에어픽 B2B</string>
-    <string name="title_activity_main">에어픽 B2B</string>
+    <string name="app_name">에어픽 파트너</string>
+    <string name="title_activity_main">에어픽 파트너</string>
     <string name="package_name">com.airpick.manager</string>
     <string name="custom_url_scheme">com.airpick.manager</string>
 </resources>

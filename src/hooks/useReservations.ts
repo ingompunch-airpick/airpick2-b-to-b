@@ -31,6 +31,7 @@ import {
   setReservationAlertsEnabled,
   wasNotificationPermissionAsked,
 } from '../utils/reservationNotifications';
+import { registerPartnerPushDevice } from '../lib/partnerPush';
 
 export interface UseReservationsParams {
   isLoggedIn: boolean;
@@ -352,14 +353,34 @@ export function useReservations({
 
   const enableReservationAlerts = useCallback(async () => {
     await requestReservationNotificationPermission();
+    setReservationAlertsEnabled(true);
     setShowAlertPermissionBanner(false);
-  }, []);
+    const scopes =
+      operatorCompanyIds.length > 0 ? operatorCompanyIds : [currentCompanyId];
+    void registerPartnerPushDevice({
+      companyId: currentCompanyId,
+      scopeCompanyIds: scopes,
+    });
+  }, [currentCompanyId, operatorCompanyIds]);
 
   const dismissReservationAlertsBanner = useCallback(() => {
     setReservationAlertsEnabled(false);
     markNotificationPermissionAsked();
     setShowAlertPermissionBanner(false);
   }, []);
+
+  // 로그인·알림 ON이면 안드로이드 FCM 토큰 등록 (백그라운드 푸시)
+  useEffect(() => {
+    if (!isLoggedIn || !currentCompanyId) return;
+    if (!areReservationAlertsEnabled()) return;
+    if (isAirpickHeadquarters(currentCompanyId)) return;
+    const scopes =
+      operatorCompanyIds.length > 0 ? operatorCompanyIds : [currentCompanyId];
+    void registerPartnerPushDevice({
+      companyId: currentCompanyId,
+      scopeCompanyIds: scopes,
+    });
+  }, [isLoggedIn, currentCompanyId, operatorCompanyIds]);
 
   const countPending = useMemo(() => {
     return visibleReservations.filter((r) => {

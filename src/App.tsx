@@ -362,7 +362,7 @@ export default function App() {
             <div className="flex-1 min-w-0">
               <p className="text-xs font-black text-amber-400">신규 예약 알림</p>
               <p className="text-[11px] text-zinc-400 mt-1 leading-relaxed">
-                홈페이지·앱 접수 시 소리와 푸시 알림을 받을 수 있습니다. (앱을 켜 두거나 홈 화면에 추가한 상태)
+                홈페이지·앱 접수 시 소리와 알림을 받습니다. 안드로이드 앱에서는 앱을 꺼도 푸시가 갑니다.
               </p>
             </div>
             <div className="flex flex-col gap-1 shrink-0">
@@ -586,6 +586,7 @@ export default function App() {
         employeeName={employeeName}
         employeeRole={employeeRole}
         currentCompanyId={currentCompanyId}
+        operatorCompanyIds={operatorCompanyIds}
         companyInfo={companyInfo}
       />
 

@@ -5,6 +5,7 @@ import { buildSheetsConfigFromEnv } from './sheets/syncReservation';
 import { processReservationSheetsArchive } from './sheets/processReservationSheets';
 import { enforceHourlyCapacityOnCreate } from './hourlyCapacity';
 import { bumpCustomerVisitOnCreate } from './customerVisit';
+import { notifyPartnersNewReservation } from './partnerPush';
 
 const alimtalkEnabled = defineString('ALIMTALK_ENABLED', { default: 'false' });
 const alimtalkProvider = defineString('ALIMTALK_PROVIDER', { default: 'nhn' });
@@ -78,6 +79,14 @@ export const onReservationSync = onDocumentWritten(
         await bumpCustomerVisitOnCreate(reservationId, afterData);
       } catch (err) {
         console.error('[customerVisit] bump failed', {
+          reservationId,
+          err: err instanceof Error ? err.message : String(err),
+        });
+      }
+      try {
+        await notifyPartnersNewReservation(reservationId, afterData);
+      } catch (err) {
+        console.error('[partnerPush] failed', {
           reservationId,
           err: err instanceof Error ? err.message : String(err),
         });

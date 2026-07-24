@@ -173,5 +173,18 @@ service cloud.firestore {
       allow read: if isSignedIn() && resource.data.status == 'published';
       allow create, update, delete: if false;
     }
+
+    // ── FCM 디바이스 토큰 (파트너 앱 푸시) ───────────────────────────────
+    match /fcmTokens/{tokenId} {
+      allow read: if false;
+      allow create, update: if isSignedIn()
+        && request.resource.data.token is string
+        && request.resource.data.token.size() > 10
+        && request.resource.data.companyId is string
+        && request.resource.data.companyId.size() > 0
+        && request.resource.data.scopeCompanyIds is list
+        && request.resource.data.enabled is bool;
+      allow delete: if isSignedIn();
+    }
   }
 }
