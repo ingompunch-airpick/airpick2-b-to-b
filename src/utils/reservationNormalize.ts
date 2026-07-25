@@ -60,12 +60,13 @@ export function normalizeDateString(dStr: string | undefined | null | unknown): 
 
 function resolveCompanyFields(r: Record<string, unknown>): { companyId: string; companyName: string } {
   const rawCompId = String(r.companyId || r.company || '').trim();
-  if (isWawaCompany(rawCompId, String(r.companyName || r.company || ''))) {
-    return { companyId: 'wawa', companyName: '와와' };
+  const rawName = String(r.companyName || r.company || '');
+  if (isWawaCompany(rawCompId, rawName)) {
+    return { companyId: 'wawa', companyName: '와와발렛' };
   }
   return {
     companyId: rawCompId,
-    companyName: String(r.companyName || r.company || ''),
+    companyName: rawName,
   };
 }
 export function normalizeDocsArray(items: unknown[]): Reservation[] {
@@ -83,8 +84,10 @@ export function normalizeDocsArray(items: unknown[]): Reservation[] {
     const finalCarNumber = String(r.carNumber || r.carNo || r.vehicleNo || r.car_number || '');
     const finalPrice = typeof r.totalPrice === 'number' ? r.totalPrice : Number(r.totalPrice) || 0;
     const { companyId, companyName: resolvedCompanyName } = resolveCompanyFields(r);
-    const displayCompanyName =
-      String(r.companyName || r.company || '').trim() || resolvedCompanyName;
+    // 와와 계열은 문서에 '와와 주차대행'/빈값 등이어도 표시·집계는 와와발렛으로 통일
+    const displayCompanyName = isWawaCompany(companyId, String(r.companyName || ''))
+      ? '와와발렛'
+      : String(r.companyName || r.company || '').trim() || resolvedCompanyName;
     const flightFields = resolveFlightFields(r);
     const bookingSource = resolveBookingSource(
       r.createdBy as string | undefined,

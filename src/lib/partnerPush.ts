@@ -113,6 +113,15 @@ export async function registerPartnerPushDevice(params: {
       sound: 'default',
       vibration: true,
     });
+    await PushNotifications.createChannel({
+      id: 'flight_delays',
+      name: '항공편 연착',
+      description: '입국 항공편 연착·결항 알림',
+      importance: 5,
+      visibility: 1,
+      sound: 'default',
+      vibration: true,
+    });
   } catch {
     // 웹·구버전 무시
   }

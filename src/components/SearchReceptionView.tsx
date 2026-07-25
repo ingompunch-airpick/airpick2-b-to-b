@@ -375,7 +375,7 @@ export default function SearchReceptionView({
     const bookingPayload: Reservation = {
       userId: targetUserId,
       companyId: partner.id,
-      companyName: partner.name,
+      companyName: formatPartnerDisplayName(partner.name, partner.id) || partner.name,
       airport: resolveCompanyAirportId(partnerObj),
       userName: userName.trim() || '테스트고객',
       carModel: carModel.trim() || '제네시스 GV80',

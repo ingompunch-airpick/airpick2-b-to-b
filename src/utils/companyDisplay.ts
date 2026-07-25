@@ -12,13 +12,13 @@ export function resolveRequiredCompanyId(
   return null;
 }
 
-/** 업체 표시명 (드롭다운·헤더): '와와주차장', '본사' 등 제거 */
+/** 업체 표시명 (드롭다운·헤더·예약 companyName): 와와 계열은 와와발렛으로 통일 */
 export function formatPartnerDisplayName(name?: string, companyId?: string): string {
   const id = (companyId || '').trim().toLowerCase();
   const raw = (name || '').trim();
 
   if (id === 'wawa' || id === 'wawa_valet' || raw.includes('와와')) {
-    return '와와';
+    return '와와발렛';
   }
   if (id === 'gayu' || id === 'gayu_partner' || raw.includes('가유')) {
     return '가유';

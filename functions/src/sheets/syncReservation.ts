@@ -210,6 +210,7 @@ const SYNC_SKIP_FIELDS = new Set([
   'alimtalkSent',
   'updatedAt',
   'updatedBy',
+  'flightTracking',
 ]);
 
 export function shouldSyncReservationToSheets(
