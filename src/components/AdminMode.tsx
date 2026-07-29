@@ -3,6 +3,7 @@ import { Reservation, AppView, CompanyInfo, Company, PartnerCompany } from '../t
 import StatisticsView from './StatisticsView';
 import CancelledListView from './CancelledListView';
 import MasterSettingsView from './MasterSettingsView';
+import DispatchBoardView from './DispatchBoardView';
 
 interface AdminModeProps {
   currentView: AppView;
@@ -93,6 +94,14 @@ export default function AdminMode({
           onBack={() => setCurrentView('statistics')}
           isEmployee={isEmployee}
           employeeRole={employeeRole}
+        />
+      );
+
+    case 'dispatch_board':
+      return (
+        <DispatchBoardView
+          reservations={reservations}
+          companyName={companyInfo.name}
         />
       );
 

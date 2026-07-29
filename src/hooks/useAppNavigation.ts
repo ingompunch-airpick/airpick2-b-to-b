@@ -3,7 +3,11 @@ import type { AppView } from '../types';
 import { isAirpickHeadquarters } from '../constants/platform';
 
 /** 관리자 모드 전용 화면 — 기사 모드에서 진입 시 timeline으로 보냄 */
-export const ADMIN_ONLY_VIEWS: AppView[] = ['statistics', 'master_settings'];
+export const ADMIN_ONLY_VIEWS: AppView[] = [
+  'statistics',
+  'master_settings',
+  'dispatch_board',
+];
 /** 기사 모드 전용 화면 — 관리자 모드에서 진입 시 statistics로 보냄 */
 export const DRIVER_ONLY_VIEWS: AppView[] = [
   'timeline',
@@ -15,6 +19,7 @@ export const DRIVER_ONLY_VIEWS: AppView[] = [
   'cancelled_list',
 ];
 export const HQ_ADMIN_VIEWS: AppView[] = ['statistics', 'master_settings'];
+// HQ는 배차표 불필요 — 파트너 관리자만 dispatch_board 사용
 
 /** dead code 정리 전 localStorage·history에 남을 수 있는 레거시 화면 */
 export function resolveLegacyAppView(view: AppView | string): AppView {

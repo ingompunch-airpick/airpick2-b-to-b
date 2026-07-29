@@ -116,6 +116,7 @@ export interface CompanyInsurance {
   enrolled: boolean;
   provider?: string;
   productName?: string;
+  /** 마스터 등록 시 배상책임보험 권장 (레거시: 발렛보험) */
   coverageLimitWon?: number;
   updatedAt?: string;
 }
@@ -268,4 +269,6 @@ export type AppView =
   | 'service_history'
   | 'parking_departure'
   | 'cancelled_list'
-  | 'master_settings';
+  | 'master_settings'
+  /** 관리자 · 입출차 배차표 (인쇄/CSV) */
+  | 'dispatch_board';

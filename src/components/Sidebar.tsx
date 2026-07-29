@@ -10,6 +10,7 @@ import {
   ShieldAlert,
   TrendingUp,
   FileX,
+  ClipboardList,
   Bell,
   BellOff,
 } from 'lucide-react';
@@ -111,7 +112,8 @@ export default function Sidebar({
     : isAdminModeActive
     ? [
         { id: 'admin_statistics', label: '① 대시보드', icon: TrendingUp, view: 'statistics' as AppView },
-        { id: 'admin_master_settings', label: '② 업체 정보 설정', icon: Settings, view: 'master_settings' as AppView }
+        { id: 'admin_dispatch_board', label: '② 입출차 배차표', icon: ClipboardList, view: 'dispatch_board' as AppView },
+        { id: 'admin_master_settings', label: '③ 업체 정보 설정', icon: Settings, view: 'master_settings' as AppView },
       ]
     : [
         { id: 'service_history', label: '① 나의 서비스 기록', icon: History, view: 'service_history' as AppView },
