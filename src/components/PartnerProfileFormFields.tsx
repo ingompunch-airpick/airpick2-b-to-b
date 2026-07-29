@@ -317,7 +317,7 @@ export default function PartnerProfileFormFields({
                   value={profile.insuranceProductName}
                   onChange={(e) => set('insuranceProductName', e.target.value)}
                   className={inputCls}
-                  placeholder="예: 영업용 종합보험"
+                  placeholder="예: 배상책임보험"
                 />
               </div>
             </div>

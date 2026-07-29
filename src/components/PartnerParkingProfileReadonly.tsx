@@ -2,6 +2,7 @@ import React from 'react';
 import { MapPin, ShieldCheck } from 'lucide-react';
 import type { Company, CompanyInsurance, ParkingDistanceEntry, ParkingDistances } from '../types';
 import { inferFacilityType } from '../utils/companyProfile';
+import { normalizeInsuranceProductName } from '../utils/insurance';
 
 function formatPin(lat?: number, lng?: number): string {
   if (lat == null || lng == null || Number.isNaN(lat) || Number.isNaN(lng)) return '미등록';
@@ -31,7 +32,7 @@ function resolveInsuranceSummary(company: Company): {
   const ins = company.insurance as CompanyInsurance | undefined;
   if (ins && typeof ins === 'object') {
     if (!ins.enrolled) return { enrolled: false, detail: '미가입' };
-    const bits = [ins.provider, ins.productName]
+    const bits = [ins.provider, normalizeInsuranceProductName(ins.productName) || ins.productName]
       .map((s) => String(s ?? '').trim())
       .filter(Boolean);
     if (ins.coverageLimitWon != null) {

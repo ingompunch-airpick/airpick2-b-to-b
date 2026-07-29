@@ -1,5 +1,6 @@
 import type { Company, CompanyInsurance, FacilityType } from '../types';
 import { airportTerminalCodes, normalizeAirportId } from './airport';
+import { resolveInsuranceProductNameForStorage, normalizeInsuranceProductName } from './insurance';
 import {
   buildLotParkingDistancesPayload,
   EMPTY_LOT_PARKING_DISTANCES_FORM,
@@ -108,7 +109,7 @@ export function readPartnerProfileFromCompany(company?: Company): PartnerProfile
     const ins = raw.insurance as CompanyInsurance;
     insuranceEnrolled = !!ins.enrolled;
     insuranceProvider = ins.provider || '';
-    insuranceProductName = ins.productName || '';
+    insuranceProductName = normalizeInsuranceProductName(ins.productName) || ins.productName || '';
     insuranceCoverageLimitWon =
       ins.coverageLimitWon !== undefined && ins.coverageLimitWon !== null
         ? String(ins.coverageLimitWon)
@@ -165,7 +166,7 @@ export function buildInsurancePayload(input: PartnerProfileInput): {
   }
 
   const provider = input.insuranceProvider.trim();
-  const productName = input.insuranceProductName.trim();
+  const productName = resolveInsuranceProductNameForStorage(input.insuranceProductName, true);
   const limitRaw = input.insuranceCoverageLimitWon.replace(/,/g, '').trim();
   const coverageLimitWon = limitRaw ? Number(limitRaw) : undefined;
 
