@@ -41,12 +41,12 @@ export const purgeExpiredReservationData = onSchedule(
 );
 
 /**
- * 20분마다 — 인천공항 당일 도착편 연착/결항 → 파트너 FCM
+ * 2분마다 — 인천공항 당일 도착편 도착·연착/결항 → 상태 자동전환·파트너 FCM
  * 공공데이터포털 서비스키(DATA_GO_KR_SERVICE_KEY) + FLIGHT_DELAY_ENABLED=true 필요
  */
 export const checkIncheonFlightDelays = onSchedule(
   {
-    schedule: 'every 20 minutes',
+    schedule: 'every 2 minutes',
     timeZone: 'Asia/Seoul',
     memory: '512MiB',
     timeoutSeconds: 120,

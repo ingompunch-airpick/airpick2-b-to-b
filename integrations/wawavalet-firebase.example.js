@@ -13,23 +13,6 @@ const db = getFirestore(app);
 
 const COMPANY_ID = 'wawa';
 
-function datesInRange(startYmd, endYmd) {
-  const dates = [];
-  const start = new Date(startYmd);
-  const end = new Date(endYmd);
-  start.setHours(0, 0, 0, 0);
-  end.setHours(0, 0, 0, 0);
-  const cur = new Date(start);
-  while (cur <= end) {
-    const y = cur.getFullYear();
-    const m = String(cur.getMonth() + 1).padStart(2, '0');
-    const d = String(cur.getDate()).padStart(2, '0');
-    dates.push(`${y}-${m}-${d}`);
-    cur.setDate(cur.getDate() + 1);
-  }
-  return dates;
-}
-
 export async function loadWawaBookingPolicy() {
   await signInAnonymously(auth);
   const snap = await getDoc(doc(db, 'companies', COMPANY_ID));
@@ -81,10 +64,8 @@ export async function createHomepageReservation(form) {
   if (!policy.isOpen) {
     throw new Error('전체 예약이 마감된 상태입니다.');
   }
-  const span = datesInRange(form.departureDate, form.arrivalDate);
-  const blocked = span.filter((d) => policy.blockedDates.includes(d));
-  if (blocked.length > 0) {
-    throw new Error(`마감된 날짜가 포함되어 있습니다: ${blocked.join(', ')}`);
+  if (policy.blockedDates.includes(form.departureDate)) {
+    throw new Error(`입고일(${form.departureDate})은 예약이 마감되었습니다.`);
   }
   await assertHourlyCapacity(form.departureDate, form.departureTime, policy);
 

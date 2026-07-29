@@ -4,6 +4,7 @@ import { buildNhnConfigFromEnv, processReservationAlimtalk } from './alimtalk/se
 import { buildSheetsConfigFromEnv } from './sheets/syncReservation';
 import { processReservationSheetsArchive } from './sheets/processReservationSheets';
 import { enforceHourlyCapacityOnCreate } from './hourlyCapacity';
+import { enforceBookingPolicyOnCreate } from './bookingPolicy';
 import { bumpCustomerVisitOnCreate } from './customerVisit';
 import { notifyPartnersNewReservation } from './partnerPush';
 
@@ -51,7 +52,8 @@ function applyRuntimeEnv(): void {
 
 /**
  * 예약 Firestore 변경 시:
- * - 시간당 한도 초과 신규건 자동취소 (백스톱)
+ * - 마감일·전체마감·당일차단 신규건 자동취소 (홈페이지/B2C 백스톱)
+ * - 시간당 한도 초과 신규건 자동취소
  * - Google Sheets 장부 동기화 (탭: 에어픽 / 와와 / 가유 / …)
  * - 알림톡 발송 (NHN 또는 NCP, 활성화 시)
  */
@@ -71,8 +73,11 @@ export const onReservationSync = onDocumentWritten(
 
     applyRuntimeEnv();
 
-    // 신규 생성 시 한도 초과면 즉시 취소하고 알림톡·시트는 이 턴에서 스킵
+    // 신규 생성 시 정책·한도 위반이면 즉시 취소하고 알림톡·시트는 이 턴에서 스킵
     if (!beforeData) {
+      const policyRejected = await enforceBookingPolicyOnCreate(reservationId, afterData);
+      if (policyRejected) return;
+
       const rejected = await enforceHourlyCapacityOnCreate(reservationId, afterData);
       if (rejected) return;
       try {

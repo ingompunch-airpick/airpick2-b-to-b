@@ -177,15 +177,11 @@ export default function SearchReceptionView({
     if (datePickerTarget === 'intakeStart') {
       const activeBlocked = getActiveBlockedDates();
       if (activeBlocked.includes(selectedDateStr)) {
-        alert(`[알림] 선택하신 입고일(${selectedDateStr})은 예약 차단(마감)된 날짜입니다. 접수 등록 전 유의하여 주십시오.`);
+        alert(`[알림] 선택하신 입고일(${selectedDateStr})은 예약 차단(마감)된 날짜입니다.`);
       }
       const timePart = intakeStartDate ? intakeStartDate.substring(11, 16) : '12:00';
       setIntakeStartDate(`${selectedDateStr}T${timePart}`);
     } else if (datePickerTarget === 'intakeEnd') {
-      const activeBlocked = getActiveBlockedDates();
-      if (activeBlocked.includes(selectedDateStr)) {
-        alert(`[알림] 선택하신 출고일(${selectedDateStr})은 예약 차단(마감)된 날짜입니다. 접수 등록 전 유의하여 주십시오.`);
-      }
       const timePart = intakeEndDate ? intakeEndDate.substring(11, 16) : '12:00';
       setIntakeEndDate(`${selectedDateStr}T${timePart}`);
     } else if (datePickerTarget === 'editSearchedDeparture') {
@@ -317,32 +313,9 @@ export default function SearchReceptionView({
     const arrDateStr = intakeEndDate.substring(0, 10);
     const arrTimeStr = intakeEndDate.substring(11, 16);
 
-    const getDatesInRange = (startStr: string, endStr: string): string[] => {
-      const dates: string[] = [];
-      const start = new Date(startStr);
-      const end = new Date(endStr);
-      if (isNaN(start.getTime()) || isNaN(end.getTime())) {
-        return [startStr];
-      }
-      start.setHours(0, 0, 0, 0);
-      end.setHours(0, 0, 0, 0);
-      const cur = new Date(start);
-      while (cur <= end) {
-        const y = cur.getFullYear();
-        const m = String(cur.getMonth() + 1).padStart(2, '0');
-        const d = String(cur.getDate()).padStart(2, '0');
-        dates.push(`${y}-${m}-${d}`);
-        cur.setDate(cur.getDate() + 1);
-      }
-      return dates;
-    };
-
-    const requestedDates = getDatesInRange(depDateStr, arrDateStr);
     const activeBlocked = getActiveBlockedDates();
-
-    const foundBlockedDates = requestedDates.filter(d => activeBlocked.includes(d));
-    if (foundBlockedDates.length > 0) {
-      alert(`선택하신 기간(${depDateStr} ~ ${arrDateStr})에 예약이 마감된 날짜가 포함되어 있어 현장 접수가 불가능합니다.`);
+    if (activeBlocked.includes(depDateStr)) {
+      alert(`선택하신 입고일(${depDateStr})은 예약이 마감되어 현장 접수가 불가능합니다.`);
       setIsSubmittingBooking(false);
       return;
     }
@@ -1079,7 +1052,11 @@ export default function SearchReceptionView({
               ? '반납(도착) 날짜 수정'
               : '날짜 선택'
           }
-          blockedDates={getActiveBlockedDates()}
+          blockedDates={
+            datePickerTarget === 'intakeStart' || datePickerTarget === 'editSearchedDeparture'
+              ? getActiveBlockedDates()
+              : []
+          }
         />
       )}
 

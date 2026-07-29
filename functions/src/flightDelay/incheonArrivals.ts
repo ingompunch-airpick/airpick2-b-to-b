@@ -108,6 +108,14 @@ export async function fetchIncheonArrivals(params: {
     .filter((x): x is IncheonArrival => Boolean(x));
 }
 
+/** 인천 API remark — 도착(게이트 도착) 시 true. 착륙만은 제외(승객 하기 전). */
+export function isFlightArrived(remark: string): boolean {
+  const r = String(remark || '').trim();
+  if (!r) return false;
+  if (r.includes('결항') || r.includes('회항')) return false;
+  return r.includes('도착');
+}
+
 /** 편명(및 마스터 편명)으로 매칭 */
 export function findArrivalForFlight(
   arrivals: IncheonArrival[],

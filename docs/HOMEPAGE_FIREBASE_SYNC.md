@@ -55,7 +55,7 @@ async function assertBookingAllowed(departureDate, arrivalDate) {
     throw new Error('현재 전체 예약이 마감되었습니다.');
   }
   const blocked = data.blockedDates || [];
-  // YYYY-MM-DD 구간에 마감일이 있으면 거부 (앱과 동일 로직)
+  // YYYY-MM-DD 입고일이 마감이면 거부 (출고일은 검사하지 않음)
   // ...
 }
 

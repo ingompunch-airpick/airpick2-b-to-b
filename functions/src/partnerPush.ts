@@ -155,3 +155,30 @@ export async function notifyPartnersFlightDelay(
     },
   });
 }
+
+/** 입국 항공편 도착 시 출고요청 자동 전환 알림 */
+export async function notifyPartnersFlightArrival(
+  reservationId: string,
+  data: FirebaseFirestore.DocumentData,
+  info: { flightId: string; estimatedLabel: string }
+): Promise<void> {
+  const companyId = String(data.companyId || '').trim();
+  if (!companyId) return;
+
+  const car = String(data.carNumber || '').trim();
+  const name = String(data.userName || '').trim();
+  const who = [name, car].filter(Boolean).join(' · ') || '고객';
+
+  await sendPartnerMulticast({
+    companyId,
+    reservationId,
+    title: `항공편 도착 · ${info.flightId}`,
+    body: `${who} · 도착 ${info.estimatedLabel} · 출고 탭으로 이동됨`,
+    type: 'flight_arrival',
+    channelId: 'flight_delays',
+    extraData: {
+      flightId: info.flightId,
+      estimated: info.estimatedLabel,
+    },
+  });
+}

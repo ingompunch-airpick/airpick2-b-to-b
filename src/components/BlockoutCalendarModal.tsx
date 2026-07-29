@@ -304,7 +304,8 @@ export default function BlockoutCalendarModal({
             <div className="bg-amber-500/5 border border-amber-500/10 p-3 rounded-2xl flex items-start gap-2.5 text-[12px] text-zinc-350">
               <Info size={12} className="text-amber-500 shrink-0 mt-0.5" />
               <p className="leading-relaxed">
-                <strong className="text-amber-400/90">날짜별 마감법</strong>: 터치하여 붉은색으로 설정된 개별 날짜에는 고객 접수 페이지 등에서 신규 예약 접수가 즉시 불가능합니다.
+                <strong className="text-amber-400/90">날짜별 마감법</strong>: 터치하여 붉은색으로 설정된 날짜는
+                <strong className="text-amber-400/90"> 입고일</strong>로 신규 예약을 받지 않습니다. (출고일은 막지 않음)
               </p>
             </div>
 

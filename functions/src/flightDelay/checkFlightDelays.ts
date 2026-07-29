@@ -1,7 +1,12 @@
 import * as admin from 'firebase-admin';
 import { delayMinutes, formatHhmm, normalizeFlightId } from './flightId';
-import { fetchIncheonArrivals, findArrivalForFlight, type IncheonArrival } from './incheonArrivals';
-import { notifyPartnersFlightDelay } from '../partnerPush';
+import {
+  fetchIncheonArrivals,
+  findArrivalForFlight,
+  isFlightArrived,
+  type IncheonArrival,
+} from './incheonArrivals';
+import { notifyPartnersFlightArrival, notifyPartnersFlightDelay } from '../partnerPush';
 
 const MIN_DELAY_MINUTES = 15;
 const ACTIVE_STATUSES = new Set([
@@ -80,12 +85,15 @@ export type FlightDelayCheckResult = {
   candidates: number;
   matched: number;
   notified: number;
+  promotedToRequestOut: number;
   errors: number;
 };
 
 /**
  * 오늘(KST) 출고 예정 + 입국 항공편이 있는 예약을
- * 인천공항 당일 도착 현황과 대조해 연착/결항 시 파트너 푸시.
+ * 인천공항 당일 도착 현황과 대조해
+ * - 입국편 도착 시 주차완료(출고예정) → 출고요청 자동 전환
+ * - 연착/결항 시 파트너 FCM 푸시
  */
 export async function runFlightDelayCheck(serviceKey: string): Promise<FlightDelayCheckResult> {
   const key = serviceKey.trim();
@@ -96,6 +104,7 @@ export async function runFlightDelayCheck(serviceKey: string): Promise<FlightDel
       candidates: 0,
       matched: 0,
       notified: 0,
+      promotedToRequestOut: 0,
       errors: 0,
     };
   }
@@ -116,6 +125,7 @@ export async function runFlightDelayCheck(serviceKey: string): Promise<FlightDel
   let candidates = 0;
   let matched = 0;
   let notified = 0;
+  let promotedToRequestOut = 0;
   let errors = 0;
 
   for (const doc of docs.values()) {
@@ -137,28 +147,53 @@ export async function runFlightDelayCheck(serviceKey: string): Promise<FlightDel
     matched += 1;
 
     const { delayed, minutes, cancelled } = isDelayed(arrival);
-    if (!delayed && !cancelled) {
-      await doc.ref
-        .set(
-          {
-            flightTracking: {
-              arrivalFlight: arrival.flightId,
-              scheduleHhmm: arrival.scheduleHhmm,
-              estimatedHhmm: arrival.estimatedHhmm,
-              remark: arrival.remark,
-              delayMinutes: minutes,
-              lastCheckedAt: new Date().toISOString(),
-            },
+    const arrived = isFlightArrived(arrival.remark);
+    const now = new Date().toISOString();
+    const prev = (data.flightTracking || {}) as Record<string, unknown>;
+    const trackingBase = {
+      arrivalFlight: arrival.flightId,
+      scheduleHhmm: arrival.scheduleHhmm,
+      estimatedHhmm: arrival.estimatedHhmm,
+      remark: arrival.remark,
+      delayMinutes: minutes,
+      lastCheckedAt: now,
+    };
+
+    // 주차완료(출고예정) + 입국편 도착 → 출고요청 자동 전환
+    if (arrived && status === 'completed_in' && !prev.autoRequestOutAt) {
+      try {
+        await doc.ref.update({
+          status: 'request_out',
+          updatedBy: 'flight-arrival-auto',
+          updatedAt: now,
+          flightTracking: {
+            ...trackingBase,
+            landedAt: now,
+            autoRequestOutAt: now,
           },
-          { merge: true }
-        )
-        .catch(() => undefined);
+        });
+        promotedToRequestOut += 1;
+        await notifyPartnersFlightArrival(doc.id, data, {
+          flightId: arrival.flightId,
+          estimatedLabel: formatHhmm(arrival.estimatedHhmm),
+        });
+      } catch (err) {
+        errors += 1;
+        console.error('[flightDelay] auto request_out failed', {
+          id: doc.id,
+          err: err instanceof Error ? err.message : String(err),
+        });
+      }
+      continue;
+    }
+
+    if (!delayed && !cancelled) {
+      await doc.ref.set({ flightTracking: trackingBase }, { merge: true }).catch(() => undefined);
       continue;
     }
 
     const kind = cancelled ? 'cancel' : 'delay';
     const fp = notifyFingerprint(arrival, kind);
-    const prev = (data.flightTracking || {}) as Record<string, unknown>;
     if (String(prev.lastNotifiedFingerprint || '') === fp) {
       continue;
     }
@@ -177,13 +212,8 @@ export async function runFlightDelayCheck(serviceKey: string): Promise<FlightDel
       await doc.ref.set(
         {
           flightTracking: {
-            arrivalFlight: arrival.flightId,
-            scheduleHhmm: arrival.scheduleHhmm,
-            estimatedHhmm: arrival.estimatedHhmm,
-            remark: arrival.remark,
-            delayMinutes: minutes,
-            lastCheckedAt: new Date().toISOString(),
-            lastNotifiedAt: new Date().toISOString(),
+            ...trackingBase,
+            lastNotifiedAt: now,
             lastNotifiedFingerprint: fp,
           },
         },
@@ -203,6 +233,7 @@ export async function runFlightDelayCheck(serviceKey: string): Promise<FlightDel
     candidates,
     matched,
     notified,
+    promotedToRequestOut,
     errors,
   };
 }
