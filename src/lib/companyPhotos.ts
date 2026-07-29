@@ -135,11 +135,42 @@ export async function uploadCompanyParkingImages(
     }
   }
 
-  if (sources.some((s) => s?.trim().startsWith('data:')) && urls.length === 0) {
+  if (urls.length === 0 && sources.some((s) => s?.trim().startsWith('data:'))) {
     throw new Error('주차장 사진을 Storage에 올리지 못했습니다. JPG/PNG를 다시 선택해 주세요.');
   }
 
   return normalizeCompanyParkingPhotos(urls);
+}
+
+/** 보험증권 1장 → companies/{companyId}/insurance/… */
+export async function uploadCompanyInsuranceCertificate(
+  companyId: string,
+  source: string
+): Promise<string | undefined> {
+  const src = source.trim();
+  if (!companyId || !src) return undefined;
+
+  if (isRemoteImageUrl(src)) return src;
+
+  if (!src.startsWith('data:')) {
+    throw new Error('보험증권은 JPG/PNG 이미지로 올려 주세요.');
+  }
+
+  await ensureAdminCallableAuth();
+  const safeCompany = companyId.replace(/[^\w-]/g, '_').toLowerCase();
+
+  try {
+    const blob = await dataUrlToCompressedBlob(src, 2000);
+    const path = `companies/${safeCompany}/insurance/certificate_${Date.now()}.jpg`;
+    const storageRef = ref(storage, path);
+    await withTimeout(
+      uploadBytes(storageRef, blob, { contentType: 'image/jpeg' }),
+      '보험증권 업로드'
+    );
+    return await withTimeout(getDownloadURL(storageRef), '보험증권 URL');
+  } catch (err) {
+    throw new Error(formatUploadError(err));
+  }
 }
 
 export { MAX_PARKING_PHOTOS };

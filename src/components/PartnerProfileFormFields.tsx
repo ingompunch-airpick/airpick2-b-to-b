@@ -2,15 +2,13 @@ import React, { useRef, useState } from 'react';
 import { ImagePlus, Loader2, X } from 'lucide-react';
 import type { FacilityType } from '../types';
 import type { PartnerProfileInput } from '../utils/companyProfile';
-import ParkingPinDistanceFields from './ParkingPinDistanceFields';
+import ParkingLotsFields from './ParkingLotsFields';
 import {
   MAX_PARKING_PHOTOS,
   normalizeCompanyParkingPhotos,
-  uploadCompanyParkingImages,
 } from '../lib/companyPhotos';
 import { readImageFilesAsDataUrls } from '../utils/imageFile';
 import { getEnabledAirports, type AirportId } from '../utils/airport';
-import { EMPTY_LOT_PARKING_DISTANCES_FORM_FOR } from '../utils/companyProfile';
 
 type Props = {
   profile: PartnerProfileInput;
@@ -44,10 +42,10 @@ function withPhotos(profile: PartnerProfileInput, urls: string[]): PartnerProfil
 export default function PartnerProfileFormFields({
   profile,
   onChange,
-  companyId,
   variant = 'light',
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const certInputRef = useRef<HTMLInputElement>(null);
   const profileRef = useRef(profile);
   profileRef.current = profile;
   const [uploading, setUploading] = useState(false);
@@ -102,17 +100,11 @@ export default function PartnerProfileFormFields({
     try {
       setUploading(true);
       const dataUrls = (await readImageFilesAsDataUrls(files)).slice(0, remaining);
-      const merged = [...photos, ...dataUrls];
-      const safeId = (companyId || '').trim().toLowerCase();
-
-      if (safeId) {
-        const uploaded = await uploadCompanyParkingImages(safeId, merged);
-        onChange(withPhotos(profile, uploaded));
-      } else {
-        onChange(withPhotos(profile, merged));
-      }
+      // 선택 직후는 미리보기만 반영. Storage 업로드는 「저장」 시 처리
+      // (즉시 업로드는 Auth/권한 실패 시 미리보기조차 안 남는 문제가 있음)
+      onChange(withPhotos(profileRef.current, [...photos, ...dataUrls]));
     } catch (err) {
-      const msg = err instanceof Error ? err.message : '사진 업로드에 실패했습니다.';
+      const msg = err instanceof Error ? err.message : '사진 추가에 실패했습니다.';
       alert(msg);
     } finally {
       setUploading(false);
@@ -144,7 +136,6 @@ export default function PartnerProfileFormFields({
                     onChange({
                       ...profile,
                       airport: a.id as AirportId,
-                      parkingDistancesByLot: EMPTY_LOT_PARKING_DISTANCES_FORM_FOR(a.id),
                     })
                   }
                   className={`px-2 py-2 rounded-xl text-left border transition-all ${
@@ -195,7 +186,8 @@ export default function PartnerProfileFormFields({
         <div>
           <label className={labelCls}>주차장 사진 (B2C 노출)</label>
           <p className={hintCls}>
-            첫 장이 대표 사진입니다. 최고관리자만 등록·변경할 수 있습니다. (최대 {MAX_PARKING_PHOTOS}장)
+            첫 장이 대표 사진입니다. 본사 계정으로 「변경 내용 저장」할 때 Storage에
+            올라갑니다. (최대 {MAX_PARKING_PHOTOS}장 · JPG/PNG 권장)
           </p>
           <div className="flex flex-wrap gap-2">
             {photos.map((url, index) => (
@@ -227,7 +219,7 @@ export default function PartnerProfileFormFields({
                 className={addPhotoCls}
               >
                 {uploading ? <Loader2 size={18} className="animate-spin" /> : <ImagePlus size={18} />}
-                <span className="text-[10px] font-bold">{uploading ? '업로드…' : '추가'}</span>
+                <span className="text-[10px] font-bold">{uploading ? '추가 중…' : '추가'}</span>
               </button>
             )}
           </div>
@@ -242,36 +234,15 @@ export default function PartnerProfileFormFields({
         </div>
       </div>
 
-      <ParkingPinDistanceFields
+      <ParkingLotsFields
         airportId={profile.airport}
-        indoor={{ lat: profile.indoorParkingLat, lng: profile.indoorParkingLng }}
-        outdoor={{ lat: profile.outdoorParkingLat, lng: profile.outdoorParkingLng }}
+        lots={profile.parkingLots}
         showIndoor={showIndoor}
         showOutdoor={showOutdoor}
-        indoorDistances={profile.parkingDistancesByLot.indoor}
-        outdoorDistances={profile.parkingDistancesByLot.outdoor}
-        onUpdateIndoor={({ lat, lng, address, distances }) =>
+        onChange={(parkingLots) =>
           onChange({
             ...profileRef.current,
-            indoorParkingLat: lat,
-            indoorParkingLng: lng,
-            ...(address != null ? { indoorParkingAddress: address } : {}),
-            parkingDistancesByLot: {
-              ...profileRef.current.parkingDistancesByLot,
-              indoor: distances,
-            },
-          })
-        }
-        onUpdateOutdoor={({ lat, lng, address, distances }) =>
-          onChange({
-            ...profileRef.current,
-            outdoorParkingLat: lat,
-            outdoorParkingLng: lng,
-            ...(address != null ? { outdoorParkingAddress: address } : {}),
-            parkingDistancesByLot: {
-              ...profileRef.current.parkingDistancesByLot,
-              outdoor: distances,
-            },
+            parkingLots,
           })
         }
         variant={variant}
@@ -322,7 +293,7 @@ export default function PartnerProfileFormFields({
               </div>
             </div>
             <div>
-              <label className={labelCls}>보상 한도 (원)</label>
+              <label className={labelCls}>보상 한도 (원) · 내부용</label>
               <input
                 type="text"
                 inputMode="numeric"
@@ -331,6 +302,60 @@ export default function PartnerProfileFormFields({
                 className={`${inputCls} font-mono`}
                 placeholder="예: 100000000"
               />
+              <p className={`mt-1 text-[10px] font-medium ${hintCls}`}>
+                손님 앱 목록에는 금액을 노출하지 않습니다. 보험증권으로 확인합니다.
+              </p>
+            </div>
+            <div>
+              <label className={labelCls}>보험증권 이미지</label>
+              {profile.insuranceCertificateUrl ? (
+                <div className="relative mb-2 overflow-hidden rounded-xl ring-1 ring-slate-200">
+                  <img
+                    src={profile.insuranceCertificateUrl}
+                    alt="보험증권"
+                    className="max-h-40 w-full object-contain bg-slate-50"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => set('insuranceCertificateUrl', '')}
+                    className="absolute right-2 top-2 rounded-full bg-black/60 p-1 text-white"
+                    aria-label="보험증권 삭제"
+                  >
+                    <X size={14} />
+                  </button>
+                </div>
+              ) : null}
+              <input
+                ref={certInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => {
+                  void (async () => {
+                    const file = e.target.files?.[0];
+                    e.target.value = '';
+                    if (!file) return;
+                    try {
+                      const [dataUrl] = await readImageFilesAsDataUrls([file]);
+                      if (dataUrl) set('insuranceCertificateUrl', dataUrl);
+                    } catch {
+                      /* ignore */
+                    }
+                  })();
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => certInputRef.current?.click()}
+                className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-[11px] font-bold ring-1 ${
+                  variant === 'dark'
+                    ? 'bg-neutral-900 text-zinc-200 ring-neutral-700'
+                    : 'bg-white text-slate-700 ring-slate-200'
+                }`}
+              >
+                <ImagePlus size={14} />
+                {profile.insuranceCertificateUrl ? '증권 다시 선택' : '증권 이미지 올리기'}
+              </button>
             </div>
           </div>
         )}

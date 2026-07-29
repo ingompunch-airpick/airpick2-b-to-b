@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { doc, updateDoc } from 'firebase/firestore';
-import { signInAnonymously } from 'firebase/auth';
-import { auth, db, handleFirestoreError, OperationType } from '../firebase';
+import { db, handleFirestoreError, OperationType } from '../firebase';
 import type { Company, CompanyInfo, PaymentMethod, Reservation, ReservationStatus } from '../types';
 import {
   filterReservationsForOperatorGroup,
@@ -188,12 +187,11 @@ export function useReservations({
 
     const bootstrapAuthAndListen = async () => {
       setLoadingReservations(true);
-      if (!auth.currentUser) {
-        try {
-          await signInAnonymously(auth);
-        } catch (e: unknown) {
-          console.warn('Anonymous auth before reservations sync:', e);
-        }
+      try {
+        // authStateReady 후 세션이 없으면 익명 — 본사 세션 복원을 덮어쓰지 않음
+        await ensureFirestoreAuth();
+      } catch (e: unknown) {
+        console.warn('Anonymous auth before reservations sync:', e);
       }
 
       if (cancelled) return;

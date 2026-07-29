@@ -10,7 +10,9 @@ import {
   ensureFirestoreAuth,
   formatPlatformAdminAuthError,
   isPlatformAdminEmail,
+  isPlatformAdminUser,
   signInPlatformAdminWithPassword,
+  waitForAuthReady,
 } from '../lib/firebaseAuth';
 import { verifyPartnerLogin } from '../lib/partnerLoginApi';
 
@@ -130,12 +132,35 @@ export function useSession({ companiesRef, setCurrentView }: UseSessionParams) {
 
   useEffect(() => {
     const checkAndAuth = async () => {
-      if (!auth.currentUser) {
-        try {
-          await signInAnonymously(auth);
-        } catch (e: unknown) {
-          console.warn('Anonymous auth restricted or disabled (safe to ignore offline):', e);
+      // 복원 완료 전에 익명 로그인하면 본사 이메일 세션이 날아감
+      const restored = await waitForAuthReady();
+      if (restored) {
+        // localStorage만 본사인데 Auth는 익명이면 저장/사진 업로드가 실패하므로 플래그 정리
+        if (
+          readLoggedInFlag() &&
+          localStorage.getItem('local_is_super_admin') === 'true' &&
+          !isPlatformAdminUser(restored)
+        ) {
+          setIsSuperAdmin(false);
+          localStorage.setItem('local_is_super_admin', 'false');
+          console.warn(
+            '본사 UI 플래그와 Firebase Auth가 불일치합니다. 관리자 이메일로 다시 로그인해 주세요.'
+          );
         }
+        return;
+      }
+
+      // 본사로 표시된 세션은 익명으로 메우지 않음 — Gate 재로그인 유도
+      if (localStorage.getItem('local_is_super_admin') === 'true') {
+        setIsSuperAdmin(false);
+        localStorage.setItem('local_is_super_admin', 'false');
+        return;
+      }
+
+      try {
+        await signInAnonymously(auth);
+      } catch (e: unknown) {
+        console.warn('Anonymous auth restricted or disabled (safe to ignore offline):', e);
       }
     };
     void checkAndAuth();
@@ -303,9 +328,12 @@ export function useSession({ companiesRef, setCurrentView }: UseSessionParams) {
           roles.employeeRole === 'admin');
       setCurrentView(shouldStartInAdmin ? 'statistics' : 'timeline');
 
-      ensureFirestoreAuth().catch((err) => {
-        console.warn('Firebase auth after gate login:', err);
-      });
+      // 본사는 Gate에서 이미 email/password Auth 완료. 익명으로 덮어쓰지 않음.
+      if (!roles.isSuperAdmin) {
+        ensureFirestoreAuth().catch((err) => {
+          console.warn('Firebase auth after gate login:', err);
+        });
+      }
     },
     [companiesRef, setCurrentView]
   );

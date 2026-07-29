@@ -33,7 +33,6 @@ export default function ParkingPinMap({
 
   const [status, setStatus] = useState<'loading' | 'ready' | 'missing_key' | 'error'>('loading');
   const [errorMsg, setErrorMsg] = useState('');
-  const [address, setAddress] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [searching, setSearching] = useState(false);
 
@@ -41,15 +40,13 @@ export default function ParkingPinMap({
     const latStr = nextLat.toFixed(6);
     const lngStr = nextLng.toFixed(6);
     if (knownAddress) {
-      setAddress(knownAddress);
       onChangeRef.current(latStr, lngStr, knownAddress);
       return;
     }
-    // 좌표·거리는 즉시 반영, 주소는 역지오코딩 후 같은 좌표로 한 번 더 전달
+    // 좌표는 즉시 반영, 주소는 역지오코딩 후 같은 좌표로 한 번 더 전달
     onChangeRef.current(latStr, lngStr);
     const resolved = await reverseGeocodeLatLng(nextLat, nextLng);
     if (resolved) {
-      setAddress(resolved);
       onChangeRef.current(latStr, lngStr, resolved);
     }
   };
@@ -85,9 +82,6 @@ export default function ParkingPinMap({
           markerRef.current = new window.naver.maps.Marker({
             position: new window.naver.maps.LatLng(pin.lat, pin.lng),
             map,
-          });
-          void reverseGeocodeLatLng(pin.lat, pin.lng).then((resolved) => {
-            if (!cancelled && resolved) setAddress(resolved);
           });
         }
 
@@ -265,15 +259,6 @@ export default function ParkingPinMap({
           className="h-full w-full overflow-hidden rounded-xl border border-slate-200 bg-slate-100"
         />
       </div>
-
-      {address ? (
-        <p className="text-[11px] text-slate-700 bg-slate-50 border border-slate-100 rounded-lg px-2.5 py-1.5 leading-snug">
-          <span className="font-black text-indigo-600">주소 </span>
-          {address}
-        </p>
-      ) : (
-        <p className="text-[10px] text-slate-400">지도를 탭하거나 주소 검색으로 핀을 찍어 주세요.</p>
-      )}
     </div>
   );
 }

@@ -1,28 +1,12 @@
 import React from 'react';
 import { MapPin, ShieldCheck } from 'lucide-react';
-import type { Company, CompanyInsurance, ParkingDistanceEntry, ParkingDistances } from '../types';
+import type { Company, CompanyInsurance, CompanyParkingLot } from '../types';
 import { inferFacilityType } from '../utils/companyProfile';
 import { normalizeInsuranceProductName } from '../utils/insurance';
 
 function formatPin(lat?: number, lng?: number): string {
   if (lat == null || lng == null || Number.isNaN(lat) || Number.isNaN(lng)) return '미등록';
   return `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-}
-
-function formatTerminal(entry?: ParkingDistanceEntry): string {
-  if (!entry || entry.distanceKm == null || Number.isNaN(entry.distanceKm)) return '미등록';
-  const parts = [`${entry.distanceKm} km`];
-  if (entry.driveMinutes != null) parts.push(`약 ${entry.driveMinutes}분`);
-  if (entry.parkingLotName?.trim()) parts.push(entry.parkingLotName.trim());
-  return parts.join(' · ');
-}
-
-function distancesForLot(
-  company: Company,
-  lot: 'indoor' | 'outdoor'
-): ParkingDistances | undefined {
-  if (lot === 'indoor') return company.parkingDistancesIndoor ?? company.parkingDistances;
-  return company.parkingDistancesOutdoor ?? company.parkingDistances;
 }
 
 function resolveInsuranceSummary(company: Company): {
@@ -51,53 +35,67 @@ function resolveInsuranceSummary(company: Company): {
   return { enrolled: false, detail: '미등록' };
 }
 
-function LotBlock({
-  title,
-  address,
-  lat,
-  lng,
-  distances,
-}: {
-  title: string;
-  address?: string;
-  lat?: number;
-  lng?: number;
-  distances?: ParkingDistances;
-}) {
+function resolveLots(company: Company): CompanyParkingLot[] {
+  if (Array.isArray(company.parkingLots) && company.parkingLots.length > 0) {
+    return company.parkingLots.filter((l) => l && (l.name || l.parkingAddress || l.lat != null));
+  }
+  const legacy: CompanyParkingLot[] = [];
+  if (company.indoorParkingAddress || company.indoorParkingLat != null) {
+    legacy.push({
+      id: 'legacy-indoor',
+      type: 'indoor',
+      name: '실내1',
+      parkingAddress: company.indoorParkingAddress || '',
+      lat: company.indoorParkingLat,
+      lng: company.indoorParkingLng,
+    });
+  }
+  if (company.outdoorParkingAddress || company.outdoorParkingLat != null) {
+    legacy.push({
+      id: 'legacy-outdoor',
+      type: 'outdoor',
+      name: '실외1',
+      parkingAddress: company.outdoorParkingAddress || '',
+      lat: company.outdoorParkingLat,
+      lng: company.outdoorParkingLng,
+    });
+  }
+  return legacy;
+}
+
+function LotBlock({ lot }: { lot: CompanyParkingLot }) {
   return (
     <div className="rounded-xl border border-neutral-800 bg-[#131315] p-3 space-y-2">
       <p className="text-[12px] font-black text-white flex items-center gap-1.5">
         <MapPin size={12} className="text-amber-500" />
-        {title}
+        {lot.name || (lot.type === 'indoor' ? '실내 주차장' : '야외 주차장')}
+        <span className="text-[10px] font-bold text-zinc-500">
+          ({lot.type === 'indoor' ? '실내' : '야외'})
+        </span>
       </p>
       <dl className="space-y-1.5 text-[11px]">
         <div className="flex justify-between gap-3">
           <dt className="text-white/50 font-bold shrink-0">주소</dt>
-          <dd className="text-white/90 font-semibold text-right">{address?.trim() || '미등록'}</dd>
+          <dd className="text-white/90 font-semibold text-right">
+            {lot.parkingAddress?.trim() || '미등록'}
+          </dd>
         </div>
         <div className="flex justify-between gap-3">
           <dt className="text-white/50 font-bold shrink-0">핀</dt>
-          <dd className="text-white/90 font-mono font-semibold text-right">{formatPin(lat, lng)}</dd>
-        </div>
-        <div className="flex justify-between gap-3">
-          <dt className="text-white/50 font-bold shrink-0">T1</dt>
-          <dd className="text-white/90 font-semibold text-right">{formatTerminal(distances?.T1)}</dd>
-        </div>
-        <div className="flex justify-between gap-3">
-          <dt className="text-white/50 font-bold shrink-0">T2</dt>
-          <dd className="text-white/90 font-semibold text-right">{formatTerminal(distances?.T2)}</dd>
+          <dd className="text-white/90 font-mono font-semibold text-right">
+            {formatPin(lot.lat, lot.lng)}
+          </dd>
         </div>
       </dl>
     </div>
   );
 }
 
-/** 가맹점 마스터 — 보험·위치·핀·거리·사진 확인 전용 (수정은 최고관리자만) */
+/** 가맹점 마스터 — 보험·위치·핀·사진 확인 전용 (수정은 최고관리자만) */
 export default function PartnerParkingProfileReadonly({ company }: { company?: Company }) {
   const facilityType = inferFacilityType(company);
-  const showIndoor = facilityType === 'indoor' || facilityType === 'mixed';
-  const showOutdoor = facilityType === 'outdoor' || facilityType === 'mixed';
   const insurance = company ? resolveInsuranceSummary(company) : null;
+  const lots = company ? resolveLots(company) : [];
 
   const photos = (() => {
     if (!company) return [] as string[];
@@ -118,8 +116,8 @@ export default function PartnerParkingProfileReadonly({ company }: { company?: C
             <span>보험 · 위치 · 사진 (확인 전용)</span>
           </div>
           <p className="text-[12px] text-white/70 mt-1.5 leading-relaxed">
-            B2C 손님 MY에 표시되는 보험·주소·지도 핀·터미널 거리·사진입니다. 수정은
-            최고관리자만 가능합니다.
+            B2C 손님 MY에 표시되는 보험·주차장(여러 곳)·사진입니다. 수정은 최고관리자만
+            가능합니다.
           </p>
         </div>
         <span className="shrink-0 text-[11px] font-black text-amber-400/90 bg-amber-500/10 border border-amber-500/20 px-2 py-1 rounded-lg">
@@ -150,25 +148,22 @@ export default function PartnerParkingProfileReadonly({ company }: { company?: C
                 {insurance?.enrolled ? insurance.detail : insurance?.detail || '미등록'}
               </span>
             </div>
+            {company.insurance?.certificateUrl ? (
+              <a
+                href={company.insurance.certificateUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex text-[11px] font-bold text-amber-400 underline-offset-2 hover:underline"
+              >
+                보험증권 보기
+              </a>
+            ) : null}
           </div>
 
-          {showIndoor && (
-            <LotBlock
-              title="실내 주차장"
-              address={company.indoorParkingAddress}
-              lat={company.indoorParkingLat}
-              lng={company.indoorParkingLng}
-              distances={distancesForLot(company, 'indoor')}
-            />
-          )}
-          {showOutdoor && (
-            <LotBlock
-              title="실외(야외) 주차장"
-              address={company.outdoorParkingAddress}
-              lat={company.outdoorParkingLat}
-              lng={company.outdoorParkingLng}
-              distances={distancesForLot(company, 'outdoor')}
-            />
+          {lots.length === 0 ? (
+            <p className="text-[11px] text-white/50 font-semibold">등록된 주차장 없음</p>
+          ) : (
+            lots.map((lot) => <LotBlock key={lot.id} lot={lot} />)
           )}
 
           <div className="rounded-xl border border-neutral-800 bg-[#131315] p-3 space-y-2">

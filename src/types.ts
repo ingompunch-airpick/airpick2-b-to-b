@@ -74,7 +74,7 @@ export interface Company {
   /** 야외 주차장 핀 좌표 */
   outdoorParkingLat?: number;
   outdoorParkingLng?: number;
-  parkingLots?: Array<{ type: 'indoor' | 'outdoor'; parkingAddress: string }>;
+  parkingLots?: CompanyParkingLot[];
   insurance?: CompanyInsurance;
   hasInsurance?: boolean;
   insuranceProvider?: string;
@@ -84,16 +84,27 @@ export interface Company {
   sharesParkingLocation?: boolean;
   /** B2C MY 주차장 사진 노출 */
   sharesPhotos?: boolean;
-  /** @deprecated 레거시 단일 거리 — parkingDistancesIndoor/Outdoor 우선 */
+  /** @deprecated 레거시 단일 거리 — 거리순 제거 후 미사용 */
   parkingDistances?: ParkingDistances;
-  /** 실내 대표 주차장 → 터미널별 거리 */
+  /** @deprecated 실내 대표 거리 — 미사용 */
   parkingDistancesIndoor?: ParkingDistances;
-  /** 야외 대표 주차장 → 터미널별 거리 */
+  /** @deprecated 야외 대표 거리 — 미사용 */
   parkingDistancesOutdoor?: ParkingDistances;
   /** 대표 업체 — B2B 통합 로그인·예약 통합 관리 */
   isOperatorPrimary?: boolean;
   /** 하위 업체 — B2C만, parentCompanyId로 대표에 연결 */
   parentCompanyId?: string;
+}
+
+/** 업체 주차장 (실내1·실외2 … 여러 개) */
+export interface CompanyParkingLot {
+  id: string;
+  type: 'indoor' | 'outdoor';
+  /** 표시 이름 — 예: 실내1, 실외2 */
+  name: string;
+  parkingAddress: string;
+  lat?: number;
+  lng?: number;
 }
 
 /** 터미널별 주차장 ↔ 공항 거리 (키: T1/T2 또는 DOM/INT 등) */
@@ -118,6 +129,8 @@ export interface CompanyInsurance {
   productName?: string;
   /** 마스터 등록 시 배상책임보험 권장 (레거시: 발렛보험) */
   coverageLimitWon?: number;
+  /** 보험증권 이미지 URL (B2C 손님 상세에서 확인) */
+  certificateUrl?: string;
   updatedAt?: string;
 }
 

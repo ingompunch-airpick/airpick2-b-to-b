@@ -56,11 +56,20 @@ export async function signInPlatformAdminWithPassword(
   return cred.user;
 }
 
+/** IndexedDB 등에서 이전 Auth 세션 복원이 끝날 때까지 대기 */
+export async function waitForAuthReady(): Promise<User | null> {
+  await auth.authStateReady();
+  return auth.currentUser;
+}
+
 /**
  * 예약·업체 운영 필드 등 — Anonymous(홈페이지·B2C·B2B 공통).
  * Firebase Console → Authentication → Anonymous 활성화 필요.
+ *
+ * 중요: authStateReady 전에 익명 로그인하면, 복원 중인 본사 이메일 세션을 덮어씁니다.
  */
 export async function ensureFirestoreAuth(): Promise<void> {
+  await auth.authStateReady();
   if (auth.currentUser) return;
   await signInAnonymously(auth);
 }
@@ -70,6 +79,7 @@ export async function ensureFirestoreAuth(): Promise<void> {
  * Gate에서 Firebase 관리자 이메일로 로그인한 세션이 있어야 합니다.
  */
 export async function ensurePlatformAdminAuth(): Promise<void> {
+  await auth.authStateReady();
   if (isPlatformAdminUser(auth.currentUser)) return;
   throw new Error(
     `본사 Firebase 로그인이 필요합니다. Gate에서 관리자 이메일로 로그인하세요.`

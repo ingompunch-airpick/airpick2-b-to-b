@@ -1,39 +1,24 @@
-import type { Company, CompanyInsurance, FacilityType } from '../types';
+import type { Company, CompanyInsurance, CompanyParkingLot, FacilityType } from '../types';
 import { airportTerminalCodes, normalizeAirportId } from './airport';
 import { resolveInsuranceProductNameForStorage, normalizeInsuranceProductName } from './insurance';
-import {
-  buildLotParkingDistancesPayload,
-  EMPTY_LOT_PARKING_DISTANCES_FORM,
-  EMPTY_LOT_PARKING_DISTANCES_FORM_FOR,
-  readLotParkingDistancesFormFromCompany,
-  validateLotParkingDistancesForm,
-  type LotParkingDistancesFormInput,
-  type ParkingDistancesFormInput,
-} from './parkingDistances';
 
-export type {
-  LotParkingDistancesFormInput,
-  ParkingDistancesFormInput,
-  TerminalParkingDistanceForm,
-} from './parkingDistances';
-export {
-  EMPTY_LOT_PARKING_DISTANCES_FORM,
-  EMPTY_LOT_PARKING_DISTANCES_FORM_FOR,
-  EMPTY_PARKING_DISTANCES_FORM,
-  validateLotParkingDistancesForm,
-  validateParkingDistancesForm,
-} from './parkingDistances';
+export type { FacilityType };
+
+export interface PartnerParkingLotForm {
+  id: string;
+  type: 'indoor' | 'outdoor';
+  name: string;
+  parkingAddress: string;
+  lat: string;
+  lng: string;
+}
 
 export interface PartnerProfileInput {
   facilityType: FacilityType;
   /** 운영 공항 — HQ만 설정. 기본 ICN */
   airport: 'ICN' | 'GMP';
-  indoorParkingAddress: string;
-  outdoorParkingAddress: string;
-  indoorParkingLat: string;
-  indoorParkingLng: string;
-  outdoorParkingLat: string;
-  outdoorParkingLng: string;
+  /** 실내·야외 주차장 (여러 개) */
+  parkingLots: PartnerParkingLotForm[];
   /** 대표 주차장 사진 URL (B2C image_url) */
   imageUrl: string;
   /** 주차장 사진 목록 (최대 5장, 첫 장 = 대표) */
@@ -42,25 +27,58 @@ export interface PartnerProfileInput {
   insuranceProvider: string;
   insuranceProductName: string;
   insuranceCoverageLimitWon: string;
-  parkingDistancesByLot: LotParkingDistancesFormInput;
+  /** 보험증권 이미지 — http(s) 또는 data URL(저장 시 업로드) */
+  insuranceCertificateUrl: string;
+}
+
+function newLotId(): string {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID();
+  }
+  return `lot_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+}
+
+export function createEmptyParkingLotForm(
+  type: 'indoor' | 'outdoor',
+  name = ''
+): PartnerParkingLotForm {
+  return {
+    id: newLotId(),
+    type,
+    name,
+    parkingAddress: '',
+    lat: '',
+    lng: '',
+  };
+}
+
+export function nextParkingLotName(
+  lots: PartnerParkingLotForm[],
+  type: 'indoor' | 'outdoor'
+): string {
+  const prefix = type === 'indoor' ? '실내' : '실외';
+  const used = new Set(
+    lots
+      .filter((l) => l.type === type)
+      .map((l) => l.name.trim())
+      .filter(Boolean)
+  );
+  let n = 1;
+  while (used.has(`${prefix}${n}`)) n += 1;
+  return `${prefix}${n}`;
 }
 
 export const DEFAULT_PARTNER_PROFILE: PartnerProfileInput = {
   facilityType: 'mixed',
   airport: 'ICN',
-  indoorParkingAddress: '',
-  outdoorParkingAddress: '',
-  indoorParkingLat: '',
-  indoorParkingLng: '',
-  outdoorParkingLat: '',
-  outdoorParkingLng: '',
+  parkingLots: [],
   imageUrl: '',
   imageUrls: [],
   insuranceEnrolled: false,
   insuranceProvider: '',
   insuranceProductName: '',
   insuranceCoverageLimitWon: '',
-  parkingDistancesByLot: EMPTY_LOT_PARKING_DISTANCES_FORM_FOR('ICN'),
+  insuranceCertificateUrl: '',
 };
 
 export function inferFacilityType(company?: Partial<Company>): FacilityType {
@@ -71,39 +89,96 @@ export function inferFacilityType(company?: Partial<Company>): FacilityType {
   return company?.is_indoor === false ? 'outdoor' : 'indoor';
 }
 
-function readAddressFromParkingLots(
-  company: Record<string, unknown>,
-  type: 'indoor' | 'outdoor'
-): string {
-  const lots = Array.isArray(company.parkingLots) ? company.parkingLots : [];
-  for (const lot of lots) {
-    if (!lot || typeof lot !== 'object') continue;
-    const row = lot as Record<string, unknown>;
-    if (row.type !== type) continue;
-    const addr =
-      String(row.parkingAddress || row.customerAddress || row.parkingLotAddress || '').trim();
-    if (addr) return addr;
+function coordToFormString(raw: unknown): string {
+  if (raw == null || raw === '') return '';
+  return String(raw);
+}
+
+function parseOptionalCoord(raw: string): number | undefined {
+  const s = String(raw || '').trim();
+  if (!s) return undefined;
+  const n = Number(s);
+  if (!Number.isFinite(n)) return undefined;
+  if (n === 0 && !/[1-9]/.test(s)) return undefined;
+  return n;
+}
+
+function readLotsFromCompany(company: Company): PartnerParkingLotForm[] {
+  const raw = company as Company & Record<string, unknown>;
+  const lots: PartnerParkingLotForm[] = [];
+
+  if (Array.isArray(raw.parkingLots)) {
+    for (const row of raw.parkingLots) {
+      if (!row || typeof row !== 'object') continue;
+      const lot = row as unknown as Record<string, unknown>;
+      const type = lot.type === 'outdoor' ? 'outdoor' : lot.type === 'indoor' ? 'indoor' : null;
+      if (!type) continue;
+      const name = String(lot.name || lot.parkingLotName || '').trim();
+      const parkingAddress = String(
+        lot.parkingAddress || lot.customerAddress || lot.parkingLotAddress || ''
+      ).trim();
+      const lat = coordToFormString(lot.lat ?? lot.latitude);
+      const lng = coordToFormString(lot.lng ?? lot.longitude);
+      if (!name && !parkingAddress && !lat && !lng) continue;
+      lots.push({
+        id: String(lot.id || '').trim() || newLotId(),
+        type,
+        name:
+          name ||
+          (type === 'indoor'
+            ? nextParkingLotName(lots, 'indoor')
+            : nextParkingLotName(lots, 'outdoor')),
+        parkingAddress,
+        lat,
+        lng,
+      });
+    }
   }
-  return '';
+
+  if (lots.length > 0) return lots;
+
+  // 레거시 단일 실내/야외 필드 → 각 1개 롯으로 시드
+  const indoorAddr = String(raw.indoorParkingAddress || '').trim();
+  const outdoorAddr = String(raw.outdoorParkingAddress || '').trim();
+  const indoorLat = coordToFormString(raw.indoorParkingLat);
+  const indoorLng = coordToFormString(raw.indoorParkingLng);
+  const outdoorLat = coordToFormString(raw.outdoorParkingLat);
+  const outdoorLng = coordToFormString(raw.outdoorParkingLng);
+
+  if (indoorAddr || indoorLat || indoorLng) {
+    lots.push({
+      id: newLotId(),
+      type: 'indoor',
+      name: '실내1',
+      parkingAddress: indoorAddr,
+      lat: indoorLat,
+      lng: indoorLng,
+    });
+  }
+  if (outdoorAddr || outdoorLat || outdoorLng) {
+    lots.push({
+      id: newLotId(),
+      type: 'outdoor',
+      name: '실외1',
+      parkingAddress: outdoorAddr,
+      lat: outdoorLat,
+      lng: outdoorLng,
+    });
+  }
+  return lots;
 }
 
 export function readPartnerProfileFromCompany(company?: Company): PartnerProfileInput {
-  if (!company) return { ...DEFAULT_PARTNER_PROFILE };
+  if (!company) return { ...DEFAULT_PARTNER_PROFILE, parkingLots: [] };
 
   const raw = company as Company & Record<string, unknown>;
   const facilityType = inferFacilityType(company);
-
-  const indoorParkingAddress =
-    String(raw.indoorParkingAddress || '').trim() ||
-    readAddressFromParkingLots(raw, 'indoor');
-  const outdoorParkingAddress =
-    String(raw.outdoorParkingAddress || '').trim() ||
-    readAddressFromParkingLots(raw, 'outdoor');
 
   let insuranceEnrolled = false;
   let insuranceProvider = '';
   let insuranceProductName = '';
   let insuranceCoverageLimitWon = '';
+  let insuranceCertificateUrl = '';
 
   if (raw.insurance && typeof raw.insurance === 'object') {
     const ins = raw.insurance as CompanyInsurance;
@@ -114,6 +189,7 @@ export function readPartnerProfileFromCompany(company?: Company): PartnerProfile
       ins.coverageLimitWon !== undefined && ins.coverageLimitWon !== null
         ? String(ins.coverageLimitWon)
         : '';
+    insuranceCertificateUrl = ins.certificateUrl?.trim() || '';
   } else if (raw.hasInsurance === false) {
     insuranceEnrolled = false;
   } else if (raw.insuranceProvider || raw.insuranceLimit) {
@@ -127,28 +203,19 @@ export function readPartnerProfileFromCompany(company?: Company): PartnerProfile
     ? raw.image_urls.map((u) => String(u || '').trim()).filter(Boolean)
     : [];
   const imageUrls =
-    galleryRaw.length > 0
-      ? galleryRaw
-      : primaryImage
-        ? [primaryImage]
-        : [];
+    galleryRaw.length > 0 ? galleryRaw : primaryImage ? [primaryImage] : [];
 
   return {
     facilityType,
     airport: normalizeAirportId(company.airport),
-    indoorParkingAddress,
-    outdoorParkingAddress,
-    indoorParkingLat: coordToFormString(raw.indoorParkingLat),
-    indoorParkingLng: coordToFormString(raw.indoorParkingLng),
-    outdoorParkingLat: coordToFormString(raw.outdoorParkingLat),
-    outdoorParkingLng: coordToFormString(raw.outdoorParkingLng),
+    parkingLots: readLotsFromCompany(company),
     imageUrl: imageUrls[0] || primaryImage || '',
     imageUrls,
     insuranceEnrolled,
     insuranceProvider,
     insuranceProductName,
     insuranceCoverageLimitWon,
-    parkingDistancesByLot: readLotParkingDistancesFormFromCompany(company),
+    insuranceCertificateUrl,
   };
 }
 
@@ -169,6 +236,7 @@ export function buildInsurancePayload(input: PartnerProfileInput): {
   const productName = resolveInsuranceProductNameForStorage(input.insuranceProductName, true);
   const limitRaw = input.insuranceCoverageLimitWon.replace(/,/g, '').trim();
   const coverageLimitWon = limitRaw ? Number(limitRaw) : undefined;
+  const certificateUrl = input.insuranceCertificateUrl.trim() || undefined;
 
   const insurance: CompanyInsurance = {
     enrolled: true,
@@ -178,6 +246,7 @@ export function buildInsurancePayload(input: PartnerProfileInput): {
       coverageLimitWon !== undefined && !Number.isNaN(coverageLimitWon)
         ? coverageLimitWon
         : undefined,
+    certificateUrl,
     updatedAt: new Date().toISOString(),
   };
 
@@ -189,34 +258,66 @@ export function buildInsurancePayload(input: PartnerProfileInput): {
   };
 }
 
-
-function coordToFormString(raw: unknown): string {
-  if (raw == null || raw === '') return '';
-  return String(raw);
+/** 시설 유형에 맞는 롯만 남기고 저장용으로 정규화 */
+export function normalizeParkingLotsForFacility(
+  lots: PartnerParkingLotForm[],
+  facilityType: FacilityType
+): PartnerParkingLotForm[] {
+  return lots
+    .filter((l) => {
+      if (facilityType === 'indoor') return l.type === 'indoor';
+      if (facilityType === 'outdoor') return l.type === 'outdoor';
+      return true;
+    })
+    .map((l) => ({
+      ...l,
+      name: l.name.trim(),
+      parkingAddress: l.parkingAddress.trim(),
+      lat: l.lat.trim(),
+      lng: l.lng.trim(),
+    }))
+    .filter((l) => l.name || l.parkingAddress || l.lat || l.lng);
 }
 
-function parseOptionalCoord(raw: string): number | undefined {
-  const s = String(raw || '').trim();
-  if (!s) return undefined;
-  const n = Number(s);
-  if (!Number.isFinite(n)) return undefined;
-  // 빈 문자열이 Number('')===0 으로 저장되던 버그 방지
-  if (n === 0 && !/[1-9]/.test(s)) return undefined;
-  return n;
+export function validatePartnerParkingLots(input: PartnerProfileInput): string | null {
+  const lots = normalizeParkingLotsForFacility(input.parkingLots, input.facilityType);
+  const needIndoor = input.facilityType === 'indoor' || input.facilityType === 'mixed';
+  const needOutdoor = input.facilityType === 'outdoor' || input.facilityType === 'mixed';
+
+  if (needIndoor && !lots.some((l) => l.type === 'indoor')) {
+    return '실내 주차장을 1곳 이상 등록해 주세요.';
+  }
+  if (needOutdoor && !lots.some((l) => l.type === 'outdoor')) {
+    return '야외 주차장을 1곳 이상 등록해 주세요.';
+  }
+
+  for (const lot of lots) {
+    const label = lot.name || (lot.type === 'indoor' ? '실내 주차장' : '야외 주차장');
+    if (!lot.name) return `${label}: 주차장 이름을 입력해 주세요. (예: 실내1)`;
+    if (!lot.lat || !lot.lng) return `${lot.name}: 지도에서 핀을 찍어 주세요.`;
+  }
+
+  const names = lots.map((l) => l.name);
+  if (new Set(names).size !== names.length) {
+    return '주차장 이름이 중복됩니다. 실내1·실외2처럼 서로 다르게 지어 주세요.';
+  }
+
+  return null;
 }
 
-function buildParkingLots(input: PartnerProfileInput) {
-  const lots: Array<{ type: 'indoor' | 'outdoor'; parkingAddress: string }> = [];
-  const indoor = input.indoorParkingAddress.trim();
-  const outdoor = input.outdoorParkingAddress.trim();
-
-  if ((input.facilityType === 'indoor' || input.facilityType === 'mixed') && indoor) {
-    lots.push({ type: 'indoor', parkingAddress: indoor });
-  }
-  if ((input.facilityType === 'outdoor' || input.facilityType === 'mixed') && outdoor) {
-    lots.push({ type: 'outdoor', parkingAddress: outdoor });
-  }
-  return lots;
+function toCompanyParkingLots(lots: PartnerParkingLotForm[]): CompanyParkingLot[] {
+  return lots.map((l) => {
+    const lat = parseOptionalCoord(l.lat);
+    const lng = parseOptionalCoord(l.lng);
+    return {
+      id: l.id || newLotId(),
+      type: l.type,
+      name: l.name.trim(),
+      parkingAddress: l.parkingAddress.trim(),
+      ...(lat != null ? { lat } : {}),
+      ...(lng != null ? { lng } : {}),
+    };
+  });
 }
 
 /** 시설 유형·주소·보험 — B2C companies 문서와 동일 필드 */
@@ -228,11 +329,12 @@ export function applyPartnerProfileToCompany(
   const featureLabel =
     facilityType === 'indoor' ? '실내 정식' : facilityType === 'outdoor' ? '실외 야외' : '실내+실외';
 
-  const indoor = input.indoorParkingAddress.trim();
-  const outdoor = input.outdoorParkingAddress.trim();
+  const formLots = normalizeParkingLotsForFacility(input.parkingLots, facilityType);
+  const parkingLots = toCompanyParkingLots(formLots);
+  const firstIndoor = parkingLots.find((l) => l.type === 'indoor');
+  const firstOutdoor = parkingLots.find((l) => l.type === 'outdoor');
   const insuranceFields = buildInsurancePayload(input);
-  const parkingLots = buildParkingLots(input);
-  const lotDistances = buildLotParkingDistancesPayload(input.parkingDistancesByLot);
+
   const imageUrls = (input.imageUrls.length > 0
     ? input.imageUrls
     : input.imageUrl
@@ -254,27 +356,21 @@ export function applyPartnerProfileToCompany(
     features: [featureLabel],
     image_url,
     image_urls: imageUrls,
-    indoorParkingAddress: indoor || undefined,
-    outdoorParkingAddress: outdoor || undefined,
-    indoorParkingLat: parseOptionalCoord(input.indoorParkingLat),
-    indoorParkingLng: parseOptionalCoord(input.indoorParkingLng),
-    outdoorParkingLat: parseOptionalCoord(input.outdoorParkingLat),
-    outdoorParkingLng: parseOptionalCoord(input.outdoorParkingLng),
+    // 레거시 단일 필드 = 각 타입 첫 번째 롯 (B2C 하위호환)
+    indoorParkingAddress: firstIndoor?.parkingAddress || undefined,
+    outdoorParkingAddress: firstOutdoor?.parkingAddress || undefined,
+    indoorParkingLat: firstIndoor?.lat,
+    indoorParkingLng: firstIndoor?.lng,
+    outdoorParkingLat: firstOutdoor?.lat,
+    outdoorParkingLng: firstOutdoor?.lng,
     parkingLots: parkingLots.length > 0 ? parkingLots : undefined,
     insurance: insuranceFields.insurance,
     hasInsurance: insuranceFields.hasInsurance,
     insuranceProvider: insuranceFields.insuranceProvider,
     insuranceLimit: insuranceFields.insuranceLimit,
     sharesInsurance: true,
-    sharesParkingLocation: Boolean(
-      indoor || outdoor || lotDistances.parkingDistancesIndoor || lotDistances.parkingDistancesOutdoor
-      || parseOptionalCoord(input.indoorParkingLat) != null
-      || parseOptionalCoord(input.outdoorParkingLat) != null
-    ),
+    sharesParkingLocation: parkingLots.length > 0,
     sharesPhotos: imageUrls.length > 0,
-    parkingDistances: lotDistances.parkingDistances ?? undefined,
-    parkingDistancesIndoor: lotDistances.parkingDistancesIndoor ?? undefined,
-    parkingDistancesOutdoor: lotDistances.parkingDistancesOutdoor ?? undefined,
   };
 }
 
@@ -298,17 +394,6 @@ export function profileExtrasForFirestore(input: PartnerProfileInput): Record<st
     input
   );
 
-  const lotDistances = buildLotParkingDistancesPayload(input.parkingDistancesByLot);
-  const hasAddress = Boolean(
-    String(company.indoorParkingAddress || '').trim() ||
-      String(company.outdoorParkingAddress || '').trim()
-  );
-  const hasPin = company.indoorParkingLat != null || company.outdoorParkingLat != null;
-  const hasPhotos =
-    (company.image_urls?.length || 0) > 0 ||
-    Boolean(String(company.image_url || '').trim());
-  const hasDistances = Boolean(lotDistances.parkingDistancesIndoor || lotDistances.parkingDistancesOutdoor);
-
   return {
     airport: company.airport ?? 'ICN',
     terminals: company.terminals ?? [],
@@ -330,10 +415,9 @@ export function profileExtrasForFirestore(input: PartnerProfileInput): Record<st
     hasInsurance: company.hasInsurance,
     insuranceProvider: company.insuranceProvider ?? '',
     insuranceLimit: company.insuranceLimit ?? null,
-    // B2C MY · 비교 화면 연동 플래그
     sharesInsurance: true,
-    sharesParkingLocation: hasAddress || hasPin || hasDistances,
-    sharesPhotos: hasPhotos,
-    ...lotDistances,
+    sharesParkingLocation: (company.parkingLots?.length || 0) > 0,
+    sharesPhotos:
+      (company.image_urls?.length || 0) > 0 || Boolean(String(company.image_url || '').trim()),
   };
 }

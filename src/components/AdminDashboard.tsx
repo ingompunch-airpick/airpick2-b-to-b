@@ -41,10 +41,10 @@ import {
   DEFAULT_PARTNER_PROFILE,
   profileExtrasForFirestore,
   readPartnerProfileFromCompany,
-  validateLotParkingDistancesForm,
+  validatePartnerParkingLots,
   type PartnerProfileInput,
 } from '../utils/companyProfile';
-import { uploadCompanyParkingImages } from '../lib/companyPhotos';
+import { uploadCompanyInsuranceCertificate, uploadCompanyParkingImages } from '../lib/companyPhotos';
 
 const getKSTMonthOnlyString = () => {
   const kstDate = new Date(Date.now() + 9 * 60 * 60 * 1000);
@@ -61,15 +61,30 @@ async function resolveProfileParkingPhotos(
       : profile.imageUrl.trim()
         ? [profile.imageUrl.trim()]
         : [];
-  if (!sources.length) {
-    return { ...profile, imageUrl: '', imageUrls: [] };
+
+  let next: PartnerProfileInput = profile;
+  if (sources.length) {
+    const urls = await uploadCompanyParkingImages(companyId, sources);
+    next = {
+      ...next,
+      imageUrls: urls,
+      imageUrl: urls[0] || '',
+    };
+  } else {
+    next = { ...next, imageUrl: '', imageUrls: [] };
   }
-  const urls = await uploadCompanyParkingImages(companyId, sources);
-  return {
-    ...profile,
-    imageUrls: urls,
-    imageUrl: urls[0] || '',
-  };
+
+  if (next.insuranceEnrolled && next.insuranceCertificateUrl.trim()) {
+    const certificateUrl = await uploadCompanyInsuranceCertificate(
+      companyId,
+      next.insuranceCertificateUrl
+    );
+    next = { ...next, insuranceCertificateUrl: certificateUrl || '' };
+  } else if (!next.insuranceEnrolled) {
+    next = { ...next, insuranceCertificateUrl: '' };
+  }
+
+  return next;
 }
 
 // Safe LocalStorage wrapper for sandboxed environments
@@ -155,7 +170,7 @@ export default function AdminDashboard({
     e.preventDefault();
     if (!editingSubCompany) return;
 
-    const parkingErr = validateLotParkingDistancesForm(editSubProfile.parkingDistancesByLot);
+    const parkingErr = validatePartnerParkingLots(editSubProfile);
     if (parkingErr) {
       alert(parkingErr);
       return;
@@ -270,7 +285,7 @@ export default function AdminDashboard({
         return;
       }
 
-      const parkingErr = validateLotParkingDistancesForm(editProfile.parkingDistancesByLot);
+      const parkingErr = validatePartnerParkingLots(editProfile);
       if (parkingErr) {
         setSaveEditError(parkingErr);
         return;
@@ -278,7 +293,7 @@ export default function AdminDashboard({
 
       if (!isPlatformAdminUser(auth.currentUser)) {
         setSaveEditError(
-          '본사 Firebase 로그인이 필요합니다. Gate에서 관리자 이메일로 다시 로그인해 주세요.'
+          '본사 Firebase 세션이 없습니다. 로그아웃 후 Gate에서 관리자 이메일(예: drive5746@gmail.com)과 Firebase 비밀번호로 다시 로그인해 주세요.'
         );
         return;
       }
@@ -466,7 +481,7 @@ export default function AdminDashboard({
       return;
     }
 
-    const parkingErr = validateLotParkingDistancesForm(newProfile.parkingDistancesByLot);
+    const parkingErr = validatePartnerParkingLots(newProfile);
     if (parkingErr) {
       alert(parkingErr);
       return;
@@ -561,7 +576,7 @@ export default function AdminDashboard({
       return;
     }
 
-    const parkingErr = validateLotParkingDistancesForm(newProfile.parkingDistancesByLot);
+    const parkingErr = validatePartnerParkingLots(newProfile);
     if (parkingErr) {
       alert(parkingErr);
       return;
