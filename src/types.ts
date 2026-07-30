@@ -216,7 +216,9 @@ export interface Reservation {
   paymentAmount?: number;
   paymentNotes?: string;
   scratchPhotos?: ScratchPhotoSet;
-  parkingSpace?: string; // e.g. "LG-B2", "상주A"
+  parkingSpace?: string; // e.g. "LG-B2", "상주A" — 구역/자리 (선택)
+  /** 입고 완료 후 배정된 companies.parkingLots[].id — B2C MY 위치 연동 */
+  parkingLotId?: string;
   receiptCode?: string; // e.g. "1770207629_BEIAKF"
   /** 홈페이지 예약 공개 접수증 조회용 토큰 */
   receiptToken?: string;

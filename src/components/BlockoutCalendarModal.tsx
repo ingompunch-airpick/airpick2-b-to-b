@@ -153,7 +153,7 @@ export default function BlockoutCalendarModal({
         {/* Modal Header */}
         <div className="p-4.5 border-b border-neutral-800/50 flex items-center justify-between bg-[#121212]">
           <div className="flex items-center gap-2">
-            <CalendarRange size={16} className="text-amber-500 animate-pulse" />
+            <CalendarRange size={16} className="text-amber-500" />
             <div>
               <h3 className="text-sm font-black text-white">예약 및 영업 마감 종합 관리</h3>
               <p className="text-[12px] text-zinc-400 font-bold tracking-tight">RESERVATION CONTROL CENTER</p>
@@ -179,7 +179,7 @@ export default function BlockoutCalendarModal({
                   <div className={`w-8 h-8 rounded-xl flex items-center justify-center border transition-all ${
                     companyIsOpen 
                       ? 'bg-emerald-500/10 border-emerald-500/20 text-emerald-400' 
-                      : 'bg-red-500/10 border-red-500/20 text-red-500 animate-pulse'
+                      : 'bg-red-500/10 border-red-500/20 text-red-500'
                   }`}>
                     <Power size={13} className="stroke-[2.5]" />
                   </div>

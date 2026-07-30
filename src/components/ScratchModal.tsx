@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Camera, Images, X, CheckCircle2, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { Reservation } from '../types';
+import { Reservation, Company } from '../types';
 import {
   paymentChoiceToMethod,
   reservationToPaymentChoice,
@@ -15,6 +15,12 @@ import { resolveRequiredCompanyId } from '../utils/companyDisplay';
 import { readImageFilesAsDataUrls, safePersistPhotoDraft } from '../utils/imageFile';
 import { buildScratchPhotoSet } from '../lib/scratchPhotos';
 import InlineVehicleCamera from './InlineVehicleCamera';
+import {
+  buildParkingAssignmentFields,
+  defaultParkingLotId,
+  lotsForIndoorPreference,
+  resolveCompanyLotsForReservation,
+} from '../utils/parkingLot';
 
 // Standalone class-combiner utility for safe use within components
 function cn(...classes: (string | boolean | undefined | null)[]) {
@@ -29,6 +35,7 @@ interface ScratchModalProps {
   selectedParkingSpace: string;
   handleUpdateValetStatus: (id: string, status: any, extData?: any) => Promise<void>;
   getKSTDateTimeString: () => string;
+  companies?: Company[];
 }
 
 export default function ScratchModal({
@@ -39,6 +46,7 @@ export default function ScratchModal({
   selectedParkingSpace,
   handleUpdateValetStatus,
   getKSTDateTimeString,
+  companies = [],
 }: ScratchModalProps) {
   /** 입고 사진 최소 장수 — 0장 입고는 사고 대응 불가 */
   const MIN_CHECKIN_PHOTOS = 1;
@@ -49,10 +57,19 @@ export default function ScratchModal({
   const [paymentChoice, setPaymentChoice] = useState<'unpaid' | 'paid'>('unpaid');
   const [isUploading, setIsUploading] = useState(false);
   const [inlineCameraOpen, setInlineCameraOpen] = useState(false);
+  const [selectedLotId, setSelectedLotId] = useState('');
+  const [parkingZone, setParkingZone] = useState('');
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   /** 모달 세션 중 한 번이라도 쌓인 최대 장수 — 스냅샷/초안이 줄어든 값으로 덮어쓰지 않게 */
   const sessionMaxPhotoCountRef = useRef(0);
+
+  const preferIndoor = targetReservationForScratch?.isIndoor !== false;
+  const allLots = resolveCompanyLotsForReservation(
+    companies,
+    targetReservationForScratch?.companyId
+  );
+  const lotChoices = lotsForIndoorPreference(allLots, preferIndoor);
 
   const addImageFiles = async (files: FileList | null) => {
     if (!files?.length) return;
@@ -121,8 +138,45 @@ export default function ScratchModal({
       draftImages.length >= serverImages.length ? draftImages : serverImages;
     sessionMaxPhotoCountRef.current = initial.length;
     setUploadedPhotos(initial);
+
+    const indoor = targetReservationForScratch?.isIndoor !== false;
+    const lots = resolveCompanyLotsForReservation(
+      companies,
+      targetReservationForScratch?.companyId
+    );
+    const pool = lotsForIndoorPreference(lots, indoor);
+    setSelectedLotId(
+      defaultParkingLotId(
+        lots,
+        indoor,
+        targetReservationForScratch?.parkingLotId
+      )
+    );
+    const rawSpace = (
+      selectedParkingSpace ||
+      targetReservationForScratch?.parkingSpace ||
+      ''
+    ).trim();
+    setParkingZone(
+      rawSpace && !/^(실내|실외|야외)\s*주차장?$/i.test(rawSpace) ? rawSpace : ''
+    );
     // eslint-disable-next-line react-hooks/exhaustive-deps -- 모달 오픈(ID) 시에만 초기화
   }, [scratchModalTargetId]);
+
+  // lot 목록이 늦게 로드되면 1곳일 때 자동 선택
+  useEffect(() => {
+    if (!scratchModalTargetId || !targetReservationForScratch) return;
+    if (selectedLotId) return;
+    const indoor = targetReservationForScratch.isIndoor !== false;
+    setSelectedLotId(
+      defaultParkingLotId(allLots, indoor, targetReservationForScratch.parkingLotId)
+    );
+  }, [
+    scratchModalTargetId,
+    targetReservationForScratch,
+    allLots,
+    selectedLotId,
+  ]);
 
   // 결제 선택만 예약 스냅샷과 동기화 (사진 배열은 건드리지 않음)
   useEffect(() => {
@@ -248,6 +302,53 @@ export default function ScratchModal({
               />
 
               <PhotoCaptureButtons />
+
+              <div className="space-y-2">
+                <p className="text-[12px] font-black uppercase text-zinc-500 tracking-wider">
+                  주차 위치 (입고 후 B2C 노출)
+                </p>
+                {lotChoices.length === 0 ? (
+                  <p className="text-[11px] text-amber-400/90 leading-relaxed">
+                    등록된 주차장이 없습니다. 마스터에서 실내1·실외1 등을 등록하면 여기서
+                    고를 수 있습니다. 지금은 실내/야외 등급만 저장됩니다.
+                  </p>
+                ) : (
+                  <div className="grid grid-cols-2 gap-2">
+                    {lotChoices.map((lot) => {
+                      const active = selectedLotId === lot.id;
+                      return (
+                        <button
+                          key={lot.id}
+                          type="button"
+                          onClick={() => setSelectedLotId(lot.id)}
+                          className={cn(
+                            'py-3 px-2 rounded-xl text-xs font-black border transition-all',
+                            active
+                              ? lot.type === 'outdoor'
+                                ? 'bg-emerald-500 text-white border-transparent'
+                                : 'bg-[#A855F7] text-white border-transparent'
+                              : 'bg-neutral-950 border-neutral-800 text-zinc-400 hover:border-neutral-700'
+                          )}
+                        >
+                          {lot.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+                <div>
+                  <label className="text-[11px] font-bold text-zinc-500 block mb-1">
+                    구역·자리 (선택)
+                  </label>
+                  <input
+                    type="text"
+                    value={parkingZone}
+                    onChange={(e) => setParkingZone(e.target.value)}
+                    placeholder="예: B-12, 지하3층"
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2.5 text-xs text-white font-semibold outline-none focus:border-amber-500/80"
+                  />
+                </div>
+              </div>
 
               <div className="space-y-2">
                 <p className="text-[12px] font-black uppercase text-zinc-500 tracking-wider">수납 상태</p>
@@ -381,6 +482,11 @@ export default function ScratchModal({
                   }
 
                   const isIndoorVal = targetReservationForScratch.isIndoor !== false;
+                  if (lotChoices.length > 0 && !selectedLotId) {
+                    alert('주차장을 선택해 주세요. (실내1·실외1 등)');
+                    return;
+                  }
+
                   setIsUploading(true);
                   try {
                     const companyId = resolveRequiredCompanyId(
@@ -408,9 +514,21 @@ export default function ScratchModal({
                       imageUrls
                     );
 
+                    const parkingFields =
+                      selectedLotId
+                        ? buildParkingAssignmentFields({
+                            parkingLotId: selectedLotId,
+                            parkingSpace: parkingZone,
+                            lots: allLots,
+                            fallbackIsIndoor: isIndoorVal,
+                          })
+                        : {
+                            parkingSpace: parkingZone.trim() || (isIndoorVal ? '실내' : '실외'),
+                            isIndoor: isIndoorVal,
+                          };
+
                     await handleUpdateValetStatus(scratchModalTargetId, 'completed_in', {
-                      parkingSpace: isIndoorVal ? '실내 주차장' : '실외 주차장',
-                      isIndoor: isIndoorVal,
+                      ...parkingFields,
                       actualParkingTime: getKSTDateTimeString(),
                       images: finalImages,
                       scratchPhotos: buildScratchPhotoSet(finalImages, true),
@@ -421,6 +539,8 @@ export default function ScratchModal({
                     localStorage.removeItem(tempKey);
                     setScratchModalTargetId(null);
                     setSelectedParkingSpace('');
+                    setSelectedLotId('');
+                    setParkingZone('');
                   } catch (err) {
                     console.error('Photo upload failed:', err);
                     const msg = err instanceof Error ? err.message : String(err);

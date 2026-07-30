@@ -112,7 +112,7 @@ export default function ServiceHistoryView({ onBack, reservations }: ServiceHist
       <div className="bg-gradient-to-br from-neutral-900 via-neutral-900 to-neutral-950 p-5 rounded-3xl border border-neutral-850 shadow-xl space-y-4 mb-6">
         <div className="flex items-center justify-between">
           <span className="text-[12.5px] font-black text-zinc-400 tracking-wider flex items-center gap-1.5 uppercase">
-            <ClipboardCheck size={14} className="text-amber-500 animate-pulse" />
+            <ClipboardCheck size={14} className="text-amber-500" />
             당일 운행 현황 요약
           </span>
           <span className="text-[11.5px] font-mono text-zinc-500 font-bold bg-[#1C1C1E] px-2 py-0.5 rounded border border-neutral-800">

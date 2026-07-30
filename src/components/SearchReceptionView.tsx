@@ -649,6 +649,7 @@ export default function SearchReceptionView({
                       setSelectedParkingSpace={setSelectedParkingSpace}
                       showCompanyLabel={showCompanyLabel}
                       primaryCompanyId={currentCompanyId}
+                      companies={companies}
                     />
                   ))}
                 </div>

@@ -320,6 +320,12 @@ function toCompanyParkingLots(lots: PartnerParkingLotForm[]): CompanyParkingLot[
   });
 }
 
+/** B2B·입고 배정용 — 업체에 등록된 주차장 목록 (레거시 주소 필드 포함) */
+export function listCompanyParkingLots(company?: Company | null): CompanyParkingLot[] {
+  if (!company) return [];
+  return toCompanyParkingLots(readLotsFromCompany(company));
+}
+
 /** 시설 유형·주소·보험 — B2C companies 문서와 동일 필드 */
 export function applyPartnerProfileToCompany(
   company: Company,

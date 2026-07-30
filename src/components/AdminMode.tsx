@@ -102,6 +102,7 @@ export default function AdminMode({
         <DispatchBoardView
           reservations={reservations}
           companyName={companyInfo.name}
+          companies={companies}
         />
       );
 

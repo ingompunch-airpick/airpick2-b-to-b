@@ -86,13 +86,13 @@ export default function DateNavBar({
       >
         <Calendar
           size={compact ? 13 : 14}
-          className={cn('shrink-0 pointer-events-none', compact ? 'text-[#8E8E93]' : 'text-amber-500')}
+          className="shrink-0 pointer-events-none text-zinc-500"
           aria-hidden
         />
         {showLabel && !compact && (
           <span className="text-zinc-500 font-semibold">조회일</span>
         )}
-        <span className="font-mono text-amber-400 tabular-nums">{current}</span>
+        <span className="font-mono text-zinc-100 tabular-nums">{current}</span>
         {!isToday && showLabel && !compact && (
           <span className="text-[10px] text-zinc-500 font-semibold">(오늘 아님)</span>
         )}

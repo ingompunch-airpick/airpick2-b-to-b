@@ -18,6 +18,11 @@ import { getCalculatePrice } from './utils/pricing';
 import { getKSTDateOnlyString, getKSTDateTimeString } from './utils/kstDate';
 import { AIRPICK_HQ_ID, isAirpickHeadquarters } from './constants/platform';
 import { isPending } from './utils/reservationStatus';
+import {
+  buildParkingAssignmentFields,
+  defaultParkingLotId,
+  resolveCompanyLotsForReservation,
+} from './utils/parkingLot';
 import { cn } from './lib/utils';
 import { useReservations } from './hooks/useReservations';
 import { useSession } from './hooks/useSession';
@@ -312,7 +317,23 @@ export default function App() {
     if (isPending(driverDetailRes.status)) {
       await handleUpdateValetStatus(driverDetailRes.id, 'pending_in');
     } else if (driverDetailRes.status === 'pending_in') {
-      await handleUpdateValetStatus(driverDetailRes.id, 'completed_in');
+      // 사진 입고 모달 권장 — 여기서 바로 완료 시 lot 1곳이면 자동 배정
+      const lots = resolveCompanyLotsForReservation(companies, driverDetailRes.companyId);
+      const indoor = driverDetailRes.isIndoor !== false;
+      const lotId = defaultParkingLotId(lots, indoor, driverDetailRes.parkingLotId);
+      const extra =
+        lotId
+          ? buildParkingAssignmentFields({
+              parkingLotId: lotId,
+              parkingSpace: driverDetailRes.parkingSpace,
+              lots,
+              fallbackIsIndoor: indoor,
+            })
+          : { isIndoor: indoor };
+      await handleUpdateValetStatus(driverDetailRes.id, 'completed_in', {
+        ...extra,
+        actualParkingTime: getKSTDateTimeString(),
+      });
     } else if (driverDetailRes.status === 'completed_in') {
       await handleUpdateValetStatus(driverDetailRes.id, 'request_out');
     } else if (driverDetailRes.status === 'request_out') {
@@ -469,47 +490,43 @@ export default function App() {
                     title="예약 마감 및 날짜별 승인 설정"
                     id="blockout-calendar-trigger"
                   >
-                    <CalendarRange size={11} className="text-[#10B981] animate-pulse" />
-                    <span className="text-[11px] sm:text-[11.5px] font-black tracking-tight flex items-center gap-0.5 text-zinc-200">
+                    <CalendarRange size={11} className="text-zinc-400" />
+                    <span className="text-[11px] sm:text-[11.5px] font-semibold tracking-tight text-zinc-300">
                       <span className="hidden sm:inline">예약 관리</span><span className="sm:hidden">예약</span>
-                      <span className="w-1 h-1 rounded-full inline-block ml-0.5 bg-[#10B981]" />
                     </span>
                   </button>
                 )}
                 {isAdmin && (!isEmployee || employeeRole === 'admin') && !isAirpickHeadquarters(currentCompanyId) && (
-                  <div className="flex bg-[#121214] p-0.5 rounded-xl border border-neutral-800/65 font-black shrink-0" id="admin-mode-toggle">
+                  <div className="flex bg-[#121214] p-0.5 rounded-xl border border-neutral-800/65 font-semibold shrink-0" id="admin-mode-toggle">
                     <button
                       type="button"
                       onClick={enterAdminMode}
                       className={cn(
-                        "px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-[12px] font-black transition-all cursor-pointer flex items-center justify-center gap-1",
+                        "px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-[12px] font-semibold transition-all cursor-pointer",
                         isAdminModeActive 
-                          ? "bg-amber-500 text-neutral-950 shadow-md font-bold" 
+                          ? "bg-amber-500 text-neutral-950" 
                           : "text-zinc-500 hover:text-zinc-300"
                       )}
                     >
-                      <span className={cn("w-1 h-1 rounded-full", isAdminModeActive ? "bg-neutral-950" : "bg-transparent")} />
                       관리자
                     </button>
                     <button
                       type="button"
                       onClick={enterDriverMode}
                       className={cn(
-                        "px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-[12px] font-black transition-all cursor-pointer flex items-center justify-center gap-1",
+                        "px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-[12px] font-semibold transition-all cursor-pointer",
                         !isAdminModeActive 
-                          ? "bg-amber-500 text-neutral-950 shadow-md font-bold" 
+                          ? "bg-amber-500 text-neutral-950" 
                           : "text-zinc-500 hover:text-zinc-300"
                       )}
                     >
-                      <span className={cn("w-1 h-1 rounded-full", !isAdminModeActive ? "bg-neutral-950 animate-pulse" : "bg-transparent")} />
                       기사
                     </button>
                   </div>
                 )}
                 
                 {isEmployee && (
-                  <div className="px-2 sm:px-3.5 py-1 sm:py-1.5 bg-amber-500/10 text-amber-500 border border-amber-500/25 rounded-[12px] text-[11px] sm:text-[12px] font-black flex items-center gap-0.5 sm:gap-1 select-none shrink-0">
-                    <span className="w-1 h-1 rounded-full bg-amber-500 animate-pulse" />
+                  <div className="px-2 sm:px-3.5 py-1 sm:py-1.5 bg-zinc-800/80 text-zinc-300 border border-zinc-700/50 rounded-[12px] text-[11px] sm:text-[12px] font-semibold select-none shrink-0">
                     <span>{employeeRole === 'admin' ? `부관리자 (${employeeName})` : `기사 (${employeeName})`}</span>
                   </div>
                 )}
@@ -624,6 +641,7 @@ export default function App() {
                     setSelectedParkingSpace={setSelectedParkingSpace}
                     showCompanyLabel={showCompanyNameOnCards}
                     primaryCompanyId={currentCompanyId}
+                    companies={companies}
                   />
                 </motion.div>
               )}
@@ -951,6 +969,7 @@ export default function App() {
         selectedParkingSpace={selectedParkingSpace}
         handleUpdateValetStatus={handleUpdateValetStatus}
         getKSTDateTimeString={getKSTDateTimeString}
+        companies={companies}
       />
 
 
@@ -1029,6 +1048,7 @@ export default function App() {
             onSave={handleSaveDriverReservationEdit}
             onStatusAction={handleDriverStatusAction}
             onCancelReservation={handleDriverCancelReservation}
+            companies={companies}
           />
         )}
       </AnimatePresence>

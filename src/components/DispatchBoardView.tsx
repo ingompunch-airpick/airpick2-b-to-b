@@ -1,10 +1,13 @@
 import React, { useMemo, useState } from 'react';
 import { Download, Printer } from 'lucide-react';
-import type { Reservation } from '../types';
+import type { Company, Reservation } from '../types';
 import DateNavBar from './DateNavBar';
 import { getKSTDateOnlyString } from '../utils/kstDate';
 import { normalizeDateString } from '../utils/reservationNormalize';
-import { formatParkingLotLabel } from '../utils/parkingLot';
+import {
+  formatParkingLotLabel,
+  resolveCompanyLotsForReservation,
+} from '../utils/parkingLot';
 import {
   normalizeAirportId,
   normalizeTerminalCode,
@@ -17,6 +20,7 @@ type FocusMode = 'all' | 'intake' | 'exit';
 interface DispatchBoardViewProps {
   reservations: Reservation[];
   companyName?: string;
+  companies?: Company[];
 }
 
 function cn(...classes: (string | boolean | undefined | null)[]) {
@@ -68,10 +72,17 @@ function csvEscape(value: string): string {
 export default function DispatchBoardView({
   reservations,
   companyName = '',
+  companies = [],
 }: DispatchBoardViewProps) {
   const [selectedDate, setSelectedDate] = useState(() => getKSTDateOnlyString());
   const [focus, setFocus] = useState<FocusMode>('all');
   const [maskPhoneOnPrint, setMaskPhoneOnPrint] = useState(true);
+
+  const lotLabel = (res: Reservation) =>
+    formatParkingLotLabel(
+      res,
+      resolveCompanyLotsForReservation(companies, res.companyId)
+    );
 
   const rows = useMemo(() => {
     const day = normalizeDateString(selectedDate) || getKSTDateOnlyString();
@@ -168,7 +179,7 @@ export default function DispatchBoardView({
           String(idx + 1),
           terminalForMoment(r, 'intake'),
           terminalForMoment(r, 'exit'),
-          formatParkingLotLabel(r),
+          lotLabel(r),
           r.carModel || '',
           r.carNumber || '',
           `${r.departureDate || ''} ${r.departureTime || ''}`.trim(),
@@ -363,7 +374,7 @@ export default function DispatchBoardView({
                     >
                       <td className="px-2 py-2 tabular-nums text-zinc-500">{idx + 1}</td>
                       <td className="px-2 py-2 font-bold">{termLabel}</td>
-                      <td className="px-2 py-2 font-semibold">{formatParkingLotLabel(r)}</td>
+                      <td className="px-2 py-2 font-semibold">{lotLabel(r)}</td>
                       <td className="px-2 py-2">{r.carModel || '-'}</td>
                       <td className="px-2 py-2 font-black tabular-nums">{r.carNumber || '-'}</td>
                       <td

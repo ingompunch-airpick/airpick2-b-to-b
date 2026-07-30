@@ -743,7 +743,7 @@ export default function StatisticsView({
   const todaySales = realTodaySales;
   const monthSales = realMonthSales;
 
-  // --- Daily flow data (A+C: 월 요약 + 미니 막대 + 현재 재차) ---
+  // --- 월 요약 (입고·출고·일평균) + 현재 재차 ---
   const dailyFlow = datesRange.map((date) => {
     const admittedCount = activeReservations.filter(
       (r) => reservationDepartureOn(r, date) && isAdmitted(r.status)
@@ -754,17 +754,10 @@ export default function StatisticsView({
     return { date, admittedCount, exitedCount };
   });
 
-  // Scaling base for the mini bars (avoid divide-by-zero)
-  const flowMax = Math.max(1, ...dailyFlow.map(d => Math.max(d.admittedCount, d.exitedCount)));
-
   const totalAdmitted = dailyFlow.reduce((s, d) => s + d.admittedCount, 0);
   const totalExited = dailyFlow.reduce((s, d) => s + d.exitedCount, 0);
   const activeDays = dailyFlow.filter(d => d.admittedCount > 0 || d.exitedCount > 0).length;
   const avgAdmitted = activeDays > 0 ? Math.round((totalAdmitted / activeDays) * 10) / 10 : 0;
-  const busiestDay = dailyFlow.reduce<{ date: string; admittedCount: number; exitedCount: number } | null>(
-    (best, d) => (d.admittedCount > (best?.admittedCount ?? -1) ? d : best),
-    null
-  );
 
   // 현재 주차 중(재차) 대수 — 입고 완료했지만 아직 출차하지 않은 차량
   const parkedNow = activeReservations.filter(r => isParked(r.status)).length;
@@ -836,7 +829,7 @@ export default function StatisticsView({
       <div className="bg-gradient-to-br from-[#121214] via-[#121214] to-[#1C1C1F] p-4.5 rounded-[22px] border border-neutral-800/80 shadow-lg space-y-4">
         <div className="flex items-center justify-between">
           <span className="text-[12.5px] font-black text-zinc-400 tracking-wider flex items-center gap-1.5">
-            <Coins size={14} className="text-amber-500 animate-pulse animate-duration-1000" />
+            <Coins size={14} className="text-amber-500" />
             매출 통계
           </span>
         </div>
@@ -1065,93 +1058,32 @@ export default function StatisticsView({
         <div className="space-y-2.5">
           <div className="flex items-center justify-between px-1 select-none">
             <h3 className="text-[12.5px] text-zinc-400 font-extrabold tracking-wider uppercase">
-              일별 입·출차 흐름 ({filterType === 'this_month' ? '이번 달' : '지난 달'})
+              입·출차 요약 ({filterType === 'this_month' ? '이번 달' : '지난 달'})
             </h3>
-            <span className="text-[11px] font-mono text-zinc-500 font-semibold">일별 입·출차</span>
           </div>
 
-          {/* 현재 재차(주차 중) + 월 요약 바 */}
+          {/* 현재 재차(주차 중) + 월 요약 */}
           <div className="grid grid-cols-4 gap-2 select-none">
-            <div className="col-span-1 bg-gradient-to-br from-amber-500/15 to-amber-600/[0.04] border border-amber-500/25 rounded-2xl p-3 flex flex-col justify-center">
-              <span className="text-[11px] text-amber-500/80 font-bold uppercase tracking-wider leading-tight">현재 주차 중</span>
-              <span className="text-xl font-black text-amber-400 font-mono leading-none mt-1">
+            <div className="col-span-1 bg-[#1C1C1E] border border-neutral-800/40 rounded-2xl p-3 flex flex-col justify-center">
+              <span className="text-[11px] text-zinc-500 font-bold uppercase tracking-wider leading-tight">현재 주차 중</span>
+              <span className="text-xl font-black text-white font-mono leading-none mt-1">
                 {parkedNow}<span className="text-[13px] ml-0.5">대</span>
               </span>
             </div>
             <div className="col-span-3 bg-[#1C1C1E] border border-neutral-800/40 rounded-2xl p-3 grid grid-cols-3 gap-1 items-center">
               <div className="text-center">
                 <span className="text-[11px] text-zinc-500 font-bold uppercase block tracking-wider">총 입고</span>
-                <span className="text-sm font-black text-amber-500 font-mono">{totalAdmitted}</span>
+                <span className="text-sm font-black text-white font-mono">{totalAdmitted}</span>
               </div>
               <div className="text-center border-x border-neutral-800/60">
                 <span className="text-[11px] text-zinc-500 font-bold uppercase block tracking-wider">총 출고</span>
-                <span className="text-sm font-black text-emerald-400 font-mono">{totalExited}</span>
+                <span className="text-sm font-black text-white font-mono">{totalExited}</span>
               </div>
               <div className="text-center">
                 <span className="text-[11px] text-zinc-500 font-bold uppercase block tracking-wider">일평균 입고</span>
-                <span className="text-sm font-black text-zinc-200 font-mono">{avgAdmitted}</span>
+                <span className="text-sm font-black text-white font-mono">{avgAdmitted}</span>
               </div>
             </div>
-          </div>
-
-          {busiestDay && busiestDay.admittedCount > 0 && (
-            <div className="px-1.5 select-none">
-              <span className="text-[11px] text-zinc-500 font-bold">
-                최다 입고일 · <span className="text-amber-500/90 font-mono">{busiestDay.date}</span> ({busiestDay.admittedCount}대)
-              </span>
-            </div>
-          )}
-
-          {/* 날짜별 미니 막대 리스트 — 입·출 대수만 (매출은 위 통계 카드) */}
-          <div className="bg-[#1C1C1E] border border-neutral-800/40 rounded-2xl overflow-hidden divide-y divide-[#1D1D20] max-h-72 overflow-y-auto font-mono">
-            {dailyFlow.map(({ date, admittedCount, exitedCount }) => {
-              const dateObj = new Date(date);
-              const daysArr = ['일', '월', '화', '수', '목', '금', '토'];
-              const dow = dateObj.getDay();
-              const dayOfWeek = daysArr[dow];
-              const isWeekend = dow === 0 || dow === 6;
-              const isToday = date === todayStr;
-              const isEmpty = admittedCount === 0 && exitedCount === 0;
-              const admPct = Math.round((admittedCount / flowMax) * 100);
-              const extPct = Math.round((exitedCount / flowMax) * 100);
-
-              return (
-                <div
-                  key={date}
-                  className={`px-3.5 py-3 transition-all ${isToday ? 'bg-amber-500/[0.06]' : 'hover:bg-neutral-900/30'} ${isEmpty ? 'opacity-40' : ''}`}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-1.5">
-                      <span className={`text-xs font-bold ${isWeekend ? (dow === 0 ? 'text-rose-400/90' : 'text-sky-400/90') : 'text-zinc-200'}`}>
-                        {date} ({dayOfWeek})
-                      </span>
-                      {isToday && (
-                        <span className="text-[11px] bg-amber-500 text-neutral-950 px-1.5 py-0.5 rounded-md font-black tracking-wider">오늘</span>
-                      )}
-                    </div>
-                    <div className="flex gap-2.5 text-[12px] font-black">
-                      <span className="text-amber-500">입 {admittedCount}</span>
-                      <span className="text-emerald-400">출 {exitedCount}</span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[8.5px] text-zinc-600 font-bold w-6 shrink-0">입고</span>
-                      <div className="flex-1 h-1.5 bg-neutral-800/60 rounded-full overflow-hidden">
-                        <div className="h-full bg-amber-500 rounded-full transition-all duration-500" style={{ width: `${admPct}%` }} />
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[8.5px] text-zinc-600 font-bold w-6 shrink-0">출고</span>
-                      <div className="flex-1 h-1.5 bg-neutral-800/60 rounded-full overflow-hidden">
-                        <div className="h-full bg-emerald-400 rounded-full transition-all duration-500" style={{ width: `${extPct}%` }} />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
           </div>
         </div>
       </div>

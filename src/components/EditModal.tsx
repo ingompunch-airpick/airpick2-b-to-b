@@ -1,8 +1,8 @@
 ﻿import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { ArrowLeft, Users, Phone, Calendar, Bell, Car } from 'lucide-react';
-import { Reservation } from '../types';
-import { isPending, statusToLabel } from '../utils/reservationStatus';
+import { Reservation, Company } from '../types';
+import { isPending, isNotYetAdmitted, statusToLabel } from '../utils/reservationStatus';
 import {
   bookingSourceBadgeClass,
   bookingSourceLabel,
@@ -11,6 +11,12 @@ import {
 } from '../utils/bookingSource';
 import AirlinePicker from './AirlinePicker';
 import { normalizeAirportId, terminalLabel } from '../utils/airport';
+import {
+  buildParkingAssignmentFields,
+  defaultParkingLotId,
+  isGenericParkingSpaceLabel,
+  resolveCompanyLotsForReservation,
+} from '../utils/parkingLot';
 
 function cn(...classes: (string | boolean | undefined | null)[]) {
   return classes.filter(Boolean).join(' ');
@@ -25,6 +31,7 @@ interface EditModalProps {
   onSave: (updateData: any) => Promise<void>;
   onStatusAction: () => Promise<void>;
   onCancelReservation?: () => Promise<void>;
+  companies?: Company[];
 }
 
 export default function EditModal({
@@ -35,13 +42,14 @@ export default function EditModal({
   isSuperAdmin,
   onSave,
   onStatusAction,
-  onCancelReservation
+  onCancelReservation,
+  companies = [],
 }: EditModalProps) {
-  const [driverEditName, setDriverEditName] = useState('');
   const [driverEditPhone, setDriverEditPhone] = useState('');
   const [driverEditUserRequest, setDriverEditUserRequest] = useState('');
   const [driverEditAdminMemo, setDriverEditAdminMemo] = useState('');
   const [driverEditLinkerMemo, setDriverEditLinkerMemo] = useState('');
+  const [driverEditLotId, setDriverEditLotId] = useState('');
   const [driverEditDestination, setDriverEditDestination] = useState('');
   const [driverEditDeptAirline, setDriverEditDeptAirline] = useState('');
   const [driverEditDeptFlight, setDriverEditDeptFlight] = useState('');
@@ -54,15 +62,18 @@ export default function EditModal({
   const [driverEditDepartureTime, setDriverEditDepartureTime] = useState('');
   const [driverEditArrivalDate, setDriverEditArrivalDate] = useState('');
   const [driverEditArrivalTime, setDriverEditArrivalTime] = useState('');
-  const [driverEditIsIndoor, setDriverEditIsIndoor] = useState(true);
 
   useEffect(() => {
     if (driverDetailRes) {
-      setDriverEditName(driverDetailRes.userName || '');
       setDriverEditPhone(driverDetailRes.phone || '');
       setDriverEditUserRequest((driverDetailRes as any).userRequest || (driverDetailRes as any).customerNotes || driverDetailRes.paymentNotes || '');
       setDriverEditAdminMemo(driverDetailRes.adminMemo || '');
-      setDriverEditLinkerMemo(driverDetailRes.parkingSpace || (driverDetailRes as any).linkerMemo || '');
+      const space = (driverDetailRes.parkingSpace || (driverDetailRes as any).linkerMemo || '').trim();
+      setDriverEditLinkerMemo(isGenericParkingSpaceLabel(space) ? '' : space);
+      const lots = resolveCompanyLotsForReservation(companies, driverDetailRes.companyId);
+      setDriverEditLotId(
+        defaultParkingLotId(lots, driverDetailRes.isIndoor !== false, driverDetailRes.parkingLotId)
+      );
       setDriverEditDestination(driverDetailRes.destination || '');
       setDriverEditDeptAirline(driverDetailRes.departureAirline || '');
       setDriverEditDeptFlight(driverDetailRes.departureFlight || '');
@@ -78,32 +89,24 @@ export default function EditModal({
       setDriverEditDepartureTime(driverDetailRes.departureTime || '');
       setDriverEditArrivalDate(driverDetailRes.arrivalDate || '');
       setDriverEditArrivalTime(driverDetailRes.arrivalTime || '');
-      
-      if (typeof driverDetailRes.isIndoor === 'boolean') {
-        setDriverEditIsIndoor(driverDetailRes.isIndoor);
-      } else {
-        const space = (driverDetailRes.parkingSpace || '').toLowerCase();
-        const hasIndoor = space.includes('실내') || space.includes('상주');
-        setDriverEditIsIndoor(hasIndoor);
-      }
     }
-  }, [driverDetailRes]);
+  }, [driverDetailRes, companies]);
 
   if (!driverDetailRes) return null;
 
   const isPendingBeforeIntake = isPending(driverDetailRes.status);
   const canCancel = isPendingBeforeIntake && !!onCancelReservation;
   const hideReservationPassword = isExternalCustomerBooking(driverDetailRes);
+  const showLotPicker = !isNotYetAdmitted(driverDetailRes.status);
+  const companyLots = resolveCompanyLotsForReservation(companies, driverDetailRes.companyId);
 
   const handleSave = () => {
     const operatorName = isEmployee ? employeeName : (isSuperAdmin ? '본사 마스터(최고관리자)' : '업체 마스터');
     const updateData: Record<string, unknown> = {
-      userName: driverEditName,
       phone: driverEditPhone,
       userRequest: driverEditUserRequest,
       customerNotes: driverEditUserRequest,
       adminMemo: driverEditAdminMemo,
-      parkingSpace: driverEditLinkerMemo,
       linkerMemo: driverEditLinkerMemo,
       // 빈 문자열로 저장해 필드 비우기 가능 (undefined는 Firestore 거부·strip 시 무시됨)
       destination: driverEditDestination.trim(),
@@ -118,10 +121,22 @@ export default function EditModal({
       departureTime: driverEditDepartureTime,
       arrivalDate: driverEditArrivalDate,
       arrivalTime: driverEditArrivalTime,
-      isIndoor: driverEditIsIndoor,
       updatedBy: operatorName,
       updatedAt: new Date().toISOString(),
     };
+    if (showLotPicker && driverEditLotId) {
+      Object.assign(
+        updateData,
+        buildParkingAssignmentFields({
+          parkingLotId: driverEditLotId,
+          parkingSpace: driverEditLinkerMemo,
+          lots: companyLots,
+          fallbackIsIndoor: driverDetailRes.isIndoor !== false,
+        })
+      );
+    } else {
+      updateData.parkingSpace = driverEditLinkerMemo;
+    }
     if (!hideReservationPassword) {
       updateData.reservationPassword = driverEditReservationPassword.trim();
     }
@@ -175,18 +190,6 @@ export default function EditModal({
               <span>고객 정보</span>
             </div>
 
-            {/* Name field */}
-            <div className="relative group">
-              <label className="text-[12px] font-black text-zinc-500 block mb-1">이름</label>
-              <input 
-                type="text"
-                value={driverEditName}
-                onChange={(e) => setDriverEditName(e.target.value)}
-                className="w-full bg-[#1C1C1E] border-b border-neutral-800 py-1.5 text-[13.5px] text-white font-bold outline-none focus:border-amber-500 transition-colors"
-                placeholder="이름을 입력해주세요"
-              />
-            </div>
-
             {/* Phone field */}
             <div className="relative group">
               <label className="text-[12px] font-black text-zinc-500 block mb-1">전화번호</label>
@@ -226,46 +229,46 @@ export default function EditModal({
               />
             </div>
 
-            {/* 주차 유형구분 (실내 / 실외) 수정 */}
-            <div className="relative group">
-              <label className="text-[12px] font-black text-zinc-500 block mb-1">주차 유형구분 (실내 / 실외)</label>
-              <div className="grid grid-cols-2 gap-2 mt-1">
-                <button
-                  type="button"
-                  onClick={() => setDriverEditIsIndoor(true)}
-                  className={cn(
-                    "py-2 px-3 text-xs font-black rounded-xl transition-all border cursor-pointer",
-                    driverEditIsIndoor 
-                      ? "bg-[#A855F7] text-white border-transparent" 
-                      : "bg-[#1C1C1E] text-zinc-500 border-neutral-800 hover:text-zinc-350"
-                  )}
-                >
-                  실내 주차
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setDriverEditIsIndoor(false)}
-                  className={cn(
-                    "py-2 px-3 text-xs font-black rounded-xl transition-all border cursor-pointer",
-                    !driverEditIsIndoor 
-                      ? "bg-[#22C55E] text-white border-transparent" 
-                      : "bg-[#1C1C1E] text-zinc-500 border-neutral-800 hover:text-zinc-350"
-                  )}
-                >
-                  실외 주차
-                </button>
-              </div>
-            </div>
-
             {/* Linker Memo field */}
             <div className="relative group">
-              <label className="text-[12px] font-black text-zinc-500 block mb-1">링커메모 (주차구역 상세)</label>
+              {showLotPicker && companyLots.length > 0 && (
+                <div className="mb-4">
+                  <label className="text-[12px] font-black text-zinc-500 block mb-1">
+                    주차 위치 (B2C 노출)
+                  </label>
+                  <div className="grid grid-cols-2 gap-2 mt-1">
+                    {companyLots.map((lot) => {
+                      const active = driverEditLotId === lot.id;
+                      return (
+                        <button
+                          key={lot.id}
+                          type="button"
+                          onClick={() => setDriverEditLotId(lot.id)}
+                          className={cn(
+                            'py-2 px-3 text-xs font-black rounded-xl transition-all border cursor-pointer',
+                            active
+                              ? lot.type === 'outdoor'
+                                ? 'bg-[#22C55E] text-white border-transparent'
+                                : 'bg-[#A855F7] text-white border-transparent'
+                              : 'bg-[#1C1C1E] text-zinc-500 border-neutral-800 hover:text-zinc-350'
+                          )}
+                        >
+                          {lot.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
+              <label className="text-[12px] font-black text-zinc-500 block mb-1">
+                {showLotPicker ? '구역·자리 (선택)' : '링커메모 (주차구역 상세)'}
+              </label>
               <input 
                 type="text"
                 value={driverEditLinkerMemo}
                 onChange={(e) => setDriverEditLinkerMemo(e.target.value)}
                 className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[14px] text-zinc-300 font-medium outline-none focus:border-amber-500 transition-colors"
-                placeholder="예시: 지하3층 B구역, 상주 주차장 등"
+                placeholder="예시: 지하3층 B구역"
               />
             </div>
           </div>
