@@ -116,7 +116,16 @@ export async function registerPartnerPushDevice(params: {
     await PushNotifications.createChannel({
       id: 'flight_delays',
       name: '항공편 연착',
-      description: '입국 항공편 연착·결항 알림',
+      description: '입국 항공편 연착·결항·도착 알림',
+      importance: 5,
+      visibility: 1,
+      sound: 'default',
+      vibration: true,
+    });
+    await PushNotifications.createChannel({
+      id: 'valet_status',
+      name: '입·출고 상태',
+      description: '입고·출고 탭 이동 알림',
       importance: 5,
       visibility: 1,
       sound: 'default',

@@ -642,6 +642,7 @@ export default function App() {
                     showCompanyLabel={showCompanyNameOnCards}
                     primaryCompanyId={currentCompanyId}
                     companies={companies}
+                    onUpdatePayment={handleUpdatePaymentMethod}
                   />
                 </motion.div>
               )}

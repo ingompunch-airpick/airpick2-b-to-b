@@ -4,6 +4,10 @@ import { ArrowLeft, Users, Phone, Calendar, Bell, Car } from 'lucide-react';
 import { Reservation, Company } from '../types';
 import { isPending, isNotYetAdmitted, statusToLabel } from '../utils/reservationStatus';
 import {
+  paymentChoiceToMethod,
+  reservationToPaymentChoice,
+} from '../utils/paymentStatus';
+import {
   bookingSourceBadgeClass,
   bookingSourceLabel,
   resolveBookingSourceFromReservation,
@@ -62,6 +66,7 @@ export default function EditModal({
   const [driverEditDepartureTime, setDriverEditDepartureTime] = useState('');
   const [driverEditArrivalDate, setDriverEditArrivalDate] = useState('');
   const [driverEditArrivalTime, setDriverEditArrivalTime] = useState('');
+  const [paymentChoice, setPaymentChoice] = useState<'unpaid' | 'paid'>('unpaid');
 
   useEffect(() => {
     if (driverDetailRes) {
@@ -89,6 +94,7 @@ export default function EditModal({
       setDriverEditDepartureTime(driverDetailRes.departureTime || '');
       setDriverEditArrivalDate(driverDetailRes.arrivalDate || '');
       setDriverEditArrivalTime(driverDetailRes.arrivalTime || '');
+      setPaymentChoice(reservationToPaymentChoice(driverDetailRes));
     }
   }, [driverDetailRes, companies]);
 
@@ -121,6 +127,7 @@ export default function EditModal({
       departureTime: driverEditDepartureTime,
       arrivalDate: driverEditArrivalDate,
       arrivalTime: driverEditArrivalTime,
+      paymentMethod: paymentChoiceToMethod(paymentChoice),
       updatedBy: operatorName,
       updatedAt: new Date().toISOString(),
     };
@@ -227,6 +234,39 @@ export default function EditModal({
                 className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[14px] text-zinc-300 font-medium outline-none focus:border-amber-500 transition-colors"
                 placeholder="특이사항을 입력해주세요"
               />
+            </div>
+
+            <div className="space-y-2">
+              <label className="text-[12px] font-black text-zinc-500 block">수납 상태</label>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPaymentChoice('unpaid')}
+                  className={cn(
+                    'py-2.5 rounded-xl text-xs font-black border transition-all cursor-pointer',
+                    paymentChoice === 'unpaid'
+                      ? 'bg-rose-500/15 border-rose-500 text-rose-400'
+                      : 'bg-neutral-950 border-neutral-800 text-zinc-400 hover:border-neutral-700'
+                  )}
+                >
+                  미납
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPaymentChoice('paid')}
+                  className={cn(
+                    'py-2.5 rounded-xl text-xs font-black border transition-all cursor-pointer',
+                    paymentChoice === 'paid'
+                      ? 'bg-emerald-500/15 border-emerald-500 text-emerald-400'
+                      : 'bg-neutral-950 border-neutral-800 text-zinc-400 hover:border-neutral-700'
+                  )}
+                >
+                  완납
+                </button>
+              </div>
+              <p className="text-[11px] text-zinc-500 leading-relaxed">
+                돈 받으면 완납으로 바꾼 뒤 저장하세요. 타임라인 뱃지를 탭해도 바로 바꿀 수 있습니다.
+              </p>
             </div>
 
             {/* Linker Memo field */}

@@ -1,6 +1,6 @@
 ﻿import React from 'react';
 import { PlusCircle, Bell, CheckCircle2 } from 'lucide-react';
-import { Reservation, ReservationStatus, type Company } from '../types';
+import { Reservation, ReservationStatus, PaymentMethod, type Company } from '../types';
 import { isReservationUnpaid } from '../utils/paymentStatus';
 import { isNotYetAdmitted, isPending, statusBadgeColorClass, statusToLabel } from '../utils/reservationStatus';
 import {
@@ -51,6 +51,8 @@ interface ReservationCardProps {
   setSelectedParkingSpace: (space: string) => void;
   /** 업체 parkingLots — 입고 후 lot 뱃지용 */
   companies?: Company[];
+  /** 미납↔완납 토글 (타임라인에서 바로 수정) */
+  onUpdatePayment?: (id: string, method: PaymentMethod) => void | Promise<void>;
 }
 
 export default function ReservationCard({
@@ -68,6 +70,7 @@ export default function ReservationCard({
   setScratchModalTargetId,
   setSelectedParkingSpace,
   companies = [],
+  onUpdatePayment,
 }: ReservationCardProps) {
   // 실제 배정된 자리만 표시(없으면 생략). 실내/야외·lot 이름은 뱃지로
   const spaceRaw = (res.parkingSpace || '').trim();
@@ -174,10 +177,29 @@ export default function ReservationCard({
             </span>
           )}
 
-          {showUnpaidBadge && (
-            <span className="text-[13px] px-2 py-0.5 rounded-[6px] font-semibold bg-rose-500/12 text-rose-400 border border-rose-500/20 shrink-0">
-              미납
-            </span>
+          {onUpdatePayment && res.id ? (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                void onUpdatePayment(res.id!, showUnpaidBadge ? 'paid' : 'unpaid');
+              }}
+              className={cn(
+                'text-[13px] px-2 py-0.5 rounded-[6px] font-semibold border shrink-0 cursor-pointer active:scale-95 transition-transform',
+                showUnpaidBadge
+                  ? 'bg-rose-500/12 text-rose-400 border-rose-500/20'
+                  : 'bg-emerald-500/12 text-emerald-400 border-emerald-500/20'
+              )}
+              title={showUnpaidBadge ? '탭하면 완납으로 변경' : '탭하면 미납으로 변경'}
+            >
+              {showUnpaidBadge ? '미납' : '완납'}
+            </button>
+          ) : (
+            showUnpaidBadge && (
+              <span className="text-[13px] px-2 py-0.5 rounded-[6px] font-semibold bg-rose-500/12 text-rose-400 border border-rose-500/20 shrink-0">
+                미납
+              </span>
+            )
           )}
 
           {departureAlert && minutesUntilDeparture != null && (

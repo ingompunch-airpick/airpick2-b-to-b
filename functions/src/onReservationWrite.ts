@@ -6,7 +6,10 @@ import { processReservationSheetsArchive } from './sheets/processReservationShee
 import { enforceHourlyCapacityOnCreate } from './hourlyCapacity';
 import { enforceBookingPolicyOnCreate } from './bookingPolicy';
 import { bumpCustomerVisitOnCreate } from './customerVisit';
-import { notifyPartnersNewReservation } from './partnerPush';
+import {
+  notifyPartnersNewReservation,
+  notifyPartnersValetStatusChange,
+} from './partnerPush';
 
 const alimtalkEnabled = defineString('ALIMTALK_ENABLED', { default: 'false' });
 const alimtalkProvider = defineString('ALIMTALK_PROVIDER', { default: 'nhn' });
@@ -54,6 +57,7 @@ function applyRuntimeEnv(): void {
  * 예약 Firestore 변경 시:
  * - 마감일·전체마감·당일차단 신규건 자동취소 (홈페이지/B2C 백스톱)
  * - 시간당 한도 초과 신규건 자동취소
+ * - 파트너 FCM (신규 예약 / 입고·출고 상태 전환)
  * - Google Sheets 장부 동기화 (탭: 에어픽 / 와와 / 가유 / …)
  * - 알림톡 발송 (NHN 또는 NCP, 활성화 시)
  */
@@ -92,6 +96,15 @@ export const onReservationSync = onDocumentWritten(
         await notifyPartnersNewReservation(reservationId, afterData);
       } catch (err) {
         console.error('[partnerPush] failed', {
+          reservationId,
+          err: err instanceof Error ? err.message : String(err),
+        });
+      }
+    } else {
+      try {
+        await notifyPartnersValetStatusChange(reservationId, beforeData, afterData);
+      } catch (err) {
+        console.error('[partnerPush] status change failed', {
           reservationId,
           err: err instanceof Error ? err.message : String(err),
         });

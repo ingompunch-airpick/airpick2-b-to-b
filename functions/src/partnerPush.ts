@@ -182,3 +182,38 @@ export async function notifyPartnersFlightArrival(
     },
   });
 }
+
+/**
+ * 출고예정 → 출고(request_out) 수동 전환 알림.
+ * 입고완료·반납완료는 보내지 않음.
+ * 비행기 자동 출고는 notifyPartnersFlightArrival이 이미 보내므로 스킵.
+ */
+export async function notifyPartnersValetStatusChange(
+  reservationId: string,
+  before: FirebaseFirestore.DocumentData | undefined,
+  after: FirebaseFirestore.DocumentData
+): Promise<void> {
+  const companyId = String(after.companyId || '').trim();
+  if (!companyId) return;
+
+  const prev = String(before?.status || '').trim();
+  const next = String(after.status || '').trim();
+  if (next !== 'request_out' || prev === 'request_out') return;
+
+  const updatedBy = String(after.updatedBy || '').trim();
+  if (updatedBy === 'flight-arrival-auto') return;
+
+  const car = String(after.carNumber || '').trim();
+  const name = String(after.userName || '').trim();
+  const who = [car, name].filter(Boolean).join(' · ') || '고객';
+  const by = updatedBy ? ` · ${updatedBy}` : '';
+
+  await sendPartnerMulticast({
+    companyId,
+    reservationId,
+    title: '출고 · 출고 탭으로 이동',
+    body: `${who}${by}`,
+    type: 'status_request_out',
+    channelId: 'valet_status',
+  });
+}

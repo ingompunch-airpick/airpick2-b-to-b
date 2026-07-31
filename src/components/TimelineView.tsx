@@ -1,6 +1,6 @@
 ﻿import React, { useState, useMemo, useEffect } from 'react';
 import { Search, X, RefreshCw, Car, FileText } from 'lucide-react';
-import { Reservation, ReservationStatus, AppView, Company } from '../types';
+import { Reservation, ReservationStatus, AppView, Company, PaymentMethod } from '../types';
 import ReservationCard from './ReservationCard';
 import DepartureImminentBanner from './DepartureImminentBanner';
 import DateNavBar from './DateNavBar';
@@ -44,6 +44,7 @@ interface TimelineViewProps {
   /** 로그인 대표 업체 id — 하위 예약 업체명 표시용 */
   primaryCompanyId?: string;
   companies?: Company[];
+  onUpdatePayment?: (id: string, method: PaymentMethod) => void | Promise<void>;
 }
 
 export default function TimelineView({
@@ -65,6 +66,7 @@ export default function TimelineView({
   showCompanyLabel = false,
   primaryCompanyId = '',
   companies = [],
+  onUpdatePayment,
 }: TimelineViewProps) {
   const [nowTick, setNowTick] = useState(() => Date.now());
 
@@ -292,6 +294,7 @@ export default function TimelineView({
                 showCompanyLabel={showCompanyLabel}
                 primaryCompanyId={primaryCompanyId}
                 companies={companies}
+                onUpdatePayment={onUpdatePayment}
               />
             ))}
           </div>
