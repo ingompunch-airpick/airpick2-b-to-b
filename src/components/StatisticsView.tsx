@@ -17,11 +17,8 @@ import {
   Search,
   CreditCard,
   ShieldAlert,
-  X,
-  PhoneCall,
   PlaneTakeoff,
   PlaneLanding,
-  Award,
   TrendingDown,
   Minus,
   Users,
@@ -58,8 +55,6 @@ import {
   shiftMonthPrefix,
 } from '../utils/hqAnalytics';
 import CustomDatePickerModal from './CustomDatePickerModal';
-import { fetchCustomerVisitCount } from '../lib/customerVisit';
-import { formatPhoneDisplay, normalizePhoneDigits } from '../utils/phone';
 
 function reservationDepartureOn(r: Reservation, ymd: string): boolean {
   return normalizeDateString(r.departureDate) === ymd;
@@ -85,8 +80,7 @@ interface StatisticsViewProps {
   currentCompanyId?: string;
   blockedDates?: string[];
   onSaveBlockedDates?: (dates: string[]) => void;
-  onUpdateValetStatus?: (resId: string, nextStatus: any, extraFields?: any) => Promise<void> | void;
-  /** CRM 상세 → 예약 수정/취소 모달 */
+  /** 당일예약 등 클릭 → 통일 상세(작업대) */
   onEditReservation?: (res: Reservation) => void;
 }
 
@@ -98,46 +92,12 @@ export default function StatisticsView({
   currentCompanyId = AIRPICK_HQ_ID,
   blockedDates = [],
   onSaveBlockedDates,
-  onUpdateValetStatus,
   onEditReservation,
 }: StatisticsViewProps) {
   // ── 접수내역 CRM 상태 (합친 섹션) ──────────────────────────
   const [crmSearch, setCrmSearch] = useState('');
   const [crmTab, setCrmTab] = useState<'today_reserve' | 'today_parked' | 'today_released'>('today_reserve');
-  const [crmSelected, setCrmSelected] = useState<Reservation | null>(null);
-  const [crmVisitCount, setCrmVisitCount] = useState<number | null>(null);
-  const [crmDatePickerOpen, setCrmDatePickerOpen] = useState(false);
-
-  useEffect(() => {
-    if (!crmSelected) {
-      setCrmVisitCount(null);
-      return;
-    }
-    let cancelled = false;
-    const localFallback = reservations.filter((r) => {
-      const samePhone =
-        normalizePhoneDigits(r.phone) &&
-        normalizePhoneDigits(r.phone) === normalizePhoneDigits(crmSelected.phone);
-      const sameName =
-        (r.userName || '').trim() &&
-        (r.userName || '').trim() === (crmSelected.userName || '').trim();
-      return samePhone || sameName;
-    }).length;
-
-    setCrmVisitCount(localFallback);
-    (async () => {
-      try {
-        const remote = await fetchCustomerVisitCount(crmSelected.phone);
-        if (!cancelled && remote != null) setCrmVisitCount(remote);
-      } catch {
-        /* keep local fallback */
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [crmSelected, reservations]);
-  
+  const [crmDatePickerOpen, setCrmDatePickerOpen] = useState(false);  
   const [filterType, setFilterType] = useState<'this_month' | 'last_month'>('this_month');
   const [hqMonthPrefix, setHqMonthPrefix] = useState(() => getKSTDateOnlyString().substring(0, 7));
   
@@ -1004,7 +964,16 @@ export default function StatisticsView({
                   return (
                     <div
                       key={`${res.id}-${idx}`}
-                      onClick={() => setCrmSelected(res)}
+                      role={onEditReservation ? 'button' : undefined}
+                      tabIndex={onEditReservation ? 0 : undefined}
+                      onClick={() => onEditReservation?.(res)}
+                      onKeyDown={(e) => {
+                        if (!onEditReservation) return;
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          onEditReservation(res);
+                        }
+                      }}
                       className="bg-[#1C1C1E] border border-neutral-800/80 rounded-2xl p-3.5 space-y-2 hover:border-neutral-700/80 cursor-pointer transition-all active:scale-[0.99]"
                     >
                       <div className="flex justify-between items-center">
@@ -1087,94 +1056,6 @@ export default function StatisticsView({
           </div>
         </div>
       </div>
-
-      {/* CRM 상세 모달 */}
-      {crmSelected && (
-          <div className="fixed inset-0 z-[150] flex items-end sm:items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-            <div className="w-full max-w-md bg-[#1C1C1E] border border-neutral-800 rounded-t-3xl sm:rounded-3xl overflow-hidden shadow-2xl flex flex-col max-h-[88vh] text-zinc-100">
-              <div className="p-4 border-b border-neutral-800/70 flex items-center justify-between bg-neutral-900/60">
-                <div>
-                  <h3 className="text-xs font-black text-white font-mono">{crmSelected.carNumber} 상세</h3>
-                  <p className="text-[11.5px] text-zinc-500">{crmSelected.carModel} · {crmSelected.userName}</p>
-                </div>
-                <button onClick={() => setCrmSelected(null)} className="p-1.5 hover:bg-neutral-800 rounded-xl text-zinc-400"><X size={15} /></button>
-              </div>
-              <div className="p-4 space-y-4 overflow-y-auto">
-                <div className="bg-amber-500/5 border border-amber-500/10 p-3.5 rounded-2xl flex items-center justify-between">
-                  <div>
-                    <p className="text-[11px] text-amber-500 font-mono font-bold">고객 정보</p>
-                    <h4 className="text-sm font-black text-white">{crmSelected.userName} 고객님</h4>
-                    <p className="text-[12px] text-zinc-400 mt-0.5">
-                      누적 예약{' '}
-                      <span className="text-amber-500 font-bold">{crmVisitCount ?? '…'}회</span>
-                    </p>
-                  </div>
-                  <Award size={18} className="text-amber-500" />
-                </div>
-                <div className="bg-neutral-950/40 border border-neutral-800/40 p-3.5 rounded-2xl space-y-2 text-xs">
-                  {[
-                    ['입고일시', `${crmSelected.departureDate} ${crmSelected.departureTime}`],
-                    ['출고일시', `${crmSelected.arrivalDate} ${crmSelected.arrivalTime}`],
-                    ['주차구역', crmSelected.parkingSpace || '-'],
-                    ['결제금액', `${(crmSelected.totalPrice||0).toLocaleString()}원`],
-                    ['연락처', formatPhoneDisplay(crmSelected.phone)],
-                  ].map(([label, val]) => (
-                    <div key={label} className="flex justify-between">
-                      <span className="text-zinc-500">{label}</span>
-                      <span className="font-bold font-mono text-zinc-200">{val}</span>
-                    </div>
-                  ))}
-                </div>
-                <a href={`tel:${normalizePhoneDigits(crmSelected.phone) || crmSelected.phone}`} className="flex items-center justify-center gap-2 w-full py-3 bg-amber-500 text-neutral-950 rounded-xl font-black text-xs">
-                  <PhoneCall size={14} />즉시 통화
-                </a>
-                {onEditReservation && crmSelected.status !== 'cancelled' && crmSelected.status !== 'completed_out' && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const target = crmSelected;
-                      setCrmSelected(null);
-                      onEditReservation(target);
-                    }}
-                    className="flex items-center justify-center gap-2 w-full py-3 bg-white text-neutral-950 rounded-xl font-black text-xs"
-                  >
-                    예약 수정 · 취소
-                  </button>
-                )}
-                {onUpdateValetStatus && (crmSelected.status === 'completed_in' || crmSelected.status === 'request_out') && (
-                  <div className="flex gap-2">
-                    {crmSelected.status === 'completed_in' && (
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          if (window.confirm('강제 출고요청으로 변경하시겠습니까?')) {
-                            await onUpdateValetStatus(crmSelected.id!, 'request_out');
-                            setCrmSelected(null);
-                          }
-                        }}
-                        className="flex-1 py-2.5 bg-red-950/85 text-rose-400 border border-rose-500/20 rounded-xl text-[12.5px] font-black"
-                      >강제 출고요청</button>
-                    )}
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        if (window.confirm('강제 반납완료 처리하시겠습니까?')) {
-                          const kst = new Date(Date.now() + 9*60*60*1000).toISOString().replace('T',' ').substring(0,19);
-                          await onUpdateValetStatus(crmSelected.id!, 'completed_out', { actualExitTime: kst });
-                          setCrmSelected(null);
-                        }
-                      }}
-                      className="flex-1 py-2.5 bg-emerald-950/85 text-emerald-400 border border-emerald-500/20 rounded-xl text-[12.5px] font-black"
-                    >강제 반납완료</button>
-                  </div>
-                )}
-              </div>
-              <div className="p-4 border-t border-neutral-800/60 bg-neutral-900/60">
-                <button onClick={() => setCrmSelected(null)} className="w-full py-3 bg-neutral-800 text-white rounded-xl text-xs font-black">닫기</button>
-              </div>
-            </div>
-          </div>
-      )}
 
       <CustomDatePickerModal
         isOpen={crmDatePickerOpen}

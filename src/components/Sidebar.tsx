@@ -1,7 +1,6 @@
 ﻿import React from 'react';
 import { 
   X, 
-  CreditCard, 
   Camera, 
   History, 
   Calendar, 
@@ -117,10 +116,9 @@ export default function Sidebar({
       ]
     : [
         { id: 'service_history', label: '① 나의 서비스 기록', icon: History, view: 'service_history' as AppView },
-        { id: 'payment_change', label: '② 결제 변경', icon: CreditCard, view: 'payment_change' as AppView },
-        { id: 'scratch_images', label: '③ 차량 사진', icon: Camera, view: 'scratch_images' as AppView },
-        { id: 'parking_departure', label: '④ 주차장별 현황', icon: Calendar, view: 'parking_departure' as AppView },
-        { id: 'cancelled_list', label: '⑤ 접수취소 내역', icon: FileX, view: 'cancelled_list' as AppView },
+        { id: 'scratch_images', label: '② 차량 사진', icon: Camera, view: 'scratch_images' as AppView },
+        { id: 'parking_departure', label: '③ 주차장별 현황', icon: Calendar, view: 'parking_departure' as AppView },
+        { id: 'cancelled_list', label: '④ 취소·무효 내역', icon: FileX, view: 'cancelled_list' as AppView },
       ];
 
   return (

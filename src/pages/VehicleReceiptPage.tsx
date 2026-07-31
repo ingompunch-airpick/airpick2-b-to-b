@@ -6,7 +6,6 @@ import { resolveFlightFields } from '../utils/flightFields';
 import { normalizeDateString } from '../utils/reservationNormalize';
 import {
   buildReceiptUrl,
-  formatKoreanFromIso,
   maskPhoneForDisplay,
 } from '../utils/receipt';
 import {
@@ -16,6 +15,7 @@ import {
   terminalBadgeLabel,
 } from '../utils/airport';
 import { isAdmitted, isCompletedOut, isParked } from '../utils/reservationStatus';
+import { resolveBookingSourceFromReservation } from '../utils/bookingSource';
 
 const STANDARD_TERMS = [
   {
@@ -87,13 +87,6 @@ function formatShortDateTime(dateStr?: string, timeStr?: string): string {
   return time ? `${short} ${time}` : short;
 }
 
-function airlineHeaderLabel(airline?: string, flightNo?: string): string {
-  const code = (flightNo || '').trim().slice(0, 2).toUpperCase();
-  const name = (airline || '').trim();
-  if (code && name) return `${code} ${name}`;
-  return name || code || '';
-}
-
 function Perforation() {
   return (
     <div className="relative flex items-center bg-[#f4efe6] print:bg-white">
@@ -135,11 +128,11 @@ function FlightGridCell({
   const detail = [leg.airline, leg.flightNo].filter(Boolean).join(' ') || '-';
 
   return (
-    <div className="min-w-0 px-3 py-3">
-      <p className="text-[11px] font-bold tracking-wide text-[#9a8b78]">{label}</p>
-      <div className="mt-1 flex min-w-0 items-center gap-1.5">
+    <div className="min-w-0 px-2.5 py-2">
+      <p className="text-[10px] font-bold tracking-wide text-[#9a8b78]">{label}</p>
+      <div className="mt-0.5 flex min-w-0 items-center gap-1.5">
         <TerminalBadge terminal={leg.terminal} />
-        <p className="min-w-0 text-[15px] font-black leading-snug text-[#1a1f2e] break-words">
+        <p className="min-w-0 text-[14px] font-black leading-snug text-[#1a1f2e] break-words">
           {detail}
         </p>
       </div>
@@ -165,17 +158,17 @@ function GridCell({
 }) {
   const href = tel ? toTelHref(value) : null;
   return (
-    <div className="min-w-0 px-3 py-3">
-      <p className="text-[11px] font-bold tracking-wide text-[#9a8b78]">{label}</p>
+    <div className="min-w-0 px-2.5 py-2">
+      <p className="text-[10px] font-bold tracking-wide text-[#9a8b78]">{label}</p>
       {href ? (
         <a
           href={href}
-          className="mt-1 block text-[16px] font-black leading-snug text-[#1a4a9e] tabular-nums break-words underline underline-offset-2 decoration-[#1a4a9e]/40"
+          className="mt-0.5 block text-[14px] font-black leading-snug text-[#1a4a9e] tabular-nums break-words underline underline-offset-2 decoration-[#1a4a9e]/40"
         >
           {value}
         </a>
       ) : (
-        <p className="mt-1 text-[16px] font-black leading-snug text-[#1a1f2e] tabular-nums break-words">
+        <p className="mt-0.5 text-[14px] font-black leading-snug text-[#1a1f2e] tabular-nums break-words">
           {value}
         </p>
       )}
@@ -185,9 +178,9 @@ function GridCell({
 
 function PickupLocationRow({ value }: { value: string }) {
   return (
-    <div className="col-span-2 min-w-0 px-3 py-3">
-      <p className="text-[11px] font-bold tracking-wide text-[#9a8b78]">픽업지</p>
-      <p className="mt-1 text-[16px] font-black leading-snug text-[#1a1f2e] whitespace-pre-wrap break-words">
+    <div className="col-span-2 min-w-0 px-2.5 py-2">
+      <p className="text-[10px] font-bold tracking-wide text-[#9a8b78]">픽업지</p>
+      <p className="mt-0.5 text-[14px] font-black leading-snug text-[#1a1f2e] whitespace-pre-wrap break-words">
         {value}
       </p>
     </div>
@@ -197,7 +190,7 @@ function PickupLocationRow({ value }: { value: string }) {
 const PICKUP_CONTACT_FALLBACK = '업체로 연락해 안내받으세요';
 
 /** 접수증 URL QR — 스캔 시 동일 접수증 페이지로 이동 */
-function ReceiptQrCode({ url, scanCode }: { url: string; scanCode: string }) {
+function ReceiptQrCode({ url }: { url: string }) {
   const [dataUrl, setDataUrl] = useState<string | null>(null);
 
   useEffect(() => {
@@ -225,14 +218,36 @@ function ReceiptQrCode({ url, scanCode }: { url: string; scanCode: string }) {
         <img
           src={dataUrl}
           alt="접수증 확인 QR 코드"
-          className="h-[4.5rem] w-[4.5rem] rounded-md bg-[#f4efe6] print:bg-white"
-        />
-      ) : (
-        <div className="flex h-[4.5rem] w-[4.5rem] items-center justify-center rounded-md bg-white/60 text-[8px] font-bold text-[#9a8b78]">
-          QR
-        </div>
-      )}
-      <p className="mt-1 font-mono text-[8px] font-bold tracking-wider text-[#9a8b78]">{scanCode}</p>
+            className="h-16 w-16 rounded-md bg-[#f4efe6] print:bg-white"
+          />
+        ) : (
+          <div className="flex h-16 w-16 items-center justify-center rounded-md bg-white/60 text-[8px] font-bold text-[#9a8b78]">
+            QR
+          </div>
+        )}
+    </div>
+  );
+}
+
+/** 업체 홈·현장용 — 우측 하단 에어픽 인증 뱃지 */
+function AirpickPartnerBadge() {
+  return (
+    <div
+      className="flex items-center gap-1.5 rounded-full border border-[#d4a853]/55 bg-[#fff9f0] py-1 pl-1 pr-2.5 shadow-sm print:bg-white print:border-[#d4a853]"
+      title="에어픽 주차대행 인증 제휴"
+    >
+      <img
+        src="/brand/airpick-favicon.svg"
+        alt=""
+        className="h-7 w-7 shrink-0 rounded-[7px]"
+        width={28}
+        height={28}
+      />
+      <span className="text-[9px] font-black leading-tight tracking-tight text-[#1a1f2e]">
+        에어픽
+        <br />
+        <span className="font-bold text-[#c4782a]">인증 제휴</span>
+      </span>
     </div>
   );
 }
@@ -276,9 +291,8 @@ export default function VehicleReceiptPage({ code }: VehicleReceiptPageProps) {
     if (!reservation) return null;
 
     const flight = resolveFlightFields(reservation as unknown as Record<string, unknown>);
-    const destination = (flight.destination || '').trim() || '-';
     const airportId = normalizeAirportId(reservation.airport || company?.airport);
-    const departureBadge = formatTerminalBadge(airportId, reservation.departureTerminal);
+    const destination = (flight.destination || '').trim();
 
     const departureLeg = buildFlightLeg(
       airportId,
@@ -293,21 +307,14 @@ export default function VehicleReceiptPage({ code }: VehicleReceiptPageProps) {
       reservation.arrivalTerminal
     );
 
-    const intakeAt = reservation.actualParkingTime
-      ? formatShortDateTime(
-          reservation.actualParkingTime.slice(0, 10),
-          reservation.actualParkingTime.includes('T')
-            ? reservation.actualParkingTime.split('T')[1]
-            : reservation.actualParkingTime.split(' ')[1]
-        )
-      : formatShortDateTime(reservation.departureDate, reservation.departureTime);
-
+    const intakeAt = formatShortDateTime(reservation.departureDate, reservation.departureTime);
     const arrivalAt = formatShortDateTime(reservation.arrivalDate, reservation.arrivalTime);
 
-    const companyPhone =
+    const companyPhoneRaw =
       company?.phone ||
       (company as Company & { customerCenter?: string })?.customerCenter ||
       '1545-5746';
+    const companyPhone = maskPhoneForDisplay(companyPhoneRaw);
 
     const pickupLocation =
       (typeof company?.pickupLocation === 'string' && company.pickupLocation.trim()) ||
@@ -319,6 +326,18 @@ export default function VehicleReceiptPage({ code }: VehicleReceiptPageProps) {
       (reservation.receiptToken ? reservation.receiptToken.slice(0, 12).toUpperCase() : '') ||
       code;
 
+    const companyName = reservation.companyName || company?.name || '에어픽';
+    /** 에어픽 B2C만 에어픽 브랜드 — 업체 홈·현장은 업체명 */
+    const airpickBranded =
+      resolveBookingSourceFromReservation(reservation) === 'airpick-b2c';
+
+    const airlineCode = (flight.departureFlight || flight.arrivalFlight || '').trim().slice(0, 2).toUpperCase();
+    const airlineName = (flight.departureAirline || flight.arrivalAirline || '').trim();
+    const airlineLabel =
+      airlineCode && airlineName
+        ? `${airlineCode} ${airlineName}`
+        : airlineName || airlineCode || '';
+
     return {
       title: receiptTitle(reservation),
       badge: statusBadgeLabel(reservation.status),
@@ -328,23 +347,27 @@ export default function VehicleReceiptPage({ code }: VehicleReceiptPageProps) {
       userName: reservation.userName || '-',
       intakeAt,
       arrivalAt,
-      destination,
       departureLeg,
       arrivalLeg,
-      airlineLabel: airlineHeaderLabel(flight.departureAirline || flight.arrivalAirline, flight.departureFlight || flight.arrivalFlight),
-      routeFrom: `${airportShortName(airportId)} · ${departureBadge}`,
+      /** 보딩패스 스타일 — ICN → 오사카 */
+      routeFrom: airportId,
+      routeFromHint: `${airportShortName(airportId)} · ${formatTerminalBadge(airportId, reservation.departureTerminal)}`,
+      destination: destination || '—',
+      airlineLabel,
       totalPrice: `${(reservation.totalPrice ?? 0).toLocaleString()}원`,
       customerPhone: maskPhoneForDisplay(reservation.phone),
-      companyPhone: maskPhoneForDisplay(companyPhone),
+      companyPhone,
+      /** 고객센터: 업체명 + 번호 */
+      companyCenterLabel: `${companyName} ${companyPhone}`,
       pickupLocation,
-      companyName: reservation.companyName || company?.name || '에어픽',
+      companyName,
+      airpickBranded,
       status: reservation.status,
       shareUrl: buildReceiptUrl(reservation),
       qrUrl:
         typeof window !== 'undefined'
           ? `${window.location.origin}${window.location.pathname}`
           : buildReceiptUrl(reservation),
-      scanCode: (reservation.receiptToken || reservation.id || code).slice(-8).toUpperCase(),
     };
   }, [reservation, company, code]);
 
@@ -381,26 +404,34 @@ export default function VehicleReceiptPage({ code }: VehicleReceiptPageProps) {
 
       <article className="max-w-[22rem] mx-auto overflow-hidden rounded-[1.35rem] shadow-xl shadow-[#1c2233]/15 print:shadow-none print:rounded-none">
         {/* ── Header (boarding pass top) ── */}
-        <header className="bg-[#1c2233] px-4 pb-3 pt-4 text-white print:bg-white print:text-[#1c2233] print:border-b print:border-neutral-300">
+        <header className="bg-[#1c2233] px-4 pb-2.5 pt-3 text-white print:bg-white print:text-[#1c2233] print:border-b print:border-neutral-300">
           <div className="flex items-start justify-between gap-2">
-            <p className="text-[9px] font-bold tracking-[0.28em] text-[#d4a853]">AIRPICK VALET</p>
+            <div className="min-w-0">
+              <h1 className="text-[1.2rem] font-black leading-tight tracking-tight">{view.title}</h1>
+              <p className="mt-0.5 text-[10px] font-medium text-white/50 print:text-neutral-500">
+                No. {view.docNo}
+              </p>
+            </div>
             <span className="shrink-0 rounded border border-[#d4a853]/70 px-2 py-0.5 text-[9px] font-bold text-[#d4a853] print:border-neutral-400 print:text-neutral-700">
               {view.badge}
             </span>
           </div>
-          <h1 className="mt-2 text-[1.35rem] font-black leading-tight tracking-tight">{view.title}</h1>
-          <p className="mt-1 text-[11px] font-medium text-white/55 print:text-neutral-500">
-            {view.companyName} · No. {view.docNo}
-          </p>
 
-          <div className="mt-4 flex items-center gap-2 text-[14px] font-bold">
-            <span className="shrink-0 text-white/90 print:text-neutral-800">{view.routeFrom}</span>
+          <div className="mt-3 flex items-center gap-2 text-[14px] font-bold">
+            <span
+              className="shrink-0 text-white/90 print:text-neutral-800 tracking-wider"
+              title={view.routeFromHint}
+            >
+              {view.routeFrom}
+            </span>
             <span className="min-w-0 flex-1 border-t border-dashed border-white/20 print:border-neutral-300" />
             <span className="shrink-0 text-[#d4a853] text-base leading-none" aria-hidden>
               →
             </span>
             <span className="min-w-0 flex-1 border-t border-dashed border-white/20 print:border-neutral-300" />
-            <span className="shrink-0 truncate text-white/90 print:text-neutral-800">{view.destination}</span>
+            <span className="shrink-0 truncate text-white/90 print:text-neutral-800 max-w-[40%]">
+              {view.destination}
+            </span>
             {view.airlineLabel ? (
               <span className="ml-1 shrink-0 text-[11px] font-semibold text-white/40 print:text-neutral-400">
                 {view.airlineLabel}
@@ -412,37 +443,34 @@ export default function VehicleReceiptPage({ code }: VehicleReceiptPageProps) {
         <Perforation />
 
         {/* ── Body ── */}
-        <div className="bg-[#f4efe6] px-4 pb-3 pt-4 print:bg-white">
-          <p className="text-[11px] font-bold tracking-[0.15em] text-[#9a8b78]">차량 번호</p>
-          <p className="mt-0.5 text-[2rem] font-black leading-none tracking-wide text-[#1a1f2e] tabular-nums">
-            {view.carNumber}
-          </p>
-          <p className="mt-1.5 text-[13px] font-semibold text-[#6b6358]">
-            {view.carModel} · {view.userName}
-          </p>
-
-          <div className="mt-4 flex items-center justify-between rounded-xl bg-[#1c2233] px-4 py-3.5 ring-1 ring-[#d4a853]/25 print:bg-neutral-200 print:ring-neutral-400">
-            <span className="text-[13px] font-bold text-[#e8dcc8] print:text-neutral-700">총 주차 금액</span>
-            <span className="text-[1.35rem] font-black tabular-nums text-[#f0c14a] print:text-neutral-900">
+        <div className="bg-[#f4efe6] px-4 pb-2.5 pt-3 print:bg-white">
+          <div className="flex items-center justify-between rounded-xl bg-[#1c2233] px-4 py-2.5 ring-1 ring-[#d4a853]/25 print:bg-neutral-200 print:ring-neutral-400">
+            <span className="text-[12px] font-bold text-[#e8dcc8] print:text-neutral-700">총 주차 금액</span>
+            <span className="text-[1.2rem] font-black tabular-nums text-[#f0c14a] print:text-neutral-900">
               {view.totalPrice}
             </span>
           </div>
 
-          <div className="mt-3 grid grid-cols-2 divide-x divide-y divide-[#e8e0d4] overflow-hidden rounded-xl border border-[#e8e0d4] bg-white/50 print:divide-neutral-200 print:border-neutral-200 print:bg-white">
-            <GridCell label="접수일시" value={view.intakeAt} />
-            <GridCell label="출차예정" value={view.arrivalAt} />
+          <div className="mt-2.5 grid grid-cols-2 divide-x divide-y divide-[#e8e0d4] overflow-hidden rounded-xl border border-[#e8e0d4] bg-white/50 print:divide-neutral-200 print:border-neutral-200 print:bg-white">
+            <GridCell label="입고예정" value={view.intakeAt} />
+            <GridCell label="출고예정" value={view.arrivalAt} />
+            <GridCell label="차량번호" value={view.carNumber} />
+            <GridCell label="차종" value={view.carModel} />
             <FlightGridCell label="출국편" leg={view.departureLeg} />
             <FlightGridCell label="귀국편" leg={view.arrivalLeg} />
+            <GridCell label="고객명" value={view.userName} />
             <GridCell label="고객 연락처" value={view.customerPhone} />
-            <GridCell label="고객센터" value={view.companyPhone} tel />
             <PickupLocationRow value={view.pickupLocation} />
+            <div className="col-span-2 min-w-0">
+              <GridCell label="고객센터" value={view.companyCenterLabel} tel />
+            </div>
           </div>
 
-          <details className="mt-3 group print:open">
+          <details className="mt-2 group print:open">
             <summary className="cursor-pointer list-none text-center text-[9px] font-bold text-[#9a8b78] print:hidden">
               표준약관 보기
             </summary>
-            <div className="mt-2 space-y-1.5 rounded-lg border border-[#e8e0d4] bg-white/40 p-2.5 text-[8px] leading-snug text-[#6b6358] print:border-neutral-200 print:text-[7px]">
+            <div className="mt-1.5 space-y-1 rounded-lg border border-[#e8e0d4] bg-white/40 p-2 text-[8px] leading-snug text-[#6b6358] print:border-neutral-200 print:text-[7px]">
               {STANDARD_TERMS.map((term) => (
                 <div key={term.title}>
                   <p className="font-bold text-[#1a1f2e]">{term.title}</p>
@@ -461,13 +489,17 @@ export default function VehicleReceiptPage({ code }: VehicleReceiptPageProps) {
 
         <Perforation />
 
-        <footer className="flex items-end justify-between gap-3 bg-[#f4efe6] px-4 py-3 print:bg-white">
-          <ReceiptQrCode url={view.qrUrl} scanCode={view.scanCode} />
-          <p className="text-right text-[8px] font-bold leading-tight tracking-[0.12em] text-[#b0a89a] uppercase">
-            Powered by
-            <br />
-            에어픽 주차대행
-          </p>
+        <footer className="flex items-end justify-between gap-3 bg-[#f4efe6] px-4 py-2.5 print:bg-white">
+          <ReceiptQrCode url={view.qrUrl} />
+          {view.airpickBranded ? (
+            <p className="text-right text-[8px] font-bold leading-tight tracking-[0.12em] text-[#b0a89a] uppercase">
+              Powered by
+              <br />
+              에어픽 주차대행
+            </p>
+          ) : (
+            <AirpickPartnerBadge />
+          )}
         </footer>
       </article>
 

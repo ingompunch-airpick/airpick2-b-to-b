@@ -4,12 +4,21 @@ import { Reservation } from '../types';
 import { isAdmitted, isCompletedOut } from '../utils/reservationStatus';
 import { airportShortName } from '../utils/airport';
 
+function cn(...classes: (string | boolean | undefined | null)[]) {
+  return classes.filter(Boolean).join(' ');
+}
+
 interface ServiceHistoryViewProps {
   onBack: () => void;
   reservations: Reservation[];
+  onOpenWorkbench?: (res: Reservation) => void;
 }
 
-export default function ServiceHistoryView({ onBack, reservations }: ServiceHistoryViewProps) {
+export default function ServiceHistoryView({
+  onBack,
+  reservations,
+  onOpenWorkbench,
+}: ServiceHistoryViewProps) {
   const [copiedId, setCopiedId] = React.useState<string | null>(null);
 
   // Obtain KST Date formatted as YYYY-MM-DD
@@ -104,7 +113,9 @@ export default function ServiceHistoryView({ onBack, reservations }: ServiceHist
         </button>
         <div>
           <h2 className="text-sm font-black tracking-tight text-white">나의 서비스 기록</h2>
-          <p className="text-[12px] text-zinc-500 font-bold uppercase">My Driving & Service Logs</p>
+          <p className="text-[12px] text-zinc-500 font-bold">
+            출차완료 목록 · 탭하면 결제·취소·되돌리기
+          </p>
         </div>
       </div>
 
@@ -162,7 +173,20 @@ export default function ServiceHistoryView({ onBack, reservations }: ServiceHist
                   return (
                     <div 
                       key={`${res.id || ''}-${idx}`}
-                      className="p-4 bg-neutral-900 border border-neutral-850 rounded-2xl space-y-3 hover:border-neutral-750 transition-all font-sans"
+                      role={onOpenWorkbench ? 'button' : undefined}
+                      tabIndex={onOpenWorkbench ? 0 : undefined}
+                      onClick={() => onOpenWorkbench?.(res)}
+                      onKeyDown={(e) => {
+                        if (!onOpenWorkbench) return;
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          onOpenWorkbench(res);
+                        }
+                      }}
+                      className={cn(
+                        'p-4 bg-neutral-900 border border-neutral-850 rounded-2xl space-y-3 hover:border-neutral-750 transition-all font-sans',
+                        onOpenWorkbench && 'cursor-pointer active:scale-[0.99]'
+                      )}
                     >
                       <div className="grid grid-cols-2 gap-y-2 gap-x-3 text-[13px]">
                         <div className="flex flex-col">

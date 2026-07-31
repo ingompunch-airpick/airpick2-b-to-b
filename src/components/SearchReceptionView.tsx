@@ -68,6 +68,8 @@ interface SearchReceptionViewProps {
   setSelectedParkingSpace: (space: string) => void;
   operatorCompanyIds?: string[];
   showCompanyLabel?: boolean;
+  /** 차량 카드 탭 → App EditModal 작업대 (결제·취소·상태) */
+  onOpenWorkbench?: (res: Reservation) => void;
 }
 
 export default function SearchReceptionView({
@@ -94,6 +96,7 @@ export default function SearchReceptionView({
   setSelectedParkingSpace,
   operatorCompanyIds = [],
   showCompanyLabel = false,
+  onOpenWorkbench,
 }: SearchReceptionViewProps) {
   // Search input state
   const [receptionSearchText, setReceptionSearchText] = useState('');
@@ -575,7 +578,7 @@ export default function SearchReceptionView({
                   <div className="bg-neutral-900/30 p-10 rounded-3xl border border-neutral-850/50 text-center space-y-2">
                     <Search size={22} className="mx-auto text-zinc-600 mb-1" />
                     <p className="text-xs text-zinc-400 font-bold">검색어를 입력해 주세요.</p>
-                    <p className="text-[12px] text-zinc-650">입차 수납 수정 대상 차량의 이름이나 차량번호 뒤 4자리를 기입하십시오.</p>
+                    <p className="text-[12px] text-zinc-650">반납완료·테스트 건도 검색됩니다. 열어서 결제·취소·되돌리기 하세요.</p>
                   </div>
                 );
               }
@@ -613,6 +616,10 @@ export default function SearchReceptionView({
                       isAdminModeActive={isAdminModeActive}
                       setAdminEditingReservationId={setAdminEditingReservationId}
                       setDriverDetailRes={(target) => {
+                        if (onOpenWorkbench) {
+                          onOpenWorkbench(target);
+                          return;
+                        }
                         // Intercept to display driver-driven edit details modal inside search subview
                         setEditingSearchedRes(target);
                         setEditSearchedUserName(target.userName || '');

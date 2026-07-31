@@ -31,7 +31,6 @@ import { useAppNavigation } from './hooks/useAppNavigation';
 
 // --- Sub-views Imports ---
 import Sidebar from './components/Sidebar';
-import PaymentChangeView from './components/PaymentChangeView';
 import VehiclePhotosView from './components/VehiclePhotosView';
 import ServiceHistoryView from './components/ServiceHistoryView';
 import ParkingDepartureView from './components/ParkingDepartureView';
@@ -303,6 +302,21 @@ export default function App() {
   // --- Driver Detail Modal State ---
   const [driverDetailRes, setDriverDetailRes] = useState<Reservation | null>(null);
 
+  // 실시간 구독으로 상태가 바뀌면 작업대도 최신 스냅샷 유지
+  useEffect(() => {
+    if (!driverDetailRes?.id) return;
+    const fresh = reservations.find((r) => r.id === driverDetailRes.id);
+    if (!fresh) return;
+    if (fresh === driverDetailRes) return;
+    if (
+      fresh.status !== driverDetailRes.status ||
+      fresh.paymentMethod !== driverDetailRes.paymentMethod ||
+      fresh.updatedAt !== driverDetailRes.updatedAt
+    ) {
+      setDriverDetailRes(fresh);
+    }
+  }, [reservations, driverDetailRes]);
+
   const handleSaveDriverReservationEdit = async (updateData: Partial<Reservation>) => {
     if (!driverDetailRes || !driverDetailRes.id) return;
 
@@ -313,7 +327,7 @@ export default function App() {
 
   const handleDriverStatusAction = async () => {
     if (!driverDetailRes || !driverDetailRes.id) return;
-    
+
     if (isPending(driverDetailRes.status)) {
       await handleUpdateValetStatus(driverDetailRes.id, 'pending_in');
     } else if (driverDetailRes.status === 'pending_in') {
@@ -345,11 +359,53 @@ export default function App() {
     setDriverDetailRes(null);
   };
 
+  /** 상태 한 칸 되돌리기 — 기사: 입고/출고만, 담당자: 입고완료·출고완료도 */
+  const handleDriverRevertStatus = async () => {
+    if (!driverDetailRes?.id) return;
+    const st = driverDetailRes.status;
+    const id = driverDetailRes.id;
+
+    if (st === 'pending_in') {
+      if (!window.confirm('「입고」를 취소하고 입고예정으로 되돌릴까요?')) return;
+      await handleUpdateValetStatus(id, 'pending');
+    } else if (st === 'request_out') {
+      if (!window.confirm('「출고」를 취소하고 출고예정으로 되돌릴까요?')) return;
+      await handleUpdateValetStatus(id, 'completed_in');
+    } else if (st === 'completed_in') {
+      if (!isAdmin) {
+        window.alert('입고완료 되돌리기는 담당자만 할 수 있습니다.');
+        return;
+      }
+      if (!window.confirm('「입고완료」를 취소하고 입고(입고요청)로 되돌릴까요?')) return;
+      await handleUpdateValetStatus(id, 'pending_in');
+    } else if (st === 'completed_out') {
+      if (!isAdmin) {
+        window.alert('출고완료 되돌리기는 담당자만 할 수 있습니다.');
+        return;
+      }
+      if (
+        !window.confirm(
+          '「출고완료(반납)」를 취소하고 다시 출고로 되돌릴까요?\n(잘못 반납완료·테스트 정리용)'
+        )
+      ) {
+        return;
+      }
+      await handleUpdateValetStatus(id, 'request_out');
+    } else {
+      return;
+    }
+
+    setDriverDetailRes(null);
+  };
+
   const handleDriverCancelReservation = async () => {
     if (!driverDetailRes?.id) return;
+    const isTestHint =
+      /test|테스트/i.test(driverDetailRes.userName || '') ||
+      /test|테스트/i.test(driverDetailRes.carNumber || '');
     const reason = window.prompt(
-      '취소 사유를 입력하세요 (예: 고객 취소 요청):',
-      '현장 취소 처리'
+      '취소·무효 사유를 입력하세요\n(테스트 등록 / 잘못 출고 / 고객 취소 등)',
+      isTestHint ? '테스트 예약 무효' : '현장 취소 처리'
     );
     if (reason === null) return;
 
@@ -681,6 +737,7 @@ export default function App() {
                     setSelectedParkingSpace={setSelectedParkingSpace}
                     operatorCompanyIds={operatorCompanyIds}
                     showCompanyLabel={showCompanyNameOnCards}
+                    onOpenWorkbench={setDriverDetailRes}
                   />
                 </motion.div>
               )}
@@ -739,20 +796,27 @@ export default function App() {
                 </motion.div>
               )}
 
-              {/* VIEW D: Offline-first payment changer */}
+              {/* 결제 변경 탭 제거 → 검색/타임라인 상세에서 처리. 예전 링크 대비 리다이렉트 */}
               {currentView === 'payment_change' && showPartnerDriverView && (
                 <motion.div
-                  key="payment_change_view"
-                  initial={{ opacity: 0, scale: 0.98 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  exit={{ opacity: 0, scale: 0.98 }}
-                  transition={{ duration: 0.15 }}
+                  key="payment_change_redirect"
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  className="py-16 text-center space-y-3"
                 >
-                  <PaymentChangeView 
-                    onBack={() => handleNavigate('timeline')}
-                    reservations={visibleReservations}
-                    onUpdatePayment={handleUpdatePaymentMethod}
-                  />
+                  <p className="text-sm font-bold text-zinc-300">
+                    결제는 차량 검색·타임라인에서 해당 차를 열어 수정하세요.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setReceptionSubMode('search');
+                      handleNavigate('search_reception');
+                    }}
+                    className="px-4 py-2 rounded-xl bg-amber-500 text-neutral-950 text-xs font-black"
+                  >
+                    차량 검색으로 이동
+                  </button>
                 </motion.div>
               )}
 
@@ -785,6 +849,7 @@ export default function App() {
                   <ServiceHistoryView 
                     onBack={() => handleNavigate('timeline')}
                     reservations={visibleReservations}
+                    onOpenWorkbench={setDriverDetailRes}
                   />
                 </motion.div>
               )}
@@ -1046,8 +1111,10 @@ export default function App() {
             isEmployee={isEmployee}
             employeeName={employeeName}
             isSuperAdmin={isSuperAdmin}
+            canManageDeepRevert={isAdmin}
             onSave={handleSaveDriverReservationEdit}
             onStatusAction={handleDriverStatusAction}
+            onRevertStatus={handleDriverRevertStatus}
             onCancelReservation={handleDriverCancelReservation}
             companies={companies}
           />

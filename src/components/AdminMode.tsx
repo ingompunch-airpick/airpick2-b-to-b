@@ -62,7 +62,6 @@ export default function AdminMode({
       currentCompanyId={currentCompanyId}
       blockedDates={blockedDates}
       onSaveBlockedDates={onSaveBlockedDates}
-      onUpdateValetStatus={onUpdateValetStatus}
       onEditReservation={onEditReservation}
     />
   );
