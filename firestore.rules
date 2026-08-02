@@ -58,6 +58,8 @@ service cloud.firestore {
         'sameDayBookingBlocked',
         'hourlyCapEnabled',
         'maxCarsPerHour',
+        'parkingCapEnabled',
+        'maxParkedCars',
         'phone',
         'updatedAt'
       ]);

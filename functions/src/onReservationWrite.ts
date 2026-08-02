@@ -4,6 +4,7 @@ import { buildNhnConfigFromEnv, processReservationAlimtalk } from './alimtalk/se
 import { buildSheetsConfigFromEnv } from './sheets/syncReservation';
 import { processReservationSheetsArchive } from './sheets/processReservationSheets';
 import { enforceHourlyCapacityOnCreate } from './hourlyCapacity';
+import { enforceParkingCapacityOnCreate } from './parkingCapacity';
 import { enforceBookingPolicyOnCreate } from './bookingPolicy';
 import { bumpCustomerVisitOnCreate } from './customerVisit';
 import {
@@ -64,6 +65,7 @@ function applyRuntimeEnv(): void {
 export const onReservationSync = onDocumentWritten(
   {
     document: 'reservations/{reservationId}',
+    region: 'asia-northeast3',
     memory: '512MiB',
     timeoutSeconds: 120,
     secrets: [sheetsServiceAccountJson],
@@ -81,6 +83,9 @@ export const onReservationSync = onDocumentWritten(
     if (!beforeData) {
       const policyRejected = await enforceBookingPolicyOnCreate(reservationId, afterData);
       if (policyRejected) return;
+
+      const parkingRejected = await enforceParkingCapacityOnCreate(reservationId, afterData);
+      if (parkingRejected) return;
 
       const rejected = await enforceHourlyCapacityOnCreate(reservationId, afterData);
       if (rejected) return;

@@ -1,6 +1,5 @@
-﻿import React from 'react';
-import { PlusCircle, Bell, CheckCircle2 } from 'lucide-react';
-import { Reservation, ReservationStatus, PaymentMethod, type Company } from '../types';
+﻿import React, { useState } from 'react';
+import { PlusCircle, Bell, CheckCircle2 } from 'lucide-react';import { Reservation, ReservationStatus, PaymentMethod, type Company } from '../types';
 import { isReservationUnpaid } from '../utils/paymentStatus';
 import { isNotYetAdmitted, isPending, statusBadgeColorClass, statusToLabel } from '../utils/reservationStatus';
 import {
@@ -10,8 +9,7 @@ import {
   isAirpickB2CBooking,
   resolveBookingSourceFromReservation,
 } from '../utils/bookingSource';
-import type { DepartureAlertLevel } from '../utils/departureImminent';
-import { formatDepartureCountdown, getMinutesUntilDeparture } from '../utils/departureImminent';
+import { getFlightDelayBadge } from '../utils/flightDelayBadge';
 import {
   getAirport,
   getDefaultTerminal,
@@ -34,8 +32,6 @@ interface ReservationCardProps {
   isAdminModeActive: boolean;
   /** 타임라인 탭과 동일한 상태면 뱃지 생략 (기사 모드) */
   activeCounterTab?: ReservationStatus;
-  /** 출차 임박·지연 강조 */
-  departureAlert?: DepartureAlertLevel | null;
   /**
    * 대표+하위 통합 그룹일 때 true.
    * 하위(대표 id와 다른 companyId) 예약만 가격 왼쪽에 업체명 텍스트 표시.
@@ -60,7 +56,6 @@ export default function ReservationCard({
   idx,
   isAdminModeActive,
   activeCounterTab,
-  departureAlert = null,
   showCompanyLabel = false,
   primaryCompanyId = '',
   setAdminEditingReservationId,
@@ -72,6 +67,18 @@ export default function ReservationCard({
   companies = [],
   onUpdatePayment,
 }: ReservationCardProps) {
+  const [actionBusy, setActionBusy] = useState(false);
+
+  const runStatus = async (fn: () => void | Promise<void>) => {
+    if (actionBusy) return;
+    setActionBusy(true);
+    try {
+      await fn();
+    } finally {
+      setActionBusy(false);
+    }
+  };
+
   // 실제 배정된 자리만 표시(없으면 생략). 실내/야외·lot 이름은 뱃지로
   const spaceRaw = (res.parkingSpace || '').trim();
   const isGenericSpaceLabel = isGenericParkingSpaceLabel(spaceRaw) || spaceRaw === '미지정';
@@ -97,11 +104,11 @@ export default function ReservationCard({
   const terminalBadgeText = terminalShortLabel(airportId, terminalCode);
   const showUnpaidBadge = isReservationUnpaid(res);
   const bookingSource = resolveBookingSourceFromReservation(res);
+  const flightDelayBadge = getFlightDelayBadge(res);
   // 기사 타임라인: 상단 탭이 이미 상태를 나타내므로 입고예정·입고요청 등 상태 뱃지 숨김
   const showStatusBadge = isAdminModeActive || activeCounterTab === undefined;
 
   const badgeColorClass = statusBadgeColorClass(res.status);
-  const minutesUntilDeparture = departureAlert ? getMinutesUntilDeparture(res) : null;
 
   const resCompanyId = (res.companyId || '').trim().toLowerCase();
   const primaryId = (primaryCompanyId || '').trim().toLowerCase();
@@ -126,9 +133,7 @@ export default function ReservationCard({
       }}
       className={cn(
         'transition-all px-3.5 py-3 sm:p-4.5 rounded-[20px] flex flex-row items-center justify-between gap-2.5 sm:gap-3.5 border shadow-sm cursor-pointer select-none active:scale-[0.99]',
-        departureAlert === 'overdue' && 'border-rose-500/35',
-        departureAlert === 'imminent' && 'border-amber-500/30',
-        !departureAlert && bookingSourceCardClass(bookingSource)
+        bookingSourceCardClass(bookingSource)
       )}
       id={`card-${res.id}`}
     >
@@ -202,17 +207,9 @@ export default function ReservationCard({
             )
           )}
 
-          {departureAlert && minutesUntilDeparture != null && (
-            <span
-              className={cn(
-                'text-[13px] px-2 py-0.5 rounded-[6px] font-semibold border shrink-0',
-                departureAlert === 'overdue'
-                  ? 'bg-rose-500/15 text-rose-300 border-rose-500/25'
-                  : 'bg-amber-500/12 text-amber-300 border-amber-500/25'
-              )}
-            >
-              {departureAlert === 'overdue' ? '출차지연' : '출차임박'}{' '}
-              · {formatDepartureCountdown(minutesUntilDeparture)}
+          {flightDelayBadge && (
+            <span className="text-[13px] px-2 py-0.5 rounded-[6px] font-semibold bg-orange-500/15 text-orange-300 border border-orange-500/30 shrink-0">
+              {flightDelayBadge.label}
             </span>
           )}
         </div>
@@ -247,8 +244,11 @@ export default function ReservationCard({
             {isPending(res.status) && (
               <button
                 type="button"
-                onClick={() => handleUpdateValetStatus(res.id!, 'pending_in')}
-                className="px-3 py-2 sm:px-4 bg-[#007AFF] hover:bg-[#0051FF] text-white rounded-[12px] sm:rounded-[14px] text-[13px] sm:text-sm font-semibold transition-all flex items-center justify-center gap-1 shadow-sm whitespace-nowrap cursor-pointer"
+                disabled={actionBusy}
+                onClick={() =>
+                  void runStatus(() => handleUpdateValetStatus(res.id!, 'pending_in'))
+                }
+                className="px-3 py-2 sm:px-4 bg-[#007AFF] hover:bg-[#0051FF] disabled:opacity-60 text-white rounded-[12px] sm:rounded-[14px] text-[13px] sm:text-sm font-semibold transition-all flex items-center justify-center gap-1 shadow-sm whitespace-nowrap cursor-pointer"
                 id={`action-in-${res.id}`}
               >
                 <PlusCircle size={13} />
@@ -259,11 +259,12 @@ export default function ReservationCard({
             {res.status === 'pending_in' && (
               <button
                 type="button"
+                disabled={actionBusy}
                 onClick={() => {
                   setScratchModalTargetId(res.id!);
                   setSelectedParkingSpace(res.parkingSpace || '');
                 }}
-                className="px-3 py-2 sm:px-4 bg-[#007AFF] hover:bg-[#0051FF] text-white rounded-[12px] sm:rounded-[14px] text-[13px] sm:text-sm font-semibold transition-all flex items-center justify-center gap-1.5 shadow-sm whitespace-nowrap cursor-pointer"
+                className="px-3 py-2 sm:px-4 bg-[#007AFF] hover:bg-[#0051FF] disabled:opacity-60 text-white rounded-[12px] sm:rounded-[14px] text-[13px] sm:text-sm font-semibold transition-all flex items-center justify-center gap-1.5 shadow-sm whitespace-nowrap cursor-pointer"
                 id={`action-confirm-${res.id}`}
               >
                 <PlusCircle size={13} />
@@ -274,8 +275,11 @@ export default function ReservationCard({
             {res.status === 'completed_in' && (
               <button
                 type="button"
-                onClick={() => handleUpdateValetStatus(res.id!, 'request_out')}
-                className="px-3 py-2 sm:px-4 bg-rose-600 hover:bg-rose-500 text-white rounded-[12px] sm:rounded-[14px] text-[13px] sm:text-sm font-semibold transition-all flex items-center justify-center gap-1.5 shadow-sm whitespace-nowrap cursor-pointer"
+                disabled={actionBusy}
+                onClick={() =>
+                  void runStatus(() => handleUpdateValetStatus(res.id!, 'request_out'))
+                }
+                className="px-3 py-2 sm:px-4 bg-rose-600 hover:bg-rose-500 disabled:opacity-60 text-white rounded-[12px] sm:rounded-[14px] text-[13px] sm:text-sm font-semibold transition-all flex items-center justify-center gap-1.5 shadow-sm whitespace-nowrap cursor-pointer"
                 id={`action-request-${res.id}`}
               >
                 <Bell size={13} />
@@ -286,10 +290,15 @@ export default function ReservationCard({
             {res.status === 'request_out' && (
               <button
                 type="button"
-                onClick={() => handleUpdateValetStatus(res.id!, 'completed_out', {
-                  actualExitTime: getKSTDateTimeString()
-                })}
-                className="px-3 py-2 sm:px-4 bg-emerald-600 hover:bg-emerald-500 text-white rounded-[12px] sm:rounded-[14px] text-[13px] sm:text-sm font-semibold transition-all flex items-center justify-center gap-1.5 shadow-sm whitespace-nowrap cursor-pointer"
+                disabled={actionBusy}
+                onClick={() =>
+                  void runStatus(() =>
+                    handleUpdateValetStatus(res.id!, 'completed_out', {
+                      actualExitTime: getKSTDateTimeString(),
+                    })
+                  )
+                }
+                className="px-3 py-2 sm:px-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white rounded-[12px] sm:rounded-[14px] text-[13px] sm:text-sm font-semibold transition-all flex items-center justify-center gap-1.5 shadow-sm whitespace-nowrap cursor-pointer"
                 id={`action-complete-${res.id}`}
               >
                 <CheckCircle2 size={13} />

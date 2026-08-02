@@ -111,7 +111,7 @@ export async function assertHourlyCapacityAvailable(
     departureTime,
     firestore
   );
-  if (!result.ok) {
+  if (result.ok === false) {
     throw new Error(result.message);
   }
   return result;

@@ -27,7 +27,7 @@ const STATUS_ALIASES: Record<string, ReservationStatus> = {
 };
 
 const DRIVER_LABELS: Record<ReservationStatus, string> = {
-  pending: '입고예정',
+  pending: '예약완료',
   pending_in: '입고요청',
   request_out: '출고요청',
   completed_in: '주차완료',

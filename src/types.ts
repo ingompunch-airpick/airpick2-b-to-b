@@ -39,6 +39,14 @@ export interface Company {
   hourlyCapEnabled?: boolean;
   /** 시간당 최대 대수 (1–99). hourlyCapEnabled일 때만 적용 */
   maxCarsPerHour?: number;
+  /**
+   * 동시 주차 대수 한도 (기본 OFF).
+   * 켜면 입고일~출고일 구간에 maxParkedCars대를 넘지 못하게 함 (만차).
+   * 출고완료·취소는 점유에서 제외 → 출고 후 자동으로 슬롯 회복.
+   */
+  parkingCapEnabled?: boolean;
+  /** 동시 최대 주차 대수 (1–999). parkingCapEnabled일 때만 적용 */
+  maxParkedCars?: number;
   // Matrix pricing settings
   outdoorBasePrice?: number;
   outdoorBaseDays?: number;
@@ -237,7 +245,21 @@ export interface Reservation {
   dataPurgeAt?: string;
   /** Storage 사진 자동 삭제 예정 시각 (ISO) — 출차 후 30일 */
   storagePurgeAt?: string;
-  
+
+  /** 인천공항 입국편 연착·도착 추적 (Functions checkIncheonFlightDelays) */
+  flightTracking?: {
+    arrivalFlight?: string;
+    scheduleHhmm?: string;
+    estimatedHhmm?: string;
+    remark?: string;
+    delayMinutes?: number;
+    lastCheckedAt?: string;
+    landedAt?: string;
+    autoRequestOutAt?: string;
+    lastNotifiedAt?: string;
+    lastNotifiedFingerprint?: string;
+  };
+
   // Custom newly requested intake fields
   isIndoor?: boolean;
   startDate?: string;

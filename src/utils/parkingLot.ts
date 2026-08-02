@@ -24,7 +24,7 @@ export function formatParkingLotLabel(
   }
 
   if (zone) return zone;
-  if (res.isIndoor === false) return '실외';
+  if (res.isIndoor === false) return '야외';
   if (res.isIndoor === true) return '실내';
   return '미배정';
 }
@@ -61,6 +61,66 @@ export function lotsForIndoorPreference(
   const wanted: 'indoor' | 'outdoor' = isIndoor ? 'indoor' : 'outdoor';
   const matched = lots.filter((l) => l.type === wanted);
   return matched.length > 0 ? matched : lots;
+}
+
+/** 주차 유형 UI 선택지 — lot이 있으면 실내1·야외1…, 없으면 실내/야외 */
+export type ParkingTypeChoice =
+  | { kind: 'lot'; id: string; label: string; isIndoor: boolean }
+  | { kind: 'type'; id: 'indoor' | 'outdoor'; label: string; isIndoor: boolean };
+
+export function buildParkingTypeChoices(input: {
+  lots: CompanyParkingLot[];
+  showIndoor: boolean;
+  showOutdoor: boolean;
+}): ParkingTypeChoice[] {
+  const indoorLots = input.lots.filter((l) => l.type === 'indoor');
+  const outdoorLots = input.lots.filter((l) => l.type === 'outdoor');
+  const choices: ParkingTypeChoice[] = [];
+
+  if (input.showIndoor) {
+    if (indoorLots.length > 0) {
+      for (const lot of indoorLots) {
+        choices.push({
+          kind: 'lot',
+          id: lot.id,
+          label: lot.name || '실내',
+          isIndoor: true,
+        });
+      }
+    } else {
+      choices.push({ kind: 'type', id: 'indoor', label: '실내', isIndoor: true });
+    }
+  }
+
+  if (input.showOutdoor) {
+    if (outdoorLots.length > 0) {
+      for (const lot of outdoorLots) {
+        choices.push({
+          kind: 'lot',
+          id: lot.id,
+          label: lot.name || '야외',
+          isIndoor: false,
+        });
+      }
+    } else {
+      choices.push({ kind: 'type', id: 'outdoor', label: '야외', isIndoor: false });
+    }
+  }
+
+  return choices;
+}
+
+export function isParkingTypeChoiceActive(
+  choice: ParkingTypeChoice,
+  selectedLotId: string,
+  isIndoor: boolean
+): boolean {
+  if (choice.kind === 'lot') {
+    if (selectedLotId) return selectedLotId === choice.id;
+    return isIndoor === choice.isIndoor;
+  }
+  if (selectedLotId) return false;
+  return isIndoor === choice.isIndoor;
 }
 
 /** 해당 등급 lot이 1곳이면 그 id, 아니면 이미 고른 값 유지 */
@@ -123,7 +183,7 @@ export function buildParkingAssignmentFields(input: {
   const space =
     zone && !isGenericParkingSpaceLabel(zone)
       ? zone
-      : lot?.name || (input.fallbackIsIndoor ? '실내' : '실외');
+      : lot?.name || (input.fallbackIsIndoor ? '실내' : '야외');
 
   return {
     parkingLotId: String(input.parkingLotId || '').trim(),

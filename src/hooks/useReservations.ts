@@ -22,6 +22,10 @@ import { ensureFirestoreAuth } from '../lib/firebaseAuth';
 import { patchReservation } from '../lib/reservationFirestore';
 import { isPending } from '../utils/reservationStatus';
 import {
+  enrichReservationWritePatch,
+  statusRevertCleanupPatch,
+} from '../utils/reservationPatchGuard';
+import {
   areReservationAlertsEnabled,
   findNewIncomingReservations,
   markNotificationPermissionAsked,
@@ -31,7 +35,6 @@ import {
   wasNotificationPermissionAsked,
 } from '../utils/reservationNotifications';
 import { registerPartnerPushDevice } from '../lib/partnerPush';
-
 export interface UseReservationsParams {
   isLoggedIn: boolean;
   currentCompanyId: string;
@@ -229,49 +232,86 @@ export function useReservations({
     };
   }, [isLoggedIn, reservationSyncScopeKey, currentCompanyId, operatorCompanyIds]);
 
+  const statusUpdateInFlightRef = useRef<Set<string>>(new Set());
+
   const handleUpdateValetStatus = useCallback(
     async (
       resId: string,
       nextStatus: ReservationStatus,
       extraFields?: Partial<Reservation>
     ) => {
+      if (!resId) return;
+      if (statusUpdateInFlightRef.current.has(resId)) return;
+      statusUpdateInFlightRef.current.add(resId);
+
       const operatorName = resolveOperatorLabel({ isEmployee, employeeName, isSuperAdmin });
       const retentionPatch =
         nextStatus === 'completed_out'
           ? buildCheckoutRetentionFields(extraFields?.actualExitTime)
           : {};
 
+      const current = reservations.find((r) => r.id === resId);
+      const company = companies.find((c) => c.id === (current?.companyId || currentCompanyId));
+      const revertCleanup = current
+        ? statusRevertCleanupPatch(current.status, nextStatus)
+        : {};
+
+      let mergedExtra = { ...(extraFields || {}) } as Partial<Reservation>;
+      if (current && Object.keys(mergedExtra).length > 0) {
+        mergedExtra = enrichReservationWritePatch(
+          current,
+          mergedExtra,
+          company
+        ) as Partial<Reservation>;
+      }
+
       let patch: Record<string, unknown> = {
         status: nextStatus,
-        ...extraFields,
+        ...mergedExtra,
         ...retentionPatch,
+        ...revertCleanup,
         updatedBy: operatorName,
         updatedAt: new Date().toISOString(),
       };
 
-      setReservations((prev) => {
-        const current = prev.find((r) => r.id === resId);
-        if (extraFields?.images) {
-          const merged = mergeReservationImageUrls(current?.images, extraFields.images);
-          patch = {
-            ...patch,
-            images: merged,
-            scratchPhotos: buildScratchPhotoSet(merged, true),
-          };
+      if (extraFields?.images && current) {
+        const merged = mergeReservationImageUrls(current.images, extraFields.images);
+        patch = {
+          ...patch,
+          images: merged,
+          scratchPhotos: buildScratchPhotoSet(merged, true),
+        };
+      }
+
+      const applyLocal = (row: Reservation): Reservation => {
+        const next = { ...row } as Reservation & Record<string, unknown>;
+        for (const k of Object.keys(revertCleanup)) {
+          delete next[k];
         }
-        return prev.map((r) => (r.id === resId ? { ...r, ...patch } : r));
-      });
+        for (const [k, v] of Object.entries(patch)) {
+          if (k in revertCleanup) continue;
+          if (v && typeof v === 'object' && '_methodName' in (v as object)) continue;
+          next[k] = v;
+        }
+        return next as Reservation;
+      };
 
       try {
         await updateDoc(doc(db, 'reservations', resId), patch);
-      } catch (err: unknown) {
-        console.warn(
-          'Firestore status update run locally or failed, state already migrated:',
-          err
+        setReservations((prev) =>
+          prev.map((r) => (r.id === resId ? applyLocal(r) : r))
         );
+      } catch (err: unknown) {
+        console.warn('Firestore status update failed:', err);
+        const msg = err instanceof Error ? err.message : String(err);
+        window.alert(
+          `상태 저장에 실패했습니다. 화면은 바꾸지 않았습니다.\n인터넷 연결 후 다시 시도해 주세요.\n\n${msg}`
+        );
+      } finally {
+        statusUpdateInFlightRef.current.delete(resId);
       }
     },
-    [isEmployee, employeeName, isSuperAdmin]
+    [isEmployee, employeeName, isSuperAdmin, reservations, companies, currentCompanyId]
   );
 
   const handleUpdatePaymentMethod = useCallback(
@@ -282,16 +322,14 @@ export function useReservations({
         updatedBy: operatorName,
         updatedAt: new Date().toISOString(),
       };
-      const applyLocal = () => {
+      try {
+        await updateDoc(doc(db, 'reservations', resId), stamp);
         setReservations((prev) =>
           prev.map((r) => (r.id === resId ? { ...r, ...stamp } : r))
         );
-      };
-      try {
-        await updateDoc(doc(db, 'reservations', resId), stamp);
-        applyLocal();
-      } catch {
-        applyLocal();
+      } catch (err: unknown) {
+        console.warn('Payment method update failed:', err);
+        window.alert('결제 상태 저장에 실패했습니다. 다시 시도해 주세요.');
       }
     },
     [isEmployee, employeeName, isSuperAdmin]
@@ -309,12 +347,15 @@ export function useReservations({
         return prev;
       });
 
+      const stamp = {
+        images: merged,
+        scratchPhotos: buildScratchPhotoSet(merged, true),
+        updatedBy: operatorName,
+        updatedAt: new Date().toISOString(),
+      };
+
       try {
-        await updateDoc(doc(db, 'reservations', resId), {
-          images: merged,
-          updatedBy: operatorName,
-          updatedAt: new Date().toISOString(),
-        });
+        await updateDoc(doc(db, 'reservations', resId), stamp);
       } catch (err: unknown) {
         const code = (err as { code?: string })?.code;
         if (code === 'not-found') {
@@ -325,11 +366,7 @@ export function useReservations({
         throw err;
       }
       setReservations((prev) =>
-        prev.map((r) =>
-          r.id === resId
-            ? { ...r, images: merged, updatedBy: operatorName, updatedAt: new Date().toISOString() }
-            : r
-        )
+        prev.map((r) => (r.id === resId ? { ...r, ...stamp } : r))
       );
     },
     [isEmployee, employeeName, isSuperAdmin]
@@ -337,16 +374,27 @@ export function useReservations({
 
   const handlePatchReservationFields = useCallback(
     async (resId: string, updateData: Partial<Reservation>) => {
-      setReservations((prev) =>
-        prev.map((r) => (r.id === resId ? { ...r, ...updateData } : r))
-      );
+      const current = reservations.find((r) => r.id === resId);
+      const company = companies.find((c) => c.id === (current?.companyId || currentCompanyId));
+      const enriched = current
+        ? (enrichReservationWritePatch(current, updateData, company) as Partial<Reservation>)
+        : updateData;
+
       try {
-        await patchReservation(resId, updateData);
+        await patchReservation(resId, updateData, { company });
+        setReservations((prev) =>
+          prev.map((r) => (r.id === resId ? { ...r, ...enriched } : r))
+        );
       } catch (err) {
         console.warn('Reservation patch failed/offline:', err);
+        const msg = err instanceof Error ? err.message : String(err);
+        window.alert(
+          `예약 정보 저장에 실패했습니다. 화면은 바꾸지 않았습니다.\n\n${msg}`
+        );
+        throw err;
       }
     },
-    []
+    [reservations, companies, currentCompanyId]
   );
 
   const enableReservationAlerts = useCallback(async () => {

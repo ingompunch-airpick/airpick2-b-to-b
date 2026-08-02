@@ -13,8 +13,9 @@
 2. 반영 시 **B2B `firestore.rules`와 B2C `firestore.rules`를 동일 내용으로 맞춘 뒤**, 한곳에서만 배포하세요.
    - 예: B2B에서만 `firebase deploy --only firestore:rules`
    - B2C에서는 rules 배포 스크립트를 끄거나, 같은 파일을 복사해 두고 “B2B가 정본”이라고 README에 적기
-3. Functions도 같은 이유로 **한쪽 전체 배포가 다른 쪽 함수를 지울 수 있습니다.**  
-   → 규칙과 별도로 Functions 배포 체크리스트를 따르세요. (`docs/LAUNCH_CHECKLIST.md`)
+3. Functions·Storage rules도 **B2B에서만** 배포합니다.  
+   → 소유권·라이브 함수 목록: [`docs/FIREBASE_DEPLOY_OWNERSHIP.md`](./FIREBASE_DEPLOY_OWNERSHIP.md)  
+   → 통합 전까지 Functions **전체** 배포 금지 (`docs/LAUNCH_CHECKLIST.md`)
 
 ## 권한 모델 (요약)
 
@@ -96,6 +97,8 @@ service cloud.firestore {
         'sameDayBookingBlocked',
         'hourlyCapEnabled',
         'maxCarsPerHour',
+        'parkingCapEnabled',
+        'maxParkedCars',
         'phone',
         'updatedAt'
       ]);

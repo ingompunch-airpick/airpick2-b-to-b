@@ -25,16 +25,12 @@ function joinDateTime(date: string, time: string): string {
   const withSec = t.length === 5 ? `${t}:00` : t;
   return `${date.trim()} ${withSec}`;
 }
-import { db } from '../firebase';
-import { doc, updateDoc } from 'firebase/firestore';
-import { ensureFirestoreAuth } from '../lib/reservationFirestore';
+import { ensureFirestoreAuth, patchReservation } from '../lib/reservationFirestore';
 import {
   isReservationUnpaid,
   paymentChoiceToMethod,
   reservationToPaymentChoice,
-} from '../utils/paymentStatus';
-
-type CalculatePriceFn = (
+} from '../utils/paymentStatus';type CalculatePriceFn = (
   company: Company,
   start: string,
   end: string,
@@ -47,7 +43,7 @@ interface ParkingDepartureViewProps {
   reservations: Reservation[];
   companies?: Company[];
   getCalculatePrice?: CalculatePriceFn;
-  onReservationPatch?: (id: string, patch: Partial<Reservation>) => void;
+  onReservationPatch?: (id: string, patch: Partial<Reservation>) => void | Promise<void>;
 }
 
 export default function ParkingDepartureView({
@@ -172,12 +168,12 @@ export default function ParkingDepartureView({
         paymentMethod,
         updatedAt: new Date().toISOString(),
       };
-      const docRef = doc(db, 'reservations', editingRes.id);
-      await updateDoc(docRef, {
-        ...patch,
-        actualParkingTime: actualParkingTime || null,
-      });
-      onReservationPatch?.(editingRes.id, patch);
+      if (onReservationPatch) {
+        onReservationPatch(editingRes.id, patch);
+      } else {
+        await ensureFirestoreAuth();
+        await patchReservation(editingRes.id, patch);
+      }
       setEditingRes(null);
     } catch (error) {
       console.error("Failed to update reservation in real-time:", error);
@@ -195,26 +191,32 @@ export default function ParkingDepartureView({
   const handleDeleteConfirm = async () => {
     if (!deletingRes || !deletingRes.id) return;
     const resId = deletingRes.id;
-    const patch: Partial<Reservation> = {
+    const cancelPatch: Partial<Reservation> = {
       status: 'cancelled',
       cancelReason: '출차관리 화면 취소 처리',
-      cancelledAt: new Date().toISOString(),
+      cancelledAt: new Date(Date.now() + 9 * 60 * 60 * 1000)
+        .toISOString()
+        .replace('T', ' ')
+        .substring(0, 19),
       updatedAt: new Date().toISOString(),
       updatedBy: 'B2B 출차관리',
     };
     setIsDeleting(true);
-    onReservationPatch?.(resId, patch);
-    setDeletingRes(null);
     try {
-      await ensureFirestoreAuth();
-      await updateDoc(doc(db, 'reservations', resId), patch);
+      if (onReservationPatch) {
+        await onReservationPatch(resId, cancelPatch);
+      } else {
+        await ensureFirestoreAuth();
+        await patchReservation(resId, cancelPatch);
+      }
+      setDeletingRes(null);
     } catch (error) {
       console.error('Failed to cancel reservation:', error);
       const code = (error as { code?: string })?.code;
       if (code === 'permission-denied') {
-        alert('취소 처리 권한이 없습니다. 페이지를 새로고침한 뒤 다시 시도해 주세요.');
+        alert('취소 권한이 없습니다. 다시 로그인해 주세요.');
       } else {
-        alert('예약 취소 저장에 실패했습니다. 잠시 후 다시 시도해 주세요.');
+        alert('취소 처리에 실패했습니다. 네트워크를 확인해 주세요.');
       }
     } finally {
       setIsDeleting(false);

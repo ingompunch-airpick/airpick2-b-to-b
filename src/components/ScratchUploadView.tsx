@@ -69,9 +69,24 @@ function PhotoCard({
     }
   };
 
-  const removePhoto = (idx: number) => {
-    setPreviews((p) => p.filter((_, i) => i !== idx));
+  const removePhoto = async (idx: number) => {
+    const next = previews.filter((_, i) => i !== idx);
+    setPreviews(next);
     setSaved(false);
+    setError(null);
+    // 이미 서버에 올라간 URL만 남은 경우 즉시 반영
+    const onlyRemote = next.length === 0 || next.every((u) => /^https?:\/\//i.test(u));
+    if (!onlyRemote) return;
+    setIsSaving(true);
+    try {
+      await onUpdateImages(res.id!, next);
+      setSaved(true);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '삭제 저장에 실패했습니다.');
+      setPreviews(res.images ?? []);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (

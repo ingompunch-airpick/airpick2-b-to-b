@@ -79,6 +79,31 @@ function notifyFingerprint(arrival: IncheonArrival, kind: 'delay' | 'cancel'): s
   return `${kind}|${arrival.estimatedHhmm}|${arrival.remark}`;
 }
 
+/** 공항 예상시각(HHMM) → 예약 arrivalTime(HH:mm) · endDate 동기화 */
+function arrivalSchedulePatch(
+  data: FirebaseFirestore.DocumentData,
+  estimatedHhmm: string
+): Record<string, string> {
+  const label = formatHhmm(estimatedHhmm);
+  if (!/^\d{2}:\d{2}$/.test(label)) return {};
+  const current = String(data.arrivalTime || '').trim();
+  if (current === label) return {};
+
+  const patch: Record<string, string> = { arrivalTime: label };
+  const endDate = String(data.endDate || '').trim();
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(endDate)) {
+    patch.endDate = `${endDate.slice(0, 10)}T${label}`;
+  } else if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(endDate)) {
+    patch.endDate = `${endDate.slice(0, 10)} ${label}`;
+  } else {
+    const arrDate = String(data.arrivalDate || '').trim().slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(arrDate)) {
+      patch.endDate = `${arrDate}T${label}`;
+    }
+  }
+  return patch;
+}
+
 export type FlightDelayCheckResult = {
   skipped?: string;
   arrivalsFetched: number;
@@ -166,6 +191,7 @@ export async function runFlightDelayCheck(serviceKey: string): Promise<FlightDel
           status: 'request_out',
           updatedBy: 'flight-arrival-auto',
           updatedAt: now,
+          ...arrivalSchedulePatch(data, arrival.estimatedHhmm),
           flightTracking: {
             ...trackingBase,
             landedAt: now,
@@ -194,7 +220,25 @@ export async function runFlightDelayCheck(serviceKey: string): Promise<FlightDel
 
     const kind = cancelled ? 'cancel' : 'delay';
     const fp = notifyFingerprint(arrival, kind);
+    const schedulePatch = cancelled
+      ? {}
+      : arrivalSchedulePatch(data, arrival.estimatedHhmm);
+
     if (String(prev.lastNotifiedFingerprint || '') === fp) {
+      // 알림은 이미 보냈어도, 예상시각이 바뀌었으면 출고예정 시각만 맞춤
+      if (Object.keys(schedulePatch).length > 0) {
+        await doc.ref
+          .set(
+            {
+              ...schedulePatch,
+              updatedBy: 'flight-delay-schedule',
+              updatedAt: now,
+              flightTracking: trackingBase,
+            },
+            { merge: true }
+          )
+          .catch(() => undefined);
+      }
       continue;
     }
 
@@ -211,6 +255,10 @@ export async function runFlightDelayCheck(serviceKey: string): Promise<FlightDel
 
       await doc.ref.set(
         {
+          ...schedulePatch,
+          ...(Object.keys(schedulePatch).length > 0
+            ? { updatedBy: 'flight-delay-schedule', updatedAt: now }
+            : {}),
           flightTracking: {
             ...trackingBase,
             lastNotifiedAt: now,

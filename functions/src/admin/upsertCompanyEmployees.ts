@@ -8,6 +8,7 @@ import { assertCanManageEmployees } from './verifyPartnerLogin';
  */
 export const upsertCompanyEmployees = onCall(
   {
+    region: 'us-central1',
     memory: '256MiB',
     timeoutSeconds: 60,
   },

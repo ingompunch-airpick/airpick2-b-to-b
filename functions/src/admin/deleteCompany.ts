@@ -8,6 +8,7 @@ import { COMPANY_ID_RE, PROTECTED_COMPANY_IDS } from './constants';
  */
 export const adminDeleteCompany = onCall(
   {
+    region: 'us-central1',
     memory: '256MiB',
     timeoutSeconds: 30,
   },

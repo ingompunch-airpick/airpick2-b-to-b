@@ -1,8 +1,7 @@
-﻿import React, { useState, useMemo, useEffect } from 'react';
+﻿import React, { useState, useMemo } from 'react';
 import { Search, X, RefreshCw, Car, FileText } from 'lucide-react';
 import { Reservation, ReservationStatus, AppView, Company, PaymentMethod } from '../types';
 import ReservationCard from './ReservationCard';
-import DepartureImminentBanner from './DepartureImminentBanner';
 import DateNavBar from './DateNavBar';
 import { normalizeDateString } from '../utils/reservationNormalize';
 import {
@@ -10,12 +9,8 @@ import {
   isNotYetAdmitted,
   matchesDriverTab,
 } from '../utils/reservationStatus';
-import {
-  collectDepartureAlerts,
-  getDepartureAlertLevel,
-  getMinutesUntilDeparture,
-} from '../utils/departureImminent';
-
+import { toKSTDateOnlyString } from '../utils/kstDate';
+import { reservationMatchesKeyword } from '../utils/reservationSearch';
 function cn(...classes: (string | boolean | undefined)[]) {
   return classes.filter(Boolean).join(' ');
 }
@@ -68,13 +63,6 @@ export default function TimelineView({
   companies = [],
   onUpdatePayment,
 }: TimelineViewProps) {
-  const [nowTick, setNowTick] = useState(() => Date.now());
-
-  useEffect(() => {
-    const id = setInterval(() => setNowTick(Date.now()), 60_000);
-    return () => clearInterval(id);
-  }, []);
-
   // Local UI filters
   const [searchKeyword, setSearchKeyword] = useState('');
   const [filterType, setFilterType] = useState<'주/출차일자' | '주차예약' | '출차예약' | '등록일시'>('주/출차일자');
@@ -99,7 +87,7 @@ export default function TimelineView({
         } else if (filterType === '출차예약') {
           matchesFilterDate = (rArr === selDate);
         } else if (filterType === '등록일시') {
-          matchesFilterDate = res.createdAt?.split('T')[0] === selDate;
+          matchesFilterDate = toKSTDateOnlyString(res.createdAt) === selDate;
         }
         // In Admin Mode, activeCounterTab status restrictions do not apply (shows all statuses)
         matchesTab = true;
@@ -129,15 +117,7 @@ export default function TimelineView({
       // 3) Match keywords typed in timeline searchbar (Only used in Admin Mode currently, but kept for robustness)
       let matchesKeyword = true;
       if (searchKeyword.trim()) {
-        const keyword = searchKeyword.trim().toLowerCase();
-        matchesKeyword = (
-          res.userName?.toLowerCase().includes(keyword) ||
-          res.carNumber?.toLowerCase().includes(keyword) ||
-          res.carModel?.toLowerCase().includes(keyword) ||
-          res.phone?.toLowerCase().includes(keyword) ||
-          res.companyName?.toLowerCase().includes(keyword) ||
-          res.receiptCode?.toLowerCase().includes(keyword)
-        );
+        matchesKeyword = reservationMatchesKeyword(res, searchKeyword);
       }
 
       return matchesFilterDate && matchesTab && matchesKeyword;
@@ -166,38 +146,8 @@ export default function TimelineView({
     });
   }, [reservations, selectedDate, filterType, activeCounterTab, searchKeyword, isAdminModeActive]);
 
-  const departureAlerts = useMemo(
-    () => collectDepartureAlerts(reservations, undefined, nowTick),
-    [reservations, nowTick]
-  );
-
-  const sortedTimelineReservations = useMemo(() => {
-    return [...activeTimelineReservations].sort((a, b) => {
-      const aMin = getDepartureAlertLevel(a, undefined, nowTick)
-        ? getMinutesUntilDeparture(a, nowTick) ?? 9999
-        : 9999;
-      const bMin = getDepartureAlertLevel(b, undefined, nowTick)
-        ? getMinutesUntilDeparture(b, nowTick) ?? 9999
-        : 9999;
-      if (aMin !== bMin) return aMin - bMin;
-      return 0;
-    });
-  }, [activeTimelineReservations, nowTick]);
-
-  const handleDepartureAlertSelect = (res: Reservation) => {
-    if (isAdminModeActive) {
-      setAdminEditingReservationId(res.id!);
-    } else {
-      setDriverDetailRes(res);
-    }
-  };
-
   return (
     <div className="space-y-4">
-      <DepartureImminentBanner
-        alerts={departureAlerts}
-        onSelect={handleDepartureAlertSelect}
-      />
       {/* Search and filter toolbar in Admin Mode */}
       {isAdminModeActive && (
         <div className="overflow-hidden">
@@ -274,17 +224,16 @@ export default function TimelineView({
           <RefreshCw className="animate-spin text-amber-500 mx-auto" size={24} />
           <p className="text-toss-body">안전 배차 위탁장 동기화 중...</p>
         </div>
-      ) : sortedTimelineReservations.length > 0 ? (
+      ) : activeTimelineReservations.length > 0 ? (
         <div className="space-y-4 font-sans">
           <div className="space-y-2.5">
-            {sortedTimelineReservations.map((res, idx) => (
+            {activeTimelineReservations.map((res, idx) => (
               <ReservationCard 
                 key={`${res.id || ''}-${idx}`}
                 res={res}
                 idx={idx}
                 isAdminModeActive={isAdminModeActive}
                 activeCounterTab={activeCounterTab}
-                departureAlert={getDepartureAlertLevel(res, undefined, nowTick)}
                 setAdminEditingReservationId={setAdminEditingReservationId}
                 setDriverDetailRes={setDriverDetailRes}
                 handleUpdateValetStatus={handleUpdateValetStatus}

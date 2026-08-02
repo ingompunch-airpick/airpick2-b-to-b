@@ -109,10 +109,7 @@ export function bookingSourceCardClass(source: BookingSource): string {
   if (source === 'airpick-b2c') {
     return 'border-fuchsia-500/40 bg-gradient-to-br from-fuchsia-950/50 via-[#1C1C1E] to-[#1C1C1E] ring-1 ring-fuchsia-500/30 shadow-[0_0_20px_rgba(192,38,211,0.12)]';
   }
-  if (source === 'homepage') {
-    return 'border-sky-500/20 bg-[#1C1C1E]';
-  }
-  return 'border-neutral-900/5 bg-[#1C1C1E]';
+  return 'border-neutral-800/80 bg-[#1C1C1E]';
 }
 
 export type BookingSourceMetrics = Record<

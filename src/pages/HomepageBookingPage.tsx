@@ -17,6 +17,12 @@ import {
 } from '../utils/hourlyCapacity';
 import { assertHourlyCapacityAvailable, checkHourlyCapacityForBooking } from '../lib/hourlyCapacityFirestore';
 import type { HourlyCapacityResult } from '../utils/hourlyCapacity';
+import { isParkingCapActive } from '../utils/parkingCapacity';
+import {
+  assertParkingCapacityAvailable,
+  checkParkingCapacityForBooking,
+} from '../lib/parkingCapacityFirestore';
+import type { ParkingCapacityResult } from '../utils/parkingCapacity';
 import { getKSTDateOnlyString, getKSTDateTimeLocalString } from '../utils/kstDate';
 import { getCalculatePrice, mergePartnerPricing, companyRouteNeedsTerminalSurcharge } from '../utils/pricing';
 import {
@@ -74,6 +80,7 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
   const [formError, setFormError] = useState<string | null>(null);
   const [done, setDone] = useState<{ id: string; receiptUrl: string } | null>(null);
   const [hourlyHint, setHourlyHint] = useState<HourlyCapacityResult | null>(null);
+  const [parkingHint, setParkingHint] = useState<ParkingCapacityResult | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -162,6 +169,30 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
     };
   }, [company, dep.date, dep.time]);
 
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!company || !isParkingCapActive(company) || !dep.date || !arr.date) {
+        setParkingHint(null);
+        return;
+      }
+      try {
+        const result = await checkParkingCapacityForBooking(
+          company,
+          company.id,
+          dep.date,
+          arr.date
+        );
+        if (!cancelled) setParkingHint(result);
+      } catch {
+        if (!cancelled) setParkingHint(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [company, dep.date, arr.date]);
+
   const showIndoor =
     company?.supports_indoor !== false || company?.facilityType === 'mixed' || company?.facilityType === 'indoor';
   const showOutdoor =
@@ -186,7 +217,8 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
     if (!arrivalAirline.trim()) return '귀국 항공사를 선택해 주세요.';
     if (!arrivalFlight.trim()) return '귀국 편명을 입력해 주세요.';
     if (policyError) return homepagePolicyMessage(policyError);
-    if (hourlyHint && !hourlyHint.ok) return hourlyHint.message;
+    if (parkingHint?.ok === false) return parkingHint.message;
+    if (hourlyHint?.ok === false) return hourlyHint.message;
     return null;
   };
 
@@ -210,6 +242,7 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
         return;
       }
 
+      await assertParkingCapacityAvailable(company, company.id, dep.date, arr.date);
       await assertHourlyCapacityAvailable(company, company.id, dep.date, dep.time);
 
       const id = createReservationId();
@@ -423,7 +456,7 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
                         !isIndoor ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-500'
                       }`}
                     >
-                      실외
+                      야외
                     </button>
                   )}
                 </div>
@@ -456,7 +489,7 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
                     hourlyHint.ok ? 'text-stone-500' : 'text-red-600'
                   }`}
                 >
-                  {hourlyHint.ok
+                  {hourlyHint.ok === true
                     ? `${formatHourLabel(hourlyHint.hour)} · 남은 ${hourlyHint.remaining}대 (시간당 ${hourlyHint.max}대)`
                     : hourlyHint.message}
                 </p>
@@ -509,6 +542,17 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
                 className={inputClass}
                 required
               />
+              {company && isParkingCapActive(company) && parkingHint ? (
+                <p
+                  className={`mt-1.5 text-[12px] font-semibold ${
+                    parkingHint.ok ? 'text-stone-500' : 'text-red-600'
+                  }`}
+                >
+                  {parkingHint.ok === true
+                    ? `동시 주차 · 남은 ${parkingHint.remaining}대 (최대 ${parkingHint.max}대)`
+                    : parkingHint.message}
+                </p>
+              ) : null}
             </FormRow>
             <FormRow label="입국 터미널" required>
               <TerminalPicker

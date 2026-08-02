@@ -6,10 +6,8 @@ import {
   CheckCircle2, 
   X 
 } from 'lucide-react';
-import { db } from '../firebase';
-import { doc, updateDoc } from 'firebase/firestore';
 import { Reservation } from '../types';
-
+import { patchReservation } from '../lib/reservationFirestore';
 function cn(...classes: (string | boolean | undefined)[]) {
   return classes.filter(Boolean).join(' ');
 }
@@ -77,19 +75,34 @@ export default function AdminReservationEditModal({
     return bp + vp + op - dp;
   }, [targetReservationForEdit, editBasePrice, editValetPrice, editOvertimePrice, editDiscountPrice]);
 
+  /** 내역 칸을 하나도 안 채우면 기존 totalPrice 유지 (0원 덮어쓰기 방지) */
+  const hasManualBreakdown =
+    (Number(editBasePrice) || 0) > 0 ||
+    (Number(editValetPrice) || 0) > 0 ||
+    (Number(editOvertimePrice) || 0) > 0 ||
+    (Number(editDiscountPrice) || 0) > 0;
+
   const calculatedVatIncludedTotal = useMemo(() => {
-    return Math.round(calculatedNetTotal * 1.1);
+    return Math.round(Math.max(0, calculatedNetTotal) * 1.1);
   }, [calculatedNetTotal]);
+
+  const saveTotalPrice = hasManualBreakdown
+    ? calculatedVatIncludedTotal
+    : Number(targetReservationForEdit?.totalPrice) || 0;
 
   if (!isOpen || !targetReservationForEdit) return null;
 
   const handleSaveAdminReservationEdit = async () => {
+    if (hasManualBreakdown && saveTotalPrice <= 0) {
+      if (!window.confirm('최종 합계가 0원입니다. 그대로 저장할까요?')) return;
+    }
+
     const updatePayload = {
       basePrice: Number(editBasePrice) || 0,
       valetPrice: Number(editValetPrice) || 0,
       overtimePrice: Number(editOvertimePrice) || 0,
       discountPrice: Number(editDiscountPrice) || 0,
-      totalPrice: calculatedVatIncludedTotal,
+      totalPrice: saveTotalPrice,
       parkingSpace: editParkingSpace.trim(),
       carNumber: editCarNumber.trim(),
       carModel: editCarModel.trim(),
@@ -99,8 +112,9 @@ export default function AdminReservationEditModal({
     };
 
     try {
-      const docRef = doc(db, 'reservations', targetReservationForEdit.id || '');
-      await updateDoc(docRef, updatePayload);
+      await patchReservation(targetReservationForEdit.id || '', updatePayload, {
+        skipPriceEnrich: true,
+      });
       onUpdateReservations((prev) =>
         prev.map((r) =>
           r.id === targetReservationForEdit.id ? { ...r, ...updatePayload } : r
@@ -229,20 +243,31 @@ export default function AdminReservationEditModal({
 
             {/* Price summaries with VAT */}
             <div className="bg-[#1C1C1E] border border-neutral-800/40 p-3 rounded-xl space-y-1.5 mt-2.5">
-              <div className="flex justify-between items-center text-[12px] text-zinc-400">
-                <span>공급합계 (순액)</span>
-                <span className="font-mono font-bold text-white">{calculatedNetTotal.toLocaleString()}원</span>
-              </div>
-              <div className="flex justify-between items-center text-[12px] text-zinc-400 border-b border-neutral-800 pb-1.5 mb-1">
-                <span>부가가치세 (10%)</span>
-                <span className="font-mono text-zinc-450">{Math.round(calculatedNetTotal * 0.1).toLocaleString()}원</span>
-              </div>
+              {hasManualBreakdown ? (
+                <>
+                  <div className="flex justify-between items-center text-[12px] text-zinc-400">
+                    <span>공급합계 (순액)</span>
+                    <span className="font-mono font-bold text-white">{calculatedNetTotal.toLocaleString()}원</span>
+                  </div>
+                  <div className="flex justify-between items-center text-[12px] text-zinc-400 border-b border-neutral-800 pb-1.5 mb-1">
+                    <span>부가가치세 (10%)</span>
+                    <span className="font-mono text-zinc-450">{Math.round(Math.max(0, calculatedNetTotal) * 0.1).toLocaleString()}원</span>
+                  </div>
+                </>
+              ) : (
+                <p className="text-[11.5px] text-zinc-500 leading-relaxed border-b border-neutral-800 pb-1.5 mb-1">
+                  요금 내역을 입력하지 않으면 기존 금액({(targetReservationForEdit.totalPrice || 0).toLocaleString()}원)을 유지합니다.
+                </p>
+              )}
               <div className="flex justify-between items-center text-xs font-black">
                 <span className="text-amber-500 flex items-center gap-1">
-                  최종 합계 금액 <span className="text-[11px] text-zinc-500 font-normal">(VAT 포함)</span>
+                  저장될 금액
+                  {hasManualBreakdown ? (
+                    <span className="text-[11px] text-zinc-500 font-normal">(VAT 포함)</span>
+                  ) : null}
                 </span>
                 <span className="text-amber-400 font-mono text-sm tracking-tight text-right">
-                  {calculatedVatIncludedTotal.toLocaleString()}원
+                  {saveTotalPrice.toLocaleString()}원
                 </span>
               </div>
             </div>
@@ -323,7 +348,10 @@ export default function AdminReservationEditModal({
               if (reason !== null) {
                 handleUpdateValetStatus(targetReservationForEdit.id || '', 'cancelled', {
                   cancelReason: reason || "관리자에 의한 정밀 수동 취소 처리",
-                  cancelledAt: new Date().toISOString().replace('T', ' ').substring(0, 19)
+                  cancelledAt: new Date(Date.now() + 9 * 60 * 60 * 1000)
+                    .toISOString()
+                    .replace('T', ' ')
+                    .substring(0, 19),
                 });
                 onClose();
               }

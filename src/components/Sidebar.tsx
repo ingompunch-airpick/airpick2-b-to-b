@@ -147,14 +147,38 @@ export default function Sidebar({
               )}
               <div>
                 <h3 className="font-bold text-sm tracking-tight text-white flex items-center gap-1.5">
-                  {isAirpickHeadquarters(currentCompanyId) ? '에어픽 본사' : (isSuperAdmin ? '본사 관리자' : (isEmployee ? (employeeRole === 'admin' ? `${employeeName} 부관리자` : `${employeeName} 기사`) : `${safeCompanyInfo.name} 관리자`))} 
+                  {isAirpickHeadquarters(currentCompanyId)
+                    ? '에어픽 본사'
+                    : isSuperAdmin
+                      ? '본사 (원격)'
+                      : isEmployee
+                        ? (employeeRole === 'admin' ? `${employeeName} 부관리자` : `${employeeName} 기사`)
+                        : `${safeCompanyInfo.name} 관리자`}
                   <span className="text-[12px] text-amber-500 font-bold bg-amber-500/10 px-1.5 py-0.5 rounded font-sans shrink-0">
-                    {isAirpickHeadquarters(currentCompanyId) ? '본사' : (isAdminModeActive ? '관리자' : (isEmployee ? (employeeRole === 'admin' ? '부관리자' : '직원기사') : '기사'))}
+                    {isAirpickHeadquarters(currentCompanyId)
+                      ? '본사'
+                      : isAdminModeActive
+                        ? (isSuperAdmin ? '원격관리' : '관리자')
+                        : isEmployee
+                          ? (employeeRole === 'admin' ? '부관리자' : '직원기사')
+                          : '기사'}
                   </span>
                 </h3>
                 {!isAirpickHeadquarters(currentCompanyId) && (
                   <p className="text-[12px] text-zinc-400 font-mono mt-0.5 truncate max-w-[150px]">
-                    {isAdminModeActive ? (isSuperAdmin ? '최고 관리자 계정' : (isEmployee && employeeRole === 'admin' ? `소속 부관리자: ${employeeName}` : `${safeCompanyInfo.name} 관리자 계정`)) : (isEmployee ? (employeeRole === 'admin' ? `소속 부관리자: ${employeeName}` : `소속 직원: ${employeeName}`) : (isAnonymous ? `익명 ${safeCompanyInfo.name.substring(0, 2)} 기사` : userEmail))}
+                    {isAdminModeActive
+                      ? isSuperAdmin
+                        ? `원격 · ${safeCompanyInfo.name}`
+                        : isEmployee && employeeRole === 'admin'
+                          ? `소속 부관리자: ${employeeName}`
+                          : `${safeCompanyInfo.name} 관리자 계정`
+                      : isEmployee
+                        ? employeeRole === 'admin'
+                          ? `소속 부관리자: ${employeeName}`
+                          : `소속 직원: ${employeeName}`
+                        : isAnonymous
+                          ? `익명 ${safeCompanyInfo.name.substring(0, 2)} 기사`
+                          : userEmail}
                   </p>
                 )}
               </div>

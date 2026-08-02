@@ -195,6 +195,53 @@ export function getCalculatePrice(
   return calculated;
 }
 
+/** 예약 일정·실내외·터미널 기준으로 요금 재계산 (저장 경로 공통) */
+export function recalculateReservationPrice(
+  res: {
+    departureDate?: string;
+    departureTime?: string;
+    arrivalDate?: string;
+    arrivalTime?: string;
+    isIndoor?: boolean;
+    departureTerminal?: string;
+    arrivalTerminal?: string;
+    companyId?: string;
+    companyName?: string;
+  },
+  company?: Company | null,
+  overrides?: {
+    isIndoor?: boolean;
+    departureDate?: string;
+    departureTime?: string;
+    arrivalDate?: string;
+    arrivalTime?: string;
+    departureTerminal?: string;
+    arrivalTerminal?: string;
+  }
+): number {
+  const depDate = overrides?.departureDate ?? res.departureDate ?? '';
+  const arrDate = overrides?.arrivalDate ?? res.arrivalDate ?? '';
+  if (!depDate || !arrDate) return 0;
+
+  const depTime = overrides?.departureTime ?? res.departureTime ?? '00:00';
+  const arrTime = overrides?.arrivalTime ?? res.arrivalTime ?? '00:00';
+  const indoor = overrides?.isIndoor ?? res.isIndoor !== false;
+  const depTerm = overrides?.departureTerminal ?? res.departureTerminal;
+  const arrTerm = overrides?.arrivalTerminal ?? res.arrivalTerminal;
+
+  const raw =
+    company ||
+    ({
+      id: res.companyId,
+      name: res.companyName,
+    } as Company);
+  const partner = mergePartnerPricing(raw as Record<string, unknown>, res.companyId || company?.id) as Company;
+  const start = `${depDate}T${depTime}`;
+  const end = `${arrDate}T${arrTime}`;
+  const isT2 = companyRouteNeedsTerminalSurcharge(partner, depTerm, arrTerm);
+  return getCalculatePrice(partner, start, end, indoor, isT2);
+}
+
 /** 업체 airport + 출국/귀국 터미널로 이동 할증 여부 */
 export function companyRouteNeedsTerminalSurcharge(
   company: Pick<Company, 'airport'> | null | undefined,

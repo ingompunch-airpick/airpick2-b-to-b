@@ -129,8 +129,10 @@ export async function submitHomepageReservation(form) {
 - **날짜별 마감**: `companies/{id}.blockedDates` → `["2026-06-01", ...]`
 - **시간당 입고 한도**(선택, 기본 OFF): `hourlyCapEnabled: true` + `maxCarsPerHour: N`  
   → 입고 시각(`departureTime`) 기준 같은 시간대에 N대까지. 홈·`/h`·현장·에어픽이 같은 `reservations`를 세어 합산.
+- **동시 주차 대수 한도**(선택, 기본 OFF): `parkingCapEnabled: true` + `maxParkedCars: N`  
+  → 입고일~출고일 구간에 겹치는 차량이 N대를 넘으면 만차. `cancelled`·`completed_out` 제외. 출고 완료 시 자동 회복.
 
-홈페이지 예약 폼 제출 **전**에 `companies/wawa` 를 읽어 동일하게 막아야 홈·앱이 일치합니다. 앱 현장 접수도 날짜별 마감·시간당 한도를 검사합니다. 예제: `integrations/wawavalet-firebase.example.js`
+홈페이지 예약 폼 제출 **전**에 `companies/wawa` 를 읽어 동일하게 막아야 홈·앱이 일치합니다. 앱 현장 접수도 날짜별 마감·시간당·동시주차 한도를 검사합니다. 예제: `integrations/wawavalet-firebase.example.js`
 
 ## 검증 체크리스트
 

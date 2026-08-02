@@ -47,6 +47,7 @@ let pendingContext: {
   companyId: string;
   scopeCompanyIds: string[];
 } | null = null;
+let lastFcmToken: string | null = null;
 
 function ensurePushListeners(): void {
   if (listenersReady || !Capacitor.isNativePlatform()) return;
@@ -54,7 +55,9 @@ function ensurePushListeners(): void {
 
   void PushNotifications.addListener('registration', (event) => {
     const token = String(event.value || '').trim();
-    if (!token || !pendingContext) return;
+    if (!token) return;
+    lastFcmToken = token;
+    if (!pendingContext) return;
     void persistFcmToken({
       token,
       companyId: pendingContext.companyId,
@@ -93,6 +96,16 @@ export async function registerPartnerPushDevice(params: {
     scopeCompanyIds: params.scopeCompanyIds || [companyId],
   };
   ensurePushListeners();
+
+  // 업체 전환 시 이미 받은 토큰을 새 스코프로 즉시 재등록
+  if (lastFcmToken) {
+    void persistFcmToken({
+      token: lastFcmToken,
+      companyId: pendingContext.companyId,
+      scopeCompanyIds: pendingContext.scopeCompanyIds,
+      platform: Capacitor.getPlatform(),
+    }).catch((err) => console.warn('[FCM] token rebind failed:', err));
+  }
 
   let perm = await PushNotifications.checkPermissions();
   if (perm.receive === 'prompt' || perm.receive === 'prompt-with-rationale') {

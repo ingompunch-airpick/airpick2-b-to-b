@@ -17,11 +17,13 @@ import { buildScratchPhotoSet } from '../lib/scratchPhotos';
 import InlineVehicleCamera from './InlineVehicleCamera';
 import {
   buildParkingAssignmentFields,
+  buildParkingTypeChoices,
   defaultParkingLotId,
-  lotsForIndoorPreference,
+  isParkingTypeChoiceActive,
   resolveCompanyLotsForReservation,
 } from '../utils/parkingLot';
-
+import { inferFacilityType } from '../utils/companyProfile';
+import { recalculateReservationPrice } from '../utils/pricing';
 // Standalone class-combiner utility for safe use within components
 function cn(...classes: (string | boolean | undefined | null)[]) {
   return classes.filter(Boolean).join(' ');
@@ -58,18 +60,32 @@ export default function ScratchModal({
   const [isUploading, setIsUploading] = useState(false);
   const [inlineCameraOpen, setInlineCameraOpen] = useState(false);
   const [selectedLotId, setSelectedLotId] = useState('');
+  const [selectedIsIndoor, setSelectedIsIndoor] = useState(true);
   const [parkingZone, setParkingZone] = useState('');
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   /** 모달 세션 중 한 번이라도 쌓인 최대 장수 — 스냅샷/초안이 줄어든 값으로 덮어쓰지 않게 */
   const sessionMaxPhotoCountRef = useRef(0);
 
-  const preferIndoor = targetReservationForScratch?.isIndoor !== false;
+  const matchedCompany = companies.find(
+    (c) =>
+      c.id.trim().toLowerCase() ===
+      String(targetReservationForScratch?.companyId || '')
+        .trim()
+        .toLowerCase()
+  );
+  const facilityType = inferFacilityType(matchedCompany);
+  const showIndoorOption = facilityType === 'indoor' || facilityType === 'mixed';
+  const showOutdoorOption = facilityType === 'outdoor' || facilityType === 'mixed';
   const allLots = resolveCompanyLotsForReservation(
     companies,
     targetReservationForScratch?.companyId
   );
-  const lotChoices = lotsForIndoorPreference(allLots, preferIndoor);
+  const parkingTypeChoices = buildParkingTypeChoices({
+    lots: allLots,
+    showIndoor: showIndoorOption,
+    showOutdoor: showOutdoorOption,
+  });
 
   const addImageFiles = async (files: FileList | null) => {
     if (!files?.length) return;
@@ -140,11 +156,11 @@ export default function ScratchModal({
     setUploadedPhotos(initial);
 
     const indoor = targetReservationForScratch?.isIndoor !== false;
+    setSelectedIsIndoor(indoor);
     const lots = resolveCompanyLotsForReservation(
       companies,
       targetReservationForScratch?.companyId
     );
-    const pool = lotsForIndoorPreference(lots, indoor);
     setSelectedLotId(
       defaultParkingLotId(
         lots,
@@ -305,32 +321,50 @@ export default function ScratchModal({
 
               <div className="space-y-2">
                 <p className="text-[12px] font-black uppercase text-zinc-500 tracking-wider">
-                  주차 위치 (입고 후 B2C 노출)
+                  주차 유형
                 </p>
-                {lotChoices.length === 0 ? (
+                {parkingTypeChoices.length === 0 ? (
                   <p className="text-[11px] text-amber-400/90 leading-relaxed">
-                    등록된 주차장이 없습니다. 마스터에서 실내1·실외1 등을 등록하면 여기서
-                    고를 수 있습니다. 지금은 실내/야외 등급만 저장됩니다.
+                    등록된 주차 유형이 없습니다. 마스터에서 실내/야외 또는 주차장을
+                    등록해 주세요.
                   </p>
                 ) : (
-                  <div className="grid grid-cols-2 gap-2">
-                    {lotChoices.map((lot) => {
-                      const active = selectedLotId === lot.id;
+                  <div
+                    className={cn(
+                      'grid gap-2',
+                      parkingTypeChoices.length <= 2 ? 'grid-cols-2' : 'grid-cols-2'
+                    )}
+                  >
+                    {parkingTypeChoices.map((choice) => {
+                      const active = isParkingTypeChoiceActive(
+                        choice,
+                        selectedLotId,
+                        selectedIsIndoor
+                      );
                       return (
                         <button
-                          key={lot.id}
+                          key={`${choice.kind}-${choice.id}`}
                           type="button"
-                          onClick={() => setSelectedLotId(lot.id)}
+                          onClick={() => {
+                            setSelectedIsIndoor(choice.isIndoor);
+                            if (choice.kind === 'lot') {
+                              setSelectedLotId(choice.id);
+                            } else {
+                              setSelectedLotId(
+                                defaultParkingLotId(allLots, choice.isIndoor, '')
+                              );
+                            }
+                          }}
                           className={cn(
                             'py-3 px-2 rounded-xl text-xs font-black border transition-all',
                             active
-                              ? lot.type === 'outdoor'
-                                ? 'bg-emerald-500 text-white border-transparent'
-                                : 'bg-[#A855F7] text-white border-transparent'
+                              ? choice.isIndoor
+                                ? 'bg-[#A855F7] text-white border-transparent'
+                                : 'bg-emerald-500 text-white border-transparent'
                               : 'bg-neutral-950 border-neutral-800 text-zinc-400 hover:border-neutral-700'
                           )}
                         >
-                          {lot.name}
+                          {choice.label}
                         </button>
                       );
                     })}
@@ -481,9 +515,9 @@ export default function ScratchModal({
                     if (!ok) return;
                   }
 
-                  const isIndoorVal = targetReservationForScratch.isIndoor !== false;
-                  if (lotChoices.length > 0 && !selectedLotId) {
-                    alert('주차장을 선택해 주세요. (실내1·실외1 등)');
+                  const hasLotChoices = parkingTypeChoices.some((c) => c.kind === 'lot');
+                  if (hasLotChoices && !selectedLotId) {
+                    alert('주차 유형을 선택해 주세요. (실내1·야외1 등)');
                     return;
                   }
 
@@ -520,15 +554,27 @@ export default function ScratchModal({
                             parkingLotId: selectedLotId,
                             parkingSpace: parkingZone,
                             lots: allLots,
-                            fallbackIsIndoor: isIndoorVal,
+                            fallbackIsIndoor: selectedIsIndoor,
                           })
                         : {
-                            parkingSpace: parkingZone.trim() || (isIndoorVal ? '실내' : '실외'),
-                            isIndoor: isIndoorVal,
+                            parkingSpace: parkingZone.trim() || (selectedIsIndoor ? '실내' : '야외'),
+                            isIndoor: selectedIsIndoor,
                           };
+
+                    const nextIsIndoor =
+                      typeof (parkingFields as { isIndoor?: boolean }).isIndoor === 'boolean'
+                        ? (parkingFields as { isIndoor: boolean }).isIndoor
+                        : selectedIsIndoor;
+                    const nextTotalPrice = recalculateReservationPrice(
+                      targetReservationForScratch,
+                      matchedCompany,
+                      { isIndoor: nextIsIndoor }
+                    );
 
                     await handleUpdateValetStatus(scratchModalTargetId, 'completed_in', {
                       ...parkingFields,
+                      isIndoor: nextIsIndoor,
+                      totalPrice: nextTotalPrice,
                       actualParkingTime: getKSTDateTimeString(),
                       images: finalImages,
                       scratchPhotos: buildScratchPhotoSet(finalImages, true),

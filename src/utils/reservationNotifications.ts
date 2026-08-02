@@ -100,6 +100,14 @@ export function findNewIncomingReservations(
 
   return scoped.filter((r) => {
     if (!r.id || prevIds.has(r.id)) return false;
-    return isPending(r.status);
+    if (!isPending(r.status)) return false;
+    // 재구독·부트스트랩 시 오래된 건 신규 알림으로 오인하지 않음 (2분 이내만)
+    if (r.createdAt) {
+      const createdMs = new Date(r.createdAt).getTime();
+      if (Number.isFinite(createdMs) && Date.now() - createdMs > 2 * 60 * 1000) {
+        return false;
+      }
+    }
+    return true;
   });
 }

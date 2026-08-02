@@ -60,6 +60,17 @@ function reservationDepartureOn(r: Reservation, ymd: string): boolean {
   return normalizeDateString(r.departureDate) === ymd;
 }
 
+/** 이번 달 누적: 해당 월 입고일 중 오늘(포함)까지 — 미래 예약 금액 제외 */
+function reservationDepartureInMonthThrough(
+  r: Reservation,
+  monthPrefix: string,
+  throughYmd: string
+): boolean {
+  const dep = normalizeDateString(r.departureDate);
+  if (!dep.startsWith(monthPrefix)) return false;
+  return dep <= throughYmd;
+}
+
 function reservationExitOn(r: Reservation, ymd: string): boolean {
   const exitDate = r.actualExitTime
     ? normalizeDateString(r.actualExitTime.slice(0, 10))
@@ -165,9 +176,9 @@ export default function StatisticsView({
   const monthSourceMetrics = useMemo(
     () =>
       aggregateGroupedBookingSourceMetrics(activeReservations, (r) =>
-        normalizeDateString(r.departureDate).startsWith(currentMonthPrefix)
+        reservationDepartureInMonthThrough(r, currentMonthPrefix, todayStr)
       ),
-    [activeReservations, currentMonthPrefix]
+    [activeReservations, currentMonthPrefix, todayStr]
   );
 
   const datesRange = useMemo(() => {
@@ -697,7 +708,7 @@ export default function StatisticsView({
     .reduce((sum, r) => sum + (r.totalPrice || 0), 0);
 
   const realMonthSales = activeReservations
-    .filter(r => normalizeDateString(r.departureDate).startsWith(currentMonthPrefix))
+    .filter((r) => reservationDepartureInMonthThrough(r, currentMonthPrefix, todayStr))
     .reduce((sum, r) => sum + (r.totalPrice || 0), 0);
 
   const todaySales = realTodaySales;
@@ -806,7 +817,9 @@ export default function StatisticsView({
 
           <div className="flex justify-between items-center text-xs font-mono">
             <div>
-              <span className="text-[12px] text-[#8E8E93] font-bold block mb-0.5">이번 달 누적 매출</span>
+              <span className="text-[12px] text-[#8E8E93] font-bold block mb-0.5">
+                이번 달 누적 매출 · 오늘까지 입고일
+              </span>
               <span className="text-base font-black text-white tracking-tight">
                 {monthSales.toLocaleString()}원
               </span>
@@ -820,7 +833,7 @@ export default function StatisticsView({
             {(['today', 'month'] as const).map((period) => {
               const metrics = period === 'today' ? todaySourceMetrics : monthSourceMetrics;
               const totalRev = GROUPED_SOURCE_ROWS.reduce((s, row) => s + metrics[row.key].revenue, 0);
-              const title = period === 'today' ? '오늘 (입고일 기준)' : '이번 달 (입고일 기준)';
+              const title = period === 'today' ? '오늘 (입고일 기준)' : '이번 달 · 오늘까지 (입고일)';
               return (
                 <div key={period} className="space-y-2">
                   <div className="flex items-center justify-between text-[11px]">

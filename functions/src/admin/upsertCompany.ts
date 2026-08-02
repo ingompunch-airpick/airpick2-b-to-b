@@ -56,6 +56,7 @@ function extractPassword(fields: Record<string, unknown>): string | null {
  */
 export const adminUpsertCompany = onCall(
   {
+    region: 'us-central1',
     memory: '256MiB',
     timeoutSeconds: 60,
   },

@@ -8,6 +8,7 @@ import { COMPANY_ID_RE } from './constants';
  */
 export const adminSetCompanyStatus = onCall(
   {
+    region: 'us-central1',
     memory: '256MiB',
     timeoutSeconds: 30,
   },

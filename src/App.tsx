@@ -14,7 +14,7 @@ import { Company, Reservation, ReservationStatus, AppView, PartnerCompany } from
 import { formatPartnerDisplayName } from './utils/companyDisplay';
 import { airportShortName } from './utils/airport';
 import { writePartnersToStorage } from './utils/partnerSync';
-import { getCalculatePrice } from './utils/pricing';
+import { getCalculatePrice, recalculateReservationPrice } from './utils/pricing';
 import { getKSTDateOnlyString, getKSTDateTimeString } from './utils/kstDate';
 import { AIRPICK_HQ_ID, isAirpickHeadquarters } from './constants/platform';
 import { isPending } from './utils/reservationStatus';
@@ -333,6 +333,7 @@ export default function App() {
     } else if (driverDetailRes.status === 'pending_in') {
       // 사진 입고 모달 권장 — 여기서 바로 완료 시 lot 1곳이면 자동 배정
       const lots = resolveCompanyLotsForReservation(companies, driverDetailRes.companyId);
+      const company = companies.find((c) => c.id === driverDetailRes.companyId);
       const indoor = driverDetailRes.isIndoor !== false;
       const lotId = defaultParkingLotId(lots, indoor, driverDetailRes.parkingLotId);
       const extra =
@@ -344,8 +345,16 @@ export default function App() {
               fallbackIsIndoor: indoor,
             })
           : { isIndoor: indoor };
+      const nextIsIndoor =
+        typeof (extra as { isIndoor?: boolean }).isIndoor === 'boolean'
+          ? (extra as { isIndoor: boolean }).isIndoor
+          : indoor;
       await handleUpdateValetStatus(driverDetailRes.id, 'completed_in', {
         ...extra,
+        isIndoor: nextIsIndoor,
+        totalPrice: recalculateReservationPrice(driverDetailRes, company, {
+          isIndoor: nextIsIndoor,
+        }),
         actualParkingTime: getKSTDateTimeString(),
       });
     } else if (driverDetailRes.status === 'completed_in') {
@@ -366,7 +375,7 @@ export default function App() {
     const id = driverDetailRes.id;
 
     if (st === 'pending_in') {
-      if (!window.confirm('「입고」를 취소하고 입고예정으로 되돌릴까요?')) return;
+      if (!window.confirm('「입고」를 취소하고 예약완료로 되돌릴까요?')) return;
       await handleUpdateValetStatus(id, 'pending');
     } else if (st === 'request_out') {
       if (!window.confirm('「출고」를 취소하고 출고예정으로 되돌릴까요?')) return;
@@ -608,7 +617,7 @@ export default function App() {
         {currentView === 'timeline' && showPartnerDriverView && (
           <div className="mx-4 mb-3 bg-[#1C1C1E] rounded-[22px] p-1 grid grid-cols-4 gap-1 border border-neutral-900/30">
             {[
-              { key: 'pending' as ReservationStatus, label: '입고 예정', count: countPending, color: 'text-amber-400' },
+              { key: 'pending' as ReservationStatus, label: '예약완료', count: countPending, color: 'text-amber-400' },
               { key: 'pending_in' as ReservationStatus, label: '입고', count: countPendingIn, color: 'text-sky-450' },
               { key: 'request_out' as ReservationStatus, label: '출고', count: countRequestOut, color: 'text-rose-450' },
               { key: 'completed_in' as ReservationStatus, label: '출고예정', count: countConfirmed, color: 'text-emerald-450' }
@@ -786,10 +795,13 @@ export default function App() {
                           typeof matched?.cancelCutoffHours === 'number'
                             ? matched.cancelCutoffHours
                             : 3,
-                        sameDayBookingBlocked: matched?.sameDayBookingBlocked !== false,
+                        sameDayBookingBlocked: matched?.sameDayBookingBlocked === true,
                         hourlyCapEnabled: matched?.hourlyCapEnabled === true,
                         maxCarsPerHour:
                           typeof matched?.maxCarsPerHour === 'number' ? matched.maxCarsPerHour : 0,
+                        parkingCapEnabled: matched?.parkingCapEnabled === true,
+                        maxParkedCars:
+                          typeof matched?.maxParkedCars === 'number' ? matched.maxParkedCars : 0,
                       });
                     }}
                   />
@@ -868,8 +880,8 @@ export default function App() {
                     reservations={visibleReservations}
                     companies={companies}
                     getCalculatePrice={getCalculatePrice}
-                    onReservationPatch={(resId, patch) => {
-                      void handlePatchReservationFields(resId, patch);
+                    onReservationPatch={async (resId, patch) => {
+                      await handlePatchReservationFields(resId, patch);
                     }}
                   />
                 </motion.div>
@@ -1061,7 +1073,7 @@ export default function App() {
         })()}
         sameDayBookingBlocked={(() => {
           const matched = companies.find(c => c.id === currentCompanyId);
-          return matched?.sameDayBookingBlocked !== false;
+          return matched?.sameDayBookingBlocked === true;
         })()}
         hourlyCapEnabled={(() => {
           const matched = companies.find(c => c.id === currentCompanyId);
@@ -1071,6 +1083,15 @@ export default function App() {
           const matched = companies.find(c => c.id === currentCompanyId);
           const n = matched?.maxCarsPerHour;
           return typeof n === 'number' && n > 0 ? n : 5;
+        })()}
+        parkingCapEnabled={(() => {
+          const matched = companies.find(c => c.id === currentCompanyId);
+          return matched?.parkingCapEnabled === true;
+        })()}
+        maxParkedCars={(() => {
+          const matched = companies.find(c => c.id === currentCompanyId);
+          const n = matched?.maxParkedCars;
+          return typeof n === 'number' && n > 0 ? n : 50;
         })()}
         onSave={handleSaveBookingSettings}
         companyIsOpen={(() => {

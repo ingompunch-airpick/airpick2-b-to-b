@@ -16,6 +16,10 @@ import {
 } from '../utils/airport';
 import { isAdmitted, isCompletedOut, isParked } from '../utils/reservationStatus';
 import { resolveBookingSourceFromReservation } from '../utils/bookingSource';
+import { listCompanyParkingLots } from '../utils/companyProfile';
+import { findParkingLot } from '../utils/parkingLot';
+
+const AIRPICK_SITE_URL = 'https://www.에어픽.kr';
 
 const STANDARD_TERMS = [
   {
@@ -229,26 +233,29 @@ function ReceiptQrCode({ url }: { url: string }) {
   );
 }
 
-/** 업체 홈·현장용 — 우측 하단 에어픽 인증 뱃지 */
+/** 업체 홈·현장용 — 우측 하단 에어픽 입점 뱃지 */
 function AirpickPartnerBadge() {
   return (
-    <div
-      className="flex items-center gap-1.5 rounded-full border border-[#d4a853]/55 bg-[#fff9f0] py-1 pl-1 pr-2.5 shadow-sm print:bg-white print:border-[#d4a853]"
-      title="에어픽 주차대행 인증 제휴"
+    <a
+      href={AIRPICK_SITE_URL}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="flex items-center gap-2.5 rounded-full border border-[#d4a853]/55 bg-[#fff9f0] py-1.5 pl-1.5 pr-3.5 shadow-sm print:bg-white print:border-[#d4a853] print:no-underline"
+      title="에어픽 주차대행 입점업체"
     >
       <img
-        src="/brand/airpick-favicon.svg"
-        alt=""
-        className="h-7 w-7 shrink-0 rounded-[7px]"
-        width={28}
-        height={28}
+        src="/brand/airpick-icon-192.png"
+        alt="에어픽"
+        className="h-10 w-10 shrink-0 object-contain"
+        width={40}
+        height={40}
       />
-      <span className="text-[9px] font-black leading-tight tracking-tight text-[#1a1f2e]">
+      <span className="text-[11px] font-black leading-tight tracking-tight text-[#1a1f2e]">
         에어픽
         <br />
-        <span className="font-bold text-[#c4782a]">인증 제휴</span>
+        <span className="font-bold text-[#c4782a]">입점업체</span>
       </span>
-    </div>
+    </a>
   );
 }
 
@@ -338,6 +345,17 @@ export default function VehicleReceiptPage({ code }: VehicleReceiptPageProps) {
         ? `${airlineCode} ${airlineName}`
         : airlineName || airlineCode || '';
 
+    const lots = listCompanyParkingLots(company ?? undefined);
+    const assignedLot = findParkingLot(lots, reservation.parkingLotId);
+    const parkingTypeLabel =
+      assignedLot
+        ? assignedLot.type === 'outdoor'
+          ? '야외'
+          : '실내'
+        : reservation.isIndoor === false
+          ? '야외'
+          : '실내';
+
     return {
       title: receiptTitle(reservation),
       badge: statusBadgeLabel(reservation.status),
@@ -354,6 +372,7 @@ export default function VehicleReceiptPage({ code }: VehicleReceiptPageProps) {
       routeFromHint: `${airportShortName(airportId)} · ${formatTerminalBadge(airportId, reservation.departureTerminal)}`,
       destination: destination || '—',
       airlineLabel,
+      parkingTypeLabel,
       totalPrice: `${(reservation.totalPrice ?? 0).toLocaleString()}원`,
       customerPhone: maskPhoneForDisplay(reservation.phone),
       companyPhone,
@@ -444,9 +463,12 @@ export default function VehicleReceiptPage({ code }: VehicleReceiptPageProps) {
 
         {/* ── Body ── */}
         <div className="bg-[#f4efe6] px-4 pb-2.5 pt-3 print:bg-white">
-          <div className="flex items-center justify-between rounded-xl bg-[#1c2233] px-4 py-2.5 ring-1 ring-[#d4a853]/25 print:bg-neutral-200 print:ring-neutral-400">
-            <span className="text-[12px] font-bold text-[#e8dcc8] print:text-neutral-700">총 주차 금액</span>
-            <span className="text-[1.2rem] font-black tabular-nums text-[#f0c14a] print:text-neutral-900">
+          <div className="flex items-center justify-between gap-2 rounded-xl bg-[#1c2233] px-4 py-2.5 ring-1 ring-[#d4a853]/25 print:bg-neutral-200 print:ring-neutral-400">
+            <span className="min-w-0 text-[12px] font-bold text-[#e8dcc8] print:text-neutral-700">
+              총 주차 금액
+              <span className="text-[#d4a853]/90 print:text-neutral-500"> · {view.parkingTypeLabel}</span>
+            </span>
+            <span className="shrink-0 text-[1.2rem] font-black tabular-nums text-[#f0c14a] print:text-neutral-900">
               {view.totalPrice}
             </span>
           </div>

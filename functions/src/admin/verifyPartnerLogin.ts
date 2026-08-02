@@ -57,6 +57,7 @@ function companyPublicFields(companyId: string, company: Record<string, unknown>
  */
 export const verifyPartnerLogin = onCall(
   {
+    region: 'us-central1',
     memory: '512MiB',
     timeoutSeconds: 60,
   },

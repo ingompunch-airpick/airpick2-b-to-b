@@ -33,6 +33,9 @@ View your app in AI Studio: https://ai.studio/apps/38340e4e-f8e7-4c6a-bc23-67a68
 
 B2B 앱은 루트 [`firebase-applet-config.json`](firebase-applet-config.json) → 프로젝트 **`airpick-reservation`** (기본 Firestore DB) 를 사용합니다.
 
+**Functions / Firestore·Storage rules 배포는 이 repo(B2B)에서만.**  
+B2C·업체 홈은 클라이언트만 배포. 상세·라이브 함수 목록: [`docs/FIREBASE_DEPLOY_OWNERSHIP.md`](docs/FIREBASE_DEPLOY_OWNERSHIP.md)
+
 **홈페이지(wawavalet.com)** 는 동일 설정으로 `reservations` 에 쓰고, 앱은 로그인 시 실시간으로 읽습니다.
 
 | 용도 | 파일 |

@@ -115,7 +115,7 @@ export default function CancelledListView({ reservations, onUpdateStatus, onBack
                   {/* Restore Action */}
                   <button
                     onClick={() => {
-                      if (window.confirm(`${res.userName}님의 취소 건을 다시 '입고 예정(active)' 상태로 복구하시겠습니까?`)) {
+                      if (window.confirm(`${res.userName}님의 취소 건을 다시 '예약완료' 상태로 복구하시겠습니까?`)) {
                         onUpdateStatus(res.id || '', 'pending');
                       }
                     }}

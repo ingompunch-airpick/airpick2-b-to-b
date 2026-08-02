@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo } from 'react';
+﻿import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { CompanyInfo, Reservation, Company, PartnerCompany, Employee, FacilityType } from '../types';
 import { 
   Save, 
@@ -184,6 +184,17 @@ function resolveLegacyPricingFields(
   };
 }
 
+function companyHasPricingFields(c: Company): boolean {
+  return (
+    typeof c.outdoorBasePrice === 'number' ||
+    typeof c.indoorBasePrice === 'number' ||
+    typeof c.base_price === 'number' ||
+    typeof c.outdoorExtraPrice === 'number' ||
+    typeof c.indoorExtraPrice === 'number' ||
+    typeof c.surchargePrice === 'number'
+  );
+}
+
 function buildMatrixPricingPayload(
   facilityType: FacilityType,
   values: {
@@ -202,7 +213,10 @@ function buildMatrixPricingPayload(
     peakSurcharge: number;
   }
 ) {
-  return {
+  const includeOutdoor = facilityType === 'outdoor' || facilityType === 'mixed';
+  const includeIndoor = facilityType === 'indoor' || facilityType === 'mixed';
+  // 화면에 안 보이는 쪽은 payload에서 빼서 merge 저장 시 기존 Firestore 값을 0으로 덮지 않음
+  const matrix: Record<string, string | number> = {
     ...resolveLegacyPricingFields(
       facilityType,
       values.outdoorBasePrice,
@@ -212,12 +226,6 @@ function buildMatrixPricingPayload(
       values.indoorBaseDays,
       values.indoorExtraPrice
     ),
-    outdoorBasePrice: Number(values.outdoorBasePrice) || 0,
-    outdoorBaseDays: Number(values.outdoorBaseDays) || 0,
-    outdoorExtraPrice: Number(values.outdoorExtraPrice) || 0,
-    indoorBasePrice: Number(values.indoorBasePrice) || 0,
-    indoorBaseDays: Number(values.indoorBaseDays) || 0,
-    indoorExtraPrice: Number(values.indoorExtraPrice) || 0,
     surchargeStartTime: values.surchargeStartTime || '00:00',
     surchargeEndTime: values.surchargeEndTime || '00:00',
     surchargePrice: Number(values.surchargePrice) || 0,
@@ -226,6 +234,17 @@ function buildMatrixPricingPayload(
     peakEndTime: values.peakEndTime || '',
     peakSurcharge: Number(values.peakSurcharge) || 0,
   };
+  if (includeOutdoor) {
+    matrix.outdoorBasePrice = Number(values.outdoorBasePrice) || 0;
+    matrix.outdoorBaseDays = Number(values.outdoorBaseDays) || 0;
+    matrix.outdoorExtraPrice = Number(values.outdoorExtraPrice) || 0;
+  }
+  if (includeIndoor) {
+    matrix.indoorBasePrice = Number(values.indoorBasePrice) || 0;
+    matrix.indoorBaseDays = Number(values.indoorBaseDays) || 0;
+    matrix.indoorExtraPrice = Number(values.indoorExtraPrice) || 0;
+  }
+  return matrix;
 }
 
 
@@ -243,6 +262,14 @@ interface MasterSettingsViewProps {
   employeeRole?: 'admin' | 'driver';
 }
 
+type PartnerSettingsTab = 'basic' | 'pricing' | 'staff';
+
+const PARTNER_SETTINGS_TABS: { id: PartnerSettingsTab; label: string }[] = [
+  { id: 'basic', label: '기본' },
+  { id: 'pricing', label: '요금' },
+  { id: 'staff', label: '직원' },
+];
+
 export default function MasterSettingsView({ 
   companyInfo, 
   onUpdateCompany,
@@ -256,6 +283,8 @@ export default function MasterSettingsView({
   isEmployee = false,
   employeeRole = 'driver'
 }: MasterSettingsViewProps) {
+  const [settingsTab, setSettingsTab] = useState<PartnerSettingsTab>('basic');
+
   // Core States for Partner View (Self rate/profile management redirect)
   const [partnerPassword, setPartnerPassword] = useState('');
   const [partnerPhone, setPartnerPhone] = useState('');
@@ -413,49 +442,75 @@ export default function MasterSettingsView({
   const [valetFeeT2, setValetFeeT2] = useState(0);
   const [pickupLocation, setPickupLocation] = useState('');
 
+  /** 편집 중 Firestore/캐시 스냅샷이 입력값을 0으로 덮지 않게 */
+  const formDirtyRef = useRef(false);
+  const hydratedCompanyIdRef = useRef<string | null>(null);
+  const hydratedWithPricingRef = useRef(false);
+
+  const markFormDirty = () => {
+    formDirtyRef.current = true;
+  };
+
   useEffect(() => {
-    if (!isSuperAdmin) {
-      const p = (partners || []).find(x => x.companyId === companyInfo.id);
-      if (p) {
-        setPartnerPassword(typeof p.password === 'string' ? p.password : '');
-        setPartnerPhone(
-          typeof p.phone === 'string' ? p.phone : companyInfo.phone || ''
-        );
-      } else {
-        setPartnerPhone(companyInfo.phone || '');
-      }
+    formDirtyRef.current = false;
+    hydratedCompanyIdRef.current = null;
+    hydratedWithPricingRef.current = false;
+    setSettingsTab('basic');
+  }, [companyInfo.id]);
 
-      const c = (companies || []).find(x => x.id === companyInfo.id);
-      if (c) {
-        setPartnerRateText((c.features && c.features[0]) || '');
-        setPickupLocation(
-          typeof c.pickupLocation === 'string' ? c.pickupLocation : ''
-        );
-        setOutdoorBasePrice(c.outdoorBasePrice ?? c.base_price ?? 0);
-        setOutdoorBaseDays(c.outdoorBaseDays ?? c.base_days ?? 0);
-        setOutdoorExtraPrice(c.outdoorExtraPrice ?? c.extra_day_price ?? 0);
-        setIndoorBasePrice(c.indoorBasePrice ?? 0);
-        setIndoorBaseDays(c.indoorBaseDays ?? 0);
-        setIndoorExtraPrice(c.indoorExtraPrice ?? 0);
-        setSurchargeStartTime(c.surchargeStartTime ?? '00:00');
-        setSurchargeEndTime(c.surchargeEndTime ?? '00:00');
-        setSurchargePrice(c.surchargePrice ?? 0);
-        setT2Surcharge(c.t2Surcharge ?? 0);
-        setPeakStartTime(c.peakStartTime ?? '');
-        setPeakEndTime(c.peakEndTime ?? '');
-        setPeakSurcharge(c.peakSurcharge ?? 0);
+  useEffect(() => {
+    if (formDirtyRef.current) return;
 
-        // 대면 입고: 필드 존재 여부로 제공 판단 (0=무료 대면이므로 falsy 체크 금지)
-        const hasT1 = typeof c.valetFeeT1 === 'number';
-        const hasT2 = typeof c.valetFeeT2 === 'number';
-        setValetT1Enabled(hasT1);
-        setValetT2Enabled(hasT2);
-        setValetEnabled(hasT1 || hasT2);
-        setValetFeeT1(hasT1 ? (c.valetFeeT1 as number) : 0);
-        setValetFeeT2(hasT2 ? (c.valetFeeT2 as number) : 0);
-      }
+    const id = companyInfo.id;
+    const p = (partners || []).find((x) => x.companyId === id);
+    if (p) {
+      setPartnerPassword(typeof p.password === 'string' ? p.password : '');
+      setPartnerPhone(
+        typeof p.phone === 'string' ? p.phone : companyInfo.phone || ''
+      );
+    } else if (hydratedCompanyIdRef.current !== id) {
+      setPartnerPhone(companyInfo.phone || '');
     }
-  }, [isSuperAdmin, partners, companies, companyInfo]);
+
+    const c = (companies || []).find((x) => x.id === id);
+    if (!c) return;
+
+    if (
+      hydratedCompanyIdRef.current === id &&
+      hydratedWithPricingRef.current
+    ) {
+      return;
+    }
+
+    hydratedCompanyIdRef.current = id;
+    hydratedWithPricingRef.current = companyHasPricingFields(c);
+
+    setPartnerRateText((c.features && c.features[0]) || '');
+    setPickupLocation(
+      typeof c.pickupLocation === 'string' ? c.pickupLocation : ''
+    );
+    setOutdoorBasePrice(c.outdoorBasePrice ?? c.base_price ?? 0);
+    setOutdoorBaseDays(c.outdoorBaseDays ?? c.base_days ?? 0);
+    setOutdoorExtraPrice(c.outdoorExtraPrice ?? c.extra_day_price ?? 0);
+    setIndoorBasePrice(c.indoorBasePrice ?? 0);
+    setIndoorBaseDays(c.indoorBaseDays ?? 0);
+    setIndoorExtraPrice(c.indoorExtraPrice ?? 0);
+    setSurchargeStartTime(c.surchargeStartTime ?? '00:00');
+    setSurchargeEndTime(c.surchargeEndTime ?? '00:00');
+    setSurchargePrice(c.surchargePrice ?? 0);
+    setT2Surcharge(c.t2Surcharge ?? 0);
+    setPeakStartTime(c.peakStartTime ?? '');
+    setPeakEndTime(c.peakEndTime ?? '');
+    setPeakSurcharge(c.peakSurcharge ?? 0);
+
+    const hasT1 = typeof c.valetFeeT1 === 'number';
+    const hasT2 = typeof c.valetFeeT2 === 'number';
+    setValetT1Enabled(hasT1);
+    setValetT2Enabled(hasT2);
+    setValetEnabled(hasT1 || hasT2);
+    setValetFeeT1(hasT1 ? (c.valetFeeT1 as number) : 0);
+    setValetFeeT2(hasT2 ? (c.valetFeeT2 as number) : 0);
+  }, [partners, companies, companyInfo.id, companyInfo.phone]);
 
   const currentCompany = useMemo(
     () => (companies || []).find((c) => c.id === companyInfo.id),
@@ -474,6 +529,14 @@ export default function MasterSettingsView({
   const showIndoorMatrix = facilityType === 'indoor' || facilityType === 'mixed';
   const facilityTypeLabel =
     facilityType === 'outdoor' ? '실외 전용' : facilityType === 'indoor' ? '실내 전용' : '실내+실외';
+
+  const settingsSummary = useMemo(() => {
+    const parts: string[] = [facilityTypeLabel];
+    if (pickupLocation.trim()) parts.push('픽업 등록');
+    parts.push(`직원 ${employeeList.length}명`);
+    if (valetEnabled) parts.push('대면 ON');
+    return parts.join(' · ');
+  }, [facilityTypeLabel, pickupLocation, employeeList.length, valetEnabled]);
 
   const handleSavePartnerSelf = async () => {
     try {
@@ -620,6 +683,10 @@ export default function MasterSettingsView({
         return;
       }
 
+      formDirtyRef.current = false;
+      hydratedCompanyIdRef.current = companyInfo.id;
+      hydratedWithPricingRef.current = true;
+
       alert(`[${companyInfo.name}] 변경 사항이 Firestore에 저장되어 본사/다른 기기에도 실시간으로 연동됩니다.`);
       if (onBack) {
         onBack();
@@ -667,6 +734,7 @@ export default function MasterSettingsView({
         activePickerTarget === 'surchargeStart' ? surchargeStartTime : surchargeEndTime
       }
       onSelect={(val) => {
+        markFormDirty();
         if (activePickerTarget === 'surchargeStart') {
           setSurchargeStartTime(val);
         } else if (activePickerTarget === 'surchargeEnd') {
@@ -684,438 +752,518 @@ export default function MasterSettingsView({
 
   return (
       <>
-      <div className="bg-black min-h-screen text-white p-4 pb-20 selection:bg-amber-500 selection:text-neutral-950">
-        {/* Header section */}
-        <div className="flex items-center justify-between gap-3.5 mb-6 px-1">
-          <div className="flex items-center gap-3.5">
-            <div className="p-2.5 bg-neutral-900 border border-neutral-850 rounded-2xl text-white shadow-sm">
-              <Sliders size={18} />
-            </div>
-            <div>
-              <h2 className="text-sm font-black tracking-tight text-white">자율 요금 및 기사/직원 관리</h2>
-              <p className="text-[12px] text-white/50 font-bold uppercase tracking-wider">Independent Rate & Dispatchers Configuration</p>
-            </div>
+      <div className="bg-black min-h-screen text-white p-4 pb-28 selection:bg-amber-500 selection:text-neutral-950">
+        <div className="flex items-center gap-3.5 mb-4 px-1">
+          <div className="p-2.5 bg-neutral-900 border border-neutral-850 rounded-2xl text-white shadow-sm shrink-0">
+            <Sliders size={18} />
+          </div>
+          <div className="min-w-0">
+            <h2 className="text-sm font-black tracking-tight text-white">업체 정보 설정</h2>
+            <p className="text-[12px] text-white/50 font-bold truncate">
+              {companyInfo.name || companyInfo.id}
+              {isSuperAdmin ? ' · 원격 지원' : ''}
+            </p>
           </div>
         </div>
 
-        <div className="space-y-6">
-          <div className="bg-neutral-900/40 p-4.5 rounded-2xl border border-neutral-850 flex items-center justify-between">
-            <div>
-              <span className="text-[12px] text-white/70 font-black tracking-wider block uppercase mb-0.5">정식 로그인 업체</span>
-              <span className="text-xs font-black text-white">{companyInfo.name || '와와'}</span>
-            </div>
-            <span className="text-[12px] bg-neutral-950 border border-neutral-850 text-white/80 px-3 py-1 rounded-xl font-mono font-bold">
-              ID: {companyInfo.id}
-            </span>
-          </div>
+        <p className="text-[11px] text-zinc-400 font-semibold px-1 mb-3 leading-relaxed">
+          {settingsSummary}
+        </p>
 
-          {!isSuperAdmin && <PartnerParkingProfileReadonly company={currentCompany} />}
+        <div className="grid grid-cols-3 gap-1 p-1 mb-4 bg-neutral-900/80 rounded-xl border border-neutral-800/60">
+          {PARTNER_SETTINGS_TABS.map((tab) => (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setSettingsTab(tab.id)}
+              className={`py-2.5 rounded-lg text-[12px] font-black transition-all ${
+                settingsTab === tab.id
+                  ? 'bg-amber-500 text-neutral-950'
+                  : 'text-zinc-400 hover:text-zinc-200'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
 
-          {/* 고객 만남 픽업지 (선택) — 접수증에 표시 */}
-          {!isSuperAdmin && (
-            <div className="bg-neutral-900/40 p-5 rounded-3xl border border-neutral-850 space-y-3">
-              <div className="flex items-center gap-2 text-xs font-black text-amber-500 tracking-wider uppercase">
-                <FileSpreadsheet size={14} className="text-amber-500" />
-                <span>고객 만남 픽업지 (선택)</span>
+        <div className="space-y-4">
+          {settingsTab === 'basic' && (
+            <>
+              <div className="bg-neutral-900/40 p-4.5 rounded-2xl border border-neutral-850 flex items-center justify-between">
+                <div>
+                  <span className="text-[11px] text-white/60 font-black tracking-wider block mb-0.5">
+                    로그인 업체
+                  </span>
+                  <span className="text-xs font-black text-white">{companyInfo.name || '와와'}</span>
+                </div>
+                <span className="text-[12px] bg-neutral-950 border border-neutral-850 text-white/80 px-3 py-1 rounded-xl font-mono font-bold">
+                  ID: {companyInfo.id}
+                </span>
               </div>
-              <p className="text-[12.5px] text-white/80 leading-relaxed">
-                적어두면 접수증에 픽업지가 표시됩니다. 비워두면 「업체로 연락해 안내받으세요」로
-                안내합니다.
+
+              {!isAirpickHeadquarters(companyInfo.id) && (
+                <>
+                  <p className="text-[11px] text-amber-500/90 font-bold px-1">
+                    {isSuperAdmin
+                      ? '본사 원격 지원 · 보험·주소·핀은 제휴업체 관리에서 수정'
+                      : '보험·주소·핀·거리·사진은 최고관리자만 수정'}
+                  </p>
+                  <PartnerParkingProfileReadonly company={currentCompany} />
+                </>
+              )}
+
+              {!isAirpickHeadquarters(companyInfo.id) && (
+                <div className="bg-neutral-900/40 p-5 rounded-3xl border border-neutral-850 space-y-3">
+                  <div className="flex items-center gap-2 text-xs font-black text-amber-500 tracking-wider">
+                    <FileSpreadsheet size={14} className="text-amber-500" />
+                    <span>고객 만남 픽업지</span>
+                  </div>
+                  <p className="text-[12px] text-white/70 leading-relaxed">
+                    접수증에 표시됩니다. 비우면 「업체로 연락해 안내받으세요」
+                  </p>
+                  <div>
+                    <label className="text-[11px] text-white/80 font-bold block mb-1">
+                      픽업지 안내 문구
+                    </label>
+                    <input
+                      type="text"
+                      value={pickupLocation}
+                      onChange={(e) => {
+                        markFormDirty();
+                        setPickupLocation(e.target.value);
+                      }}
+                      placeholder="예: T1 3번 출구 앞"
+                      maxLength={120}
+                      className="w-full px-3 py-2.5 bg-[#131315] border border-neutral-850 rounded-xl text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-amber-500/50"
+                    />
+                  </div>
+                </div>
+              )}
+            </>
+          )}
+
+          {settingsTab === 'pricing' && (
+            <>
+              <div className="bg-neutral-900/40 p-5 rounded-3xl border border-neutral-850 space-y-4">
+                <div className="flex items-center gap-2 text-xs font-black text-amber-500 tracking-wider">
+                  <FileSpreadsheet size={14} className="text-amber-500" />
+                  <span>{airportShort} 주차 요금</span>
+                </div>
+                <p className="text-[12px] text-white/70 leading-relaxed">
+                  시설: {facilityTypeLabel}
+                </p>
+
+                <div className="space-y-4">
+                  {showOutdoorMatrix && (
+                  <div className="p-3 bg-[#131315] border border-neutral-850 rounded-xl space-y-3">
+                    <span className="text-[12px] text-white font-bold block">실외 주차 요금</span>
+                    <div className="grid grid-cols-3 gap-2">
+                      <PriceInput
+                        label="기본요금 (원)"
+                        value={outdoorBasePrice}
+                        onChange={(v) => {
+                          markFormDirty();
+                          setOutdoorBasePrice(v);
+                        }}
+                        focusColorClass="focus-within:border-neutral-600"
+                      />
+                      <div>
+                        <label className="text-[11px] text-white/80 font-bold block mb-1">기본 일수</label>
+                        <input
+                          type="number"
+                          value={outdoorBaseDays}
+                          onChange={(e) => {
+                            markFormDirty();
+                            setOutdoorBaseDays(Number(e.target.value));
+                          }}
+                          className="w-full bg-[#1C1C1E] border border-neutral-800 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-neutral-600 font-mono font-bold"
+                        />
+                      </div>
+                      <PriceInput
+                        label="이후 일 추가금"
+                        value={outdoorExtraPrice}
+                        onChange={(v) => {
+                          markFormDirty();
+                          setOutdoorExtraPrice(v);
+                        }}
+                        focusColorClass="focus-within:border-neutral-600"
+                      />
+                    </div>
+                  </div>
+                  )}
+
+                  {showIndoorMatrix && (
+                  <div className="p-3 bg-[#131315] border border-neutral-850 rounded-xl space-y-3">
+                    <span className="text-[12px] text-white font-bold block">실내 주차 요금</span>
+                    <div className="grid grid-cols-3 gap-2">
+                      <PriceInput
+                        label="기본요금 (원)"
+                        value={indoorBasePrice}
+                        onChange={(v) => {
+                          markFormDirty();
+                          setIndoorBasePrice(v);
+                        }}
+                        focusColorClass="focus-within:border-neutral-600"
+                      />
+                      <div>
+                        <label className="text-[11px] text-white/80 font-bold block mb-1">기본 일수</label>
+                        <input
+                          type="number"
+                          value={indoorBaseDays}
+                          onChange={(e) => {
+                            markFormDirty();
+                            setIndoorBaseDays(Number(e.target.value));
+                          }}
+                          className="w-full bg-[#1C1C1E] border border-neutral-800 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-neutral-600 font-mono font-bold"
+                        />
+                      </div>
+                      <PriceInput
+                        label="이후 일 추가금"
+                        value={indoorExtraPrice}
+                        onChange={(v) => {
+                          markFormDirty();
+                          setIndoorExtraPrice(v);
+                        }}
+                        focusColorClass="focus-within:border-neutral-600"
+                      />
+                    </div>
+                  </div>
+                  )}
+
+                  <div className="p-3 bg-[#131315] border border-neutral-850 rounded-xl space-y-3">
+                    <span className="text-[12px] text-white font-bold block">야간/새벽 할증</span>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="flex flex-col items-center justify-center p-2.5 bg-neutral-900 border border-neutral-850 rounded-2xl shadow-sm">
+                        <span className="text-[12px] text-white/80 font-extrabold mb-2">시작</span>
+                        <button
+                          type="button"
+                          onClick={() => setActivePickerTarget('surchargeStart')}
+                          className="w-full bg-[#1C1C1E] border border-neutral-800 hover:border-neutral-600 rounded-xl px-2.5 h-[42px] text-xs font-bold text-white flex items-center justify-center"
+                        >
+                          {surchargeStartTime || '시간 선택'}
+                        </button>
+                      </div>
+                      <div className="flex flex-col items-center justify-center p-2.5 bg-neutral-900 border border-neutral-850 rounded-2xl shadow-sm">
+                        <span className="text-[12px] text-white/80 font-extrabold mb-2">종료</span>
+                        <button
+                          type="button"
+                          onClick={() => setActivePickerTarget('surchargeEnd')}
+                          className="w-full bg-[#1C1C1E] border border-neutral-800 hover:border-neutral-600 rounded-xl px-2.5 h-[42px] text-xs font-bold text-white flex items-center justify-center"
+                        >
+                          {surchargeEndTime || '시간 선택'}
+                        </button>
+                      </div>
+                      <PriceInput
+                        label="할증요금 (원)"
+                        value={surchargePrice}
+                        onChange={(v) => {
+                          markFormDirty();
+                          setSurchargePrice(v);
+                        }}
+                        focusColorClass="focus-within:border-amber-500"
+                        isXl={true}
+                      />
+                    </div>
+                  </div>
+
+                  <div className="p-3 bg-[#131315] border border-neutral-850 rounded-xl space-y-3">
+                    <span className="text-[12px] text-white font-bold block">
+                      {surchargeTerminal?.label || '터미널'} 이동 추가요금
+                    </span>
+                    <PriceInput
+                      label="추가요금 (원)"
+                      value={t2Surcharge}
+                      onChange={(v) => {
+                        markFormDirty();
+                        setT2Surcharge(v);
+                      }}
+                      focusColorClass="focus-within:border-amber-500"
+                      placeholder="0이면 없음"
+                    />
+                  </div>
+
+                  <div className="p-3 bg-[#131315] border border-neutral-850 rounded-xl space-y-3">
+                    <span className="text-[12px] text-white font-bold block">성수기 할증</span>
+                    <p className="text-[11px] text-white/60 font-semibold">날짜 형식 MM-DD</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div>
+                        <label className="text-[11px] text-white/80 font-bold block mb-1.5">시작일</label>
+                        <input
+                          type="text"
+                          placeholder="07-15"
+                          value={peakStartTime}
+                          onChange={(e) => {
+                            markFormDirty();
+                            setPeakStartTime(e.target.value);
+                          }}
+                          className="w-full bg-[#1C1C1E] border border-neutral-800 rounded-xl px-2.5 py-2 text-xs text-white focus:outline-none focus:border-amber-500 font-mono font-bold text-center"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[11px] text-white/80 font-bold block mb-1.5">종료일</label>
+                        <input
+                          type="text"
+                          placeholder="08-31"
+                          value={peakEndTime}
+                          onChange={(e) => {
+                            markFormDirty();
+                            setPeakEndTime(e.target.value);
+                          }}
+                          className="w-full bg-[#1C1C1E] border border-neutral-800 rounded-xl px-2.5 py-2 text-xs text-white focus:outline-none focus:border-amber-500 font-mono font-bold text-center"
+                        />
+                      </div>
+                      <PriceInput
+                        label="할증요금 (원)"
+                        value={peakSurcharge}
+                        onChange={(v) => {
+                          markFormDirty();
+                          setPeakSurcharge(v);
+                        }}
+                        focusColorClass="focus-within:border-amber-500"
+                        placeholder="예: 10000"
+                        isXl={true}
+                      />
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-neutral-900/40 p-5 rounded-3xl border border-neutral-850 space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div className="flex items-center gap-2 text-xs font-black text-amber-500 tracking-wider">
+                    <FileSpreadsheet size={14} className="text-amber-500" />
+                    <span>대면 입고</span>
+                  </div>
+                  <button
+                    type="button"
+                    role="switch"
+                    aria-checked={valetEnabled}
+                    onClick={() => {
+                      markFormDirty();
+                      setValetEnabled((v) => !v);
+                    }}
+                    className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${valetEnabled ? 'bg-amber-500' : 'bg-neutral-700'}`}
+                  >
+                    <span
+                      className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${valetEnabled ? 'translate-x-5' : ''}`}
+                    />
+                  </button>
+                </div>
+                <p className="text-[12px] text-white/70 leading-relaxed">
+                  터미널에서 직접 인계·인수. 무료면 0원
+                </p>
+
+                {valetEnabled && (
+                  <div className="space-y-3">
+                    <div className="p-3 bg-[#131315] border border-neutral-850 rounded-xl space-y-3">
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={valetT1Enabled}
+                          onChange={(e) => {
+                            markFormDirty();
+                            setValetT1Enabled(e.target.checked);
+                          }}
+                          className="w-4 h-4 rounded border-neutral-800 text-amber-500 focus:ring-amber-500 bg-[#1C1C1E] cursor-pointer"
+                        />
+                        <span className="text-[12px] text-white font-bold">
+                          {primaryTerminal?.label || '제1터미널'} 대면
+                        </span>
+                      </label>
+                      {valetT1Enabled && (
+                        <PriceInput
+                          label={`${primaryTerminal?.shortLabel || 'T1'} 추가요금`}
+                          value={valetFeeT1}
+                          onChange={(v) => {
+                            markFormDirty();
+                            setValetFeeT1(v);
+                          }}
+                          focusColorClass="focus-within:border-amber-500"
+                          placeholder="무료면 0"
+                        />
+                      )}
+                    </div>
+
+                    <div className="p-3 bg-[#131315] border border-neutral-850 rounded-xl space-y-3">
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={valetT2Enabled}
+                          onChange={(e) => {
+                            markFormDirty();
+                            setValetT2Enabled(e.target.checked);
+                          }}
+                          className="w-4 h-4 rounded border-neutral-800 text-amber-500 focus:ring-amber-500 bg-[#1C1C1E] cursor-pointer"
+                        />
+                        <span className="text-[12px] text-white font-bold">
+                          {secondaryTerminal?.label || '제2터미널'} 대면
+                        </span>
+                      </label>
+                      {valetT2Enabled && (
+                        <PriceInput
+                          label={`${secondaryTerminal?.shortLabel || 'T2'} 추가요금`}
+                          value={valetFeeT2}
+                          onChange={(v) => {
+                            markFormDirty();
+                            setValetFeeT2(v);
+                          }}
+                          focusColorClass="focus-within:border-amber-500"
+                          placeholder="무료면 0"
+                        />
+                      )}
+                    </div>
+
+                    {!valetT1Enabled && !valetT2Enabled && (
+                      <p className="text-[11px] text-red-400 font-bold px-1">
+                        터미널을 최소 한 곳 선택해 주세요.
+                      </p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </>
+          )}
+
+          {settingsTab === 'staff' && (
+            <div className="bg-neutral-900/40 p-5 rounded-3xl border border-neutral-850 space-y-4">
+              <div className="flex items-center gap-2 text-xs font-black text-amber-500 tracking-wider">
+                <Users size={14} className="text-amber-500" />
+                <span>직원 계정</span>
+              </div>
+              <p className="text-[12px] text-white/70 leading-relaxed">
+                직원 로그인 시 기사 모드로 진입합니다. 추가·삭제는 바로 저장됩니다.
               </p>
-              <div>
-                <label className="text-[11px] text-white/80 font-bold block mb-1">
-                  픽업지 안내 문구
-                </label>
-                <input
-                  type="text"
-                  value={pickupLocation}
-                  onChange={(e) => setPickupLocation(e.target.value)}
-                  placeholder="예: T1 3번 출구 앞 / 실외 단기주차장 입구"
-                  maxLength={120}
-                  className="w-full px-3 py-2.5 bg-[#131315] border border-neutral-850 rounded-xl text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-amber-500/50"
-                />
+
+              <form onSubmit={handleAddEmployee} className="p-4 bg-[#131315] border border-neutral-850 rounded-2xl space-y-3.5">
+                <div className="text-[12.5px] font-bold text-white">신규 직원 등록</div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                  <div>
+                    <label className="text-[11px] text-white/80 font-bold block mb-1">이름</label>
+                    <input
+                      type="text"
+                      placeholder="홍길동"
+                      value={empName}
+                      onChange={(e) => setEmpName(e.target.value)}
+                      className="w-full bg-[#1C1C1E] border border-neutral-800 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-500 font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-white/80 font-bold block mb-1">로그인 ID</label>
+                    <input
+                      type="text"
+                      placeholder="wawa_hong"
+                      value={empLoginId}
+                      onChange={(e) => setEmpLoginId(e.target.value)}
+                      className="w-full bg-[#1C1C1E] border border-neutral-800 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-500 font-mono font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-white/80 font-bold block mb-1">비밀번호</label>
+                    <input
+                      type="password"
+                      placeholder="••••••"
+                      value={empPassword}
+                      onChange={(e) => setEmpPassword(e.target.value)}
+                      className="w-full bg-[#1C1C1E] border border-neutral-800 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-500 font-mono"
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 pt-1.5 px-1">
+                  <input
+                    type="checkbox"
+                    id="emp-is-admin-checkbox"
+                    checked={empIsAdmin}
+                    onChange={(e) => setEmpIsAdmin(e.target.checked)}
+                    className="w-4 h-4 rounded border-neutral-800 text-amber-500 focus:ring-amber-500 bg-[#1C1C1E] cursor-pointer"
+                  />
+                  <label htmlFor="emp-is-admin-checkbox" className="text-[12px] text-white font-bold cursor-pointer select-none">
+                    부관리자 권한 (요금·직원 관리)
+                  </label>
+                </div>
+                <button
+                  type="submit"
+                  className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-neutral-950 font-black rounded-xl text-xs transition-all"
+                >
+                  직원 등록
+                </button>
+              </form>
+
+              <div className="space-y-2 mt-2">
+                <div className="text-[12.5px] font-bold text-white flex items-center justify-between px-1">
+                  <span>등록된 직원</span>
+                  <span className="text-[12px] text-white/70 font-mono">{employeeList.length}명</span>
+                </div>
+
+                {employeeList.length === 0 ? (
+                  <div className="text-center py-6 bg-neutral-950/20 border border-neutral-850/50 rounded-2xl text-white/50 text-[12.5px]">
+                    등록된 직원이 없습니다.
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto border border-neutral-850 rounded-2xl bg-[#0F0F11]">
+                    <table className="w-full text-left text-[13px] border-collapse">
+                      <thead>
+                        <tr className="border-b border-neutral-850 bg-neutral-900/60 text-white/80 font-bold">
+                          <th className="p-3">이름/권한</th>
+                          <th className="p-3">로그인 ID</th>
+                          <th className="p-3">비밀번호</th>
+                          <th className="p-3 text-right">관리</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-neutral-850/50">
+                        {employeeList.map((emp) => (
+                          <tr key={emp.id} className="hover:bg-neutral-900/30 text-white font-medium">
+                            <td className="p-3 text-white font-bold">
+                              <div className="flex items-center gap-2">
+                                <span>{emp.name}</span>
+                                {emp.role === 'admin' ? (
+                                  <span className="text-[11px] text-white bg-neutral-800 px-1.5 py-0.5 rounded font-black border border-neutral-700 shrink-0">부관리자</span>
+                                ) : (
+                                  <span className="text-[11px] text-white/70 bg-neutral-900 px-1.5 py-0.5 rounded font-bold border border-neutral-800 shrink-0">기사</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="p-3 font-mono text-white">{emp.loginId}</td>
+                            <td className="p-3 font-mono text-white/70">
+                              {emp.password ? '••••••' : '서버 보관'}
+                            </td>
+                            <td className="p-3 text-right">
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteEmployee(emp.id, emp.name)}
+                                className="px-2.5 py-1 bg-red-950/40 hover:bg-red-900/30 text-red-500 rounded-lg border border-red-900/25 transition-all text-[12px] font-bold"
+                              >
+                                삭제
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
               </div>
             </div>
           )}
+        </div>
 
-          {/* 3. 주차 요금 설정 */}
-          <div className="bg-neutral-900/40 p-5 rounded-3xl border border-neutral-850 space-y-4">
-            <div className="flex items-center gap-2 text-xs font-black text-amber-500 tracking-wider uppercase">
-              <FileSpreadsheet size={14} className="text-amber-500" />
-              <span>[1] {airportShort} 세부 요금제 매트릭스 설정</span>
-            </div>
-            <p className="text-[12.5px] text-white/80 leading-relaxed mb-1">
-              {facilityType === 'mixed'
-                ? '공항 현장 실정에 맞춘 실외/실내 차등 요금제 및 야간 입출고 할증 기준표입니다.'
-                : facilityType === 'outdoor'
-                  ? '실외 주차 요금 및 야간 입출고 할증 기준표입니다.'
-                  : '실내 주차 요금 및 야간 입출고 할증 기준표입니다.'}
-            </p>
-            <p className="text-[11px] text-amber-500/90 font-bold">
-              현재 시설 유형: {facilityTypeLabel}
-              {!isSuperAdmin && ' · 보험·주소·핀·거리·사진은 최고관리자만 수정 (위 확인란)'}
-            </p>
-            
-            <div className="space-y-4">
-              {showOutdoorMatrix && (
-              <div className="p-3 bg-[#131315] border border-neutral-850 rounded-xl space-y-3">
-                <span className="text-[12px] text-white font-bold block">● 실외 주차 요금 (Outdoor Matrix)</span>
-                <div className="grid grid-cols-3 gap-2">
-                  <PriceInput
-                    label="실외 기본요금 (원)"
-                    value={outdoorBasePrice}
-                    onChange={setOutdoorBasePrice}
-                    focusColorClass="focus-within:border-neutral-600"
-                  />
-                  <div>
-                    <label className="text-[11px] text-white/80 font-bold block mb-1">기본 일수 (일)</label>
-                    <input 
-                      type="number" 
-                      value={outdoorBaseDays}
-                      onChange={(e) => setOutdoorBaseDays(Number(e.target.value))}
-                      className="w-full bg-[#1C1C1E] border border-neutral-800 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-neutral-600 font-mono font-bold" 
-                    />
-                  </div>
-                  <PriceInput
-                    label="이후 일 추가금 (원)"
-                    value={outdoorExtraPrice}
-                    onChange={setOutdoorExtraPrice}
-                    focusColorClass="focus-within:border-neutral-600"
-                  />
-                </div>
-              </div>
-              )}
-
-              {showIndoorMatrix && (
-              <div className="p-3 bg-[#131315] border border-neutral-850 rounded-xl space-y-3">
-                <span className="text-[12px] text-white font-bold block">● 실내 주차 요금 (Indoor Matrix)</span>
-                <div className="grid grid-cols-3 gap-2">
-                  <PriceInput
-                    label="실내 기본요금 (원)"
-                    value={indoorBasePrice}
-                    onChange={setIndoorBasePrice}
-                    focusColorClass="focus-within:border-neutral-600"
-                  />
-                  <div>
-                    <label className="text-[11px] text-white/80 font-bold block mb-1">기본 일수 (일)</label>
-                    <input 
-                      type="number" 
-                      value={indoorBaseDays}
-                      onChange={(e) => setIndoorBaseDays(Number(e.target.value))}
-                      className="w-full bg-[#1C1C1E] border border-neutral-800 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-neutral-600 font-mono font-bold" 
-                    />
-                  </div>
-                  <PriceInput
-                    label="이후 일 추가금 (원)"
-                    value={indoorExtraPrice}
-                    onChange={setIndoorExtraPrice}
-                    focusColorClass="focus-within:border-neutral-600"
-                  />
-                </div>
-              </div>
-              )}
-
-              {/* 야간/새벽 입출고 할증 */}
-              <div className="p-3 bg-[#131315] border border-neutral-850 rounded-xl space-y-3">
-                <span className="text-[12px] text-white font-bold block">● 야간/새벽 할증 요율 (Surcharge Matrix)</span>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="flex flex-col items-center justify-center p-2.5 bg-neutral-900 border border-neutral-850 rounded-2xl shadow-sm">
-                    <span className="text-[12px] text-white/80 font-extrabold mb-2 uppercase tracking-wide">시작 시간</span>
-                    <button
-                      type="button"
-                      onClick={() => setActivePickerTarget('surchargeStart')}
-                      className="w-full bg-[#1C1C1E] border border-neutral-800 hover:border-neutral-600 hover:bg-[#2C2C2E]/50 active:scale-[0.98] rounded-xl px-2.5 h-[42px] transition-all duration-100 cursor-pointer text-xs font-bold text-white select-none text-center flex items-center justify-center"
-                    >
-                      {surchargeStartTime || '시간 선택'}
-                    </button>
-                  </div>
-                  <div className="flex flex-col items-center justify-center p-2.5 bg-neutral-900 border border-neutral-850 rounded-2xl shadow-sm">
-                    <span className="text-[12px] text-white/80 font-extrabold mb-2 uppercase tracking-wide">종료 시간</span>
-                    <button
-                      type="button"
-                      onClick={() => setActivePickerTarget('surchargeEnd')}
-                      className="w-full bg-[#1C1C1E] border border-neutral-800 hover:border-neutral-600 hover:bg-[#2C2C2E]/50 active:scale-[0.98] rounded-xl px-2.5 h-[42px] transition-all duration-100 cursor-pointer text-xs font-bold text-white select-none text-center flex items-center justify-center"
-                    >
-                      {surchargeEndTime || '시간 선택'}
-                    </button>
-                  </div>
-                  <PriceInput
-                    label="추가 할증요금 (원)"
-                    value={surchargePrice}
-                    onChange={setSurchargePrice}
-                    focusColorClass="focus-within:border-amber-500"
-                    isXl={true}
-                  />
-                </div>
-              </div>
-
-              {/* 터미널 이동 추가요금 */}
-              <div className="p-3 bg-[#131315] border border-neutral-850 rounded-xl space-y-3">
-                <span className="text-[12px] text-white font-bold block">
-                  ● {surchargeTerminal?.label || '터미널'} 이동 추가요금 (Terminal Surcharge)
-                </span>
-                <PriceInput
-                  label={`${surchargeTerminal?.label || '터미널'} 이동 추가요금 (원)`}
-                  value={t2Surcharge}
-                  onChange={setT2Surcharge}
-                  focusColorClass="focus-within:border-amber-500"
-                  placeholder="예: 5000 (0원인 경우 추가요금 없음)"
-                />
-              </div>
-
-              {/* 성수기 할증 설정 (Peak Season Surcharge) */}
-              <div className="p-3 bg-[#131315] border border-neutral-850 rounded-xl space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-[12px] text-white font-bold block">● 성수기 할증 설정 (Peak Season Surcharge)</span>
-                </div>
-                <p className="text-[11px] text-white/75 leading-relaxed font-semibold">
-                  지정된 날짜 범위 내에 입출고 차량인 경우, 일괄 성수기 할증 금액이 자동으로 정산됩니다. (날짜 형식: MM-DD)
-                </p>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div>
-                    <label className="text-[11px] text-white/80 font-bold block mb-1.5">성수기 시작일 (MM-DD)</label>
-                    <input 
-                      type="text" 
-                      placeholder="예: 07-15"
-                      value={peakStartTime}
-                      onChange={(e) => setPeakStartTime(e.target.value)}
-                      className="w-full bg-[#1C1C1E] border border-neutral-800 rounded-xl px-2.5 py-2 text-xs text-white focus:outline-none focus:border-amber-500 font-mono font-bold text-center" 
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[11px] text-white/80 font-bold block mb-1.5">성수기 종료일 (MM-DD)</label>
-                    <input 
-                      type="text" 
-                      placeholder="예: 08-31"
-                      value={peakEndTime}
-                      onChange={(e) => setPeakEndTime(e.target.value)}
-                      className="w-full bg-[#1C1C1E] border border-neutral-800 rounded-xl px-2.5 py-2 text-xs text-white focus:outline-none focus:border-amber-500 font-mono font-bold text-center" 
-                    />
-                  </div>
-                  <PriceInput
-                    label="성수기 할증요금 (원)"
-                    value={peakSurcharge}
-                    onChange={setPeakSurcharge}
-                    focusColorClass="focus-within:border-amber-500"
-                    placeholder="예: 10000"
-                    isXl={true}
-                  />
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* 3-2. 대면 입고 제공 설정 */}
-          <div className="bg-neutral-900/40 p-5 rounded-3xl border border-neutral-850 space-y-4">
-            <div className="flex items-center justify-between gap-3">
-              <div className="flex items-center gap-2 text-xs font-black text-amber-500 tracking-wider uppercase">
-                <FileSpreadsheet size={14} className="text-amber-500" />
-                <span>[2] 대면 입고 제공 설정</span>
-              </div>
-              <button
-                type="button"
-                role="switch"
-                aria-checked={valetEnabled}
-                onClick={() => setValetEnabled((v) => !v)}
-                className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${valetEnabled ? 'bg-amber-500' : 'bg-neutral-700'}`}
-              >
-                <span
-                  className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${valetEnabled ? 'translate-x-5' : ''}`}
-                />
-              </button>
-            </div>
-            <p className="text-[12.5px] text-white/80 leading-relaxed">
-              고객이 공항 여객터미널에서 직접 차량을 인계·인수하는 대면 입고 서비스입니다. 제공하는 터미널을 선택하고 추가요금을 설정하세요. (무료 제공 시 <span className="font-bold text-amber-400">0원</span>)
-            </p>
-
-            {valetEnabled && (
-              <div className="space-y-3">
-                {/* 제1여객터미널 */}
-                <div className="p-3 bg-[#131315] border border-neutral-850 rounded-xl space-y-3">
-                  <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={valetT1Enabled}
-                      onChange={(e) => setValetT1Enabled(e.target.checked)}
-                      className="w-4 h-4 rounded border-neutral-800 text-amber-500 focus:ring-amber-500 bg-[#1C1C1E] cursor-pointer"
-                    />
-                    <span className="text-[12px] text-white font-bold">
-                      {primaryTerminal?.label || '제1터미널'} 대면 제공
-                    </span>
-                  </label>
-                  {valetT1Enabled && (
-                    <PriceInput
-                      label={`${primaryTerminal?.shortLabel || 'T1'} 대면 추가요금 (원)`}
-                      value={valetFeeT1}
-                      onChange={setValetFeeT1}
-                      focusColorClass="focus-within:border-amber-500"
-                      placeholder="무료면 0"
-                    />
-                  )}
-                </div>
-
-                {/* 제2여객터미널 */}
-                <div className="p-3 bg-[#131315] border border-neutral-850 rounded-xl space-y-3">
-                  <label className="flex items-center gap-2 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      checked={valetT2Enabled}
-                      onChange={(e) => setValetT2Enabled(e.target.checked)}
-                      className="w-4 h-4 rounded border-neutral-800 text-amber-500 focus:ring-amber-500 bg-[#1C1C1E] cursor-pointer"
-                    />
-                    <span className="text-[12px] text-white font-bold">
-                      {secondaryTerminal?.label || '제2터미널'} 대면 제공
-                    </span>
-                  </label>
-                  {valetT2Enabled && (
-                    <PriceInput
-                      label={`${secondaryTerminal?.shortLabel || 'T2'} 대면 추가요금 (원)`}
-                      value={valetFeeT2}
-                      onChange={setValetFeeT2}
-                      focusColorClass="focus-within:border-amber-500"
-                      placeholder="무료면 0"
-                    />
-                  )}
-                </div>
-
-                {!valetT1Enabled && !valetT2Enabled && (
-                  <p className="text-[11px] text-red-400 font-bold px-1">
-                    ※ 대면 입고 제공 시 터미널을 최소 한 곳 선택해야 합니다.
-                  </p>
-                )}
-              </div>
+        <div className="fixed bottom-0 left-0 right-0 z-40 p-4 bg-gradient-to-t from-black via-black/95 to-transparent pointer-events-none">
+          <div className="max-w-lg mx-auto pointer-events-auto">
+            <button
+              type="button"
+              onClick={handleSavePartnerSelf}
+              className="w-full py-4 bg-gradient-to-r from-amber-500 to-amber-600 text-neutral-950 font-black rounded-2xl border border-amber-400/30 hover:brightness-110 shadow-lg shadow-amber-500/10 transition-all flex items-center justify-center gap-2 text-xs"
+              id="save-partner-rates-btn"
+            >
+              <Save size={14} />
+              <span>저장하기</span>
+            </button>
+            {settingsTab === 'staff' && (
+              <p className="text-[10px] text-zinc-500 text-center mt-2 font-semibold">
+                직원 추가·삭제는 즉시 반영 · 저장은 요금·픽업·대면용
+              </p>
             )}
           </div>
-
-          {/* 4. 소속 직원(기사) 계정 관리 */}
-          <div className="bg-neutral-900/40 p-5 rounded-3xl border border-neutral-850 space-y-4">
-            <div className="flex items-center gap-2 text-xs font-black text-amber-500 tracking-wider uppercase">
-              <Users size={14} className="text-amber-500" />
-              <span>소속 직원(현장 기사) 계정 관리</span>
-            </div>
-            <p className="text-[12.5px] text-white/80 leading-relaxed">
-              소속 직원의 개인 로그인 계정을 직접 생성하고 관리합니다. 직원으로 로그인 시, 요금 변경 권한이 통제된 기사 모드로 강제 진입합니다.
-            </p>
-
-            <form onSubmit={handleAddEmployee} className="p-4 bg-[#131315] border border-neutral-850 rounded-2xl space-y-3.5">
-              <div className="text-[12.5px] font-bold text-white">신규 기사 직원 등록</div>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div>
-                  <label className="text-[11px] text-white/80 font-bold block mb-1">이름 (실명)</label>
-                  <input 
-                    type="text" 
-                    placeholder="예: 홍길동"
-                    value={empName}
-                    onChange={(e) => setEmpName(e.target.value)}
-                    className="w-full bg-[#1C1C1E] border border-neutral-800 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-500 font-bold" 
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] text-white/80 font-bold block mb-1">로그인 ID</label>
-                  <input 
-                    type="text" 
-                    placeholder="예: wawa_hong"
-                    value={empLoginId}
-                    onChange={(e) => setEmpLoginId(e.target.value)}
-                    className="w-full bg-[#1C1C1E] border border-neutral-800 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-500 font-mono font-bold" 
-                  />
-                </div>
-                <div>
-                  <label className="text-[11px] text-white/80 font-bold block mb-1">비밀번호</label>
-                  <input 
-                    type="password" 
-                    placeholder="예: emp1234"
-                    value={empPassword}
-                    onChange={(e) => setEmpPassword(e.target.value)}
-                    className="w-full bg-[#1C1C1E] border border-neutral-800 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-500 font-mono" 
-                  />
-                </div>
-              </div>
-              <div className="flex items-center gap-2 pt-1.5 pb-0.5 px-1">
-                <input 
-                  type="checkbox" 
-                  id="emp-is-admin-checkbox"
-                  checked={empIsAdmin}
-                  onChange={(e) => setEmpIsAdmin(e.target.checked)}
-                  className="w-4 h-4 rounded border-neutral-800 text-amber-500 focus:ring-amber-500 bg-[#1C1C1E] cursor-pointer"
-                />
-                <label htmlFor="emp-is-admin-checkbox" className="text-[12px] text-white font-bold cursor-pointer select-none flex items-center gap-1">
-                  <span>이 직원에게 관리자 권한 부여</span>
-                  <span className="text-[11px] text-white/60 font-normal">(업체 정보 요금설정 및 다른 직원 관리 권한 포함)</span>
-                </label>
-              </div>
-              <button 
-                type="submit"
-                className="w-full py-2 bg-amber-500 hover:bg-amber-600 text-neutral-950 font-black rounded-xl text-3xs font-extrabold uppercase transition-all flex items-center justify-center gap-1"
-              >
-                <span>신규 직원 기사 등록</span>
-              </button>
-            </form>
-
-            <div className="space-y-2 mt-4">
-              <div className="text-[12.5px] font-bold text-white flex items-center justify-between px-1">
-                <span>등록된 소속 직원 리스트</span>
-                <span className="text-[12px] text-white/70 font-mono">총 {employeeList.length}명</span>
-              </div>
-              
-              {employeeList.length === 0 ? (
-                <div className="text-center py-6 bg-neutral-950/20 border border-neutral-850/50 rounded-2xl text-white/50 text-[12.5px]">
-                  등록된 직원이 없습니다. 첫 직원을 추가해 주세요.
-                </div>
-              ) : (
-                <div className="overflow-x-auto border border-neutral-850 rounded-2xl bg-[#0F0F11]">
-                  <table className="w-full text-left text-[13px] border-collapse">
-                    <thead>
-                      <tr className="border-b border-neutral-850 bg-neutral-900/60 text-white/80 font-bold">
-                        <th className="p-3">이름/권한</th>
-                        <th className="p-3">로그인 ID</th>
-                        <th className="p-3">비밀번호</th>
-                        <th className="p-3 text-right">인사 관리</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-neutral-850/50">
-                      {employeeList.map((emp) => (
-                        <tr key={emp.id} className="hover:bg-neutral-900/30 text-white font-medium">
-                          <td className="p-3 text-white font-bold">
-                            <div className="flex items-center gap-2">
-                              <span>{emp.name}</span>
-                              {emp.role === 'admin' ? (
-                                <span className="text-[11px] text-white bg-neutral-800 px-1.5 py-0.5 rounded font-black border border-neutral-700 shrink-0">부관리자</span>
-                              ) : (
-                                <span className="text-[11px] text-white/70 bg-neutral-900 px-1.5 py-0.5 rounded font-bold border border-neutral-800 shrink-0">기사</span>
-                              )}
-                            </div>
-                          </td>
-                          <td className="p-3 font-mono text-white">{emp.loginId}</td>
-                          <td className="p-3 font-mono text-white/70">
-                            {emp.password ? '••••••' : '서버 보관'}
-                          </td>
-                          <td className="p-3 text-right">
-                            <button
-                              type="button"
-                              onClick={() => handleDeleteEmployee(emp.id, emp.name)}
-                              className="px-2.5 py-1 bg-red-950/40 hover:bg-red-900/30 text-red-500 rounded-lg border border-red-900/25 transition-all text-[12px] font-bold"
-                            >
-                              삭제
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <button
-            onClick={handleSavePartnerSelf}
-            className="w-full py-4 bg-gradient-to-r from-amber-500 to-amber-600 text-neutral-950 font-black rounded-2xl border border-amber-400/30 hover:brightness-110 shadow-lg shadow-amber-500/10 transition-all flex items-center justify-center gap-2 text-xs uppercase"
-            id="save-partner-rates-btn"
-          >
-            <Save size={14} />
-            <span>저장하기</span>
-          </button>
         </div>
       </div>
       {surchargeTimePicker}

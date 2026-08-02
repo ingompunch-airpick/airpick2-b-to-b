@@ -9,17 +9,18 @@
 
 ## A. 배포·소유권 (가장 중요)
 
-- [ ] **Firestore 규칙 정본**을 하나로 정했다 (`docs/FIRESTORE_RULES_CANONICAL.md`)
-- [ ] B2B · B2C `firestore.rules` 내용이 **동일**하다
-- [ ] rules는 **한곳(권장: B2B)에서만** 배포한다  
+정본 문서: [`docs/FIREBASE_DEPLOY_OWNERSHIP.md`](./FIREBASE_DEPLOY_OWNERSHIP.md)
+
+- [x] **Firestore 규칙 정본**을 하나로 정했다 (`docs/FIRESTORE_RULES_CANONICAL.md`) — **배포는 B2B만**
+- [ ] B2B · B2C `firestore.rules` 내용이 **동일**하다 (배포 전 동기화)
+- [x] rules는 **B2B에서만** 배포한다  
   - 명령 예: `firebase deploy --only firestore:rules --project airpick-reservation`
-- [ ] B2C에서 rules를 따로 배포하지 않기로 팀(본인)이 기억한다
-- [ ] Cloud Functions 배포 전, **지금 프로젝트에 어떤 함수가 있는지** 목록을 확인했다  
-  - 예: `firebase functions:list --project airpick-reservation`
-- [ ] Functions 배포 시 **한쪽 저장소가 다른 쪽 함수를 지우지 않는** 방법을 정했다  
-  - (임시) 배포 후 `functions:list`로 B2B+B2C 함수가 모두 남아 있는지 확인  
-  - (권장 다음 단계) B2B/B2C functions codebase 분리 또는 단일 패키지로 통합
-- [ ] Storage rules도 누가 배포하는지 정했다 (`firebase deploy --only storage`)
+- [x] B2C · 업체 홈에서 rules / Functions / storage **배포하지 않기로** 정했다
+- [x] Cloud Functions 라이브 목록을 확인했다 (2026-08-02 스냅샷 → `FIREBASE_DEPLOY_OWNERSHIP.md`)
+- [x] Functions 코드를 **B2B로 통합**함 (`functions/src/api` 등) — 상세 `FIREBASE_DEPLOY_OWNERSHIP.md`  
+  - [x] **통합 Functions 배포** 완료 (2026-08-02, `functions:list`로 B2B+손님 API 확인)  
+  - B2C에서 Functions 배포하지 말 것
+- [x] Storage rules도 **B2B만** 배포 (`firebase deploy --only storage`)
 
 ### Functions가 둘 다 살아 있어야 하는 목록
 

@@ -22,6 +22,8 @@ export interface BookingSettingsInput {
   sameDayBookingBlocked: boolean;
   hourlyCapEnabled: boolean;
   maxCarsPerHour: number;
+  parkingCapEnabled: boolean;
+  maxParkedCars: number;
 }
 
 export interface UseCompaniesParams {
@@ -136,8 +138,11 @@ export function useCompanies({
         } else {
           targetCompanyInfo.name = selectedId;
         }
+        // 본사 원격 지원: 업체 전환 시 업체 관리자와 동일한 관리자 화면·예약 관리 노출
         if (isSuperAdmin) {
-          setCurrentView(isAdminModeActive ? 'statistics' : 'timeline');
+          setIsAdminModeActive(true);
+          localStorage.setItem('local_is_admin_mode_active', 'true');
+          setCurrentView('statistics');
         }
       }
 
@@ -221,6 +226,8 @@ export function useCompanies({
         sameDayBookingBlocked,
         hourlyCapEnabled,
         maxCarsPerHour,
+        parkingCapEnabled,
+        maxParkedCars,
       } = settings;
 
       localStorage.setItem(`${targetId}_blockedDates`, JSON.stringify(newBlockedDates));
@@ -232,6 +239,8 @@ export function useCompanies({
           sameDayBookingBlocked,
           hourlyCapEnabled,
           maxCarsPerHour,
+          parkingCapEnabled,
+          maxParkedCars,
         };
         if (idx >= 0) {
           return prev.map((c) => (c.id === targetId ? { ...c, ...patch } : c));
@@ -257,6 +266,8 @@ export function useCompanies({
             sameDayBookingBlocked,
             hourlyCapEnabled,
             maxCarsPerHour,
+            parkingCapEnabled,
+            maxParkedCars,
             updatedAt: new Date().toISOString(),
           },
           { merge: true }

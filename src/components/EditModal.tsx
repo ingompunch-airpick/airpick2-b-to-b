@@ -1,10 +1,9 @@
-﻿import React, { useState, useEffect } from 'react';
+﻿import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'motion/react';
 import { ArrowLeft, Phone, ChevronDown, MoreHorizontal } from 'lucide-react';
 import { Reservation, Company } from '../types';
 import {
   isPending,
-  isNotYetAdmitted,
   isCompletedOut,
   isCancelled,
   isAdmitted,
@@ -21,15 +20,18 @@ import {
   isExternalCustomerBooking,
 } from '../utils/bookingSource';
 import AirlinePicker from './AirlinePicker';
-import { normalizeAirportId, terminalLabel } from '../utils/airport';
+import TerminalPicker from './TerminalPicker';
+import { normalizeAirportId, resolveCompanyAirportId } from '../utils/airport';
 import {
   buildParkingAssignmentFields,
+  buildParkingTypeChoices,
   defaultParkingLotId,
-  isGenericParkingSpaceLabel,
+  isParkingTypeChoiceActive,
   resolveCompanyLotsForReservation,
 } from '../utils/parkingLot';
 import { buildReceiptUrl } from '../utils/receipt';
-
+import { inferFacilityType } from '../utils/companyProfile';
+import { recalculateReservationPrice } from '../utils/pricing';
 function cn(...classes: (string | boolean | undefined | null)[]) {
   return classes.filter(Boolean).join(' ');
 }
@@ -67,7 +69,6 @@ export default function EditModal({
   const [driverEditUserName, setDriverEditUserName] = useState('');
   const [driverEditUserRequest, setDriverEditUserRequest] = useState('');
   const [driverEditAdminMemo, setDriverEditAdminMemo] = useState('');
-  const [driverEditLinkerMemo, setDriverEditLinkerMemo] = useState('');
   const [driverEditLotId, setDriverEditLotId] = useState('');
   const [driverEditDestination, setDriverEditDestination] = useState('');
   const [driverEditDeptAirline, setDriverEditDeptAirline] = useState('');
@@ -81,8 +82,11 @@ export default function EditModal({
   const [driverEditDepartureTime, setDriverEditDepartureTime] = useState('');
   const [driverEditArrivalDate, setDriverEditArrivalDate] = useState('');
   const [driverEditArrivalTime, setDriverEditArrivalTime] = useState('');
+  const [driverEditIsIndoor, setDriverEditIsIndoor] = useState(true);
+  const [driverEditDepartureTerminal, setDriverEditDepartureTerminal] = useState('');
+  const [driverEditArrivalTerminal, setDriverEditArrivalTerminal] = useState('');
   const [paymentChoice, setPaymentChoice] = useState<'unpaid' | 'paid'>('unpaid');
-  /** 요청·특이사항: 내용 있으면 펼침, 없으면 접힘 */
+  /** 요청·특이사항: 저장된 내용 있을 때만 펼침 */
   const [notesOpen, setNotesOpen] = useState(false);
   /** 헤더 ⋯ — 되돌리기·취소 */
   const [moreOpen, setMoreOpen] = useState(false);
@@ -101,8 +105,6 @@ export default function EditModal({
       setDriverEditAdminMemo(memoText);
       setNotesOpen(!!(String(requestText).trim() || String(memoText).trim()));
       setMoreOpen(false);
-      const space = (driverDetailRes.parkingSpace || (driverDetailRes as any).linkerMemo || '').trim();
-      setDriverEditLinkerMemo(isGenericParkingSpaceLabel(space) ? '' : space);
       const lots = resolveCompanyLotsForReservation(companies, driverDetailRes.companyId);
       setDriverEditLotId(
         defaultParkingLotId(lots, driverDetailRes.isIndoor !== false, driverDetailRes.parkingLotId)
@@ -122,9 +124,45 @@ export default function EditModal({
       setDriverEditDepartureTime(driverDetailRes.departureTime || '');
       setDriverEditArrivalDate(driverDetailRes.arrivalDate || '');
       setDriverEditArrivalTime(driverDetailRes.arrivalTime || '');
+      setDriverEditIsIndoor(driverDetailRes.isIndoor !== false);
+      setDriverEditDepartureTerminal(driverDetailRes.departureTerminal || '');
+      setDriverEditArrivalTerminal(driverDetailRes.arrivalTerminal || '');
       setPaymentChoice(reservationToPaymentChoice(driverDetailRes));
     }
   }, [driverDetailRes, companies]);
+
+  const matchedCompany = companies.find((c) => c.id === driverDetailRes?.companyId);
+  const facilityType = inferFacilityType(matchedCompany);
+  const showIndoorOption = facilityType === 'indoor' || facilityType === 'mixed';
+  const showOutdoorOption = facilityType === 'outdoor' || facilityType === 'mixed';
+  const editAirportId = normalizeAirportId(
+    driverDetailRes?.airport || resolveCompanyAirportId(matchedCompany)
+  );
+
+  const recalculatedPrice = useMemo(() => {
+    if (!driverDetailRes || !driverEditDepartureDate || !driverEditArrivalDate) {
+      return driverDetailRes?.totalPrice ?? 0;
+    }
+    return recalculateReservationPrice(driverDetailRes, matchedCompany, {
+      departureDate: driverEditDepartureDate,
+      departureTime: driverEditDepartureTime,
+      arrivalDate: driverEditArrivalDate,
+      arrivalTime: driverEditArrivalTime,
+      isIndoor: driverEditIsIndoor,
+      departureTerminal: driverEditDepartureTerminal,
+      arrivalTerminal: driverEditArrivalTerminal,
+    });
+  }, [
+    driverDetailRes,
+    matchedCompany,
+    driverEditDepartureDate,
+    driverEditDepartureTime,
+    driverEditArrivalDate,
+    driverEditArrivalTime,
+    driverEditIsIndoor,
+    driverEditDepartureTerminal,
+    driverEditArrivalTerminal,
+  ]);
 
   if (!driverDetailRes) return null;
 
@@ -144,7 +182,7 @@ export default function EditModal({
   const revertLabel = (() => {
     if (!onRevertStatus || cancelled) return null;
     const st = driverDetailRes.status;
-    if (st === 'pending_in') return '입고예정으로 되돌리기';
+    if (st === 'pending_in') return '예약완료로 되돌리기';
     if (st === 'request_out') return '출고예정으로 되돌리기';
     if (st === 'completed_in' && canManageDeepRevert) return '입고로 되돌리기';
     if (st === 'completed_out' && canManageDeepRevert) return '출고로 되돌리기';
@@ -172,8 +210,12 @@ export default function EditModal({
         : '접수증 보기';
   const showMoreMenu = canCancel || canRevertStatus || !!receiptUrl;
   const hideReservationPassword = isExternalCustomerBooking(driverDetailRes);
-  const showLotPicker = !isNotYetAdmitted(driverDetailRes.status);
   const companyLots = resolveCompanyLotsForReservation(companies, driverDetailRes.companyId);
+  const parkingTypeChoices = buildParkingTypeChoices({
+    lots: companyLots,
+    showIndoor: showIndoorOption,
+    showOutdoor: showOutdoorOption,
+  });
 
   const handleSave = () => {
     const operatorName = isEmployee ? employeeName : (isSuperAdmin ? '본사 마스터(최고관리자)' : '업체 마스터');
@@ -183,7 +225,6 @@ export default function EditModal({
       userRequest: driverEditUserRequest,
       customerNotes: driverEditUserRequest,
       adminMemo: driverEditAdminMemo,
-      linkerMemo: driverEditLinkerMemo,
       // 빈 문자열로 저장해 필드 비우기 가능 (undefined는 Firestore 거부·strip 시 무시됨)
       destination: driverEditDestination.trim(),
       departureAirline: driverEditDeptAirline.trim(),
@@ -197,26 +238,28 @@ export default function EditModal({
       departureTime: driverEditDepartureTime,
       arrivalDate: driverEditArrivalDate,
       arrivalTime: driverEditArrivalTime,
+      startDate: `${driverEditDepartureDate}T${driverEditDepartureTime || '00:00'}`,
+      endDate: `${driverEditArrivalDate}T${driverEditArrivalTime || '00:00'}`,
+      isIndoor: driverEditIsIndoor,
+      departureTerminal: driverEditDepartureTerminal,
+      arrivalTerminal: driverEditArrivalTerminal,
       paymentMethod: paymentChoiceToMethod(paymentChoice),
+      totalPrice: recalculatedPrice,
       updatedBy: operatorName,
       updatedAt: new Date().toISOString(),
     };
-    if (showLotPicker && driverEditLotId) {
+    if (driverEditLotId) {
       Object.assign(
         updateData,
         buildParkingAssignmentFields({
           parkingLotId: driverEditLotId,
-          parkingSpace: driverEditLinkerMemo,
+          parkingSpace: '',
           lots: companyLots,
-          fallbackIsIndoor: driverDetailRes.isIndoor !== false,
+          fallbackIsIndoor: driverEditIsIndoor,
         })
       );
-    } else {
-      updateData.parkingSpace = driverEditLinkerMemo;
     }
-    if (!hideReservationPassword) {
-      updateData.reservationPassword = driverEditReservationPassword.trim();
-    }
+    // reservationPassword는 보호 필드 — 클라이언트에서 수정하지 않음
     onSave(updateData);
   };
 
@@ -335,236 +378,177 @@ export default function EditModal({
         </div>
 
         {/* Scrollable Form Body */}
-        <div className="flex-1 overflow-y-auto px-5 py-6 space-y-6">
+        <div className="flex-1 overflow-y-auto px-5 py-5 space-y-5">
 
-          {/* 1. VEHICLE */}
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="relative group">
-                <label className="text-[12px] font-black text-zinc-500 block mb-1">차량 번호</label>
-                <input
-                  type="text"
-                  value={driverEditCarNumber}
-                  onChange={(e) => setDriverEditCarNumber(e.target.value)}
-                  className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[13.5px] text-white font-extrabold outline-none focus:border-[#FF9F0A] transition-colors"
-                  placeholder="차량번호"
-                />
-              </div>
-
-              <div className="relative group">
-                <label className="text-[12px] font-black text-zinc-500 block mb-1">차종 명칭</label>
-                <input
-                  type="text"
-                  value={driverEditCarModel}
-                  onChange={(e) => setDriverEditCarModel(e.target.value)}
-                  className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[13.5px] text-white font-bold outline-none focus:border-[#FF9F0A] transition-colors"
-                  placeholder="그랜저 등"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* 2. CUSTOMER */}
-          <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-4">
             <div className="relative group">
-              <label className="text-[12px] font-black text-zinc-500 block mb-1">고객명</label>
+              <label className="text-[12px] font-black text-zinc-500 block mb-1">차량 번호</label>
               <input
                 type="text"
-                value={driverEditUserName}
-                onChange={(e) => setDriverEditUserName(e.target.value)}
-                className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[14px] text-white font-bold outline-none focus:border-amber-500 transition-colors"
-                placeholder="고객 이름"
+                value={driverEditCarNumber}
+                onChange={(e) => setDriverEditCarNumber(e.target.value)}
+                className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[13.5px] text-white font-extrabold outline-none focus:border-[#FF9F0A] transition-colors"
+                placeholder="차량번호"
               />
             </div>
-
             <div className="relative group">
-              <label className="text-[12px] font-black text-zinc-500 block mb-1">전화번호</label>
-              <div className="relative">
-                <input
-                  type="text"
-                  value={driverEditPhone}
-                  onChange={(e) => setDriverEditPhone(e.target.value)}
-                  className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 pr-8 text-[13.5px] text-white font-bold outline-none focus:border-amber-500 transition-colors font-mono"
-                  placeholder="전화번호를 입력해주세요"
-                />
-                <Phone size={14} className="absolute right-1 top-2.5 text-zinc-500" />
-              </div>
+              <label className="text-[12px] font-black text-zinc-500 block mb-1">차종</label>
+              <input
+                type="text"
+                value={driverEditCarModel}
+                onChange={(e) => setDriverEditCarModel(e.target.value)}
+                className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[13.5px] text-white font-bold outline-none focus:border-[#FF9F0A] transition-colors"
+                placeholder="그랜저 등"
+              />
             </div>
           </div>
 
-          {/* 3. 일정 · 주차 · 수납 */}
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-[12px] font-black text-[#8E8E93] block mb-1">입고 날짜 (입차일자)</label>
+          <div className="relative group">
+            <label className="text-[12px] font-black text-zinc-500 block mb-1">고객명</label>
+            <input
+              type="text"
+              value={driverEditUserName}
+              onChange={(e) => setDriverEditUserName(e.target.value)}
+              className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[14px] text-white font-bold outline-none focus:border-amber-500 transition-colors"
+              placeholder="고객 이름"
+            />
+          </div>
+
+          <div className="relative group">
+            <label className="text-[12px] font-black text-zinc-500 block mb-1">전화번호</label>
+            <div className="relative">
+              <input
+                type="text"
+                value={driverEditPhone}
+                onChange={(e) => setDriverEditPhone(e.target.value)}
+                className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 pr-8 text-[13.5px] text-white font-bold outline-none focus:border-amber-500 transition-colors font-mono"
+                placeholder="전화번호를 입력해주세요"
+              />
+              <Phone size={14} className="absolute right-1 top-2.5 text-zinc-500" />
+            </div>
+          </div>
+
+          <div className="space-y-2.5">
+            <div className="flex items-center gap-2">
+              <span className="w-10 shrink-0 text-[12px] font-black text-zinc-400">입고</span>
+              <div className="flex-1 grid grid-cols-2 gap-2">
                 <input
                   type="date"
                   value={driverEditDepartureDate}
                   onChange={(e) => setDriverEditDepartureDate(e.target.value)}
-                  className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1 text-xs text-white font-bold outline-none focus:border-amber-500 transition-colors"
+                  className="w-full bg-[#2C2C2E] border border-neutral-700/80 rounded-xl px-2.5 h-[42px] text-xs text-white font-bold outline-none focus:border-amber-500 text-center"
                 />
-              </div>
-              <div>
-                <label className="text-[12px] font-black text-[#8E8E93] block mb-1">입고 시각 (입차시간)</label>
                 <input
                   type="text"
                   value={driverEditDepartureTime}
                   onChange={(e) => setDriverEditDepartureTime(e.target.value)}
-                  placeholder="예: 08:30"
-                  className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-xs text-white font-bold outline-none focus:border-amber-500 transition-colors font-mono"
+                  placeholder="08:30"
+                  className="w-full bg-[#2C2C2E] border border-neutral-700/80 rounded-xl px-2.5 h-[42px] text-xs text-white font-bold outline-none focus:border-amber-500 text-center font-mono"
                 />
               </div>
-
-              <div>
-                <label className="text-[12px] font-black text-[#8E8E93] block mb-1">출고 날짜 (반납일자)</label>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-10 shrink-0 text-[12px] font-black text-zinc-400">출고</span>
+              <div className="flex-1 grid grid-cols-2 gap-2">
                 <input
                   type="date"
                   value={driverEditArrivalDate}
                   onChange={(e) => setDriverEditArrivalDate(e.target.value)}
-                  className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1 text-xs text-white font-bold outline-none focus:border-amber-500 transition-colors"
+                  className="w-full bg-[#2C2C2E] border border-neutral-700/80 rounded-xl px-2.5 h-[42px] text-xs text-white font-bold outline-none focus:border-amber-500 text-center"
                 />
-              </div>
-              <div>
-                <label className="text-[12px] font-black text-[#8E8E93] block mb-1">출고 시각 (반납시간)</label>
                 <input
                   type="text"
                   value={driverEditArrivalTime}
                   onChange={(e) => setDriverEditArrivalTime(e.target.value)}
-                  placeholder="예: 21:15"
-                  className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-xs text-white font-bold outline-none focus:border-amber-500 transition-colors font-mono"
+                  placeholder="21:15"
+                  className="w-full bg-[#2C2C2E] border border-neutral-700/80 rounded-xl px-2.5 h-[42px] text-xs text-white font-bold outline-none focus:border-amber-500 text-center font-mono"
                 />
               </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2 pt-1">
-              <span className="text-[12px] font-black text-[#8E8E93]">출국 터미널</span>
-              <span className="text-xs font-bold text-white bg-[#2C2C2E] px-2 py-1 rounded-md">
-                {terminalLabel(
-                  normalizeAirportId(driverDetailRes.airport),
-                  driverDetailRes.departureTerminal
-                )}
-              </span>
-              <span className="text-[12px] font-black text-[#8E8E93] ml-2">입국 터미널</span>
-              <span className="text-xs font-bold text-white bg-[#2C2C2E] px-2 py-1 rounded-md">
-                {terminalLabel(
-                  normalizeAirportId(driverDetailRes.airport),
-                  driverDetailRes.arrivalTerminal
-                )}
-              </span>
-              {(() => {
-                const source = resolveBookingSourceFromReservation(driverDetailRes);
-                if (source !== 'airpick-b2c') return null;
-                return (
-                  <span
-                    className={cn(
-                      'text-[11px] font-black border px-2 py-0.5 rounded-md ml-auto',
-                      bookingSourceBadgeClass(source)
-                    )}
-                  >
-                    {bookingSourceLabel(source)} 예약
-                  </span>
-                );
-              })()}
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-[12px] font-black text-zinc-500 block">수납 상태</label>
-              <div className="grid grid-cols-2 gap-2">
-                <button
-                  type="button"
-                  onClick={() => setPaymentChoice('unpaid')}
-                  className={cn(
-                    'py-2.5 rounded-xl text-xs font-black border transition-all cursor-pointer',
-                    paymentChoice === 'unpaid'
-                      ? 'bg-rose-500/15 border-rose-500 text-rose-400'
-                      : 'bg-neutral-950 border-neutral-800 text-zinc-400 hover:border-neutral-700'
-                  )}
-                >
-                  미납
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setPaymentChoice('paid')}
-                  className={cn(
-                    'py-2.5 rounded-xl text-xs font-black border transition-all cursor-pointer',
-                    paymentChoice === 'paid'
-                      ? 'bg-emerald-500/15 border-emerald-500 text-emerald-400'
-                      : 'bg-neutral-950 border-neutral-800 text-zinc-400 hover:border-neutral-700'
-                  )}
-                >
-                  완납
-                </button>
-              </div>
-            </div>
-
-            <div className="relative group">
-              {showLotPicker && companyLots.length > 0 && (
-                <div className="mb-4">
-                  <label className="text-[12px] font-black text-zinc-500 block mb-1">
-                    주차 위치 (B2C 노출)
-                  </label>
-                  <div className="grid grid-cols-2 gap-2 mt-1">
-                    {companyLots.map((lot) => {
-                      const active = driverEditLotId === lot.id;
-                      return (
-                        <button
-                          key={lot.id}
-                          type="button"
-                          onClick={() => setDriverEditLotId(lot.id)}
-                          className={cn(
-                            'py-2 px-3 text-xs font-black rounded-xl transition-all border cursor-pointer',
-                            active
-                              ? lot.type === 'outdoor'
-                                ? 'bg-[#22C55E] text-white border-transparent'
-                                : 'bg-[#A855F7] text-white border-transparent'
-                              : 'bg-[#1C1C1E] text-zinc-500 border-neutral-800 hover:text-zinc-350'
-                          )}
-                        >
-                          {lot.name}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
-              <label className="text-[12px] font-black text-zinc-500 block mb-1">
-                {showLotPicker ? '구역·자리 (선택)' : '링커메모 (주차구역 상세)'}
-              </label>
-              <input
-                type="text"
-                value={driverEditLinkerMemo}
-                onChange={(e) => setDriverEditLinkerMemo(e.target.value)}
-                className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[14px] text-zinc-300 font-medium outline-none focus:border-amber-500 transition-colors"
-                placeholder="예시: 지하3층 B구역"
-              />
             </div>
           </div>
 
-          {/* 4. FLIGHT */}
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-x-4 gap-y-4">
-              <div className="relative group col-span-2">
-                <label className="text-[12px] font-black text-[#8E8E93] block mb-1">여행지</label>
-                <input
-                  type="text"
-                  value={driverEditDestination}
-                  onChange={(e) => setDriverEditDestination(e.target.value)}
-                  className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[14px] text-white font-bold outline-none focus:border-[#FF9F0A] transition-colors"
-                  placeholder="예: 오사카, 싱가포르"
-                />
+          {parkingTypeChoices.length > 0 && (
+            <div className="space-y-2">
+              <label className="text-[12px] font-black text-zinc-500 block">주차 유형</label>
+              <div
+                className={cn(
+                  'grid gap-2 p-1 bg-neutral-950 rounded-xl border border-neutral-800',
+                  parkingTypeChoices.length <= 2 ? 'grid-cols-2' : 'grid-cols-2 sm:grid-cols-3'
+                )}
+              >
+                {parkingTypeChoices.map((choice) => {
+                  const active = isParkingTypeChoiceActive(
+                    choice,
+                    driverEditLotId,
+                    driverEditIsIndoor
+                  );
+                  return (
+                    <button
+                      key={`${choice.kind}-${choice.id}`}
+                      type="button"
+                      onClick={() => {
+                        setDriverEditIsIndoor(choice.isIndoor);
+                        if (choice.kind === 'lot') {
+                          setDriverEditLotId(choice.id);
+                        } else {
+                          setDriverEditLotId(
+                            defaultParkingLotId(companyLots, choice.isIndoor, '')
+                          );
+                        }
+                      }}
+                      className={cn(
+                        'py-2.5 rounded-lg text-xs font-black transition-all cursor-pointer',
+                        active
+                          ? choice.isIndoor
+                            ? 'bg-[#A855F7] text-white shadow-sm'
+                            : 'bg-[#22C55E] text-white shadow-sm'
+                          : 'text-zinc-500 hover:text-zinc-300'
+                      )}
+                    >
+                      {choice.label}
+                    </button>
+                  );
+                })}
               </div>
+            </div>
+          )}
 
+          <div className="space-y-3">
+            {(() => {
+              const source = resolveBookingSourceFromReservation(driverDetailRes);
+              if (source !== 'airpick-b2c') return null;
+              return (
+                <span
+                  className={cn(
+                    'inline-flex text-[11px] font-black border px-2 py-0.5 rounded-md',
+                    bookingSourceBadgeClass(source)
+                  )}
+                >
+                  {bookingSourceLabel(source)} 예약
+                </span>
+              );
+            })()}
+            <div>
+              <label className="text-[12px] font-black text-zinc-500 block mb-1">출국 터미널</label>
+              <TerminalPicker
+                airportId={editAirportId}
+                value={driverEditDepartureTerminal}
+                onChange={setDriverEditDepartureTerminal}
+                variant="zinc"
+                className="p-1 bg-neutral-950 rounded-xl border border-neutral-800"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
               <div className="relative group">
-                <label className="text-[12px] font-black text-[#8E8E93] block mb-1">출국 항공사</label>
+                <label className="text-[12px] font-black text-zinc-500 block mb-1">출국 항공사</label>
                 <AirlinePicker
                   value={driverEditDeptAirline}
                   onChange={setDriverEditDeptAirline}
                   tone="dark"
                 />
               </div>
-
               <div className="relative group">
-                <label className="text-[12px] font-black text-[#8E8E93] block mb-1">출국 항공편</label>
+                <label className="text-[12px] font-black text-zinc-500 block mb-1">출국 항공편</label>
                 <input
                   type="text"
                   value={driverEditDeptFlight}
@@ -573,18 +557,31 @@ export default function EditModal({
                   placeholder="예: KE101"
                 />
               </div>
+            </div>
+          </div>
 
+          <div className="space-y-3">
+            <div>
+              <label className="text-[12px] font-black text-zinc-500 block mb-1">입국 터미널</label>
+              <TerminalPicker
+                airportId={editAirportId}
+                value={driverEditArrivalTerminal}
+                onChange={setDriverEditArrivalTerminal}
+                variant="zinc"
+                className="p-1 bg-neutral-950 rounded-xl border border-neutral-800"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
               <div className="relative group">
-                <label className="text-[12px] font-black text-[#8E8E93] block mb-1">입국 항공사</label>
+                <label className="text-[12px] font-black text-zinc-500 block mb-1">입국 항공사</label>
                 <AirlinePicker
                   value={driverEditArrAirline}
                   onChange={setDriverEditArrAirline}
                   tone="dark"
                 />
               </div>
-
               <div className="relative group">
-                <label className="text-[12px] font-black text-[#8E8E93] block mb-1">입국 항공편</label>
+                <label className="text-[12px] font-black text-zinc-500 block mb-1">입국 항공편</label>
                 <input
                   type="text"
                   value={driverEditArrFlight}
@@ -593,33 +590,75 @@ export default function EditModal({
                   placeholder="예: KE102"
                 />
               </div>
-
-              {!hideReservationPassword && (
-              <div className="relative group">
-                <label className="text-[12px] font-black text-[#8E8E93] block mb-1">예약 비밀번호</label>
-                <input
-                  type="text"
-                  value={driverEditReservationPassword}
-                  onChange={(e) => setDriverEditReservationPassword(e.target.value)}
-                  className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[14px] text-white font-bold outline-none focus:border-[#FF9F0A] transition-colors font-mono"
-                  placeholder="취소 확인용"
-                />
-              </div>
-              )}
             </div>
           </div>
 
-          {/* 요청·특이사항: 내용 있으면 펼침, 없으면 접힘 */}
+          <div className="relative group">
+            <label className="text-[12px] font-black text-zinc-500 block mb-1">여행지</label>
+            <input
+              type="text"
+              value={driverEditDestination}
+              onChange={(e) => setDriverEditDestination(e.target.value)}
+              className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[14px] text-white font-bold outline-none focus:border-[#FF9F0A] transition-colors"
+              placeholder="예: 오사카, 싱가포르"
+            />
+          </div>
+
+          {!hideReservationPassword && (
+            <div className="relative group">
+              <label className="text-[12px] font-black text-zinc-500 block mb-1">예약 비밀번호</label>
+              <input
+                type="text"
+                value={driverEditReservationPassword}
+                readOnly
+                className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[14px] text-zinc-400 font-bold outline-none font-mono"
+                placeholder="생성 시에만 설정"
+              />
+              <p className="text-[11px] text-zinc-600 mt-1">보안상 앱에서 변경할 수 없습니다.</p>
+            </div>
+          )}
+
+          <div className="space-y-2">
+            <label className="text-[12px] font-black text-zinc-500 block">수납 상태</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setPaymentChoice('unpaid')}
+                className={cn(
+                  'py-2.5 rounded-xl text-xs font-black border transition-all cursor-pointer',
+                  paymentChoice === 'unpaid'
+                    ? 'bg-rose-500/15 border-rose-500 text-rose-400'
+                    : 'bg-neutral-950 border-neutral-800 text-zinc-400 hover:border-neutral-700'
+                )}
+              >
+                미납
+              </button>
+              <button
+                type="button"
+                onClick={() => setPaymentChoice('paid')}
+                className={cn(
+                  'py-2.5 rounded-xl text-xs font-black border transition-all cursor-pointer',
+                  paymentChoice === 'paid'
+                    ? 'bg-emerald-500/15 border-emerald-500 text-emerald-400'
+                    : 'bg-neutral-950 border-neutral-800 text-zinc-400 hover:border-neutral-700'
+                )}
+              >
+                완납
+              </button>
+            </div>
+          </div>
+
+          {/* 요청·특이사항: 저장된 내용 있으면 펼침, 없으면 접힘 */}
           <div className="pt-1">
             <button
               type="button"
               onClick={() => setNotesOpen((o) => !o)}
               className="w-full flex items-center justify-between gap-2 py-2.5 border-b border-neutral-800/80 cursor-pointer"
             >
-              <span className="text-[12.5px] font-black text-zinc-400 uppercase tracking-wider flex items-center gap-1.5">
+              <span className="text-[12.5px] font-black text-zinc-400 tracking-wider flex items-center gap-1.5">
                 요청 · 특이사항
                 {hasNotesContent && (
-                  <span className="normal-case tracking-normal text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/25">
+                  <span className="tracking-normal text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/25">
                     있음
                   </span>
                 )}
@@ -657,24 +696,39 @@ export default function EditModal({
 
         </div>
 
-        {/* Bottom: 저장 · 다음 상태만 */}
-        <div className="border-t border-neutral-800 flex items-stretch shrink-0 bg-[#1C1C1E]">
-          <button
-            type="button"
-            onClick={handleSave}
-            className="flex-1 py-5 bg-[#E5E5EA] hover:bg-zinc-200 text-[#1C1C1E] font-black text-[16px] transition-colors text-center cursor-pointer"
-          >
-            저장
-          </button>
-          {canAdvanceStatus && (
+        {/* Bottom: 요금 미리보기 · 저장 · 다음 상태 */}
+        <div className="border-t border-neutral-800 shrink-0 bg-[#1C1C1E]">
+          <div className="px-5 py-2.5 flex items-center justify-between gap-3 border-b border-neutral-800/80">
+            <span className="text-[12px] font-bold text-zinc-500">주차 요금</span>
+            <div className="text-right">
+              <span className="text-[15px] font-black tabular-nums text-amber-400">
+                {recalculatedPrice.toLocaleString()}원
+              </span>
+              {recalculatedPrice !== (driverDetailRes.totalPrice ?? 0) && (
+                <p className="text-[11px] text-zinc-500 font-semibold tabular-nums">
+                  기존 {(driverDetailRes.totalPrice ?? 0).toLocaleString()}원 → 저장 시 반영
+                </p>
+              )}
+            </div>
+          </div>
+          <div className="flex items-stretch">
             <button
               type="button"
-              onClick={onStatusAction}
-              className="flex-1 py-5 bg-[#007AFF] hover:bg-[#0051FF] text-white font-black text-[16px] transition-colors text-center cursor-pointer"
+              onClick={handleSave}
+              className="flex-1 py-5 bg-[#E5E5EA] hover:bg-zinc-200 text-[#1C1C1E] font-black text-[16px] transition-colors text-center cursor-pointer"
             >
-              {advanceStatusLabel}
+              저장
             </button>
-          )}
+            {canAdvanceStatus && (
+              <button
+                type="button"
+                onClick={onStatusAction}
+                className="flex-1 py-5 bg-[#007AFF] hover:bg-[#0051FF] text-white font-black text-[16px] transition-colors text-center cursor-pointer"
+              >
+                {advanceStatusLabel}
+              </button>
+            )}
+          </div>
         </div>
 
       </motion.div>
