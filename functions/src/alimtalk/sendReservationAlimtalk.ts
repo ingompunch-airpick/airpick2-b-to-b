@@ -1,9 +1,7 @@
 import * as admin from 'firebase-admin';
 import * as nodeCrypto from 'crypto';
-import {
-  DEFAULT_COMPANY_PHONE,
-  type AlimtalkEventType,
-} from './constants';
+import { type AlimtalkEventType } from './constants';
+import { applyCompanyChannel, fetchCompanyAlimtalkSettings } from './companyPolicy';
 import {
   buildAlimtalkConfigFromEnv,
   isNcpTemplateReady,
@@ -26,13 +24,6 @@ const CLAIM_TTL_MS = 90_000;
 function snapshotFromData(id: string, data: FirebaseFirestore.DocumentData | undefined): ReservationSnapshot | null {
   if (!data) return null;
   return { id, ...data } as ReservationSnapshot;
-}
-
-async function fetchCompanyPhone(companyId: string | undefined): Promise<string> {
-  if (!companyId) return DEFAULT_COMPANY_PHONE;
-  const snap = await admin.firestore().doc(`companies/${companyId}`).get();
-  const phone = snap.data()?.phone;
-  return typeof phone === 'string' && phone.trim() ? phone.trim() : DEFAULT_COMPANY_PHONE;
 }
 
 function resolveTemplateParams(
@@ -218,20 +209,37 @@ export async function processReservationAlimtalk(
   const before = snapshotFromData(reservationId, beforeData);
   const after = snapshotFromData(reservationId, afterData);
 
-  // @airpickup 알림톡은 에어픽(B2C) 예약만 — 홈페이지·현장 B2B는 시트만 동기화
+  const candidateEvents = resolveAlimtalkEvents(before, after);
+  if (candidateEvents.length === 0) return;
+
+  /**
+   * 발송 대상은 업체 설정(companies/{id}.alimtalk)이 정한다.
+   * 설정이 없으면 기존과 동일하게 에어픽(B2C) 예약만 — 홈페이지·현장 B2B는 시트만 동기화.
+   */
   const source = resolveBookingSource(after?.createdBy, afterData as Record<string, unknown> | undefined);
-  if (source !== 'airpick-b2c') {
-    console.log('[alimtalk] skipped — not airpick-b2c', {
+  const companySettings = await fetchCompanyAlimtalkSettings(after?.companyId);
+  if (!companySettings.enabled || !companySettings.sources.includes(source)) {
+    console.log('[alimtalk] skipped — company policy', {
       reservationId,
+      companyId: after?.companyId,
       createdBy: after?.createdBy,
       source,
+      enabled: companySettings.enabled,
+      sources: companySettings.sources,
     });
     return;
   }
 
-  const events = resolveAlimtalkEvents(before, after);
-
-  if (events.length === 0) return;
+  const events = candidateEvents.filter((e) => companySettings.events.includes(e));
+  if (events.length === 0) {
+    console.log('[alimtalk] skipped — event disabled for company', {
+      reservationId,
+      companyId: after?.companyId,
+      candidateEvents,
+      enabledEvents: companySettings.events,
+    });
+    return;
+  }
 
   if (!config) {
     console.log('[alimtalk] skipped — credentials or ALIMTALK_ENABLED not configured', {
@@ -258,9 +266,9 @@ export async function processReservationAlimtalk(
     });
   }
 
-  const companyPhone = events.includes('checkout')
-    ? await fetchCompanyPhone(reservationForSend.companyId)
-    : DEFAULT_COMPANY_PHONE;
+  const companyPhone = companySettings.phone;
+  /** 업체 전용 카카오 채널이 설정돼 있으면 그 발신 프로필로 보낸다 */
+  const sendConfig = applyCompanyChannel(config, companySettings.channel);
 
   for (const eventType of events) {
     if (
@@ -305,7 +313,7 @@ export async function processReservationAlimtalk(
 
     try {
       const result = await sendAlimtalkMessage(
-        config,
+        sendConfig,
         templateCode,
         recipientNo,
         templateParameter,
@@ -338,7 +346,7 @@ export async function processReservationAlimtalk(
 
       if (allowButtonless) {
         const finalResult = await sendAlimtalkMessage(
-          config,
+          sendConfig,
           templateCode,
           recipientNo,
           templateParameter

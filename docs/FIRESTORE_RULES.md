@@ -11,6 +11,8 @@
 | 컬렉션 | read | create | update | delete |
 |--------|------|--------|--------|--------|
 | `reservations` | 로그인(Anonymous 포함) | 로그인 + 필드 검증 | 로그인 + 필드 검증 + **보안필드 잠금** | **플랫폼 관리자만** |
+| `reservations/{id}/secrets` | **불가** | **불가** | **불가** | **불가** — 예약 비밀번호, Functions만 |
+| `capacity` | **공개** (대수만) | **불가** | **불가** | **불가** — `onReservationSync`만 |
 | `companies` | **공개** | **Functions만** | 로그인 + **운영 필드 allowlist만** (요금·직원·마감 등). 핀·보험·password·status는 Functions | **Functions만** |
 | `reviews` | 로그인 + `published` | Functions만 | Functions만 | Functions만 |
 | `system_settings` | 로그인 | **불가** (Functions만) | **불가** | **불가** |
@@ -21,6 +23,15 @@
 
 `reservationPassword`, `receiptToken`, `createdBy`, `createdAt`, `userId`  
 → 취소·비번 검증은 Cloud Functions(admin)가 처리합니다.
+
+`reservationPassword`는 생성 직후 `onReservationSync`가 `reservations/{id}/secrets/lookup`으로 옮기고
+본문에서 지웁니다. 예약 문서를 읽어도 비밀번호는 나오지 않습니다.
+
+### capacity (시간당 입고 집계)
+
+`capacity/{companyId}__{YYYY-MM-DD}` — `hours` (시각 0–23 문자열 키 → 대수), `total`.  
+손님 화면이 마감 확인용으로 예약 목록을 통째로 읽지 않도록 만든 공개 집계입니다.
+갱신은 예약 변경 트리거, 보정은 매일 04:00 KST 정리 작업이 합니다.
 
 ### 플랫폼 관리자 (Firestore `isPlatformAdmin`)
 

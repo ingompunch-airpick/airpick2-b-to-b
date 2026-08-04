@@ -6,6 +6,7 @@ import { createReservationId, persistReservation } from '../lib/reservationFires
 import { ensureFirestoreAuth } from '../lib/firebaseAuth';
 import { RESERVATION_CREATED_BY } from '../utils/bookingSource';
 import { formatPartnerDisplayName } from '../utils/companyDisplay';
+import { companyParkingTypeAvailability } from '../utils/companyProfile';
 import AirlinePicker from '../components/AirlinePicker';
 import {
   checkHomepageBookingPolicy,
@@ -32,6 +33,12 @@ import {
 import TerminalPicker from '../components/TerminalPicker';
 import { buildReceiptUrl } from '../utils/receipt';
 import { createReceiptToken } from '../utils/receiptToken';
+import {
+  applyTimeToDateTimeLocal,
+  fetchIcnArrival,
+  normalizeArrivalFlightId,
+  toFlightDateYmd,
+} from '../lib/icnArrival';
 
 type Terminal = string;
 
@@ -81,6 +88,8 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
   const [done, setDone] = useState<{ id: string; receiptUrl: string } | null>(null);
   const [hourlyHint, setHourlyHint] = useState<HourlyCapacityResult | null>(null);
   const [parkingHint, setParkingHint] = useState<ParkingCapacityResult | null>(null);
+  const [arrivalFlightHint, setArrivalFlightHint] = useState<string | null>(null);
+  const [arrivalFlightLooking, setArrivalFlightLooking] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -101,11 +110,7 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
         const def = getDefaultTerminal(airportId);
         setDepartureTerminal(def);
         setArrivalTerminal(def);
-        if (data.supports_indoor === false && data.supports_outdoor !== false) {
-          setIsIndoor(false);
-        } else {
-          setIsIndoor(true);
-        }
+        setIsIndoor(companyParkingTypeAvailability(data).indoor);
       } catch (err) {
         if (!cancelled) {
           setLoadError(err instanceof Error ? err.message : '업체 정보를 불러오지 못했습니다.');
@@ -118,6 +123,55 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
       cancelled = true;
     };
   }, [companyId]);
+
+  const arrivalDateKey = arrLocal.slice(0, 10);
+
+  // 입국 편명 → 공항 예정 도착 시각으로 출고일시·터미널 자동 채움 (오늘~+6일)
+  useEffect(() => {
+    const flightId = normalizeArrivalFlightId(arrivalFlight);
+    const dateYmd = toFlightDateYmd(arrivalDateKey);
+    if (flightId.length < 3 || dateYmd.length !== 8) {
+      setArrivalFlightHint(null);
+      setArrivalFlightLooking(false);
+      return;
+    }
+
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      setArrivalFlightLooking(true);
+      void fetchIcnArrival(flightId, dateYmd).then((res) => {
+        if (cancelled) return;
+        setArrivalFlightLooking(false);
+        if (!res.ok || !res.data?.scheduleTime) {
+          const msg =
+            res.data?.message ||
+            (res.status === 422
+              ? '출고일 6일 이내만 공항 시각 자동 조회가 됩니다.'
+              : null);
+          setArrivalFlightHint(msg);
+          return;
+        }
+
+        const time = res.data.estimatedTime || res.data.scheduleTime;
+        if (!time) {
+          setArrivalFlightHint(null);
+          return;
+        }
+
+        setArrLocal((prev) => applyTimeToDateTimeLocal(prev, time));
+        if (res.data.terminal) setArrivalTerminal(res.data.terminal);
+        const origin = res.data.origin ? ` · ${res.data.origin}` : '';
+        setArrivalFlightHint(
+          `공항 예정 도착 ${time}${origin} 반영 · 필요하면 직접 수정하세요`
+        );
+      });
+    }, 450);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [arrivalFlight, arrivalDateKey]);
 
   const displayName = formatPartnerDisplayName(company?.name, companyId) || companyId;
   const pricedCompany = useMemo(() => {
@@ -193,10 +247,9 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
     };
   }, [company, dep.date, arr.date]);
 
-  const showIndoor =
-    company?.supports_indoor !== false || company?.facilityType === 'mixed' || company?.facilityType === 'indoor';
-  const showOutdoor =
-    company?.supports_outdoor !== false || company?.facilityType === 'mixed' || company?.facilityType === 'outdoor';
+  const parkingTypes = companyParkingTypeAvailability(company);
+  const showIndoor = parkingTypes.indoor;
+  const showOutdoor = parkingTypes.outdoor;
 
   const validate = (): string | null => {
     if (!userName.trim()) return '예약자 이름을 입력해 주세요.';
@@ -575,10 +628,19 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
               <input
                 value={arrivalFlight}
                 onChange={(e) => setArrivalFlight(e.target.value.toUpperCase())}
-                placeholder="예) A123"
+                placeholder="예) 7C1704"
                 className={inputClass}
                 required
               />
+              {arrivalFlightLooking ? (
+                <p className="mt-1.5 text-[12px] font-semibold text-stone-500">
+                  공항 도착 시각 조회 중…
+                </p>
+              ) : arrivalFlightHint ? (
+                <p className="mt-1.5 text-[12px] font-semibold text-stone-500">
+                  {arrivalFlightHint}
+                </p>
+              ) : null}
             </FormRow>
 
             {/* 부가 */}

@@ -29,6 +29,7 @@ import { getKSTDateOnlyString, getKSTDateTimeLocalString } from '../utils/kstDat
 import { reservationMatchesKeyword } from '../utils/reservationSearch';
 import { formatPartnerDisplayName, resolveRequiredCompanyId } from '../utils/companyDisplay';
 import { getOperatorIntakeCompanyOptions } from '../utils/operatorHierarchy';
+import { companyParkingTypeAvailability } from '../utils/companyProfile';
 function cn(...classes: (string | boolean | undefined)[]) {
   return classes.filter(Boolean).join(' ');
 }
@@ -139,11 +140,29 @@ export default function SearchReceptionView({
     }
   }, [intakeCompanyOptions, currentCompanyId, receptionSubMode]);
 
-  const intakeAirportId = useMemo(() => {
+  const intakeCompany = useMemo(() => {
     const activeCompId = resolveRequiredCompanyId(selectedCompanyId, currentCompanyId);
-    const partnerObj = companies.find((c) => c.id === activeCompId);
-    return resolveCompanyAirportId(partnerObj);
+    return companies.find((c) => c.id === activeCompId) || null;
   }, [selectedCompanyId, currentCompanyId, companies]);
+
+  const intakeAirportId = useMemo(
+    () => resolveCompanyAirportId(intakeCompany),
+    [intakeCompany]
+  );
+
+  /** 업체가 안 받는 주차 유형은 선택 불가 — 요금 미설정 업체의 0원 접수 방지 */
+  const intakeParkingTypes = useMemo(
+    () => companyParkingTypeAvailability(intakeCompany),
+    [intakeCompany]
+  );
+
+  const editParkingTypes = useMemo(
+    () =>
+      companyParkingTypeAvailability(
+        companies.find((c) => c.id === editingSearchedRes?.companyId) || null
+      ),
+    [companies, editingSearchedRes]
+  );
 
   useEffect(() => {
     const def = getDefaultTerminal(intakeAirportId);
@@ -157,6 +176,14 @@ export default function SearchReceptionView({
   const [phone, setPhone] = useState('');
   const [isIndoor, setIsIndoor] = useState<boolean>(true);
   const [isSubmittingBooking, setIsSubmittingBooking] = useState(false);
+
+  useEffect(() => {
+    setIsIndoor((prev) => {
+      if (prev && !intakeParkingTypes.indoor) return false;
+      if (!prev && !intakeParkingTypes.outdoor) return true;
+      return prev;
+    });
+  }, [intakeParkingTypes]);
   
   const [intakeStartDate, setIntakeStartDate] = useState<string>(() => getKSTDateTimeLocalString(0));
   const [intakeEndDate, setIntakeEndDate] = useState<string>(() => getKSTDateTimeLocalString(3 * 24 * 60 * 60 * 1000));
@@ -649,7 +676,12 @@ export default function SearchReceptionView({
                         setEditSearchedArrivalTerminal(
                           normalizeTerminalCode(editAirport, target.arrivalTerminal)
                         );
-                        setEditSearchedIsIndoor(target.isIndoor !== false);
+                        const editTypes = companyParkingTypeAvailability(
+                          companies.find((c) => c.id === target.companyId) || null
+                        );
+                        setEditSearchedIsIndoor(
+                          editTypes.indoor ? target.isIndoor !== false : false
+                        );
                         setEditSearchedDepartureAirline(target.departureAirline || '');
                         setEditSearchedDepartureFlight(target.departureFlight || '');
                         setEditSearchedArrivalAirline(target.arrivalAirline || '');
@@ -827,9 +859,14 @@ export default function SearchReceptionView({
                 <button
                   type="button"
                   onClick={() => setIsIndoor(true)}
+                  disabled={!intakeParkingTypes.indoor}
                   className={cn(
-                    'py-1.5 text-[12.5px] font-bold rounded-lg transition-all cursor-pointer',
-                    isIndoor ? 'bg-amber-500/95 text-neutral-950 shadow-sm' : 'text-zinc-500 hover:text-zinc-350'
+                    'py-1.5 text-[12.5px] font-bold rounded-lg transition-all',
+                    !intakeParkingTypes.indoor
+                      ? 'text-zinc-700 cursor-not-allowed'
+                      : isIndoor
+                        ? 'bg-amber-500/95 text-neutral-950 shadow-sm cursor-pointer'
+                        : 'text-zinc-500 hover:text-zinc-350 cursor-pointer'
                   )}
                   id="btn-parking-indoor"
                 >
@@ -838,15 +875,25 @@ export default function SearchReceptionView({
                 <button
                   type="button"
                   onClick={() => setIsIndoor(false)}
+                  disabled={!intakeParkingTypes.outdoor}
                   className={cn(
-                    'py-1.5 text-[12.5px] font-bold rounded-lg transition-all cursor-pointer',
-                    !isIndoor ? 'bg-amber-500/95 text-neutral-950 shadow-sm' : 'text-zinc-500 hover:text-zinc-350'
+                    'py-1.5 text-[12.5px] font-bold rounded-lg transition-all',
+                    !intakeParkingTypes.outdoor
+                      ? 'text-zinc-700 cursor-not-allowed'
+                      : !isIndoor
+                        ? 'bg-amber-500/95 text-neutral-950 shadow-sm cursor-pointer'
+                        : 'text-zinc-500 hover:text-zinc-350 cursor-pointer'
                   )}
                   id="btn-parking-outdoor"
                 >
                   야외
                 </button>
               </div>
+              {(!intakeParkingTypes.indoor || !intakeParkingTypes.outdoor) && (
+                <p className="mt-1 text-[11px] font-bold text-zinc-600">
+                  이 업체는 {intakeParkingTypes.indoor ? '실내' : '야외'} 주차만 받습니다.
+                </p>
+              )}
             </div>
 
             <div className="col-span-2 pt-2 border-t border-neutral-850 space-y-3">
@@ -1349,9 +1396,14 @@ export default function SearchReceptionView({
                   <button
                     type="button"
                     onClick={() => setEditSearchedIsIndoor(true)}
+                    disabled={!editParkingTypes.indoor}
                     className={cn(
-                      "py-2.5 rounded-xl border font-black flex items-center justify-center gap-1.5 transition-all text-xs cursor-pointer",
-                      editSearchedIsIndoor ? "bg-purple-650/15 border-[#A855F7] text-purple-400 font-extrabold" : "bg-neutral-955 border-neutral-850 hover:border-neutral-800 text-zinc-400"
+                      "py-2.5 rounded-xl border font-black flex items-center justify-center gap-1.5 transition-all text-xs",
+                      !editParkingTypes.indoor
+                        ? "bg-neutral-955 border-neutral-850 text-zinc-700 cursor-not-allowed"
+                        : editSearchedIsIndoor
+                          ? "bg-purple-650/15 border-[#A855F7] text-purple-400 font-extrabold cursor-pointer"
+                          : "bg-neutral-955 border-neutral-850 hover:border-neutral-800 text-zinc-400 cursor-pointer"
                     )}
                   >
                     <span>실내 주차 보관 권장</span>
@@ -1359,9 +1411,14 @@ export default function SearchReceptionView({
                   <button
                     type="button"
                     onClick={() => setEditSearchedIsIndoor(false)}
+                    disabled={!editParkingTypes.outdoor}
                     className={cn(
-                      "py-2.5 rounded-xl border font-black flex items-center justify-center gap-1.5 transition-all text-xs cursor-pointer",
-                      !editSearchedIsIndoor ? "bg-[#22C55E]/10 border-[#22C55E] text-[#22C55E] font-extrabold" : "bg-neutral-955 border-neutral-850 hover:border-neutral-800 text-zinc-400"
+                      "py-2.5 rounded-xl border font-black flex items-center justify-center gap-1.5 transition-all text-xs",
+                      !editParkingTypes.outdoor
+                        ? "bg-neutral-955 border-neutral-850 text-zinc-700 cursor-not-allowed"
+                        : !editSearchedIsIndoor
+                          ? "bg-[#22C55E]/10 border-[#22C55E] text-[#22C55E] font-extrabold cursor-pointer"
+                          : "bg-neutral-955 border-neutral-850 hover:border-neutral-800 text-zinc-400 cursor-pointer"
                     )}
                   >
                     <span>야외 안전 주차 권장</span>

@@ -88,12 +88,24 @@ export function enrichReservationWritePatch(
   }
 
   const priceExplicit = patch.totalPrice !== undefined;
-  if (!priceExplicit && hasPriceAffectingChange(patch)) {
+  const nextStatus = normalizeReservationStatus(
+    (patch.status !== undefined ? patch.status : current.status) as ReservationStatus | string
+  );
+  const ensurePriceOnCheckInOut =
+    nextStatus === 'completed_in' || nextStatus === 'completed_out';
+  const currentPrice = Number(current.totalPrice) || 0;
+  const needsRecalc =
+    hasPriceAffectingChange(patch) || (ensurePriceOnCheckInOut && currentPrice <= 0);
+
+  if (!priceExplicit && needsRecalc) {
     const mergedForPrice = { ...current, ...patch } as Reservation;
     const price = recalculateReservationPrice(mergedForPrice, company);
-    if (price > 0 || hasPriceAffectingChange(patch)) {
-      out.totalPrice = price;
-    }
+    /**
+     * 업체 요금이 비어 있거나(실내 요금 미설정 등) 일정이 불완전하면 0이 나온다.
+     * 이미 받아둔 금액을 0으로 덮으면 확인증·알림톡·정산이 전부 0원이 되므로 유지한다.
+     * 금액을 0으로 만들어야 하면 patch.totalPrice 로 명시한다.
+     */
+    if (price > 0) out.totalPrice = price;
   }
 
   return out;
@@ -108,17 +120,21 @@ export function statusRevertCleanupPatch(
   const to = normalizeReservationStatus(toStatus);
   const out: Record<string, unknown> = {};
 
-  // 출차완료 → 출고: 실제 출차·보관 만료 제거
+  // 출차완료 → 출고: 실제 출차·보관 만료·출고 담당 제거
   if (from === 'completed_out' && to === 'request_out') {
     out.actualExitTime = deleteField();
     out.completedOutAt = deleteField();
     out.dataPurgeAt = deleteField();
     out.storagePurgeAt = deleteField();
+    out.checkedOutBy = deleteField();
+    out.checkedOutAt = deleteField();
   }
 
-  // 입고완료(주차) → 입고: 실제 입고 시각 제거
+  // 입고완료(주차) → 입고: 실제 입고 시각·입고 담당 제거
   if (from === 'completed_in' && to === 'pending_in') {
     out.actualParkingTime = deleteField();
+    out.checkedInBy = deleteField();
+    out.checkedInAt = deleteField();
   }
 
   // 취소 → 예약완료 복구: 취소 메타 제거

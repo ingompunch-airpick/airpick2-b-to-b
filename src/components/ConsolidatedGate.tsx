@@ -75,33 +75,6 @@ export default function ConsolidatedGate({ onLoginSuccess, partners, companies }
       localStorage.removeItem('saved_id');
     }
 
-    // 0. 하드코딩 예외 처리 100% 강제 적용 ('wawa' / 'wawa')
-    if (cleanUsername === 'wawa' && cleanPassword === 'wawa') {
-      const wawaCompany: CompanyInfo = {
-        id: 'wawa',
-        name: '와와',
-        region: airportRegionLabel(
-          companies.find((c) => c.id === 'wawa')?.airport
-        ),
-        phone: '1545-5746',
-        logo: 'https://images.unsplash.com/photo-1545179605-1296651e9d43?q=80&w=200&auto=format&fit=crop',
-        isIndoor: true,
-        facilityType: 'mixed',
-        ratePolicy: ''
-      };
-
-      onLoginSuccess({
-        isSuperAdmin: false,
-        isLocalAdmin: true,
-        isMasterAdmin: true,
-        isAdminModeActive: false,
-        companyId: 'wawa',
-        companyInfo: wawaCompany
-      });
-      alert("[와와] 로그인 성공! 전용 주차/기사 관리 터미널이 열립니다.");
-      return;
-    }
-
     // 1. 본사 — Firebase Auth 관리자 이메일 + Auth 비밀번호
     if (isPlatformAdminEmail(cleanUsername)) {
       setLoggingIn(true);

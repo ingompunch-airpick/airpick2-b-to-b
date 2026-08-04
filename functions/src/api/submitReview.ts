@@ -3,6 +3,7 @@ import { onRequest } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions';
 
 import { reservationPasswordMatches } from '../reservations/publicReservation';
+import { resolveReservationPassword } from '../reservations/reservationSecrets';
 import { recomputeCompanyRating } from '../reviews/aggregate';
 import { uploadReviewPhotosFromDataUrls } from '../reviews/uploadPhotos';
 import { maskCarNumber } from '../utils/carNumber';
@@ -72,7 +73,8 @@ export const submitReview = onRequest(
       }
 
       const data = reservationSnap.data() as Record<string, unknown>;
-      if (!reservationPasswordMatches(data.reservationPassword, password)) {
+      const storedPassword = await resolveReservationPassword(id, data);
+      if (!reservationPasswordMatches(storedPassword, password)) {
         res.status(403).json({ error: 'invalid_password' });
         return;
       }

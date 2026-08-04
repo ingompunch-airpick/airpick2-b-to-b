@@ -56,6 +56,16 @@ function resolveOperatorLabel(params: {
   return '업체 마스터';
 }
 
+/** 손님 「내 예약」용 — 직원 이름, 마스터·본사는 「업체 담당」 */
+function resolveCustomerFacingStaffLabel(params: {
+  isEmployee: boolean;
+  employeeName: string;
+}): string {
+  const name = params.employeeName.trim();
+  if (params.isEmployee && name) return name;
+  return '업체 담당';
+}
+
 /**
  * 예약 Firestore 구독·카운터·상태/결제/사진 변경.
  * App은 세션·화면 조립만 담당하고 예약 데이터 허브는 이 훅으로 둔다.
@@ -245,6 +255,8 @@ export function useReservations({
       statusUpdateInFlightRef.current.add(resId);
 
       const operatorName = resolveOperatorLabel({ isEmployee, employeeName, isSuperAdmin });
+      const staffLabel = resolveCustomerFacingStaffLabel({ isEmployee, employeeName });
+      const nowIso = new Date().toISOString();
       const retentionPatch =
         nextStatus === 'completed_out'
           ? buildCheckoutRetentionFields(extraFields?.actualExitTime)
@@ -257,12 +269,23 @@ export function useReservations({
         : {};
 
       let mergedExtra = { ...(extraFields || {}) } as Partial<Reservation>;
-      if (current && Object.keys(mergedExtra).length > 0) {
+      if (current) {
         mergedExtra = enrichReservationWritePatch(
           current,
-          mergedExtra,
+          { ...mergedExtra, status: nextStatus },
           company
         ) as Partial<Reservation>;
+        // status는 아래에서 한 번만 넣음
+        delete (mergedExtra as { status?: ReservationStatus }).status;
+      }
+
+      const staffStamp: Record<string, string> = {};
+      if (nextStatus === 'completed_in') {
+        staffStamp.checkedInBy = staffLabel;
+        staffStamp.checkedInAt = nowIso;
+      } else if (nextStatus === 'completed_out') {
+        staffStamp.checkedOutBy = staffLabel;
+        staffStamp.checkedOutAt = nowIso;
       }
 
       let patch: Record<string, unknown> = {
@@ -270,8 +293,9 @@ export function useReservations({
         ...mergedExtra,
         ...retentionPatch,
         ...revertCleanup,
+        ...staffStamp,
         updatedBy: operatorName,
-        updatedAt: new Date().toISOString(),
+        updatedAt: nowIso,
       };
 
       if (extraFields?.images && current) {

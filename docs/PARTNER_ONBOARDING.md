@@ -69,6 +69,37 @@ Storage/reservations/{companyId}/{예약id}/images/…
 
 ---
 
+## 5-1. 알림톡 발송 설정
+
+발송 대상은 **코드가 아니라 `companies/{id}.alimtalk`** 이 정합니다.
+홈페이지 업체를 늘려도 Functions 재배포 없이 필드만 켜면 됩니다.
+
+```jsonc
+// companies/{id}
+"alimtalk": {
+  "enabled": true,
+  "sources": ["airpick-b2c", "homepage"],   // 어떤 유입에 보낼지
+  "events": ["reserve", "checkin", "checkout"],
+  "channel": { "plusFriendId": "@업체채널" } // 생략 시 에어픽 공용 채널
+}
+```
+
+| 상황 | 설정 |
+|------|------|
+| 필드 없음 (기본) | 에어픽 B2C 예약만 발송 — 기존 동작 |
+| 홈페이지 예약도 발송 | `sources` 에 `homepage` 추가 |
+| 잠시 전체 중단 | `enabled: false` |
+| 출차 알림만 끄기 | `events` 에서 `checkout` 제거 |
+| 업체 자기 채널로 발송 | `channel.plusFriendId` (NCP) / `channel.senderKey` (NHN) |
+
+`channel` 을 쓰려면 업체가 카카오 비즈니스 채널·발신프로필을 등록하고 템플릿 3종을
+따로 심사받아야 합니다. 미설정이면 전역 환경변수의 에어픽 채널로 나갑니다.
+
+**주의** — 템플릿 본문은 NCP 콘솔 심사본과 글자 단위로 같아야 합니다
+(`functions/src/alimtalk/ncpTemplates.ts`). 문구를 바꾸면 재심사가 필요합니다.
+
+---
+
 ## 6. B2C만 쓰는 업체
 
 - 자체 홈 불필요

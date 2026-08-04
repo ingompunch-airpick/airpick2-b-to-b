@@ -11,6 +11,11 @@ import {
   notifyPartnersNewReservation,
   notifyPartnersValetStatusChange,
 } from './partnerPush';
+import {
+  isPasswordStripOnlyChange,
+  stashReservationPassword,
+} from './reservations/reservationSecrets';
+import { syncCapacityAggregate } from './capacityAggregate';
 
 const alimtalkEnabled = defineString('ALIMTALK_ENABLED', { default: 'false' });
 const alimtalkProvider = defineString('ALIMTALK_PROVIDER', { default: 'nhn' });
@@ -75,9 +80,31 @@ export const onReservationSync = onDocumentWritten(
     const beforeData = event.data?.before.data();
     const afterData = event.data?.after.data();
 
+    if (isPasswordStripOnlyChange(beforeData, afterData)) return;
+
+    // 손님 화면이 예약 목록 대신 읽는 시간당 집계 — 삭제·자동취소도 반영되도록 먼저 갱신
+    try {
+      await syncCapacityAggregate(beforeData, afterData);
+    } catch (err) {
+      console.error('[capacityAggregate] sync failed', {
+        reservationId,
+        err: err instanceof Error ? err.message : String(err),
+      });
+    }
+
     if (!afterData) return;
 
     applyRuntimeEnv();
+
+    // 비밀번호는 본문에 두지 않는다 — 정책 위반으로 자동취소되는 건도 먼저 옮긴다
+    try {
+      await stashReservationPassword(reservationId, afterData);
+    } catch (err) {
+      console.error('[reservationSecrets] stash failed', {
+        reservationId,
+        err: err instanceof Error ? err.message : String(err),
+      });
+    }
 
     // 신규 생성 시 정책·한도 위반이면 즉시 취소하고 알림톡·시트는 이 턴에서 스킵
     if (!beforeData) {

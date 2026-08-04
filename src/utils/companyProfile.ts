@@ -89,6 +89,38 @@ export function inferFacilityType(company?: Partial<Company>): FacilityType {
   return company?.is_indoor === false ? 'outdoor' : 'indoor';
 }
 
+/** 실내/야외 요금이 실제로 설정돼 있는지 — 0이면 계산 결과가 0원이 된다 */
+function resolvedBasePrice(company: Partial<Company> | null | undefined, indoor: boolean): number {
+  if (!company) return 0;
+  const specific = indoor ? company.indoorBasePrice : company.outdoorBasePrice;
+  const value = specific ?? company.base_price;
+  return Number(value) || 0;
+}
+
+/**
+ * 업체가 실내/야외 주차를 실제로 받을 수 있는지.
+ * 업체 설정(supports_*·facilityType)과 요금 설정을 함께 본다.
+ * 둘 다 불가로 나오면 화면이 잠기므로 기존 동작(둘 다 허용)을 유지한다.
+ */
+export function companyParkingTypeAvailability(
+  company?: Partial<Company> | null
+): { indoor: boolean; outdoor: boolean } {
+  if (!company) return { indoor: true, outdoor: true };
+
+  const facility = inferFacilityType(company);
+  const indoor =
+    facility !== 'outdoor' &&
+    company.supports_indoor !== false &&
+    resolvedBasePrice(company, true) > 0;
+  const outdoor =
+    facility !== 'indoor' &&
+    company.supports_outdoor !== false &&
+    resolvedBasePrice(company, false) > 0;
+
+  if (!indoor && !outdoor) return { indoor: true, outdoor: true };
+  return { indoor, outdoor };
+}
+
 function coordToFormString(raw: unknown): string {
   if (raw == null || raw === '') return '';
   return String(raw);

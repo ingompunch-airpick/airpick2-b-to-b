@@ -6,6 +6,7 @@ import {
   reservationPasswordMatches,
   sanitizeReservation,
 } from '../reservations/publicReservation';
+import { resolveReservationPassword } from '../reservations/reservationSecrets';
 import {
   carNumberLookupNeedles,
   carNumberTail,
@@ -89,9 +90,11 @@ export const lookupReservation = onRequest(
         if (tail) await addSnap('carNumberTail', tail);
       }
 
-      const matched = [...seen.entries()].filter(([, data]) =>
-        reservationPasswordMatches(data.reservationPassword, password)
-      );
+      const matched: [string, Record<string, unknown>][] = [];
+      for (const [id, data] of seen) {
+        const stored = await resolveReservationPassword(id, data);
+        if (reservationPasswordMatches(stored, password)) matched.push([id, data]);
+      }
 
       const reservations = await Promise.all(
         matched.map(async ([id, data]) => {

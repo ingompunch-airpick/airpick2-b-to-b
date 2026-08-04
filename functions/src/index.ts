@@ -3,6 +3,8 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { defineSecret, defineString } from 'firebase-functions/params';
 import { onReservationSync } from './onReservationWrite';
 import { runRetentionCleanup } from './retentionCleanup';
+import { sweepReservationPasswords } from './reservations/reservationSecrets';
+import { backfillUpcomingCapacity } from './capacityAggregate';
 import { runFlightDelayCheck } from './flightDelay/checkFlightDelays';
 import { adminUpsertCompany } from './admin/upsertCompany';
 import { adminSetCompanyStatus } from './admin/setCompanyStatus';
@@ -18,6 +20,7 @@ import { submitReview } from './api/submitReview';
 import { listAdminReviews, moderateReview } from './api/moderateReview';
 import { getIcnShuttle } from './api/icnShuttle';
 import { getIcnFlight, getIcnFlightSearch } from './api/icnFlight';
+import { getIcnArrival } from './api/icnArrival';
 import { getIcnAirportLive } from './api/icnAirportLive';
 import { getDriveEta } from './api/driveEta';
 
@@ -37,6 +40,7 @@ export {
   getIcnShuttle,
   getIcnFlight,
   getIcnFlightSearch,
+  getIcnArrival,
   getIcnAirportLive,
   getDriveEta,
 };
@@ -61,6 +65,12 @@ export const purgeExpiredReservationData = onSchedule(
   async () => {
     const result = await runRetentionCleanup();
     console.log('[purgeExpiredReservationData]', JSON.stringify(result));
+
+    const movedPasswords = await sweepReservationPasswords();
+    console.log('[purgeExpiredReservationData] passwords moved to secrets', movedPasswords);
+
+    const capacityDocs = await backfillUpcomingCapacity();
+    console.log('[purgeExpiredReservationData] capacity docs refreshed', capacityDocs);
   }
 );
 

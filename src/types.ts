@@ -280,6 +280,12 @@ export interface Reservation {
   // Process operator tracking
   createdBy?: string;
   updatedBy?: string;
+  /** 입고완료(completed_in) 처리 담당 — 손님 앱 「내 예약」 표시용 */
+  checkedInBy?: string;
+  checkedInAt?: string;
+  /** 출고완료(completed_out) 처리 담당 — 손님 앱 「내 예약」 표시용 */
+  checkedOutBy?: string;
+  checkedOutAt?: string;
 
   /** 홈페이지·B2C 예약 연동 필드 */
   departureAirline?: string;

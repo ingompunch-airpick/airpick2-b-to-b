@@ -55,7 +55,7 @@ async function assertBookingAllowed(departureDate, arrivalDate) {
     throw new Error('현재 전체 예약이 마감되었습니다.');
   }
   const blocked = data.blockedDates || [];
-  // YYYY-MM-DD 입고일이 마감이면 거부 (출고일은 검사하지 않음)
+  // YYYY-MM-DD 입고일이 마감이면 거부 (출고일·중간일은 검사하지 않음 — B2B/B2C/Functions 정본)
   // ...
 }
 
@@ -115,6 +115,13 @@ export async function submitHomepageReservation(form) {
 
 **단일 소스:** `companies/{업체id}.blockedDates` (+ `isOpen`)
 
+**검사 규칙 (정본 — B2B · B2C · 홈 · Cloud Functions 동일)**
+
+- `blockedDates`는 **입고일(`departureDate`)만** 막는다.
+- 출고일·중간 보관일은 `blockedDates`에 있어도 **예약 허용**.
+- 전체 마감: `isOpen === false`
+- 당일 입고 차단: `sameDayBookingBlocked === true` 이고 입고일 = 오늘(KST)
+
 | 업체 | Firestore 경로 |
 |------|----------------|
 | 와와 | `companies/wawa` |
@@ -126,13 +133,14 @@ export async function submitHomepageReservation(form) {
 앱 **예약 마감** 메뉴에서 저장하는 값:
 
 - **전체 마감**: `companies/{id}.isOpen === false`
-- **날짜별 마감**: `companies/{id}.blockedDates` → `["2026-06-01", ...]`
+- **날짜별 마감**: `companies/{id}.blockedDates` → `["2026-06-01", ...]` (**입고 불가일**)
 - **시간당 입고 한도**(선택, 기본 OFF): `hourlyCapEnabled: true` + `maxCarsPerHour: N`  
   → 입고 시각(`departureTime`) 기준 같은 시간대에 N대까지. 홈·`/h`·현장·에어픽이 같은 `reservations`를 세어 합산.
 - **동시 주차 대수 한도**(선택, 기본 OFF): `parkingCapEnabled: true` + `maxParkedCars: N`  
   → 입고일~출고일 구간에 겹치는 차량이 N대를 넘으면 만차. `cancelled`·`completed_out` 제외. 출고 완료 시 자동 회복.
 
-홈페이지 예약 폼 제출 **전**에 `companies/wawa` 를 읽어 동일하게 막아야 홈·앱이 일치합니다. 앱 현장 접수도 날짜별 마감·시간당·동시주차 한도를 검사합니다. 예제: `integrations/wawavalet-firebase.example.js`
+홈페이지·B2C 예약 폼 제출 **전**에 `companies/{id}` 를 읽어 **입고일만** 동일하게 막아야 합니다. 서버(`enforceBookingPolicyOnCreate`)가 백스톱입니다. 예제: `integrations/wawavalet-firebase.example.js`  
+(AI Studio 홈: Functions/rules 배포 금지 · 정책 검사는 입고일만.)
 
 ## 검증 체크리스트
 

@@ -45,8 +45,11 @@ B2C(`airpick-b2c`) · 업체 홈페이지는 **클라이언트만** 배포한다
 - [x] 리전 고정: 손님·`onReservationSync` → `asia-northeast3` / 관리자·스케줄 → `us-central1`
 - [x] `functions` 패키지 `tsc` 빌드 통과
 - [x] **B2B에서 Functions 통합 배포** (2026-08-02) — 손님·B2B 함수 모두 유지
-- [ ] B2C repo Functions 배포 끄기 + 문구 고정
-- [ ] 업체 홈 문구 고정
+- [x] B2C repo Functions 배포 끄기 + 문구 고정 (`firebase.json` functions 제거 · npm scripts 차단)
+- [x] 업체 홈(AI Studio) 문구 전달 (Functions/rules → `airpick2-b-to-b`만)
+- [x] `blockedDates` 정본 = **입고일만** (B2C `bookingPolicy` 맞춤 · 서버·홈·현장 동일)
+- [x] B2C `firestore.rules` ↔ B2B 동기화 커밋 (배포는 B2B만)
+- [x] 출차확인증 완납/미납 + 금액 표시 (Hosting 배포)
 
 ### 통합 배포 시 주의
 

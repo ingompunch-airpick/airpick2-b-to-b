@@ -18,6 +18,8 @@ import { isAdmitted, isCompletedOut, isParked } from '../utils/reservationStatus
 import { resolveBookingSourceFromReservation } from '../utils/bookingSource';
 import { listCompanyParkingLots } from '../utils/companyProfile';
 import { findParkingLot } from '../utils/parkingLot';
+import { isReservationUnpaid } from '../utils/paymentStatus';
+import { recalculateReservationPrice } from '../utils/pricing';
 
 const AIRPICK_SITE_URL = 'https://www.에어픽.kr';
 
@@ -356,6 +358,20 @@ export default function VehicleReceiptPage({ code }: VehicleReceiptPageProps) {
           ? '야외'
           : '실내';
 
+    const storedPrice =
+      typeof reservation.paymentAmount === 'number' && reservation.paymentAmount > 0
+        ? reservation.paymentAmount
+        : Number(reservation.totalPrice) || 0;
+    /** 문서 금액이 0이어도 일정·업체 요금으로 표시 (출고완료 확인증 0원 방지) */
+    const recalculated =
+      storedPrice > 0
+        ? 0
+        : company
+          ? recalculateReservationPrice(reservation, company)
+          : 0;
+    const priceWon = storedPrice > 0 ? storedPrice : recalculated;
+    const unpaid = isReservationUnpaid(reservation);
+
     return {
       title: receiptTitle(reservation),
       badge: statusBadgeLabel(reservation.status),
@@ -373,7 +389,9 @@ export default function VehicleReceiptPage({ code }: VehicleReceiptPageProps) {
       destination: destination || '—',
       airlineLabel,
       parkingTypeLabel,
-      totalPrice: `${(reservation.totalPrice ?? 0).toLocaleString()}원`,
+      totalPrice: `${priceWon.toLocaleString()}원`,
+      paymentLabel: unpaid ? '미납' : '완납',
+      paymentPaid: !unpaid,
       customerPhone: maskPhoneForDisplay(reservation.phone),
       companyPhone,
       /** 고객센터: 업체명 + 번호 */
@@ -467,6 +485,15 @@ export default function VehicleReceiptPage({ code }: VehicleReceiptPageProps) {
             <span className="min-w-0 text-[12px] font-bold text-[#e8dcc8] print:text-neutral-700">
               총 주차 금액
               <span className="text-[#d4a853]/90 print:text-neutral-500"> · {view.parkingTypeLabel}</span>
+              <span
+                className={`ml-1.5 inline-flex rounded px-1.5 py-0.5 text-[10px] font-black align-middle ${
+                  view.paymentPaid
+                    ? 'bg-emerald-500/20 text-emerald-300 print:bg-transparent print:text-emerald-700'
+                    : 'bg-rose-500/20 text-rose-300 print:bg-transparent print:text-rose-700'
+                }`}
+              >
+                {view.paymentLabel}
+              </span>
             </span>
             <span className="shrink-0 text-[1.2rem] font-black tabular-nums text-[#f0c14a] print:text-neutral-900">
               {view.totalPrice}

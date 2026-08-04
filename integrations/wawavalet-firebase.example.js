@@ -1,6 +1,9 @@
 /**
  * wawavalet.com 홈페이지용 Firebase 연동 예제 (airpick-reservation)
  * npm: firebase ^11 — 프로젝트 설정은 ../firebase-config.homepage.json 과 동일하게 맞출 것
+ *
+ * 배포: Functions / Firestore·Storage rules 는 airpick2-b-to-b(B2B)만.
+ * blockedDates: 입고일(departureDate)만 검사 (출고·중간일 미적용).
  */
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously } from 'firebase/auth';

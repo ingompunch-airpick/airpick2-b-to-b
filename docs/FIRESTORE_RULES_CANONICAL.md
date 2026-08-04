@@ -161,10 +161,21 @@ service cloud.firestore {
 
       // 고객·파트너는 상태 변경으로 취소. 문서 삭제는 본사만.
       allow delete: if isPlatformAdmin() && isValidReservationId(reservationId);
+
+      // 예약 조회·취소·후기 인증용 4자리 비밀번호 — Admin SDK(Functions)만
+      match /secrets/{secretId} {
+        allow read, write: if false;
+      }
     }
 
     match /storage_retention/{reservationId} {
       allow read, write: if false;
+    }
+
+    // capacity/{companyId}__{날짜} — 시간당 입고 대수만. 갱신은 onReservationSync만.
+    match /capacity/{capacityId} {
+      allow read: if true;
+      allow write: if false;
     }
 
     // customers/{phoneKey} — visitCount (Functions만 쓰기)
