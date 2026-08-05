@@ -18,7 +18,12 @@ export const DRIVER_ONLY_VIEWS: AppView[] = [
   'parking_departure',
   'cancelled_list',
 ];
-export const HQ_ADMIN_VIEWS: AppView[] = ['statistics', 'master_settings'];
+export const HQ_ADMIN_VIEWS: AppView[] = [
+  'statistics',
+  'master_settings',
+  'hq_partner_board',
+  'hq_reviews',
+];
 // HQ는 배차표 불필요 — 파트너 관리자만 dispatch_board 사용
 
 /** dead code 정리 전 localStorage·history에 남을 수 있는 레거시 화면 */

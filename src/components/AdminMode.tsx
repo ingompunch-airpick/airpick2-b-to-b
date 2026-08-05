@@ -4,6 +4,8 @@ import StatisticsView from './StatisticsView';
 import CancelledListView from './CancelledListView';
 import MasterSettingsView from './MasterSettingsView';
 import DispatchBoardView from './DispatchBoardView';
+import HqPartnerBoardView from './HqPartnerBoardView';
+import HqReviewsView from './HqReviewsView';
 
 interface AdminModeProps {
   currentView: AppView;
@@ -24,6 +26,9 @@ interface AdminModeProps {
   currentCompanyId?: string;
   blockedDates?: string[];
   onSaveBlockedDates?: (dates: string[]) => void;
+  onToggleCompanyOpen?: (companyId: string, isOpen: boolean) => Promise<void> | void;
+  onRemoteOpenCompany?: (companyId: string) => void;
+  onOpenPartnerEditor?: () => void;
 }
 
 function resolveAdminView(view: AppView | string): AppView {
@@ -49,7 +54,10 @@ export default function AdminMode({
   employeeRole = 'driver',
   currentCompanyId = 'airpick',
   blockedDates = [],
-  onSaveBlockedDates
+  onSaveBlockedDates,
+  onToggleCompanyOpen,
+  onRemoteOpenCompany,
+  onOpenPartnerEditor,
 }: AdminModeProps) {
   const adminView = resolveAdminView(currentView);
 
@@ -104,6 +112,22 @@ export default function AdminMode({
           companies={companies}
         />
       );
+
+    case 'hq_partner_board':
+      return (
+        <HqPartnerBoardView
+          companies={companies}
+          onUpdateCompanies={onUpdateCompanies}
+          onToggleCompanyOpen={async (companyId, isOpen) => {
+            if (onToggleCompanyOpen) await onToggleCompanyOpen(companyId, isOpen);
+          }}
+          onRemoteOpen={(companyId) => onRemoteOpenCompany?.(companyId)}
+          onOpenPartnerEditor={onOpenPartnerEditor}
+        />
+      );
+
+    case 'hq_reviews':
+      return <HqReviewsView companies={companies} />;
 
     default:
       return statisticsPanel;

@@ -1,17 +1,19 @@
 ﻿import React from 'react';
-import { 
-  X, 
-  Camera, 
-  History, 
-  Calendar, 
-  Settings, 
-  LogOut, 
+import {
+  X,
+  Camera,
+  History,
+  Calendar,
+  Settings,
+  LogOut,
   ShieldAlert,
   TrendingUp,
   FileX,
   ClipboardList,
   Bell,
   BellOff,
+  LayoutGrid,
+  MessageSquareWarning,
 } from 'lucide-react';
 import { AppView } from '../types';
 import { isAirpickHeadquarters } from '../constants/platform';
@@ -106,7 +108,9 @@ export default function Sidebar({
   const menuItems = isAirpickHeadquarters(currentCompanyId)
     ? [
         { id: 'admin_statistics', label: '① 대시보드 (통계)', icon: TrendingUp, view: 'statistics' as AppView },
-        { id: 'admin_master_settings', label: '② 제휴업체 관리', icon: Settings, view: 'master_settings' as AppView }
+        { id: 'admin_master_settings', label: '② 제휴업체 관리', icon: Settings, view: 'master_settings' as AppView },
+        { id: 'admin_partner_board', label: '③ 업체 상태판', icon: LayoutGrid, view: 'hq_partner_board' as AppView },
+        { id: 'admin_reviews', label: '④ 후기 관리', icon: MessageSquareWarning, view: 'hq_reviews' as AppView },
       ]
     : isAdminModeActive
     ? [

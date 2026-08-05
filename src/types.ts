@@ -102,6 +102,8 @@ export interface Company {
   isOperatorPrimary?: boolean;
   /** 하위 업체 — B2C만, parentCompanyId로 대표에 연결 */
   parentCompanyId?: string;
+  /** 본사 계정 가동 상태 (정지 시 파트너 로그인 차단) */
+  status?: 'active' | 'suspended';
 }
 
 /** 업체 주차장 (실내1·실외2 … 여러 개) */
@@ -314,4 +316,8 @@ export type AppView =
   | 'cancelled_list'
   | 'master_settings'
   /** 관리자 · 입출차 배차표 (인쇄/CSV) */
-  | 'dispatch_board';
+  | 'dispatch_board'
+  /** 본사 · 전체 업체 영업/프로필 상태판 */
+  | 'hq_partner_board'
+  /** 본사 · 후기 숨김/삭제 */
+  | 'hq_reviews';

@@ -804,6 +804,9 @@ export default function App() {
                           typeof matched?.maxParkedCars === 'number' ? matched.maxParkedCars : 0,
                       });
                     }}
+                    onToggleCompanyOpen={handleToggleCompanyOpen}
+                    onRemoteOpenCompany={(companyId) => handleCompanySwitch(companyId)}
+                    onOpenPartnerEditor={() => setShowAdminModal(true)}
                   />
                 </motion.div>
               )}
