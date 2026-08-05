@@ -81,12 +81,28 @@ export async function checkParkingCapacityForBooking(
   }
 
   await ensureFirestoreAuth();
-  const existing = await fetchOverlappingReservations(
-    firestore,
-    companyId,
-    departureDate,
-    arrivalDate
-  );
+  let existing: ParkingCapReservation[] = [];
+  try {
+    existing = await fetchOverlappingReservations(
+      firestore,
+      companyId,
+      departureDate,
+      arrivalDate
+    );
+  } catch (err: unknown) {
+    // list 조임 후 손님(/h/)·익명은 예약 목록을 못 읽음 → 서버 enforceParkingCapacityOnCreate 에 맡김
+    const code = (err as { code?: string })?.code;
+    if (code === 'permission-denied') {
+      return evaluateParkingCapacity({
+        company,
+        departureDate,
+        arrivalDate,
+        existingReservations: [],
+        countingIncludesCandidate: false,
+      });
+    }
+    throw err;
+  }
 
   return evaluateParkingCapacity({
     company,

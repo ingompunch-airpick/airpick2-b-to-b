@@ -66,3 +66,20 @@ B2B가 상태 변경 시 예약 문서에 저장합니다. 조회 API·직접 �
 
 **B2C:** 입고 완료 / 출고 완료 구간에만 한 줄 표시 권장.  
 예: `입고 완료 · 담당 김기사` / `출고 완료 · 담당 업체 담당`
+
+### 5. Firestore — 예약 **목록(list)** 조임 (2026-08)
+
+- `list`: 본사 이메일 계정, 또는 커스텀 토큰의 `partnerCompanyId` 와 일치하는 업체만
+- `get`: 로그인한 손님(익명 포함) 단건 조회는 유지 (MY 구독·접수 직후)
+- 시간당 마감은 반드시 `capacity` 문서로 (위 §1). `reservations` where 조회하면 permission-denied
+
+### 6. 업체 홈페이지 → `/h/{companyId}` 권장 + 입국편 시각 자동
+
+업체 자체 홈(AI 스튜디오)에 입국편 API를 각각 넣기보다, B2B 호스팅의  
+`https://airpick-reservation.web.app/h/{companyId}` 로 예약 폼을 돌리는 것을 권장합니다.
+
+`/h/` 는 입국 편명 입력 시 공항 예정 도착 시각·터미널을 자동 채웁니다(오늘~+6일).  
+출국편 시각은 자동으로 안 바꿉니다(손님이 여유 있게 오는 시간이라서).
+
+직접 유지할 홈은 `integrations/wawavalet-firebase.example.js` 를 참고해  
+시간당 마감을 `capacity` 로 읽고, 예약 list 는 쓰지 마세요.

@@ -21,6 +21,32 @@ service cloud.firestore {
         ];
     }
 
+    /** 파트너 커스텀 토큰 — verifyPartnerLogin 발급 claim */
+    function partnerCompanyId() {
+      return isSignedIn()
+        && request.auth.token.partnerCompanyId is string
+        && request.auth.token.partnerCompanyId.size() > 0
+        ? request.auth.token.partnerCompanyId
+        : '';
+    }
+
+    function isPartner() {
+      return partnerCompanyId().size() > 0;
+    }
+
+    /** 와와 별칭 문서 companyId 합산 */
+    function isWawaCompanyId(cid) {
+      return cid in ['wawa', 'wawa_valet', '와와', '와와발렛'];
+    }
+
+    function partnerCanAccessCompany(cid) {
+      return isPartner()
+        && (
+          partnerCompanyId() == cid
+          || (isWawaCompanyId(partnerCompanyId()) && isWawaCompanyId(cid))
+        );
+    }
+
     function isValidCompanyId(companyId) {
       return companyId.matches('^[a-z0-9_]{1,64}$');
     }
@@ -106,19 +132,46 @@ service cloud.firestore {
         .hasAny(['reservationPassword', 'receiptToken', 'createdBy', 'createdAt', 'userId']);
     }
 
+    function canListReservation() {
+      return isPlatformAdmin()
+        || (
+          isPartner()
+          && resource.data.companyId is string
+          && partnerCanAccessCompany(resource.data.companyId)
+        );
+    }
+
+    /** 단건 get — B2C MY·영수증(문서 ID)·접수 직후. 비밀번호는 secrets. list 는 막음. */
+    function canGetReservation() {
+      return isSignedIn();
+    }
+
     // ── reservations ───────────────────────────────────────────────────────
 
     match /reservations/{reservationId} {
-      allow read: if isSignedIn();
+      // list: 본사 전체 · 파트너는 자기 업체(와와 별칭 포함)만
+      // get: 로그인 세션(손님 단건·영수증). 목록 훑기는 list 로 막음
+      allow get: if canGetReservation();
+      allow list: if canListReservation();
 
       allow create: if isSignedIn()
         && isValidReservationId(reservationId)
         && validReservationWrite();
 
+      // 파트너는 자기 업체만 수정. 손님 클라이언트 수정은 CF(취소 등)로 이전됨.
       allow update: if isSignedIn()
         && isValidReservationId(reservationId)
         && validReservationWrite()
-        && reservationProtectedFieldsUnchanged();
+        && reservationProtectedFieldsUnchanged()
+        && (
+          isPlatformAdmin()
+          || (
+            isPartner()
+            && resource.data.companyId is string
+            && partnerCanAccessCompany(resource.data.companyId)
+            && request.resource.data.companyId == resource.data.companyId
+          )
+        );
 
       // 고객·파트너는 상태 변경으로 취소. 문서 삭제는 본사만.
       allow delete: if isPlatformAdmin() && isValidReservationId(reservationId);
@@ -144,9 +197,7 @@ service cloud.firestore {
     // ── customers (방문 횟수 — 전화 숫자 키) ───────────────────────────────
 
     match /customers/{phoneKey} {
-      allow read: if isSignedIn();
-
-      // 생성·갱신은 Cloud Functions(Admin SDK)만 — 클라이언트 조작 방지
+      allow read: if isPlatformAdmin() || isPartner();
       allow create, update, delete: if false;
     }
 
@@ -158,11 +209,13 @@ service cloud.firestore {
       // 생성·삭제는 Cloud Functions(adminUpsertCompany / adminDeleteCompany)만
       allow create, delete: if false;
 
-      // 가맹점: 요금·발레·직원·마감·영업여부 등 운영 필드만
-      // 핀·보험·사진·password·status·정산메모 등 → Functions만
-      allow update: if isSignedIn()
-        && isValidCompanyId(companyId)
-        && onlyPartnerOperationalFieldsChanged();
+      // 본사 전체 · 파트너는 자기 업체 운영 필드만
+      allow update: if isValidCompanyId(companyId)
+        && onlyPartnerOperationalFieldsChanged()
+        && (
+          isPlatformAdmin()
+          || partnerCanAccessCompany(companyId)
+        );
 
       // 로그인 비밀번호 — Admin SDK만
       match /secrets/{secretId} {
@@ -198,8 +251,19 @@ service cloud.firestore {
         && request.resource.data.companyId is string
         && request.resource.data.companyId.size() > 0
         && request.resource.data.scopeCompanyIds is list
-        && request.resource.data.enabled is bool;
-      allow delete: if isSignedIn();
+        && request.resource.data.enabled is bool
+        && (
+          isPlatformAdmin()
+          || partnerCanAccessCompany(request.resource.data.companyId)
+        );
+      allow delete: if isSignedIn()
+        && (
+          isPlatformAdmin()
+          || (
+            resource.data.companyId is string
+            && partnerCanAccessCompany(resource.data.companyId)
+          )
+        );
     }
   }
 }

@@ -7,7 +7,7 @@
  */
 import { initializeApp } from 'firebase/app';
 import { getAuth, signInAnonymously } from 'firebase/auth';
-import { getFirestore, doc, getDoc, setDoc, getDocs, collection, query, where } from 'firebase/firestore';
+import { getFirestore, doc, getDoc, setDoc } from 'firebase/firestore';
 import homepageConfig from '../firebase-config.homepage.json' assert { type: 'json' };
 
 const app = initializeApp(homepageConfig);
@@ -37,72 +37,6 @@ function normalizeYmd(value) {
   return /^\d{4}-\d{2}-\d{2}/.test(s) ? s.slice(0, 10) : '';
 }
 
-function occupiesParkingDay(row, day) {
-  const status = String(row.status || '').trim().toLowerCase();
-  if (status === 'cancelled' || status === '취소') return false;
-  if (
-    status === 'completed_out' ||
-    status === '출차완료' ||
-    status === '인도완료' ||
-    status === '출고완료'
-  ) {
-    return false;
-  }
-  const dep = normalizeYmd(row.departureDate);
-  if (!dep) return false;
-  const arr = normalizeYmd(row.arrivalDate) || dep;
-  const end = arr >= dep ? arr : dep;
-  return dep <= day && day <= end;
-}
-
-function eachYmdInclusive(start, end) {
-  if (!start) return [];
-  const last = end && end >= start ? end : start;
-  const out = [];
-  let cur = new Date(`${start}T00:00:00Z`);
-  const lastDate = new Date(`${last}T00:00:00Z`);
-  for (let i = 0; i < 400 && cur <= lastDate; i++) {
-    out.push(cur.toISOString().slice(0, 10));
-    cur.setUTCDate(cur.getUTCDate() + 1);
-  }
-  return out;
-}
-
-async function assertParkingCapacity(departureDate, arrivalDate, policy) {
-  if (!policy.parkingCapEnabled || !(policy.maxParkedCars > 0)) return;
-  const start = normalizeYmd(departureDate);
-  const end = normalizeYmd(arrivalDate) || start;
-  if (!start) throw new Error('입고·출고 날짜를 확인해 주세요.');
-
-  const rangeEnd = end >= start ? end : start;
-  const snap = await getDocs(
-    query(
-      collection(db, 'reservations'),
-      where('companyId', '==', COMPANY_ID),
-      where('departureDate', '<=', rangeEnd)
-    )
-  );
-  const rows = [];
-  snap.forEach((d) => {
-    const row = d.data();
-    const arr = normalizeYmd(row.arrivalDate) || normalizeYmd(row.departureDate);
-    if (!arr || arr < start) return;
-    rows.push(row);
-  });
-
-  for (const day of eachYmdInclusive(start, rangeEnd)) {
-    let used = 0;
-    for (const row of rows) {
-      if (occupiesParkingDay(row, day)) used += 1;
-    }
-    if (used >= policy.maxParkedCars) {
-      throw new Error(
-        `${day} 기준 주차 가능 대수가 가득 찼습니다. (최대 ${policy.maxParkedCars}대 · 만차)`
-      );
-    }
-  }
-}
-
 function parseHour(time) {
   const m = String(time || '').trim().match(/^(\d{1,2})/);
   if (!m) return null;
@@ -115,25 +49,25 @@ async function assertHourlyCapacity(departureDate, departureTime, policy) {
   const hour = parseHour(departureTime);
   if (hour === null) throw new Error('입고 시각을 확인해 주세요.');
 
-  const snap = await getDocs(
-    query(
-      collection(db, 'reservations'),
-      where('companyId', '==', COMPANY_ID),
-      where('departureDate', '==', departureDate)
-    )
-  );
-  let used = 0;
-  snap.forEach((d) => {
-    const row = d.data();
-    if (String(row.status || '') === 'cancelled' || row.status === '취소') return;
-    if (parseHour(row.departureTime) === hour) used += 1;
-  });
+  // reservations 목록 조회 금지 — capacity/{companyId}__{날짜} 만 읽기
+  const date = normalizeYmd(departureDate);
+  const snap = await getDoc(doc(db, 'capacity', `${COMPANY_ID}__${date}`));
+  const hours = snap.exists() ? snap.data()?.hours || {} : {};
+  const used = Number(hours[String(hour)] ?? 0) || 0;
   if (used >= policy.maxCarsPerHour) {
     const hh = String(hour).padStart(2, '0');
     throw new Error(
       `${hh}:00–${hh}:59 시간대 예약이 마감되었습니다. (시간당 ${policy.maxCarsPerHour}대)`
     );
   }
+}
+
+/**
+ * 만차(주차 대수) 선검사는 예약 list 가 막혀 클라이언트에서 불가.
+ * 서버 onReservationSync → enforceParkingCapacityOnCreate 가 최종 차단.
+ */
+async function assertParkingCapacity(_departureDate, _arrivalDate, _policy) {
+  return;
 }
 
 export async function createHomepageReservation(form) {

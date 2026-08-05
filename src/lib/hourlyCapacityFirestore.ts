@@ -1,53 +1,42 @@
-import {
-  collection,
-  getDocs,
-  query,
-  where,
-  type Firestore,
-} from 'firebase/firestore';
+import { doc, getDoc, type Firestore } from 'firebase/firestore';
 import { db } from '../firebase';
 import {
   evaluateHourlyCapacity,
   isHourlyCapActive,
   parseDepartureHour,
-  reservationInHourBucket,
   type HourlyCapCompany,
   type HourlyCapacityResult,
 } from '../utils/hourlyCapacity';
 import { expandCompanyIdsForFirestoreQuery } from '../utils/reservationQuery';
 import { normalizeDateString } from '../utils/reservationNormalize';
-import { ensureFirestoreAuth } from './firebaseAuth';
 
-async function fetchDayReservations(
+/**
+ * capacity/{companyId}__{날짜} — 시간대별 대수만.
+ * 예약 목록을 읽지 않는다 (Rules list 조임 대비 · 손님 PII 노출 방지).
+ */
+async function fetchCapacityHours(
   firestore: Firestore,
   companyId: string,
-  departureDate: string
-): Promise<Array<{ departureDate?: string; departureTime?: string; status?: string }>> {
-  const date = normalizeDateString(departureDate);
-  if (!date) return [];
-
+  date: string
+): Promise<Record<string, number>> {
   const ids = expandCompanyIdsForFirestoreQuery([companyId]);
-  if (!ids.length) return [];
+  if (!ids.length) return {};
 
-  const base = collection(firestore, 'reservations');
   const snaps = await Promise.all(
-    ids.length === 1
-      ? [getDocs(query(base, where('companyId', '==', ids[0]), where('departureDate', '==', date)))]
-      : [
-          // Firestore `in` 최대 10 — 와와 별칭은 소수
-          getDocs(
-            query(base, where('companyId', 'in', ids.slice(0, 10)), where('departureDate', '==', date))
-          ),
-        ]
+    ids.map((id) => getDoc(doc(firestore, 'capacity', `${id}__${date}`)))
   );
 
-  const byId = new Map<string, { departureDate?: string; departureTime?: string; status?: string }>();
+  const merged: Record<string, number> = {};
   for (const snap of snaps) {
-    for (const d of snap.docs) {
-      byId.set(d.id, d.data() as { departureDate?: string; departureTime?: string; status?: string });
+    if (!snap.exists()) continue;
+    const hours = (snap.data() as { hours?: Record<string, unknown> }).hours ?? {};
+    for (const [key, value] of Object.entries(hours)) {
+      const n = Number(value);
+      if (!Number.isFinite(n)) continue;
+      merged[key] = (merged[key] ?? 0) + n;
     }
   }
-  return Array.from(byId.values());
+  return merged;
 }
 
 export async function countReservationsInDepartureHour(
@@ -59,10 +48,11 @@ export async function countReservationsInDepartureHour(
   const hour = parseDepartureHour(departureTime);
   if (hour === null) return { count: 0, hour: null };
 
-  await ensureFirestoreAuth();
-  const rows = await fetchDayReservations(firestore, companyId, departureDate);
-  const count = rows.filter((r) => reservationInHourBucket(r, departureDate, hour)).length;
-  return { count, hour };
+  const date = normalizeDateString(departureDate);
+  if (!date) return { count: 0, hour };
+
+  const hours = await fetchCapacityHours(firestore, companyId, date);
+  return { count: Number(hours[String(hour)] ?? 0), hour };
 }
 
 export async function checkHourlyCapacityForBooking(

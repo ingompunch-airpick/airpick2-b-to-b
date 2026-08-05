@@ -10,7 +10,7 @@
 
 | 컬렉션 | read | create | update | delete |
 |--------|------|--------|--------|--------|
-| `reservations` | 로그인(Anonymous 포함) | 로그인 + 필드 검증 | 로그인 + 필드 검증 + **보안필드 잠금** | **플랫폼 관리자만** |
+| `reservations` | **get:** 로그인(Anonymous 포함) / **list:** 본사 또는 파트너(자기 업체 claim) | 로그인 + 필드 검증 | 본사 또는 파트너(자기 업체) + 필드 검증 + **보안필드 잠금** | **플랫폼 관리자만** |
 | `reservations/{id}/secrets` | **불가** | **불가** | **불가** | **불가** — 예약 비밀번호, Functions만 |
 | `capacity` | **공개** (대수만) | **불가** | **불가** | **불가** — `onReservationSync`만 |
 | `companies` | **공개** | **Functions만** | 로그인 + **운영 필드 allowlist만** (요금·직원·마감 등). 핀·보험·password·status는 Functions | **Functions만** |

@@ -2,6 +2,7 @@ import type { ReservationRecord } from './types';
 
 export interface ReceiptPublicDto {
   id: string;
+  companyId?: string;
   companyName: string;
   userName: string;
   carModel: string;
@@ -22,6 +23,10 @@ export interface ReceiptPublicDto {
   isIndoor: boolean;
   createdAt: string;
   status: string;
+  createdBy?: string;
+  receiptCode?: string;
+  paymentMethod?: string;
+  airport?: string;
 }
 
 function str(data: Record<string, unknown>, key: string, fallback = ''): string {
@@ -38,6 +43,7 @@ export function toReceiptPublic(
 
   return {
     id,
+    companyId: str(raw, 'companyId') || undefined,
     companyName: str(raw, 'companyName', '주차대행'),
     userName: str(raw, 'userName', '고객'),
     carModel: str(raw, 'carModel', '-'),
@@ -58,5 +64,9 @@ export function toReceiptPublic(
     isIndoor: record.isIndoor !== false,
     createdAt: str(raw, 'createdAt'),
     status: str(raw, 'status', 'pending'),
+    createdBy: record.createdBy?.trim() || undefined,
+    receiptCode: str(raw, 'receiptCode') || undefined,
+    paymentMethod: str(raw, 'paymentMethod') || undefined,
+    airport: str(raw, 'airport') || undefined,
   };
 }

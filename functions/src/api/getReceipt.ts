@@ -64,6 +64,14 @@ export const getReceipt = onRequest(
             .get();
         }
         if (q.empty) {
+          q = await admin
+            .firestore()
+            .collection('reservations')
+            .where('receiptCode', '==', token)
+            .limit(1)
+            .get();
+        }
+        if (q.empty) {
           res.status(404).json({ error: 'not_found' });
           return;
         }
