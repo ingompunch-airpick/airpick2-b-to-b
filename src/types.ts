@@ -320,4 +320,6 @@ export type AppView =
   /** 본사 · 전체 업체 영업/프로필 상태판 */
   | 'hq_partner_board'
   /** 본사 · 후기 숨김/삭제 */
-  | 'hq_reviews';
+  | 'hq_reviews'
+  /** 본사 · 고객 전화 조회 */
+  | 'hq_customers';

@@ -31,9 +31,16 @@ function formatCreatedAt(raw: string): string {
 
 interface HqReviewsViewProps {
   companies: Company[];
+  /** 상태판에서 넘어올 때 업체 필터 */
+  initialCompanyId?: string | null;
+  onInitialCompanyConsumed?: () => void;
 }
 
-export default function HqReviewsView({ companies }: HqReviewsViewProps) {
+export default function HqReviewsView({
+  companies,
+  initialCompanyId = null,
+  onInitialCompanyConsumed,
+}: HqReviewsViewProps) {
   const [reviews, setReviews] = useState<AdminReview[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -41,6 +48,13 @@ export default function HqReviewsView({ companies }: HqReviewsViewProps) {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [companyFilter, setCompanyFilter] = useState('all');
   const [ratingFilter, setRatingFilter] = useState(0);
+
+  useEffect(() => {
+    const id = String(initialCompanyId || '').trim();
+    if (!id) return;
+    setCompanyFilter(id);
+    onInitialCompanyConsumed?.();
+  }, [initialCompanyId, onInitialCompanyConsumed]);
 
   const companyOptions = useMemo(
     () =>

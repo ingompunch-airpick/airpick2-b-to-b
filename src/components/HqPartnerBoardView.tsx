@@ -32,6 +32,8 @@ interface HqPartnerBoardViewProps {
   onToggleCompanyOpen: (companyId: string, isOpen: boolean) => Promise<void> | void;
   onRemoteOpen: (companyId: string) => void;
   onOpenPartnerEditor?: () => void;
+  /** 평점 탭 → 해당 업체 후기 관리 */
+  onOpenReviews?: (companyId: string) => void;
 }
 
 export default function HqPartnerBoardView({
@@ -40,6 +42,7 @@ export default function HqPartnerBoardView({
   onToggleCompanyOpen,
   onRemoteOpen,
   onOpenPartnerEditor,
+  onOpenReviews,
 }: HqPartnerBoardViewProps) {
   const [filter, setFilter] = useState<HqPartnerBoardFilter>('all');
   const [query, setQuery] = useState('');
@@ -239,11 +242,24 @@ export default function HqPartnerBoardView({
                   </div>
                   <div className="rounded-xl border border-neutral-800/80 bg-neutral-950/40 px-2.5 py-2">
                     <p className="text-zinc-500 font-bold mb-1">블락 / 평점</p>
-                    <p className="font-bold text-zinc-200">
-                      블락 {row.blockedCount}일
-                      <span className="text-zinc-600"> · </span>
-                      ★ {row.rating || '-'} ({row.reviewsCount})
-                    </p>
+                    <div className="flex flex-wrap items-center gap-1.5 font-bold text-zinc-200">
+                      <span>블락 {row.blockedCount}일</span>
+                      <span className="text-zinc-600">·</span>
+                      {onOpenReviews ? (
+                        <button
+                          type="button"
+                          onClick={() => onOpenReviews(row.id)}
+                          className="text-amber-400 underline underline-offset-2 decoration-amber-400/40 hover:text-amber-300"
+                          title="이 업체 후기 보기"
+                        >
+                          ★ {row.rating || '-'} ({row.reviewsCount})
+                        </button>
+                      ) : (
+                        <span>
+                          ★ {row.rating || '-'} ({row.reviewsCount})
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
 

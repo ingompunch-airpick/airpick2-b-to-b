@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useState } from 'react';
 import { Reservation, AppView, CompanyInfo, Company, PartnerCompany } from '../types';
 import StatisticsView from './StatisticsView';
 import CancelledListView from './CancelledListView';
@@ -6,6 +6,7 @@ import MasterSettingsView from './MasterSettingsView';
 import DispatchBoardView from './DispatchBoardView';
 import HqPartnerBoardView from './HqPartnerBoardView';
 import HqReviewsView from './HqReviewsView';
+import HqCustomersView from './HqCustomersView';
 
 interface AdminModeProps {
   currentView: AppView;
@@ -60,6 +61,18 @@ export default function AdminMode({
   onOpenPartnerEditor,
 }: AdminModeProps) {
   const adminView = resolveAdminView(currentView);
+  const [reviewFocusCompanyId, setReviewFocusCompanyId] = useState<string | null>(null);
+  const clearReviewFocus = useCallback(() => setReviewFocusCompanyId(null), []);
+
+  const openCompanyReviews = useCallback(
+    (companyId: string) => {
+      const id = String(companyId || '').trim();
+      if (!id) return;
+      setReviewFocusCompanyId(id);
+      setCurrentView('hq_reviews');
+    },
+    [setCurrentView]
+  );
 
   const statisticsPanel = (
     <StatisticsView
@@ -123,11 +136,26 @@ export default function AdminMode({
           }}
           onRemoteOpen={(companyId) => onRemoteOpenCompany?.(companyId)}
           onOpenPartnerEditor={onOpenPartnerEditor}
+          onOpenReviews={openCompanyReviews}
         />
       );
 
     case 'hq_reviews':
-      return <HqReviewsView companies={companies} />;
+      return (
+        <HqReviewsView
+          companies={companies}
+          initialCompanyId={reviewFocusCompanyId}
+          onInitialCompanyConsumed={clearReviewFocus}
+        />
+      );
+
+    case 'hq_customers':
+      return (
+        <HqCustomersView
+          companies={companies}
+          onOpenReservation={onEditReservation}
+        />
+      );
 
     default:
       return statisticsPanel;
