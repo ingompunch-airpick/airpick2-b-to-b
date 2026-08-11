@@ -20,7 +20,7 @@ async function tryIssueCustomToken(input: {
   partnerRole: 'master' | 'admin' | 'driver';
   employeeId?: string;
   employeeName?: string;
-}): Promise<string | null> {
+}): Promise<string> {
   try {
     const claims: Record<string, string> = {
       partnerCompanyId: input.companyId,
@@ -30,9 +30,11 @@ async function tryIssueCustomToken(input: {
     if (input.employeeName) claims.employeeName = input.employeeName;
     return await admin.auth().createCustomToken(input.uid, claims);
   } catch (err) {
-    // 기본 Compute SA에 iam.serviceAccounts.signBlob 없으면 실패 — 로그인은 계속 가능하게
-    console.warn('[verifyPartnerLogin] createCustomToken skipped:', err);
-    return null;
+    console.error('[verifyPartnerLogin] createCustomToken failed:', err);
+    throw new HttpsError(
+      'failed-precondition',
+      '업체 로그인 권한 토큰을 발급하지 못했습니다. 본사에 IAM(Service Account Token Creator) 설정을 요청해 주세요.'
+    );
   }
 }
 
@@ -53,7 +55,7 @@ function companyPublicFields(companyId: string, company: Record<string, unknown>
 
 /**
  * Gate 로그인: 업체 마스터 또는 직원.
- * customToken 은 IAM 허용 시만 발급 (없어도 로그인 성공).
+ * customToken 필수 — 없으면 예약 list 권한이 없어 대시보드가 비게 됨.
  */
 export const verifyPartnerLogin = onCall(
   {

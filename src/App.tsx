@@ -248,6 +248,7 @@ export default function App() {
     reservations,
     setReservations,
     loadingReservations,
+    reservationSyncError,
     visibleReservations,
     operatorCompanyIds,
     operatorGroupLabel,
@@ -441,6 +442,28 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-black font-sans text-white pb-24 selection:bg-amber-500 selection:text-neutral-950 antialiased">
+
+      {reservationSyncError && (
+        <div className="fixed top-0 inset-x-0 z-[110] px-3 pt-3">
+          <div className="mx-auto max-w-md rounded-2xl border border-rose-500/40 bg-neutral-900/95 backdrop-blur-md p-3 shadow-xl flex items-start gap-3">
+            <div className="flex-1 min-w-0">
+              <p className="text-xs font-black text-rose-400">예약 동기화 실패</p>
+              <p className="text-[11px] text-zinc-400 mt-1 leading-relaxed">
+                {reservationSyncError}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                void handleOperatorLogout();
+              }}
+              className="shrink-0 px-3 py-1.5 rounded-lg bg-rose-500 text-white text-[11px] font-black"
+            >
+              다시 로그인
+            </button>
+          </div>
+        </div>
+      )}
 
       {showAlertPermissionBanner && (
         <div className="fixed top-0 inset-x-0 z-[100] px-3 pt-3">

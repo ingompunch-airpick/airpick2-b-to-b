@@ -20,6 +20,20 @@ export function isPlatformAdminUser(user: User | null | undefined): boolean {
   return isPlatformAdminEmail(user?.email);
 }
 
+/** 파트너 Gate 로그인 시 심긴 claim — 예약 list 권한에 필요 */
+export async function hasPartnerCompanyClaim(
+  user: User | null | undefined
+): Promise<boolean> {
+  if (!user) return false;
+  try {
+    const token = await user.getIdTokenResult();
+    const companyId = token.claims.partnerCompanyId;
+    return typeof companyId === 'string' && companyId.trim().length > 0;
+  } catch {
+    return false;
+  }
+}
+
 export function formatPlatformAdminAuthError(err: unknown): string {
   const code = (err as { code?: string })?.code || '';
   if (code === 'auth/invalid-credential' || code === 'auth/wrong-password' || code === 'auth/user-not-found') {

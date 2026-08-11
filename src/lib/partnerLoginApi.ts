@@ -23,9 +23,8 @@ export interface VerifyPartnerLoginResult {
 
 function callableErrorMessage(err: unknown): string {
   if (err && typeof err === 'object') {
-    const e = err as { message?: string };
+    const e = err as { message?: string; code?: string };
     if (typeof e.message === 'string' && e.message.trim()) {
-      // Firebase INTERNAL 래핑 메시지 정리
       if (e.message === 'INTERNAL' || e.message.includes('internal')) {
         return '서버 로그인 처리 중 오류가 났습니다. 잠시 후 다시 시도해 주세요.';
       }
@@ -36,7 +35,7 @@ function callableErrorMessage(err: unknown): string {
   return String(err);
 }
 
-/** 가맹점 마스터·직원 Gate 로그인 (+ 가능하면 custom token) */
+/** 가맹점 마스터·직원 Gate 로그인 — custom token 필수 */
 export async function verifyPartnerLogin(input: {
   loginId: string;
   password: string;
@@ -51,12 +50,19 @@ export async function verifyPartnerLogin(input: {
       password: input.password,
     });
     const data = result.data;
-    if (data.customToken) {
-      try {
-        await signInWithCustomToken(auth, data.customToken);
-      } catch (tokenErr) {
-        console.warn('signInWithCustomToken failed (login still ok):', tokenErr);
-      }
+    const token = typeof data.customToken === 'string' ? data.customToken.trim() : '';
+    if (!token) {
+      throw new Error(
+        '업체 로그인 권한 토큰이 없습니다. 본사에 IAM 설정을 요청한 뒤 다시 로그인해 주세요.'
+      );
+    }
+    try {
+      await signInWithCustomToken(auth, token);
+    } catch (tokenErr) {
+      console.error('signInWithCustomToken failed:', tokenErr);
+      throw new Error(
+        '업체 권한 로그인에 실패했습니다. 잠시 후 다시 시도해 주세요.'
+      );
     }
     return data;
   } catch (err) {

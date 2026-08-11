@@ -7,8 +7,8 @@ import { formatPartnerDisplayName } from '../utils/companyDisplay';
 import { resolveOperatorCompanyIds } from '../utils/operatorHierarchy';
 import { AIRPICK_HQ_ID, isAirpickHeadquarters, normalizePlatformCompanyId } from '../constants/platform';
 import {
-  ensureFirestoreAuth,
   formatPlatformAdminAuthError,
+  hasPartnerCompanyClaim,
   isPlatformAdminEmail,
   isPlatformAdminUser,
   signInPlatformAdminWithPassword,
@@ -157,6 +157,11 @@ export function useSession({ companiesRef, setCurrentView }: UseSessionParams) {
         return;
       }
 
+      // 파트너로 UI만 로그인된 채 Auth가 없으면 익명으로 메우지 않음 (claim 검사 effect가 Gate로 보냄)
+      if (readLoggedInFlag()) {
+        return;
+      }
+
       try {
         await signInAnonymously(auth);
       } catch (e: unknown) {
@@ -201,6 +206,39 @@ export function useSession({ companiesRef, setCurrentView }: UseSessionParams) {
     setCurrentView('timeline');
   }, [setCurrentView]);
 
+  /** 파트너 UI 세션인데 partnerCompanyId claim이 없으면 강제 Gate (빈 대시보드 방지) */
+  useEffect(() => {
+    let cancelled = false;
+    const enforcePartnerClaim = async () => {
+      await waitForAuthReady();
+      if (cancelled || !readLoggedInFlag()) return;
+      if (localStorage.getItem('local_is_super_admin') === 'true') return;
+
+      const current = auth.currentUser;
+      if (isPlatformAdminUser(current)) return;
+      if (await hasPartnerCompanyClaim(current)) return;
+
+      resetSessionState();
+      clearSessionLocalStorage();
+      try {
+        await signOut(auth);
+      } catch {
+        /* ignore */
+      }
+      try {
+        await signInAnonymously(auth);
+      } catch (anonErr) {
+        console.warn('Anonymous auth after claim reset:', anonErr);
+      }
+      if (!cancelled) {
+        alert('업체 로그인 권한이 없습니다. 다시 로그인해 주세요.');
+      }
+    };
+    void enforcePartnerClaim();
+    return () => {
+      cancelled = true;
+    };
+  }, [clearSessionLocalStorage, resetSessionState]);
   const handleCredentialLogin = useCallback(
     async (e: FormEvent) => {
       e.preventDefault();
@@ -328,12 +366,7 @@ export function useSession({ companiesRef, setCurrentView }: UseSessionParams) {
           roles.employeeRole === 'admin');
       setCurrentView(shouldStartInAdmin ? 'statistics' : 'timeline');
 
-      // 본사는 Gate에서 이미 email/password Auth 완료. 익명으로 덮어쓰지 않음.
-      if (!roles.isSuperAdmin) {
-        ensureFirestoreAuth().catch((err) => {
-          console.warn('Firebase auth after gate login:', err);
-        });
-      }
+      // 파트너는 verifyPartnerLogin에서 customToken 로그인 완료. 익명 폴백 금지.
     },
     [companiesRef, setCurrentView]
   );

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { doc, updateDoc } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType } from '../firebase';
+import { db, handleFirestoreError, OperationType, auth } from '../firebase';
 import type { Company, CompanyInfo, PaymentMethod, Reservation, ReservationStatus } from '../types';
 import {
   filterReservationsForOperatorGroup,
@@ -18,7 +18,11 @@ import { buildCheckoutRetentionFields } from '../lib/reservationRetention';
 import { mergeReservationImageUrls } from '../lib/reservationPhotos';
 import { buildScratchPhotoSet } from '../lib/scratchPhotos';
 import { isAirpickHeadquarters } from '../constants/platform';
-import { ensureFirestoreAuth } from '../lib/firebaseAuth';
+import {
+  ensureFirestoreAuth,
+  hasPartnerCompanyClaim,
+  isPlatformAdminUser,
+} from '../lib/firebaseAuth';
 import { patchReservation } from '../lib/reservationFirestore';
 import { isPending } from '../utils/reservationStatus';
 import {
@@ -82,6 +86,7 @@ export function useReservations({
 }: UseReservationsParams) {
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loadingReservations, setLoadingReservations] = useState(false);
+  const [reservationSyncError, setReservationSyncError] = useState<string | null>(null);
   const [incomingReservationToast, setIncomingReservationToast] = useState<{
     id: string;
     carNumber: string;
@@ -139,6 +144,7 @@ export function useReservations({
       reservationsBootstrappedRef.current = false;
       reservationsPrevRef.current = [];
       setReservations([]);
+      setReservationSyncError(null);
       setShowAlertPermissionBanner(false);
       setLoadingReservations(false);
       return;
@@ -165,6 +171,18 @@ export function useReservations({
       isHqScope: isAirpickHeadquarters(currentCompanyId),
       operatorCompanyIds:
         operatorCompanyIds.length > 0 ? operatorCompanyIds : [currentCompanyId],
+    };
+
+    const failSync = (message: string, err?: unknown) => {
+      if (cancelled) return;
+      if (err) {
+        console.warn('reservations sync failed:', err);
+        handleFirestoreError(err, OperationType.LIST, 'reservations');
+      }
+      setReservations([]);
+      reservationsPrevRef.current = [];
+      setReservationSyncError(message);
+      setLoadingReservations(false);
     };
 
     const applySnapshot = (rawData: unknown[]) => {
@@ -195,16 +213,25 @@ export function useReservations({
       reservationsPrevRef.current = data;
 
       setReservations(data);
+      setReservationSyncError(null);
       setLoadingReservations(false);
     };
 
     const bootstrapAuthAndListen = async () => {
       setLoadingReservations(true);
+      setReservationSyncError(null);
+
       try {
-        // authStateReady 후 세션이 없으면 익명 — 본사 세션 복원을 덮어쓰지 않음
-        await ensureFirestoreAuth();
+        await auth.authStateReady();
+        const user = auth.currentUser;
+        // 파트너 대시보드: 익명 폴백 금지 — claim 없으면 list가 비어 “당일 0건”처럼 보임
+        if (!isPlatformAdminUser(user) && !(await hasPartnerCompanyClaim(user))) {
+          failSync('업체 로그인 권한이 없습니다. 로그아웃 후 다시 로그인해 주세요.');
+          return;
+        }
       } catch (e: unknown) {
-        console.warn('Anonymous auth before reservations sync:', e);
+        failSync('로그인 권한을 확인하지 못했습니다. 다시 로그인해 주세요.', e);
+        return;
       }
 
       if (cancelled) return;
@@ -215,8 +242,11 @@ export function useReservations({
           applySnapshot(rows);
         }
       } catch (err) {
-        handleFirestoreError(err, OperationType.LIST, 'reservations');
-        if (!cancelled) setLoadingReservations(false);
+        failSync(
+          '예약 목록을 불러오지 못했습니다. 로그아웃 후 다시 로그인해 주세요.',
+          err
+        );
+        return;
       }
 
       return subscribeScopedReservations(
@@ -224,9 +254,10 @@ export function useReservations({
         syncScope,
         (rows) => applySnapshot(rows),
         (err) => {
-          console.warn('reservations onSnapshot error:', err);
-          handleFirestoreError(err, OperationType.LIST, 'reservations');
-          if (!cancelled) setLoadingReservations(false);
+          failSync(
+            '예약 실시간 동기화에 실패했습니다. 로그아웃 후 다시 로그인해 주세요.',
+            err
+          );
         }
       );
     };
@@ -502,6 +533,7 @@ export function useReservations({
     reservations,
     setReservations,
     loadingReservations,
+    reservationSyncError,
     visibleReservations,
     operatorCompanyIds,
     operatorGroupLabel,

@@ -15,7 +15,6 @@ import {
   terminalBadgeLabel,
 } from '../utils/airport';
 import { isAdmitted, isCompletedOut, isParked } from '../utils/reservationStatus';
-import { resolveBookingSourceFromReservation } from '../utils/bookingSource';
 import { listCompanyParkingLots } from '../utils/companyProfile';
 import { findParkingLot } from '../utils/parkingLot';
 import { isReservationUnpaid } from '../utils/paymentStatus';
@@ -235,7 +234,7 @@ function ReceiptQrCode({ url }: { url: string }) {
   );
 }
 
-/** 업체 홈·현장용 — 우측 하단 에어픽 입점 뱃지 */
+/** 접수증 하단 — B2C·홈페이지·현장 공통 (에어픽 입점 각인) */
 function AirpickPartnerBadge() {
   return (
     <a
@@ -336,9 +335,6 @@ export default function VehicleReceiptPage({ code }: VehicleReceiptPageProps) {
       code;
 
     const companyName = reservation.companyName || company?.name || '에어픽';
-    /** 에어픽 B2C만 에어픽 브랜드 — 업체 홈·현장은 업체명 */
-    const airpickBranded =
-      resolveBookingSourceFromReservation(reservation) === 'airpick-b2c';
 
     const airlineCode = (flight.departureFlight || flight.arrivalFlight || '').trim().slice(0, 2).toUpperCase();
     const airlineName = (flight.departureAirline || flight.arrivalAirline || '').trim();
@@ -398,7 +394,6 @@ export default function VehicleReceiptPage({ code }: VehicleReceiptPageProps) {
       companyCenterLabel: `${companyName} ${companyPhone}`,
       pickupLocation,
       companyName,
-      airpickBranded,
       status: reservation.status,
       shareUrl: buildReceiptUrl(reservation),
       qrUrl:
@@ -540,15 +535,7 @@ export default function VehicleReceiptPage({ code }: VehicleReceiptPageProps) {
 
         <footer className="flex items-end justify-between gap-3 bg-[#f4efe6] px-4 py-2.5 print:bg-white">
           <ReceiptQrCode url={view.qrUrl} />
-          {view.airpickBranded ? (
-            <p className="text-right text-[8px] font-bold leading-tight tracking-[0.12em] text-[#b0a89a] uppercase">
-              Powered by
-              <br />
-              에어픽 주차대행
-            </p>
-          ) : (
-            <AirpickPartnerBadge />
-          )}
+          <AirpickPartnerBadge />
         </footer>
       </article>
 
