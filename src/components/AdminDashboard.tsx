@@ -4,11 +4,13 @@ import {
   Edit, 
   Trash2, 
   PlusCircle, 
-  X 
+  X,
+  Globe,
 } from 'lucide-react';
 import { auth } from '../firebase';
 import { Company, Reservation, PartnerCompany } from '../types';
 import PartnerOnboardingChecklist from './PartnerOnboardingChecklist';
+import HomepageCreateModal from './HomepageCreateModal';
 import {
   isPlatformAdminUser,
 } from '../lib/firebaseAuth';
@@ -117,6 +119,19 @@ const safeStorage = (() => {
   };
 })();
 
+/** 하위업체도 대표업체와 같은 홈페이지 생성 모달을 사용할 수 있게 변환 */
+function subCompanyToHomepagePartner(company: Company): PartnerCompany {
+  return {
+    companyId: company.id,
+    password: '',
+    name: company.name,
+    representative: company.representative || '',
+    phone: company.phone || '',
+    settlementMemo: '',
+    status: company.status || 'active',
+  };
+}
+
 export default function AdminDashboard({ 
   onClose, 
   companies, 
@@ -142,6 +157,7 @@ export default function AdminDashboard({
   
   // State for editing a partner company
   const [editingPartner, setEditingPartner] = useState<PartnerCompany | null>(null);
+  const [homepagePartner, setHomepagePartner] = useState<PartnerCompany | null>(null);
   const [editName, setEditName] = useState('');
   const [editRep, setEditRep] = useState('');
   const [editPhone, setEditPhone] = useState('');
@@ -770,6 +786,15 @@ export default function AdminDashboard({
                         <td className="py-3 px-3 align-middle text-right whitespace-nowrap">
                           <button
                             type="button"
+                            onClick={() => setHomepagePartner(p)}
+                            className="px-2 py-1.5 bg-neutral-900 border border-neutral-700 text-zinc-300 hover:bg-sky-500/10 hover:text-sky-300 hover:border-sky-500/40 rounded-lg text-[12px] font-black tracking-tight inline-flex items-center gap-1 transition-all mr-1.5"
+                            title={company?.partnerHomepage?.config ? '홈페이지 수정' : '홈페이지 생성'}
+                          >
+                            <Globe size={11} />
+                            {company?.partnerHomepage?.config ? '홈수정' : '홈생성'}
+                          </button>
+                          <button
+                            type="button"
                             onClick={() => handleStartEdit(p)}
                             className="px-2 py-1.5 bg-neutral-900 border border-neutral-700 text-zinc-300 hover:bg-amber-500/10 hover:text-amber-300 hover:border-amber-500/40 rounded-lg text-[12px] font-black tracking-tight inline-flex items-center gap-1 transition-all mr-1.5"
                           >
@@ -808,13 +833,35 @@ export default function AdminDashboard({
                           </div>
                         </td>
                         <td className="py-3 px-2 align-middle text-center">
-                          <span className="text-[11px] text-zinc-500 font-bold">B2C만</span>
+                          <div className="flex flex-col items-center gap-1">
+                            <span className="text-[11px] text-zinc-500 font-bold">B2C 하위</span>
+                            {c.partnerHomepage?.config && (
+                              <span
+                                className={`rounded-full border px-1.5 py-0.5 text-[10px] font-black ${
+                                  c.partnerHomepage.enabled
+                                    ? 'border-sky-500/30 bg-sky-500/10 text-sky-300'
+                                    : 'border-zinc-700 bg-zinc-800 text-zinc-500'
+                                }`}
+                              >
+                                홈 {c.partnerHomepage.enabled ? '공개' : '중지'}
+                              </span>
+                            )}
+                          </div>
                         </td>
                         <td className="py-3 px-2 align-middle text-center font-mono whitespace-nowrap">
                           <div className="text-[12px] text-zinc-200 font-black">금일 {stats.todayCompleted}건</div>
                           <div className="text-[11px] text-zinc-500 font-bold mt-0.5">월간 {stats.monthlyCompleted}건</div>
                         </td>
                         <td className="py-3 px-3 align-middle text-right whitespace-nowrap">
+                          <button
+                            type="button"
+                            onClick={() => setHomepagePartner(subCompanyToHomepagePartner(c))}
+                            className="px-2 py-1.5 bg-neutral-900 border border-neutral-700 text-zinc-300 hover:bg-sky-500/10 hover:text-sky-300 hover:border-sky-500/40 rounded-lg text-[12px] font-black tracking-tight inline-flex items-center gap-1 transition-all mr-1.5"
+                            title={c.partnerHomepage?.config ? '하위업체 홈페이지 수정' : '하위업체 홈페이지 생성'}
+                          >
+                            <Globe size={11} />
+                            {c.partnerHomepage?.config ? '홈수정' : '홈생성'}
+                          </button>
                           <button
                             type="button"
                             onClick={() => handleStartEditSub(c)}
@@ -839,6 +886,21 @@ export default function AdminDashboard({
               </table>
             </div>
           </div>
+
+          {homepagePartner && (
+            <HomepageCreateModal
+              partner={homepagePartner}
+              company={companies.find((c) => c.id === homepagePartner.companyId)}
+              onClose={() => setHomepagePartner(null)}
+              onSaved={(next) => {
+                onUpdateCompanies(mergeCompanyIntoList(companies, next));
+                setHomepagePartner(null);
+                alert(
+                  `[${next.name}] 마케팅 홈 설정이 저장되었습니다.\n예약: /h/${next.id}`
+                );
+              }}
+            />
+          )}
 
           {/* Edit Partner — body portal + 높은 z-index (네이버지도/부모 transform 클릭 가로채기 방지) */}
           {editingPartner &&

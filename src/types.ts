@@ -104,6 +104,16 @@ export interface Company {
   parentCompanyId?: string;
   /** 본사 계정 가동 상태 (정지 시 파트너 로그인 차단) */
   status?: 'active' | 'suspended';
+  /**
+   * 입점업체 마케팅 홈 (airpick-partner-homepage).
+   * 요금·예약제한은 companies 루트 필드가 정본 — 여기는 소개/FAQ 등.
+   */
+  partnerHomepage?: {
+    enabled: boolean;
+    updatedAt: string;
+    updatedBy?: string;
+    config: Record<string, unknown>;
+  };
 }
 
 /** 업체 주차장 (실내1·실외2 … 여러 개) */

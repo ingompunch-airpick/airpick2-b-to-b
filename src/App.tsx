@@ -904,11 +904,7 @@ export default function App() {
                   <ParkingDepartureView 
                     onBack={() => handleNavigate('timeline')}
                     reservations={visibleReservations}
-                    companies={companies}
-                    getCalculatePrice={getCalculatePrice}
-                    onReservationPatch={async (resId, patch) => {
-                      await handlePatchReservationFields(resId, patch);
-                    }}
+                    onOpenWorkbench={setDriverDetailRes}
                   />
                 </motion.div>
               )}
