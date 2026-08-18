@@ -1,28 +1,20 @@
 ﻿import React, { useState, useEffect, useMemo } from 'react';
 import { 
-  TrendingUp,
   Coins, 
   Power, 
   ChevronLeft, 
   ChevronRight, 
   Info, 
   Check, 
-  Building2, 
-  ArrowRight, 
   Car, 
   ClipboardList,
   ShieldCheck,
   CheckCircle2,
-  CalendarRange,
   Search,
   CreditCard,
   ShieldAlert,
   PlaneTakeoff,
   PlaneLanding,
-  TrendingDown,
-  Minus,
-  Users,
-  UserPlus,
 } from 'lucide-react';
 import { motion } from 'motion/react';
 import { Reservation } from '../types';
@@ -36,6 +28,7 @@ import {
 } from '../utils/reservationStatus';
 import { normalizeDateString } from '../utils/reservationNormalize';
 import { getKSTDateOnlyString, toKSTDateOnlyString } from '../utils/kstDate';
+import { fetchCustomerVisitCount } from '../lib/customerVisit';
 import DateNavBar from './DateNavBar';
 import {
   aggregateGroupedBookingSourceMetrics,
@@ -54,6 +47,35 @@ import {
   monthLabelFromPrefix,
   shiftMonthPrefix,
 } from '../utils/hqAnalytics';
+
+function CustomerVisitBadge({ phone }: { phone?: string }) {
+  const [visitCount, setVisitCount] = useState<number | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setVisitCount(null);
+
+    void fetchCustomerVisitCount(phone)
+      .then((count) => {
+        if (!cancelled) setVisitCount(count);
+      })
+      .catch(() => {
+        if (!cancelled) setVisitCount(null);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [phone]);
+
+  if (visitCount === null) return null;
+
+  return (
+    <span className="inline-flex shrink-0 rounded-md border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 align-middle text-[10px] font-black text-emerald-400">
+      방문 {visitCount}회
+    </span>
+  );
+}
 import CustomDatePickerModal from './CustomDatePickerModal';
 
 function reservationDepartureOn(r: Reservation, ymd: string): boolean {
@@ -111,6 +133,7 @@ export default function StatisticsView({
   const [crmDatePickerOpen, setCrmDatePickerOpen] = useState(false);  
   const [filterType, setFilterType] = useState<'this_month' | 'last_month'>('this_month');
   const [hqMonthPrefix, setHqMonthPrefix] = useState(() => getKSTDateOnlyString().substring(0, 7));
+  const [hqTab, setHqTab] = useState<'today' | 'month' | 'company'>('today');
   
   // Year/Month for the integrated Day Closing Calendar in Partner view
   const [currentYear, setCurrentYear] = useState<number>(() => {
@@ -267,6 +290,8 @@ export default function StatisticsView({
       reservationExitOn(r, todayStr) && r.status === 'completed_out'
     ).length;
 
+    const masterParkedNow = masterActiveRes.filter((r) => isParked(r.status)).length;
+
     const hqMonthLabel = monthLabelFromPrefix(hqMonthPrefix);
     const hqMonthMax = todayStr.substring(0, 7);
     const hqCanGoNext = hqMonthPrefix < hqMonthMax;
@@ -274,7 +299,6 @@ export default function StatisticsView({
     const hqMonthAdmitted = filterAdmittedInMonth(masterActiveRes, hqMonthPrefix);
     const hqPrevMonthPrefix = shiftMonthPrefix(hqMonthPrefix, -1);
     const hqPrevMonthAdmitted = filterAdmittedInMonth(masterActiveRes, hqPrevMonthPrefix);
-    const hqPrevMonthLabel = monthLabelFromPrefix(hqPrevMonthPrefix);
 
     const hqMonthSourceMetrics = aggregateGroupedBookingSourceMetrics(hqMonthAdmitted);
     const hqMonthTotalAdmitted = hqMonthAdmitted.length;
@@ -288,415 +312,345 @@ export default function StatisticsView({
 
     const hqCustomerTotal =
       hqCustomerMix.newCustomers + hqCustomerMix.returningCustomers;
-    const hqBookingTotal =
-      hqCustomerMix.newBookings + hqCustomerMix.returningBookings;
+
+    const hqMonthPicker = (
+      <div className="flex items-center gap-1.5 bg-[#1C1C1E] border border-neutral-800/50 rounded-xl p-1">
+        <button
+          type="button"
+          onClick={() => setHqMonthPrefix((p) => shiftMonthPrefix(p, -1))}
+          className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-neutral-800 transition-colors"
+          aria-label="이전 달"
+        >
+          <ChevronLeft size={18} />
+        </button>
+        <input
+          type="month"
+          value={hqMonthPrefix}
+          max={hqMonthMax}
+          onChange={(e) => {
+            const v = e.target.value;
+            if (v) setHqMonthPrefix(v);
+          }}
+          className="bg-transparent text-sm font-black text-amber-400 font-mono text-center min-w-[8.5rem] outline-none [color-scheme:dark]"
+        />
+        <button
+          type="button"
+          disabled={!hqCanGoNext}
+          onClick={() => hqCanGoNext && setHqMonthPrefix((p) => shiftMonthPrefix(p, 1))}
+          className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-neutral-800 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+          aria-label="다음 달"
+        >
+          <ChevronRight size={18} />
+        </button>
+      </div>
+    );
+
+    const hqTabs = [
+      { id: 'today' as const, label: '오늘' },
+      { id: 'month' as const, label: '월간' },
+      { id: 'company' as const, label: '업체' },
+    ];
 
     return (
-      <div className="min-h-screen bg-neutral-950 text-white p-4 pb-24 font-sans space-y-6 animate-fade-in">
-        
-        {/* HQ Header */}
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 select-none bg-neutral-900/40 p-5 rounded-[22px] border border-neutral-900/60 shadow-md">
-          <div className="flex items-center gap-3">
-            <div className="p-3 bg-gradient-to-br from-amber-500 to-amber-600 rounded-[18px] text-zinc-950 shadow-lg shadow-amber-500/10">
-              <Building2 size={24} className="stroke-[2.5]" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className="text-sm font-black tracking-tight text-white">에어픽</h2>
-                <span className="text-[12px] bg-amber-500/10 text-amber-500 border border-amber-500/20 px-2 py-0.5 rounded-lg font-black">본사</span>
-              </div>
-            </div>
-          </div>
-          
-          <div className="text-[12.5px] text-zinc-400 font-mono font-bold bg-[#1C1C1E] px-3.5 py-1.5 rounded-xl border border-neutral-800 text-center md:text-right">
-            오늘 기준일: {todayStr}
-          </div>
+      <div className="min-h-screen bg-neutral-950 text-white p-4 pb-24 font-sans space-y-4 animate-fade-in">
+        <div className="flex items-center justify-between px-1 select-none">
+          <h2 className="text-sm font-black tracking-tight text-white">
+            에어픽 <span className="text-amber-500">본사</span>
+          </h2>
+          <span className="text-[11px] text-zinc-500 font-mono font-bold">{todayStr}</span>
         </div>
 
-        {/* 1. 업체들 총 현황 (Scoreboard Bento Boards) */}
-        <div>
-          <h3 className="text-xs font-black text-zinc-400 px-1 mb-3">
-            플랫폼 입출차 총 현황
-          </h3>
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-            
-            {/* TOTAL RESERVATIONS */}
-            <div className="bg-[#121214] border border-neutral-800/80 rounded-[22px] p-4 sm:p-5 relative overflow-hidden flex flex-col justify-between h-28 sm:h-32 shadow-xl hover:border-amber-500/30 transition-all group">
-              <div className="absolute right-3.5 top-3.5 bg-amber-500/10 p-1.5 rounded-lg text-amber-500">
-                <CalendarRange size={14} />
-              </div>
-              <span className="text-[11.5px] text-zinc-500 font-bold">오늘 총 예약 접수</span>
-              <div className="space-y-0.5">
-                <div className="text-xl sm:text-2xl font-black text-amber-500 tracking-tight font-mono">
-                  {masterTodayReservations}건
-                </div>
-              </div>
-            </div>
-
-            {/* TOTAL ADMISSION */}
-            <div className="bg-[#121214] border border-neutral-800/80 rounded-[22px] p-4 sm:p-5 relative overflow-hidden flex flex-col justify-between h-28 sm:h-32 shadow-xl hover:border-amber-500/30 transition-all group">
-              <div className="absolute right-3.5 top-3.5 bg-amber-500/10 p-1.5 rounded-lg text-amber-500">
-                <Car size={14} />
-              </div>
-              <span className="text-[11.5px] text-zinc-500 font-bold">오늘 총 입차 완료</span>
-              <div className="space-y-0.5">
-                <div className="text-xl sm:text-2xl font-black text-amber-500 tracking-tight font-mono">
-                  {masterTodayAdmitted}대
-                </div>
-              </div>
-            </div>
-
-            {/* TOTAL DEPARTURE */}
-            <div className="bg-[#121214] border border-neutral-800/80 rounded-[22px] p-4 sm:p-5 relative overflow-hidden flex flex-col justify-between h-28 sm:h-32 shadow-xl hover:border-amber-500/30 transition-all group">
-              <div className="absolute right-3.5 top-3.5 bg-amber-500/10 p-1.5 rounded-lg text-amber-500">
-                <ArrowRight size={14} />
-              </div>
-              <span className="text-[11.5px] text-zinc-500 font-bold">오늘 총 출차 완료</span>
-              <div className="space-y-0.5">
-                <div className="text-xl sm:text-2xl font-black text-amber-500 tracking-tight font-mono">
-                  {masterTodayExited}대
-                </div>
-              </div>
-            </div>
-
-            {/* TODAY REVENUE */}
-            <div className="bg-[#121214] border border-neutral-800/80 rounded-[22px] p-4 sm:p-5 relative overflow-hidden flex flex-col justify-between h-28 sm:h-32 shadow-xl hover:border-amber-500/30 transition-all group">
-              <div className="absolute right-3.5 top-3.5 bg-amber-500/10 p-1.5 rounded-lg text-amber-500">
-                <Coins size={14} />
-              </div>
-              <span className="text-[11.5px] text-zinc-500 font-bold">오늘 총 결제 금액</span>
-              <div className="space-y-0.5">
-                <div className="text-xl sm:text-2xl font-black text-amber-500 tracking-tight font-mono">
-                  {masterTodaySales.toLocaleString()}원
-                </div>
-              </div>
-            </div>
-
-          </div>
+        <div className="flex p-1 bg-[#1C1C1E] rounded-xl border border-neutral-800/40 select-none">
+          {hqTabs.map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setHqTab(t.id)}
+              className={`flex-1 py-2 rounded-lg text-[12.5px] font-black transition-all ${
+                hqTab === t.id
+                  ? 'bg-amber-500 text-neutral-950 shadow-sm'
+                  : 'text-zinc-500 hover:text-white'
+              }`}
+            >
+              {t.label}
+            </button>
+          ))}
         </div>
 
-        {/* 2. 월별 입고 통계 */}
-        <div className="space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between px-1 gap-2">
-            <h3 className="text-xs font-black text-zinc-400">
-              월별 입고 현황
-            </h3>
-            <div className="flex items-center gap-1.5 bg-[#1C1C1E] border border-neutral-800/50 rounded-xl p-1">
-              <button
-                type="button"
-                onClick={() => setHqMonthPrefix((p) => shiftMonthPrefix(p, -1))}
-                className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-neutral-800 transition-colors"
-                aria-label="이전 달"
-              >
-                <ChevronLeft size={18} />
-              </button>
-              <input
-                type="month"
-                value={hqMonthPrefix}
-                max={hqMonthMax}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  if (v) setHqMonthPrefix(v);
-                }}
-                className="bg-transparent text-sm font-black text-amber-400 font-mono text-center min-w-[8.5rem] outline-none [color-scheme:dark]"
-              />
-              <button
-                type="button"
-                disabled={!hqCanGoNext}
-                onClick={() => hqCanGoNext && setHqMonthPrefix((p) => shiftMonthPrefix(p, 1))}
-                className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-neutral-800 transition-colors disabled:opacity-30 disabled:pointer-events-none"
-                aria-label="다음 달"
-              >
-                <ChevronRight size={18} />
-              </button>
-            </div>
-          </div>
-
-          <div className="bg-gradient-to-br from-[#121214] via-[#121214] to-[#1C1C1F] rounded-[22px] border border-neutral-800/80 p-4 space-y-4">
-            <div className="flex items-end justify-between gap-3">
-              <div>
-                <span className="text-[12px] text-zinc-500 font-bold block">{hqMonthLabel} · 입고일 기준</span>
-                <div className="text-3xl font-black text-amber-400 font-mono tracking-tight mt-0.5">
-                  {hqMonthTotalAdmitted}<span className="text-lg ml-0.5">대</span>
-                </div>
-              </div>
-              <div className="text-right">
-                <span className="text-[11px] text-zinc-500 font-bold block">월 매출 합계</span>
-                <span className="text-base font-black text-white font-mono">
-                  {hqMonthTotalRevenue.toLocaleString()}원
-                </span>
-              </div>
-            </div>
-
-            <div className="h-px bg-neutral-800/50" />
-
-            <div className="space-y-2">
-              <span className="text-[12px] text-zinc-500 font-bold block">유입별 입고</span>
-              {GROUPED_SOURCE_ROWS.map(({ key, label }) => {
-                const { count, revenue } = hqMonthSourceMetrics[key];
-                const pct = hqMonthTotalAdmitted > 0
-                  ? Math.round((count / hqMonthTotalAdmitted) * 100)
-                  : 0;
-                return (
-                  <div key={key} className="flex items-center gap-2">
-                    <span
-                      className={`shrink-0 text-[10px] font-black px-1.5 py-0.5 rounded border ${groupedBookingSourceBadgeClass(key)}`}
-                    >
-                      {label}
-                    </span>
-                    <div className="flex-1 min-w-0">
-                      <div className="h-2 bg-neutral-800 rounded-full overflow-hidden">
-                        <div
-                          className={`h-full rounded-full ${
-                            key === 'airpick-b2c' ? 'bg-fuchsia-500' : 'bg-sky-500'
-                          }`}
-                          style={{ width: `${pct}%` }}
-                        />
-                      </div>
-                    </div>
-                    <span className="text-[11px] text-zinc-400 font-mono w-12 text-right shrink-0">
-                      {count}대
-                    </span>
-                    <span className="text-[11px] text-zinc-200 font-bold font-mono w-20 text-right shrink-0">
-                      {revenue.toLocaleString()}원
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        {/* 에어픽 유입 비중 추이 */}
-        <div className="space-y-3">
-          <h3 className="text-xs font-black text-zinc-400 px-1">
-            에어픽 유입 비중 추이 (최근 6개월)
-          </h3>
-          <div className="bg-[#121214] border border-neutral-800/80 rounded-[22px] p-4 space-y-3">
-            {hqAirpickTrend.map((m) => {
-              const isSelected = m.prefix === hqMonthPrefix;
-              return (
+        {hqTab === 'today' && (
+          <div className="space-y-3">
+            <div className="grid grid-cols-2 gap-2.5">
+              {[
+                { label: '접수', value: `${masterTodayReservations}건` },
+                { label: '입차', value: `${masterTodayAdmitted}대` },
+                { label: '출차', value: `${masterTodayExited}대` },
+                { label: '주차중', value: `${masterParkedNow}대` },
+              ].map((item) => (
                 <div
-                  key={m.prefix}
-                  className={`space-y-1 rounded-xl px-2 py-1.5 -mx-2 ${
-                    isSelected ? 'bg-fuchsia-500/8 ring-1 ring-fuchsia-500/25' : ''
-                  }`}
+                  key={item.label}
+                  className="bg-[#121214] border border-neutral-800/80 rounded-2xl px-4 py-3.5"
                 >
-                  <div className="flex items-center justify-between text-[11px]">
-                    <span
-                      className={`font-bold ${isSelected ? 'text-fuchsia-300' : 'text-zinc-400'}`}
-                    >
-                      {m.label}
-                      {isSelected && (
-                        <span className="ml-1.5 text-[9px] text-fuchsia-400/80">선택</span>
-                      )}
-                    </span>
-                    <span className="text-zinc-500 font-mono">
-                      {m.airpick}/{m.total}대
-                    </span>
-                    <span
-                      className={`font-black font-mono w-10 text-right ${
-                        m.pct >= 30 ? 'text-fuchsia-400' : 'text-zinc-300'
-                      }`}
-                    >
-                      {m.pct}%
-                    </span>
-                  </div>
-                  <div className="h-2 bg-neutral-800 rounded-full overflow-hidden flex">
-                    <div
-                      className="h-full bg-fuchsia-500 rounded-l-full"
-                      style={{ width: `${m.pct}%` }}
-                    />
-                    <div
-                      className="h-full bg-sky-500/40 flex-1 rounded-r-full"
-                      style={{ width: `${100 - m.pct}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        {/* 신규 vs 재방문 */}
-        <div className="space-y-3">
-          <h3 className="text-xs font-black text-zinc-400 px-1">
-            신규 vs 재방문 ({hqMonthLabel})
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="bg-[#121214] border border-neutral-800/80 rounded-[22px] p-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <UserPlus size={16} className="text-sky-400" />
-                <span className="text-[12px] text-zinc-500 font-bold">고객 수 (중복 제외)</span>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="bg-sky-500/10 border border-sky-500/20 rounded-xl p-3 text-center">
-                  <span className="text-[10px] text-sky-400 font-bold block">신규</span>
-                  <span className="text-2xl font-black text-sky-300 font-mono">
-                    {hqCustomerMix.newCustomers}
-                  </span>
-                  <span className="text-[10px] text-zinc-500 block mt-0.5">
-                    {hqCustomerTotal > 0
-                      ? Math.round((hqCustomerMix.newCustomers / hqCustomerTotal) * 100)
-                      : 0}
-                    %
+                  <span className="text-[11px] text-zinc-500 font-bold block">{item.label}</span>
+                  <span className="text-xl font-black text-amber-400 font-mono tracking-tight">
+                    {item.value}
                   </span>
                 </div>
-                <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 text-center">
-                  <span className="text-[10px] text-amber-400 font-bold block">재방문</span>
-                  <span className="text-2xl font-black text-amber-300 font-mono">
-                    {hqCustomerMix.returningCustomers}
-                  </span>
-                  <span className="text-[10px] text-zinc-500 block mt-0.5">
-                    {hqCustomerTotal > 0
-                      ? Math.round(
-                          (hqCustomerMix.returningCustomers / hqCustomerTotal) * 100
-                        )
-                      : 0}
-                    %
-                  </span>
-                </div>
-              </div>
+              ))}
             </div>
-            <div className="bg-[#121214] border border-neutral-800/80 rounded-[22px] p-4 space-y-3">
-              <div className="flex items-center gap-2">
-                <Users size={16} className="text-zinc-400" />
-                <span className="text-[12px] text-zinc-500 font-bold">입고 건수 기준</span>
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-3 text-center">
-                  <span className="text-[10px] text-sky-400 font-bold block">신규 입고</span>
-                  <span className="text-2xl font-black text-white font-mono">
-                    {hqCustomerMix.newBookings}
-                  </span>
-                  <span className="text-[10px] text-zinc-500 block mt-0.5">
-                    {hqBookingTotal > 0
-                      ? Math.round((hqCustomerMix.newBookings / hqBookingTotal) * 100)
-                      : 0}
-                    %
-                  </span>
-                </div>
-                <div className="bg-neutral-900 border border-neutral-800 rounded-xl p-3 text-center">
-                  <span className="text-[10px] text-amber-400 font-bold block">재방문 입고</span>
-                  <span className="text-2xl font-black text-white font-mono">
-                    {hqCustomerMix.returningBookings}
-                  </span>
-                  <span className="text-[10px] text-zinc-500 block mt-0.5">
-                    {hqBookingTotal > 0
-                      ? Math.round(
-                          (hqCustomerMix.returningBookings / hqBookingTotal) * 100
-                        )
-                      : 0}
-                    %
-                  </span>
-                </div>
-              </div>
-              <p className="text-[10px] text-zinc-600 leading-relaxed">
-                해당 월 이전에 입고 이력이 있으면 재방문으로 집계합니다 (전화번호 우선).
-              </p>
+            <div className="bg-[#121214] border border-neutral-800/80 rounded-2xl px-4 py-3.5 flex items-center justify-between">
+              <span className="text-[11px] text-zinc-500 font-bold">오늘 매출</span>
+              <span className="text-lg font-black text-white font-mono">
+                {masterTodaySales.toLocaleString()}원
+              </span>
             </div>
           </div>
-        </div>
+        )}
 
-        {/* 3. 업장별 입고 + 순위 변동 */}
-        <div className="space-y-3">
-          <h3 className="text-xs font-black text-zinc-400 px-1">
-            업장별 입고 · 순위 변동 ({hqMonthLabel})
-          </h3>
-          <p className="text-[10px] text-zinc-600 px-1">
-            전월({hqPrevMonthLabel}) 대비 입고 순위 · 대수 변화
-          </p>
-          {hqRankRows.length === 0 ? (
-            <div className="bg-[#121214] border border-neutral-800/80 rounded-[22px] p-8 text-center">
-              <Car size={22} className="mx-auto text-zinc-600 mb-2" />
-              <p className="text-xs text-zinc-500 font-bold">해당 월 입고 내역이 없습니다.</p>
+        {hqTab === 'month' && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between px-1 gap-2">
+              <h3 className="text-xs font-black text-zinc-400">입고 · 유입</h3>
+              {hqMonthPicker}
             </div>
-          ) : (
-            <div className="bg-[#121214] border border-neutral-800/80 rounded-[22px] overflow-hidden divide-y divide-neutral-800/60">
-              {hqRankRows.map((row) => {
-                const pct = hqMonthTotalAdmitted > 0
-                  ? Math.round((row.total / hqMonthTotalAdmitted) * 100)
-                  : 0;
-                return (
-                  <div key={row.id} className="px-4 py-3.5 space-y-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <span className="text-lg font-black text-zinc-500 font-mono w-6 shrink-0">
-                          {row.rank}
-                        </span>
-                        <div className="min-w-0">
-                          <span className="text-sm font-black text-white block truncate">
-                            {row.name}
-                          </span>
-                          <span className="text-[10px] text-zinc-500 font-mono">{row.id}</span>
+
+            <div className="bg-[#121214] rounded-[22px] border border-neutral-800/80 p-4 space-y-4">
+              <div className="flex items-end justify-between gap-3">
+                <div>
+                  <span className="text-[11px] text-zinc-500 font-bold block">{hqMonthLabel}</span>
+                  <div className="text-3xl font-black text-amber-400 font-mono tracking-tight mt-0.5">
+                    {hqMonthTotalAdmitted}<span className="text-lg ml-0.5">대</span>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <span className="text-[11px] text-zinc-500 font-bold block">매출</span>
+                  <span className="text-sm font-black text-white font-mono">
+                    {hqMonthTotalRevenue.toLocaleString()}원
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                {GROUPED_SOURCE_ROWS.map(({ key, label }) => {
+                  const { count, revenue } = hqMonthSourceMetrics[key];
+                  const pct = hqMonthTotalAdmitted > 0
+                    ? Math.round((count / hqMonthTotalAdmitted) * 100)
+                    : 0;
+                  return (
+                    <div key={key} className="flex items-center gap-2">
+                      <span className="shrink-0 text-[11px] text-zinc-400 font-bold w-12">
+                        {label}
+                      </span>
+                      <div className="flex-1 min-w-0">
+                        <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+                          <div
+                            className={`h-full rounded-full ${
+                              key === 'airpick-b2c' ? 'bg-fuchsia-500' : 'bg-sky-500'
+                            }`}
+                            style={{ width: `${pct}%` }}
+                          />
                         </div>
                       </div>
-                      <div className="text-right shrink-0 flex flex-col items-end gap-0.5">
-                        <span className="text-lg font-black text-amber-400 font-mono">
-                          {row.total}대
-                        </span>
-                        {row.rankDelta != null && row.rankDelta !== 0 && (
-                          <span
-                            className={`text-[10px] font-black flex items-center gap-0.5 ${
-                              row.rankDelta > 0 ? 'text-emerald-400' : 'text-rose-400'
-                            }`}
-                          >
-                            {row.rankDelta > 0 ? (
-                              <TrendingUp size={11} />
-                            ) : (
-                              <TrendingDown size={11} />
-                            )}
-                            {Math.abs(row.rankDelta)}위
-                          </span>
-                        )}
-                        {row.rankDelta === 0 && row.prevRank != null && (
-                          <span className="text-[10px] text-zinc-500 flex items-center gap-0.5">
-                            <Minus size={11} /> 유지
-                          </span>
-                        )}
-                        {row.prevRank == null && (
-                          <span className="text-[10px] text-sky-400 font-bold">신규 진입</span>
-                        )}
-                        {row.totalDelta !== 0 && (
-                          <span
-                            className={`text-[10px] font-mono ${
-                              row.totalDelta > 0 ? 'text-emerald-400/90' : 'text-rose-400/90'
-                            }`}
-                          >
-                            {row.totalDelta > 0 ? '+' : ''}
-                            {row.totalDelta}대
-                          </span>
-                        )}
-                      </div>
+                      <span className="text-[11px] text-zinc-400 font-mono w-10 text-right shrink-0">
+                        {count}대
+                      </span>
+                      <span className="text-[11px] text-zinc-300 font-bold font-mono w-[4.5rem] text-right shrink-0">
+                        {pct}%
+                      </span>
                     </div>
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span
-                        className={`text-[9.5px] font-bold px-1.5 py-0.5 rounded border ${groupedBookingSourceBadgeClass('airpick-b2c')}`}
-                      >
-                        에어픽 {row.airpick}대
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="bg-[#121214] border border-neutral-800/80 rounded-[22px] p-4 space-y-2.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] text-zinc-500 font-bold">에어픽 비중 · 최근 6개월</span>
+                <span className="text-[10px] text-zinc-600">탭하면 해당 월</span>
+              </div>
+              {hqAirpickTrend.map((m) => {
+                const isSelected = m.prefix === hqMonthPrefix;
+                return (
+                  <button
+                    key={m.prefix}
+                    type="button"
+                    onClick={() => setHqMonthPrefix(m.prefix)}
+                    className={`w-full text-left space-y-1 rounded-xl px-2 py-1.5 -mx-2 transition-colors ${
+                      isSelected ? 'bg-fuchsia-500/10' : 'hover:bg-neutral-900'
+                    }`}
+                  >
+                    <div className="flex items-center justify-between text-[11px]">
+                      <span className={`font-bold ${isSelected ? 'text-fuchsia-300' : 'text-zinc-400'}`}>
+                        {m.label.replace('년 ', '.').replace('월', '')}
                       </span>
+                      <span className="text-zinc-500 font-mono">{m.airpick}/{m.total}</span>
                       <span
-                        className={`text-[9.5px] font-bold px-1.5 py-0.5 rounded border ${groupedBookingSourceBadgeClass('other')}`}
+                        className={`font-black font-mono w-10 text-right ${
+                          m.pct >= 30 ? 'text-fuchsia-400' : 'text-zinc-300'
+                        }`}
                       >
-                        홈·현장 {row.other}대
-                      </span>
-                      <span className="text-[10px] text-zinc-400 font-mono ml-auto">
-                        {row.revenue.toLocaleString()}원
+                        {m.pct}%
                       </span>
                     </div>
                     <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-amber-500/80 rounded-full"
-                        style={{ width: `${pct}%` }}
+                        className="h-full bg-fuchsia-500 rounded-full"
+                        style={{ width: `${m.pct}%` }}
                       />
                     </div>
-                  </div>
+                  </button>
                 );
               })}
             </div>
-          )}
-        </div>
 
+            <div className="bg-[#121214] border border-neutral-800/80 rounded-[22px] p-4">
+              <div className="flex items-center justify-between mb-3">
+                <span className="text-[11px] text-zinc-500 font-bold">신규 vs 재방문</span>
+                <span className="text-[10px] text-zinc-600">고객 기준 · 전화 우선</span>
+              </div>
+              <div className="grid grid-cols-2 gap-2">
+                <div className="rounded-xl bg-sky-500/10 border border-sky-500/20 px-3 py-2.5">
+                  <span className="text-[10px] text-sky-400 font-bold block">신규</span>
+                  <span className="text-xl font-black text-sky-300 font-mono">
+                    {hqCustomerMix.newCustomers}
+                    <span className="text-[11px] text-zinc-500 font-bold ml-1">
+                      {hqCustomerTotal > 0
+                        ? Math.round((hqCustomerMix.newCustomers / hqCustomerTotal) * 100)
+                        : 0}%
+                    </span>
+                  </span>
+                  <span className="text-[10px] text-zinc-500 block mt-0.5">
+                    입고 {hqCustomerMix.newBookings}건
+                  </span>
+                </div>
+                <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 px-3 py-2.5">
+                  <span className="text-[10px] text-amber-400 font-bold block">재방문</span>
+                  <span className="text-xl font-black text-amber-300 font-mono">
+                    {hqCustomerMix.returningCustomers}
+                    <span className="text-[11px] text-zinc-500 font-bold ml-1">
+                      {hqCustomerTotal > 0
+                        ? Math.round((hqCustomerMix.returningCustomers / hqCustomerTotal) * 100)
+                        : 0}%
+                    </span>
+                  </span>
+                  <span className="text-[10px] text-zinc-500 block mt-0.5">
+                    입고 {hqCustomerMix.returningBookings}건
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {hqTab === 'company' && (
+          <div className="space-y-3">
+            <div className="flex items-center justify-between px-1 gap-2">
+              <h3 className="text-xs font-black text-zinc-400">업장별 입고</h3>
+              {hqMonthPicker}
+            </div>
+            {hqRankRows.length === 0 ? (
+              <div className="bg-[#121214] border border-neutral-800/80 rounded-[22px] p-8 text-center">
+                <Car size={22} className="mx-auto text-zinc-600 mb-2" />
+                <p className="text-xs text-zinc-500 font-bold">해당 월 입고 내역이 없습니다.</p>
+              </div>
+            ) : (
+              <>
+                <div className="grid grid-cols-2 gap-2.5">
+                  <div className="bg-fuchsia-500/10 border border-fuchsia-500/20 rounded-2xl px-4 py-3">
+                    <span className="text-[10px] text-fuchsia-300 font-bold block">에어픽 합계</span>
+                    <span className="text-lg font-black text-fuchsia-200 font-mono">
+                      {hqRankRows.reduce((s, r) => s + r.airpick, 0)}대
+                    </span>
+                    <span className="text-[10px] text-zinc-400 font-mono block mt-0.5">
+                      {hqRankRows.reduce((s, r) => s + r.airpickRevenue, 0).toLocaleString()}원
+                    </span>
+                  </div>
+                  <div className="bg-sky-500/10 border border-sky-500/20 rounded-2xl px-4 py-3">
+                    <span className="text-[10px] text-sky-300 font-bold block">홈페이지 합계</span>
+                    <span className="text-lg font-black text-sky-200 font-mono">
+                      {hqRankRows.reduce((s, r) => s + r.homepage, 0)}대
+                    </span>
+                    <span className="text-[10px] text-zinc-400 font-mono block mt-0.5">
+                      {hqRankRows.reduce((s, r) => s + r.homepageRevenue, 0).toLocaleString()}원
+                    </span>
+                  </div>
+                </div>
+                <p className="text-[10px] text-zinc-600 px-1">
+                  에어픽 대수 순 · 수수료는 에어픽 매출 기준
+                </p>
+                <div className="bg-[#121214] border border-neutral-800/80 rounded-[22px] overflow-hidden divide-y divide-neutral-800/60">
+                  {hqRankRows.map((row) => (
+                    <div key={row.id} className="px-4 py-3 space-y-2">
+                      <div className="flex items-center gap-3">
+                        <span className="text-sm font-black text-zinc-500 font-mono w-5 shrink-0">
+                          {row.rank}
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-sm font-black text-white truncate">{row.name}</span>
+                            {row.prevRank == null ? (
+                              <span className="text-[10px] text-sky-400 font-bold shrink-0">신규</span>
+                            ) : row.rankDelta != null && row.rankDelta !== 0 ? (
+                              <span
+                                className={`text-[10px] font-black shrink-0 ${
+                                  row.rankDelta > 0 ? 'text-emerald-400' : 'text-rose-400'
+                                }`}
+                              >
+                                {row.rankDelta > 0 ? '↑' : '↓'}
+                                {Math.abs(row.rankDelta)}
+                              </span>
+                            ) : null}
+                          </div>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <span className="text-base font-black text-white font-mono block">
+                            {row.total}대
+                          </span>
+                          {row.totalDelta !== 0 && (
+                            <span
+                              className={`text-[10px] font-mono ${
+                                row.totalDelta > 0 ? 'text-emerald-400/90' : 'text-rose-400/90'
+                              }`}
+                            >
+                              {row.totalDelta > 0 ? '+' : ''}
+                              {row.totalDelta}대
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="grid grid-cols-3 gap-1.5">
+                        <div className="rounded-lg bg-fuchsia-500/10 px-2 py-1.5">
+                          <span className="text-[9px] text-fuchsia-300 font-bold block">에어픽</span>
+                          <span className="text-[12px] font-black text-fuchsia-100 font-mono">
+                            {row.airpick}대
+                          </span>
+                          <span className="text-[9px] text-zinc-500 font-mono block">
+                            {row.airpickRevenue.toLocaleString()}원
+                          </span>
+                        </div>
+                        <div className="rounded-lg bg-sky-500/10 px-2 py-1.5">
+                          <span className="text-[9px] text-sky-300 font-bold block">홈페이지</span>
+                          <span className="text-[12px] font-black text-sky-100 font-mono">
+                            {row.homepage}대
+                          </span>
+                          <span className="text-[9px] text-zinc-500 font-mono block">
+                            {row.homepageRevenue.toLocaleString()}원
+                          </span>
+                        </div>
+                        <div className="rounded-lg bg-neutral-900 px-2 py-1.5">
+                          <span className="text-[9px] text-zinc-500 font-bold block">현장</span>
+                          <span className="text-[12px] font-black text-zinc-300 font-mono">
+                            {row.onsite}대
+                          </span>
+                          <span className="text-[9px] text-zinc-600 font-mono block">수수료 제외</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
     );
   }
@@ -993,6 +947,7 @@ export default function StatisticsView({
                         <div className="flex items-center gap-2 min-w-0">
                           <span className="text-xs font-black text-white font-mono">{res.carNumber}</span>
                           <span className="text-[12px] text-zinc-500 truncate">{res.carModel}</span>
+                          <CustomerVisitBadge phone={res.phone} />
                           {(() => {
                             const grouped = toGroupedBookingSource(resolveBookingSourceFromReservation(res));
                             if (grouped === 'other') return null;

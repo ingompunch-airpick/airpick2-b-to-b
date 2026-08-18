@@ -3,7 +3,6 @@ import { normalizeDateString } from './reservationNormalize';
 import { isAdmitted } from './reservationStatus';
 import {
   resolveBookingSourceFromReservation,
-  toGroupedBookingSource,
 } from './bookingSource';
 
 export function shiftMonthPrefix(prefix: string, delta: number): string {
@@ -33,9 +32,12 @@ export type HqCompanyRow = {
   id: string;
   name: string;
   airpick: number;
-  other: number;
+  homepage: number;
+  onsite: number;
   total: number;
   revenue: number;
+  airpickRevenue: number;
+  homepageRevenue: number;
 };
 
 export function buildHqCompanyRows(admitted: Reservation[]): HqCompanyRow[] {
@@ -44,16 +46,34 @@ export function buildHqCompanyRows(admitted: Reservation[]): HqCompanyRow[] {
     const id = (r.companyId || r.companyName || 'unknown').toLowerCase().trim();
     const name = r.companyName || r.companyId || '미지정';
     if (!map.has(id)) {
-      map.set(id, { id, name, airpick: 0, other: 0, total: 0, revenue: 0 });
+      map.set(id, {
+        id,
+        name,
+        airpick: 0,
+        homepage: 0,
+        onsite: 0,
+        total: 0,
+        revenue: 0,
+        airpickRevenue: 0,
+        homepageRevenue: 0,
+      });
     }
     const row = map.get(id)!;
-    const grouped = toGroupedBookingSource(resolveBookingSourceFromReservation(r));
-    if (grouped === 'airpick-b2c') row.airpick += 1;
-    else row.other += 1;
+    const src = resolveBookingSourceFromReservation(r);
+    const price = r.totalPrice || 0;
+    if (src === 'airpick-b2c') {
+      row.airpick += 1;
+      row.airpickRevenue += price;
+    } else if (src === 'homepage') {
+      row.homepage += 1;
+      row.homepageRevenue += price;
+    } else {
+      row.onsite += 1;
+    }
     row.total += 1;
-    row.revenue += r.totalPrice || 0;
+    row.revenue += price;
   }
-  return [...map.values()].sort((a, b) => b.total - a.total);
+  return [...map.values()].sort((a, b) => b.airpick - a.airpick || b.total - a.total);
 }
 
 export type HqRankChangeRow = HqCompanyRow & {
@@ -169,9 +189,7 @@ export function buildAirpickShareTrend(
   return prefixes.map((prefix) => {
     const admitted = filterAdmittedInMonth(allReservations, prefix);
     const airpick = admitted.filter(
-      (r) =>
-        toGroupedBookingSource(resolveBookingSourceFromReservation(r)) ===
-        'airpick-b2c'
+      (r) => resolveBookingSourceFromReservation(r) === 'airpick-b2c'
     ).length;
     const total = admitted.length;
     const pct = total > 0 ? Math.round((airpick / total) * 100) : 0;
