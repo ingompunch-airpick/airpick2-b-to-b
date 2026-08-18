@@ -5,7 +5,7 @@ import { formatPhoneDisplay } from './phone';
 export const RECEIPT_PUBLIC_ORIGIN = 'https://airpick-reservation.web.app';
 
 /** 출고 후기 — B2C 에어픽.kr */
-export const REVIEW_PUBLIC_ORIGIN = 'https://www.xn--oh5b1bw17d.kr';
+export const REVIEW_PUBLIC_ORIGIN = 'https://www.에어픽.kr';
 
 const RECEIPT_PATH_RE = /\/r\/([^/?#]+)/;
 

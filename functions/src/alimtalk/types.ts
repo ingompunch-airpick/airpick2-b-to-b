@@ -39,4 +39,6 @@ export interface AlimtalkTemplateParams {
   접수증링크?: string;
   결제금액?: string;
   업체연락처?: string;
+  /** 출고 후기 버튼 `.../my?review=#{예약ID}` */
+  예약ID?: string;
 }

@@ -55,10 +55,9 @@ export function buildCheckoutParams(
   companyPhone: string,
   _receiptUrl: string = buildReceiptUrl(reservation)
 ): AlimtalkTemplateParams {
-  const amount = reservation.paymentAmount ?? reservation.totalPrice ?? 0;
   return {
     ...baseParams(reservation),
-    결제금액: clampAlimtalkValue(String(amount)),
+    예약ID: clampAlimtalkValue(String(reservation.id || '').trim(), 40),
     접수증링크: REVIEW_LINK_PLACEHOLDER,
     업체연락처: clampAlimtalkValue(companyPhone.replace(/\s+/g, '')),
   };

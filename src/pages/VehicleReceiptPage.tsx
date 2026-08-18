@@ -507,6 +507,9 @@ export default function VehicleReceiptPage({ code }: VehicleReceiptPageProps) {
             <PickupLocationRow value={view.pickupLocation} />
             <div className="col-span-2 min-w-0">
               <GridCell label="고객센터" value={view.companyCenterLabel} tel />
+              <p className="px-2.5 pb-2 text-[11px] font-bold leading-snug text-[#8a5a12]">
+                도착 30분 전에 꼭 전화 주세요.
+              </p>
             </div>
           </div>
 
