@@ -7,6 +7,7 @@ import DispatchBoardView from './DispatchBoardView';
 import HqPartnerBoardView from './HqPartnerBoardView';
 import HqReviewsView from './HqReviewsView';
 import HqCustomersView from './HqCustomersView';
+import AcquisitionFunnelView from './AcquisitionFunnelView';
 
 interface AdminModeProps {
   currentView: AppView;
@@ -78,6 +79,7 @@ export default function AdminMode({
     <StatisticsView
       reservations={reservations}
       allReservations={allReservations}
+      companies={companies}
       companyName={companyInfo.name}
       isSuperAdmin={isSuperAdmin}
       currentCompanyId={currentCompanyId}
@@ -154,6 +156,16 @@ export default function AdminMode({
         <HqCustomersView
           companies={companies}
           onOpenReservation={onEditReservation}
+        />
+      );
+
+    case 'acquisition_funnel':
+      if (!isSuperAdmin) return statisticsPanel;
+      return (
+        <AcquisitionFunnelView
+          companies={companies}
+          currentCompanyId={currentCompanyId}
+          isSuperAdmin
         />
       );
 

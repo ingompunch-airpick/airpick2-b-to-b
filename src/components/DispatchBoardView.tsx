@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { Download, Printer, Settings2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, Download, Printer, Settings2 } from 'lucide-react';
 import type { Company, Reservation } from '../types';
 import DateNavBar from './DateNavBar';
 import { getKSTDateOnlyString } from '../utils/kstDate';
@@ -24,13 +24,34 @@ import {
   DISPATCH_FEATURE_META,
   defaultDispatchBoardPrefs,
   loadDispatchBoardPrefs,
+  moveColumnInOrder,
+  orderedDispatchColumns,
   saveDispatchBoardPrefs,
   visibleDispatchColumns,
   type DispatchBoardPrefs,
   type DispatchColumnId,
+  type DispatchLayoutMode,
 } from '../utils/dispatchBoardPrefs';
 
 type FocusMode = 'all' | 'intake' | 'exit';
+
+type SlotKind = 'intake' | 'exit';
+
+type BoardRow = {
+  res: Reservation;
+  onSelectedDate: { intake: boolean; exit: boolean };
+};
+
+type TimetableEvent = BoardRow & {
+  kind: SlotKind;
+  slotTime: string;
+};
+
+type TimetableSlot = {
+  time: string;
+  sortKey: number;
+  events: TimetableEvent[];
+};
 
 interface DispatchBoardViewProps {
   reservations: Reservation[];
@@ -88,11 +109,6 @@ function customerRequest(res: Reservation): string {
   ).trim();
 }
 
-type BoardRow = {
-  res: Reservation;
-  onSelectedDate: { intake: boolean; exit: boolean };
-};
-
 function csvEscape(value: string): string {
   if (/[",\n]/.test(value)) return `"${value.replace(/"/g, '""')}"`;
   return value;
@@ -102,10 +118,88 @@ function columnHeader(id: DispatchColumnId): string {
   return DISPATCH_COLUMN_META.find((c) => c.id === id)?.label || id;
 }
 
+/** HH:mm 정규화. 없으면 빈 문자열 */
+function normalizeClock(time?: string): string {
+  const m = String(time || '')
+    .trim()
+    .match(/^(\d{1,2}):(\d{2})/);
+  if (!m) return '';
+  return `${String(Number(m[1])).padStart(2, '0')}:${m[2]}`;
+}
+
+function toMinutes(time?: string): number | null {
+  const clock = normalizeClock(time);
+  if (!clock) return null;
+  const [h, min] = clock.split(':').map(Number);
+  return h * 60 + min;
+}
+
+function hourSlotLabel(hour: number): string {
+  const start = `${String(hour).padStart(2, '0')}:00`;
+  const endHour = hour + 1;
+  const end = endHour === 24 ? '24:00' : `${String(endHour).padStart(2, '0')}:00`;
+  return `${start}~${end}`;
+}
+
+/** 시각 → 0~23 시간대. 파싱 실패 시 null */
+function hourBucket(time?: string): number | null {
+  const min = toMinutes(time);
+  if (min == null) return null;
+  return Math.min(23, Math.floor(min / 60));
+}
+
+/**
+ * 00:00~01:00 … 23:00~24:00 고정 시간표.
+ * 해당 시간대에 입·출 예정인 차량만 칸에 넣고, 없으면 빈칸.
+ */
+function buildTimetableSlots(rows: BoardRow[]): TimetableSlot[] {
+  const buckets: TimetableEvent[][] = Array.from({ length: 24 }, () => []);
+  const unknown: TimetableEvent[] = [];
+
+  const push = (timeRaw: string | undefined, kind: SlotKind, row: BoardRow) => {
+    const hour = hourBucket(timeRaw);
+    const clock = normalizeClock(timeRaw) || '시간 미정';
+    const event: TimetableEvent = { ...row, kind, slotTime: clock };
+    if (hour == null) unknown.push(event);
+    else buckets[hour].push(event);
+  };
+
+  for (const row of rows) {
+    if (row.onSelectedDate.intake) push(row.res.departureTime, 'intake', row);
+    if (row.onSelectedDate.exit) push(row.res.arrivalTime, 'exit', row);
+  }
+
+  const sortEvents = (events: TimetableEvent[]) => {
+    events.sort((a, b) => {
+      const ta = toMinutes(a.slotTime) ?? 99_999;
+      const tb = toMinutes(b.slotTime) ?? 99_999;
+      if (ta !== tb) return ta - tb;
+      if (a.kind !== b.kind) return a.kind === 'intake' ? -1 : 1;
+      return (a.res.carNumber || '').localeCompare(b.res.carNumber || '', 'ko');
+    });
+  };
+
+  const slots: TimetableSlot[] = buckets.map((events, hour) => {
+    sortEvents(events);
+    return {
+      time: hourSlotLabel(hour),
+      sortKey: hour,
+      events,
+    };
+  });
+
+  if (unknown.length > 0) {
+    sortEvents(unknown);
+    slots.push({ time: '시간 미정', sortKey: 99, events: unknown });
+  }
+
+  return slots;
+}
+
 /**
  * 관리자 입출차 배차표.
  * - 읽기 전용 (상태·결제 수정/삭제는 다른 화면)
- * - 컬럼·보조기능은 표시 설정(localStorage)으로 ON/OFF
+ * - 컬럼 ON/OFF·순서·보조기능은 표시 설정(localStorage)
  */
 export default function DispatchBoardView({
   reservations,
@@ -162,41 +256,12 @@ export default function DispatchBoardView({
     return list;
   }, [reservations, selectedDate, focus]);
 
-  const shuttleHints = useMemo(() => {
-    if (!prefs.features.shuttleHints) return [];
-    const day = normalizeDateString(selectedDate) || getKSTDateOnlyString();
-    const exits = reservations.filter(
-      (r) =>
-        !isCancelled(r.status) &&
-        normalizeDateString(r.arrivalDate) === day &&
-        Boolean(r.arrivalTime)
-    );
-    const intakes = reservations.filter(
-      (r) =>
-        !isCancelled(r.status) &&
-        normalizeDateString(r.departureDate) === day &&
-        Boolean(r.departureTime)
-    );
+  const timetableSlots = useMemo(() => buildTimetableSlots(rows), [rows]);
+  const isTimetable = prefs.layout === 'timetable';
 
-    const hints: { exit: Reservation; intake: Reservation; gapMin: number }[] = [];
-    for (const ex of exits) {
-      const exTerm = terminalForMoment(ex, 'exit');
-      const exMin = toMinutes(ex.arrivalTime);
-      if (exMin == null) continue;
-      let best: { intake: Reservation; gapMin: number } | null = null;
-      for (const inn of intakes) {
-        if (inn.id === ex.id) continue;
-        if (terminalForMoment(inn, 'intake') !== exTerm) continue;
-        const inMin = toMinutes(inn.departureTime);
-        if (inMin == null) continue;
-        const gap = inMin - exMin;
-        if (gap < 0 || gap > 90) continue;
-        if (!best || gap < best.gapMin) best = { intake: inn, gapMin: gap };
-      }
-      if (best) hints.push({ exit: ex, intake: best.intake, gapMin: best.gapMin });
-    }
-    return hints.slice(0, 12);
-  }, [reservations, selectedDate, prefs.features.shuttleHints]);
+  const setLayout = (layout: DispatchLayoutMode) => {
+    updatePrefs({ ...prefs, layout });
+  };
 
   const cellText = useCallback(
     (
@@ -279,7 +344,7 @@ export default function DispatchBoardView({
     const day = normalizeDateString(selectedDate) || getKSTDateOnlyString();
     const cols = prefs.features.csvVisibleOnly
       ? visibleCols
-      : DISPATCH_COLUMN_META.map((c) => c.id);
+      : orderedDispatchColumns(prefs);
     const header = cols.map(columnHeader);
     const lines = [header.join(',')];
     rows.forEach((row, idx) => {
@@ -300,16 +365,23 @@ export default function DispatchBoardView({
     URL.revokeObjectURL(url);
   };
 
-  const renderCell = (id: DispatchColumnId, row: BoardRow, idx: number) => {
+  const renderCell = (
+    id: DispatchColumnId,
+    row: BoardRow,
+    idx: number,
+    opts?: { compact?: boolean }
+  ) => {
     const r = row.res;
     const text = cellText(id, row, idx);
+    const pad = opts?.compact ? 'px-2 py-1' : 'px-2 py-2';
 
     if (id === 'intake') {
       return (
         <td
           key={id}
           className={cn(
-            'px-2 py-2 tabular-nums whitespace-nowrap',
+            pad,
+            'tabular-nums whitespace-nowrap',
             row.onSelectedDate.intake && 'text-sky-400 print:text-sky-800 font-bold'
           )}
         >
@@ -322,7 +394,8 @@ export default function DispatchBoardView({
         <td
           key={id}
           className={cn(
-            'px-2 py-2 tabular-nums whitespace-nowrap',
+            pad,
+            'tabular-nums whitespace-nowrap',
             row.onSelectedDate.exit && 'text-rose-400 print:text-rose-800 font-bold'
           )}
         >
@@ -335,7 +408,8 @@ export default function DispatchBoardView({
         <td
           key={id}
           className={cn(
-            'px-2 py-2 tabular-nums',
+            pad,
+            'tabular-nums',
             id === 'carNumber' ? 'font-black' : 'text-zinc-500'
           )}
         >
@@ -345,7 +419,7 @@ export default function DispatchBoardView({
     }
     if (id === 'flightOut' || id === 'flightIn') {
       return (
-        <td key={id} className="px-2 py-2 font-mono text-[11px]">
+        <td key={id} className={cn(pad, 'font-mono text-[11px]')}>
           {text}
         </td>
       );
@@ -355,7 +429,8 @@ export default function DispatchBoardView({
         <td
           key={id}
           className={cn(
-            'px-2 py-2 font-bold whitespace-nowrap',
+            pad,
+            'font-bold whitespace-nowrap',
             isReservationUnpaid(r) ? 'text-rose-400' : 'text-emerald-400'
           )}
         >
@@ -367,7 +442,7 @@ export default function DispatchBoardView({
       const printPhone = cellText(id, row, idx, { forPrint: true });
       const tel = phoneTelHref(r.phone || '');
       return (
-        <td key={id} className="px-2 py-2 tabular-nums text-[11px]">
+        <td key={id} className={cn(pad, 'tabular-nums text-[11px]')}>
           <span className="print:hidden">
             {prefs.features.telLink && tel ? (
               <a
@@ -387,13 +462,13 @@ export default function DispatchBoardView({
     }
     if (id === 'userRequest' || id === 'adminMemo' || id === 'destination') {
       return (
-        <td key={id} className="px-2 py-2 max-w-[140px] truncate text-[11px]" title={text}>
+        <td key={id} className={cn(pad, 'max-w-[140px] truncate text-[11px]')} title={text}>
           {text}
         </td>
       );
     }
     return (
-      <td key={id} className="px-2 py-2">
+      <td key={id} className={pad}>
         {text}
       </td>
     );
@@ -432,7 +507,7 @@ export default function DispatchBoardView({
           <div>
             <h2 className="text-lg font-black text-white tracking-tight">입출차 배차표</h2>
             <p className="text-[11px] text-zinc-500 font-semibold mt-0.5">
-              셔틀 동선용 · 표시할 항목은 「표시 설정」에서 선택
+              목록·시간표 전환 · 표시 항목은 「표시 설정」에서 선택
             </p>
           </div>
           <div className="flex flex-wrap gap-2">
@@ -470,8 +545,41 @@ export default function DispatchBoardView({
 
         {settingsOpen && (
           <div className="rounded-2xl border border-neutral-700 bg-[#1C1C1E] p-4 space-y-4">
-            <div className="flex flex-wrap items-center justify-between gap-2">
-              <p className="text-xs font-black text-zinc-200">표시할 컬럼</p>
+            <div className="space-y-2">
+              <p className="text-xs font-black text-zinc-200">보기 방식</p>
+              <div className="flex flex-wrap gap-2">
+                {(
+                  [
+                    { id: 'list' as const, label: '목록' },
+                    { id: 'timetable' as const, label: '시간표' },
+                  ] as const
+                ).map((t) => (
+                  <button
+                    key={t.id}
+                    type="button"
+                    onClick={() => setLayout(t.id)}
+                    className={cn(
+                      'px-3 py-1.5 rounded-full text-[11px] font-black border transition-colors',
+                      prefs.layout === t.id
+                        ? 'bg-amber-500 text-neutral-950 border-amber-500'
+                        : 'bg-transparent text-zinc-400 border-neutral-700 hover:text-zinc-200'
+                    )}
+                  >
+                    {t.label}
+                  </button>
+                ))}
+              </div>
+              <p className="text-[10px] text-zinc-500 font-semibold">
+                시간표는 화면용입니다. 인쇄·CSV는 항상 목록 형식으로 나갑니다.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center justify-between gap-2 border-t border-neutral-800 pt-3">
+              <div>
+                <p className="text-xs font-black text-zinc-200">표시할 컬럼 · 순서</p>
+                <p className="text-[10px] text-zinc-500 font-semibold mt-0.5">
+                  위↓아래 버튼으로 좌→우 순서를 바꿉니다. 이 기기 브라우저에 저장됩니다.
+                </p>
+              </div>
               <button
                 type="button"
                 onClick={() => updatePrefs(defaultDispatchBoardPrefs())}
@@ -480,26 +588,62 @@ export default function DispatchBoardView({
                 기본값으로
               </button>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-              {DISPATCH_COLUMN_META.map((c) => (
-                <label
-                  key={c.id}
-                  className="flex items-center gap-2 text-[11px] text-zinc-300 font-semibold cursor-pointer select-none"
-                >
-                  <input
-                    type="checkbox"
-                    checked={prefs.columns[c.id]}
-                    onChange={(e) =>
-                      updatePrefs({
-                        ...prefs,
-                        columns: { ...prefs.columns, [c.id]: e.target.checked },
-                      })
-                    }
-                    className="accent-amber-500"
-                  />
-                  {c.label}
-                </label>
-              ))}
+            <div className="space-y-1 max-h-64 overflow-y-auto pr-1">
+              {orderedDispatchColumns(prefs).map((id, orderIdx, order) => {
+                const meta = DISPATCH_COLUMN_META.find((c) => c.id === id);
+                if (!meta) return null;
+                return (
+                  <div
+                    key={id}
+                    className="flex items-center gap-2 rounded-lg border border-neutral-800 bg-neutral-950/40 px-2 py-1.5"
+                  >
+                    <label className="flex min-w-0 flex-1 items-center gap-2 text-[11px] text-zinc-300 font-semibold cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={prefs.columns[id]}
+                        onChange={(e) =>
+                          updatePrefs({
+                            ...prefs,
+                            columns: { ...prefs.columns, [id]: e.target.checked },
+                          })
+                        }
+                        className="accent-amber-500 shrink-0"
+                      />
+                      <span className="truncate">{meta.label}</span>
+                    </label>
+                    <div className="flex shrink-0 items-center gap-0.5">
+                      <button
+                        type="button"
+                        aria-label={`${meta.label} 왼쪽으로`}
+                        disabled={orderIdx === 0}
+                        onClick={() =>
+                          updatePrefs({
+                            ...prefs,
+                            columnOrder: moveColumnInOrder(prefs.columnOrder, id, 'up'),
+                          })
+                        }
+                        className="p-1 rounded text-zinc-400 hover:text-zinc-100 hover:bg-neutral-800 disabled:opacity-30 disabled:hover:bg-transparent"
+                      >
+                        <ChevronUp size={14} />
+                      </button>
+                      <button
+                        type="button"
+                        aria-label={`${meta.label} 오른쪽으로`}
+                        disabled={orderIdx === order.length - 1}
+                        onClick={() =>
+                          updatePrefs({
+                            ...prefs,
+                            columnOrder: moveColumnInOrder(prefs.columnOrder, id, 'down'),
+                          })
+                        }
+                        className="p-1 rounded text-zinc-400 hover:text-zinc-100 hover:bg-neutral-800 disabled:opacity-30 disabled:hover:bg-transparent"
+                      >
+                        <ChevronDown size={14} />
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
             </div>
             <div className="border-t border-neutral-800 pt-3 space-y-2">
               <p className="text-xs font-black text-zinc-200">보조 기능</p>
@@ -543,6 +687,27 @@ export default function DispatchBoardView({
         <div className="flex flex-wrap items-center gap-2">
           {(
             [
+              { id: 'list' as const, label: '목록' },
+              { id: 'timetable' as const, label: '시간표' },
+            ] as const
+          ).map((t) => (
+            <button
+              key={t.id}
+              type="button"
+              onClick={() => setLayout(t.id)}
+              className={cn(
+                'px-3 py-1.5 rounded-full text-[11px] font-black border transition-colors',
+                prefs.layout === t.id
+                  ? 'bg-sky-500 text-neutral-950 border-sky-500'
+                  : 'bg-transparent text-zinc-400 border-neutral-700 hover:text-zinc-200'
+              )}
+            >
+              {t.label}
+            </button>
+          ))}
+          <span className="w-px h-4 bg-neutral-700 mx-0.5" aria-hidden />
+          {(
+            [
               { id: 'all' as const, label: '전체' },
               { id: 'intake' as const, label: '오늘 입차' },
               { id: 'exit' as const, label: '오늘 출차' },
@@ -563,25 +728,6 @@ export default function DispatchBoardView({
             </button>
           ))}
         </div>
-
-        {shuttleHints.length > 0 && (
-          <div className="rounded-2xl border border-emerald-500/20 bg-emerald-500/5 p-3 space-y-1.5">
-            <p className="text-[11px] font-black text-emerald-400">
-              셔틀 힌트 (출차 후 90분 안 · 같은 청사 입차)
-            </p>
-            {shuttleHints.map((h) => (
-              <p
-                key={`${h.exit.id}-${h.intake.id}`}
-                className="text-[11px] text-zinc-300 font-semibold"
-              >
-                출 {h.exit.carNumber || '-'} {h.exit.arrivalTime} (
-                {terminalForMoment(h.exit, 'exit')})
-                {' → '}
-                입 {h.intake.carNumber || '-'} {h.intake.departureTime} · +{h.gapMin}분
-              </p>
-            ))}
-          </div>
-        )}
       </div>
 
       <div className="dispatch-print-root">
@@ -591,7 +737,117 @@ export default function DispatchBoardView({
           </p>
         </div>
 
-        <div className="overflow-x-auto rounded-2xl border border-neutral-800 print:border-neutral-400 print:rounded-none">
+        {/* 화면용 시간표 — 인쇄/엑셀은 목록이 더 읽기 쉬움 */}
+        {isTimetable ? (
+          <div className="overflow-x-auto rounded-2xl border border-neutral-800 print:hidden">
+            <table className="w-full min-w-[960px] text-left border-collapse">
+              <thead>
+                <tr className="bg-[#1C1C1E] text-[10px] text-zinc-400 font-black uppercase tracking-wide">
+                  <th className="px-2 py-2 whitespace-nowrap sticky left-0 z-[1] bg-[#1C1C1E]">
+                    시간대
+                  </th>
+                  <th className="px-2 py-2 whitespace-nowrap">입/출</th>
+                  <th className="px-2 py-2 whitespace-nowrap">시각</th>
+                  {visibleCols.map((id) => (
+                    <th key={id} className="px-2 py-2 whitespace-nowrap">
+                      {columnHeader(id)}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {(() => {
+                  let eventIdx = 0;
+                  return timetableSlots.map((slot) => {
+                    const empty = slot.events.length === 0;
+                    if (empty) {
+                      return (
+                        <tr
+                          key={slot.time}
+                          className="border-t border-neutral-800/60"
+                        >
+                          <td
+                            className={cn(
+                              'px-2 py-0.5 text-[11px] font-mono tabular-nums font-bold whitespace-nowrap sticky left-0 z-[1]',
+                              'text-zinc-600 bg-neutral-950/90'
+                            )}
+                          >
+                            {slot.time}
+                          </td>
+                          <td
+                            colSpan={visibleCols.length + 2}
+                            className="px-2 py-0.5 h-7"
+                          />
+                        </tr>
+                      );
+                    }
+
+                    return slot.events.map((ev, evIdx) => {
+                      const idx = eventIdx++;
+                      const exact = normalizeClock(
+                        ev.kind === 'intake' ? ev.res.departureTime : ev.res.arrivalTime
+                      );
+                      const rowForCells: BoardRow = {
+                        res: ev.res,
+                        onSelectedDate: {
+                          intake: ev.kind === 'intake',
+                          exit: ev.kind === 'exit',
+                        },
+                      };
+                      return (
+                        <tr
+                          key={`${ev.res.id}-${ev.kind}-${slot.time}`}
+                          className={cn(
+                            'border-t border-neutral-800/80 text-[12px] text-zinc-200',
+                            ev.kind === 'intake' ? 'bg-sky-500/[0.04]' : 'bg-rose-500/[0.04]'
+                          )}
+                        >
+                          {evIdx === 0 ? (
+                            <td
+                              rowSpan={slot.events.length}
+                              className={cn(
+                                'px-2 py-1 text-[12px] font-black font-mono tabular-nums whitespace-nowrap align-top sticky left-0 z-[1]',
+                                'text-amber-400 bg-[#121214]'
+                              )}
+                            >
+                              {slot.time}
+                            </td>
+                          ) : null}
+                          <td className="px-2 py-1 whitespace-nowrap">
+                            <span
+                              className={cn(
+                                'inline-block px-1.5 py-0.5 rounded text-[10px] font-black',
+                                ev.kind === 'intake'
+                                  ? 'bg-sky-500/15 text-sky-400'
+                                  : 'bg-rose-500/15 text-rose-400'
+                              )}
+                            >
+                              {ev.kind === 'intake' ? '입차' : '출차'}
+                            </span>
+                          </td>
+                          <td className="px-2 py-1 font-mono text-[11px] tabular-nums text-zinc-400 whitespace-nowrap">
+                            {exact || '—'}
+                          </td>
+                          {visibleCols.map((id) =>
+                            renderCell(id, rowForCells, idx, { compact: true })
+                          )}
+                        </tr>
+                      );
+                    });
+                  });
+                })()}
+              </tbody>
+            </table>
+          </div>
+        ) : null}
+
+        {/* 목록: 화면(목록 탭) + 인쇄/CSV용 (시간표 탭에서도 인쇄 시 이 표) */}
+        <div
+          className={cn(
+            'overflow-x-auto rounded-2xl border border-neutral-800 print:border-neutral-400 print:rounded-none',
+            isTimetable && 'hidden print:block'
+          )}
+        >
           <table className="dispatch-print-table w-full min-w-[900px] text-left border-collapse">
             <thead>
               <tr className="bg-[#1C1C1E] text-[10px] text-zinc-400 font-black uppercase tracking-wide print:bg-neutral-100">
@@ -636,21 +892,14 @@ export default function DispatchBoardView({
         </div>
 
         <p className="dispatch-no-print mt-2 text-[10px] text-zinc-500 font-semibold">
-          {rows.length}건 · 하늘색=당일 입고 · 분홍=당일 출고
-          {prefs.features.rowHighlight ? ' · 노란 행=당일 입·출 모두' : ''}
+          {isTimetable
+            ? `시간표(화면) · 인쇄·CSV는 목록 · ${rows.length}대`
+            : `${rows.length}건`}
+          {' · '}하늘색=입차 · 분홍=출차
+          {!isTimetable && prefs.features.rowHighlight ? ' · 노란 행=당일 입·출 모두' : ''}
         </p>
       </div>
     </div>
   );
 }
 
-function toMinutes(time?: string): number | null {
-  const m = String(time || '')
-    .trim()
-    .match(/^(\d{1,2}):(\d{2})/);
-  if (!m) return null;
-  const h = Number(m[1]);
-  const min = Number(m[2]);
-  if (!Number.isFinite(h) || !Number.isFinite(min)) return null;
-  return h * 60 + min;
-}

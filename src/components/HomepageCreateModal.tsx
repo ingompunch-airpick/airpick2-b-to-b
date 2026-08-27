@@ -21,6 +21,7 @@ import {
   type PartnerHomepageConfig,
   type PartnerHomepageDoc,
 } from '../utils/partnerHomepageDefaults';
+import { buildAcquisitionBookingUrl } from '../utils/acquisition';
 import HomepagePreview from './HomepagePreview';
 
 type PairItem = { title: string; body: string };
@@ -237,6 +238,7 @@ export default function HomepageCreateModal({
   const seedPricing = useMemo(() => pricingFromCompany(company), [company]);
   const hasExisting = Boolean(company?.partnerHomepage?.config);
   const bookingUrl = partnerHomepageBookingUrl(partner.companyId);
+  const cardQrUrl = buildAcquisitionBookingUrl(partner.companyId);
   const homeUrl = partnerMarketingHomeUrl(partner.companyId);
 
   const previewConfig = useMemo(
@@ -589,10 +591,14 @@ export default function HomepageCreateModal({
                     </label>
                     <div className="rounded-xl border border-neutral-800 bg-neutral-900/50 p-3 space-y-1 text-[11px] text-zinc-400">
                       <p className="font-bold text-zinc-300">자동 반영</p>
+                      <p>로고: 상호에서 워드마크 자동 생성 (파일 업로드 없음)</p>
                       <p>사진 {photos.length}장 (업체 마스터 image_urls)</p>
                       <div className="flex flex-wrap gap-2 pt-1">
                         <a href={bookingUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sky-400 hover:text-sky-300 font-bold">
                           예약 /h/ <ExternalLink size={10} />
+                        </a>
+                        <a href={cardQrUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-amber-400 hover:text-amber-300 font-bold">
+                          명함 QR (?src=) <ExternalLink size={10} />
                         </a>
                         <a href={homeUrl} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 text-sky-400 hover:text-sky-300 font-bold">
                           마케팅 홈 <ExternalLink size={10} />

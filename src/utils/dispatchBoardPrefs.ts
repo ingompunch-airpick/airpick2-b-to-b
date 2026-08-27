@@ -30,7 +30,6 @@ export const DISPATCH_COLUMN_IDS = [
 export type DispatchColumnId = (typeof DISPATCH_COLUMN_IDS)[number];
 
 export const DISPATCH_FEATURE_IDS = [
-  'shuttleHints',
   'telLink',
   'maskPhoneOnPrint',
   'csvVisibleOnly',
@@ -39,9 +38,15 @@ export const DISPATCH_FEATURE_IDS = [
 
 export type DispatchFeatureId = (typeof DISPATCH_FEATURE_IDS)[number];
 
+/** 목록 = 기존 표 / 시간표 = 시각 슬롯에 차량 배치 */
+export type DispatchLayoutMode = 'list' | 'timetable';
+
 export type DispatchBoardPrefs = {
   columns: Record<DispatchColumnId, boolean>;
+  /** 표·CSV에 쓰는 컬럼 좌→우 순서 */
+  columnOrder: DispatchColumnId[];
   features: Record<DispatchFeatureId, boolean>;
+  layout: DispatchLayoutMode;
 };
 
 export const DISPATCH_COLUMN_META: {
@@ -79,19 +84,60 @@ export const DISPATCH_FEATURE_META: {
   label: string;
   defaultOn: boolean;
 }[] = [
-  { id: 'shuttleHints', label: '셔틀 힌트 (90분·동일 청사)', defaultOn: true },
   { id: 'telLink', label: '연락처 탭하면 전화(tel:)', defaultOn: true },
   { id: 'maskPhoneOnPrint', label: '인쇄 시 연락처 마스킹', defaultOn: true },
   { id: 'csvVisibleOnly', label: 'CSV에 보이는 컬럼만 내보내기', defaultOn: true },
   { id: 'rowHighlight', label: '당일 입·출 행 색 강조', defaultOn: true },
 ];
 
+const COLUMN_ID_SET = new Set<string>(DISPATCH_COLUMN_IDS);
+
+/** 저장된 순서를 정규화: 유효 id만, 빠진 컬럼은 기본 순서 끝에 붙임 */
+export function normalizeColumnOrder(order?: unknown): DispatchColumnId[] {
+  const seen = new Set<DispatchColumnId>();
+  const out: DispatchColumnId[] = [];
+  if (Array.isArray(order)) {
+    for (const raw of order) {
+      if (typeof raw !== 'string' || !COLUMN_ID_SET.has(raw)) continue;
+      const id = raw as DispatchColumnId;
+      if (seen.has(id)) continue;
+      seen.add(id);
+      out.push(id);
+    }
+  }
+  for (const id of DISPATCH_COLUMN_IDS) {
+    if (!seen.has(id)) out.push(id);
+  }
+  return out;
+}
+
+export function moveColumnInOrder(
+  order: DispatchColumnId[],
+  id: DispatchColumnId,
+  direction: 'up' | 'down'
+): DispatchColumnId[] {
+  const next = normalizeColumnOrder(order);
+  const i = next.indexOf(id);
+  if (i < 0) return next;
+  const j = direction === 'up' ? i - 1 : i + 1;
+  if (j < 0 || j >= next.length) return next;
+  const tmp = next[i]!;
+  next[i] = next[j]!;
+  next[j] = tmp;
+  return next;
+}
+
 export function defaultDispatchBoardPrefs(): DispatchBoardPrefs {
   const columns = {} as Record<DispatchColumnId, boolean>;
   for (const c of DISPATCH_COLUMN_META) columns[c.id] = c.defaultOn;
   const features = {} as Record<DispatchFeatureId, boolean>;
   for (const f of DISPATCH_FEATURE_META) features[f.id] = f.defaultOn;
-  return { columns, features };
+  return {
+    columns,
+    columnOrder: [...DISPATCH_COLUMN_IDS],
+    features,
+    layout: 'list',
+  };
 }
 
 export function loadDispatchBoardPrefs(): DispatchBoardPrefs {
@@ -105,10 +151,14 @@ export function loadDispatchBoardPrefs(): DispatchBoardPrefs {
         if (typeof parsed.columns[id] === 'boolean') base.columns[id] = parsed.columns[id];
       }
     }
+    base.columnOrder = normalizeColumnOrder(parsed.columnOrder);
     if (parsed.features && typeof parsed.features === 'object') {
       for (const id of DISPATCH_FEATURE_IDS) {
         if (typeof parsed.features[id] === 'boolean') base.features[id] = parsed.features[id];
       }
+    }
+    if (parsed.layout === 'list' || parsed.layout === 'timetable') {
+      base.layout = parsed.layout;
     }
   } catch {
     // ignore corrupt prefs
@@ -118,12 +168,22 @@ export function loadDispatchBoardPrefs(): DispatchBoardPrefs {
 
 export function saveDispatchBoardPrefs(prefs: DispatchBoardPrefs): void {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(prefs));
+    localStorage.setItem(
+      STORAGE_KEY,
+      JSON.stringify({
+        ...prefs,
+        columnOrder: normalizeColumnOrder(prefs.columnOrder),
+      })
+    );
   } catch {
     // quota / private mode
   }
 }
 
+export function orderedDispatchColumns(prefs: DispatchBoardPrefs): DispatchColumnId[] {
+  return normalizeColumnOrder(prefs.columnOrder);
+}
+
 export function visibleDispatchColumns(prefs: DispatchBoardPrefs): DispatchColumnId[] {
-  return DISPATCH_COLUMN_IDS.filter((id) => prefs.columns[id]);
+  return orderedDispatchColumns(prefs).filter((id) => prefs.columns[id]);
 }

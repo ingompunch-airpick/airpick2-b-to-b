@@ -30,9 +30,9 @@ interface BlockoutCalendarModalProps {
 }
 
 const TABS: { id: BookingPolicyTab; label: string }[] = [
-  { id: 'intake', label: '접수' },
-  { id: 'capacity', label: '대수' },
-  { id: 'dates', label: '날짜' },
+  { id: 'intake', label: '마감' },
+  { id: 'capacity', label: '한도' },
+  { id: 'dates', label: '휴무' },
 ];
 
 export default function BlockoutCalendarModal({

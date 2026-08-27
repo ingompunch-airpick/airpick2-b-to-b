@@ -17,7 +17,7 @@ import {
   PlaneLanding,
 } from 'lucide-react';
 import { motion } from 'motion/react';
-import { Reservation } from '../types';
+import { Company, Reservation } from '../types';
 import { AIRPICK_HQ_ID, isAirpickHeadquarters } from '../constants/platform';
 import {
   adminStatusBadgeClass,
@@ -39,9 +39,8 @@ import {
   resolveBookingSourceFromReservation,
 } from '../utils/bookingSource';
 import {
-  buildAirpickShareTrend,
-  buildCompanyRankChanges,
   buildHqCompanyRows,
+  buildHqTodayCompanyRows,
   computeCustomerMix,
   filterAdmittedInMonth,
   monthLabelFromPrefix,
@@ -108,6 +107,7 @@ function isTodayReserveRow(r: Reservation, ymd: string): boolean {
 interface StatisticsViewProps {
   reservations: Reservation[];
   allReservations?: Reservation[];
+  companies?: Company[];
   companyName?: string;
   isSuperAdmin?: boolean;
   currentCompanyId?: string;
@@ -120,6 +120,7 @@ interface StatisticsViewProps {
 export default function StatisticsView({ 
   reservations = [], 
   allReservations = [],
+  companies = [],
   companyName = '와와주차장',
   isSuperAdmin = false,
   currentCompanyId = AIRPICK_HQ_ID,
@@ -133,7 +134,7 @@ export default function StatisticsView({
   const [crmDatePickerOpen, setCrmDatePickerOpen] = useState(false);  
   const [filterType, setFilterType] = useState<'this_month' | 'last_month'>('this_month');
   const [hqMonthPrefix, setHqMonthPrefix] = useState(() => getKSTDateOnlyString().substring(0, 7));
-  const [hqTab, setHqTab] = useState<'today' | 'month' | 'company'>('today');
+  const [hqTab, setHqTab] = useState<'today' | 'month'>('today');
   
   // Year/Month for the integrated Day Closing Calendar in Partner view
   const [currentYear, setCurrentYear] = useState<number>(() => {
@@ -275,11 +276,6 @@ export default function StatisticsView({
       .filter(r => reservationDepartureOn(r, todayStr))
       .reduce((sum, r) => sum + (r.totalPrice || 0), 0);
 
-    // Sum today's total reservations
-    const masterTodayReservations = masterActiveRes.filter(r =>
-      toKSTDateOnlyString(r.createdAt) === todayStr
-    ).length;
-
     // Sum today's total check-in count
     const masterTodayAdmitted = masterActiveRes.filter(r =>
       reservationDepartureOn(r, todayStr) && isAdmitted(r.status)
@@ -297,18 +293,16 @@ export default function StatisticsView({
     const hqCanGoNext = hqMonthPrefix < hqMonthMax;
 
     const hqMonthAdmitted = filterAdmittedInMonth(masterActiveRes, hqMonthPrefix);
-    const hqPrevMonthPrefix = shiftMonthPrefix(hqMonthPrefix, -1);
-    const hqPrevMonthAdmitted = filterAdmittedInMonth(masterActiveRes, hqPrevMonthPrefix);
 
     const hqMonthSourceMetrics = aggregateGroupedBookingSourceMetrics(hqMonthAdmitted);
     const hqMonthTotalAdmitted = hqMonthAdmitted.length;
     const hqMonthTotalRevenue = hqMonthAdmitted.reduce((s, r) => s + (r.totalPrice || 0), 0);
 
-    const hqCompanyRows = buildHqCompanyRows(hqMonthAdmitted);
-    const hqPrevCompanyRows = buildHqCompanyRows(hqPrevMonthAdmitted);
-    const hqRankRows = buildCompanyRankChanges(hqCompanyRows, hqPrevCompanyRows);
+    const hqCompanyRows = buildHqCompanyRows(hqMonthAdmitted, companies);
+    const hqTodayCompanyRows = buildHqTodayCompanyRows(masterActiveRes, todayStr, companies);
+    // 상단 접수 = 업체별 접수 합 (집계 기준 불일치로 4 vs 3 나는 것 방지)
+    const masterTodayReservations = hqTodayCompanyRows.reduce((s, row) => s + row.received, 0);
     const hqCustomerMix = computeCustomerMix(masterActiveRes, hqMonthPrefix, hqMonthAdmitted);
-    const hqAirpickTrend = buildAirpickShareTrend(masterActiveRes, hqMonthPrefix, 6);
 
     const hqCustomerTotal =
       hqCustomerMix.newCustomers + hqCustomerMix.returningCustomers;
@@ -348,7 +342,6 @@ export default function StatisticsView({
     const hqTabs = [
       { id: 'today' as const, label: '오늘' },
       { id: 'month' as const, label: '월간' },
-      { id: 'company' as const, label: '업체' },
     ];
 
     return (
@@ -403,6 +396,46 @@ export default function StatisticsView({
                 {masterTodaySales.toLocaleString()}원
               </span>
             </div>
+            {hqTodayCompanyRows.length === 0 ? (
+              <p className="px-4 py-6 text-center text-xs text-zinc-500 font-bold">
+                등록된 입점업체가 없습니다.
+              </p>
+            ) : (
+              <div className="space-y-2.5">
+                {hqTodayCompanyRows.map((row) => {
+                  const metrics = [
+                    { label: '접수', value: row.received },
+                    { label: '입차', value: row.admitted },
+                    { label: '주차중', value: row.parked },
+                  ];
+                  return (
+                    <div
+                      key={row.id}
+                      className="bg-[#121214] border border-neutral-800/80 rounded-2xl px-4 py-3.5 space-y-2.5"
+                    >
+                      <span className="text-sm font-black text-white block truncate">{row.name}</span>
+                      <div className="grid grid-cols-3 gap-2">
+                        {metrics.map((m) => (
+                          <div
+                            key={m.label}
+                            className="rounded-xl bg-neutral-900/80 border border-neutral-800 px-2 py-2 text-center"
+                          >
+                            <span className="text-[10px] text-zinc-500 font-bold block">{m.label}</span>
+                            <span
+                              className={`text-base font-black font-mono tracking-tight ${
+                                m.value > 0 ? 'text-amber-400' : 'text-zinc-600'
+                              }`}
+                            >
+                              {m.value}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
@@ -462,46 +495,6 @@ export default function StatisticsView({
               </div>
             </div>
 
-            <div className="bg-[#121214] border border-neutral-800/80 rounded-[22px] p-4 space-y-2.5">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] text-zinc-500 font-bold">에어픽 비중 · 최근 6개월</span>
-                <span className="text-[10px] text-zinc-600">탭하면 해당 월</span>
-              </div>
-              {hqAirpickTrend.map((m) => {
-                const isSelected = m.prefix === hqMonthPrefix;
-                return (
-                  <button
-                    key={m.prefix}
-                    type="button"
-                    onClick={() => setHqMonthPrefix(m.prefix)}
-                    className={`w-full text-left space-y-1 rounded-xl px-2 py-1.5 -mx-2 transition-colors ${
-                      isSelected ? 'bg-fuchsia-500/10' : 'hover:bg-neutral-900'
-                    }`}
-                  >
-                    <div className="flex items-center justify-between text-[11px]">
-                      <span className={`font-bold ${isSelected ? 'text-fuchsia-300' : 'text-zinc-400'}`}>
-                        {m.label.replace('년 ', '.').replace('월', '')}
-                      </span>
-                      <span className="text-zinc-500 font-mono">{m.airpick}/{m.total}</span>
-                      <span
-                        className={`font-black font-mono w-10 text-right ${
-                          m.pct >= 30 ? 'text-fuchsia-400' : 'text-zinc-300'
-                        }`}
-                      >
-                        {m.pct}%
-                      </span>
-                    </div>
-                    <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-fuchsia-500 rounded-full"
-                        style={{ width: `${m.pct}%` }}
-                      />
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-
             <div className="bg-[#121214] border border-neutral-800/80 rounded-[22px] p-4">
               <div className="flex items-center justify-between mb-3">
                 <span className="text-[11px] text-zinc-500 font-bold">신규 vs 재방문</span>
@@ -538,117 +531,51 @@ export default function StatisticsView({
                 </div>
               </div>
             </div>
-          </div>
-        )}
 
-        {hqTab === 'company' && (
-          <div className="space-y-3">
-            <div className="flex items-center justify-between px-1 gap-2">
-              <h3 className="text-xs font-black text-zinc-400">업장별 입고</h3>
-              {hqMonthPicker}
-            </div>
-            {hqRankRows.length === 0 ? (
-              <div className="bg-[#121214] border border-neutral-800/80 rounded-[22px] p-8 text-center">
-                <Car size={22} className="mx-auto text-zinc-600 mb-2" />
-                <p className="text-xs text-zinc-500 font-bold">해당 월 입고 내역이 없습니다.</p>
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between px-1">
+                <span className="text-[11px] text-zinc-500 font-bold">업체별 입고</span>
+                <span className="text-[10px] text-zinc-600">에어픽 · 홈페이지</span>
               </div>
-            ) : (
-              <>
-                <div className="grid grid-cols-2 gap-2.5">
-                  <div className="bg-fuchsia-500/10 border border-fuchsia-500/20 rounded-2xl px-4 py-3">
-                    <span className="text-[10px] text-fuchsia-300 font-bold block">에어픽 합계</span>
-                    <span className="text-lg font-black text-fuchsia-200 font-mono">
-                      {hqRankRows.reduce((s, r) => s + r.airpick, 0)}대
-                    </span>
-                    <span className="text-[10px] text-zinc-400 font-mono block mt-0.5">
-                      {hqRankRows.reduce((s, r) => s + r.airpickRevenue, 0).toLocaleString()}원
-                    </span>
-                  </div>
-                  <div className="bg-sky-500/10 border border-sky-500/20 rounded-2xl px-4 py-3">
-                    <span className="text-[10px] text-sky-300 font-bold block">홈페이지 합계</span>
-                    <span className="text-lg font-black text-sky-200 font-mono">
-                      {hqRankRows.reduce((s, r) => s + r.homepage, 0)}대
-                    </span>
-                    <span className="text-[10px] text-zinc-400 font-mono block mt-0.5">
-                      {hqRankRows.reduce((s, r) => s + r.homepageRevenue, 0).toLocaleString()}원
-                    </span>
-                  </div>
-                </div>
-                <p className="text-[10px] text-zinc-600 px-1">
-                  에어픽 대수 순 · 수수료는 에어픽 매출 기준
+              {hqCompanyRows.length === 0 ? (
+                <p className="px-4 py-6 text-center text-xs text-zinc-500 font-bold">
+                  등록된 입점업체가 없습니다.
                 </p>
-                <div className="bg-[#121214] border border-neutral-800/80 rounded-[22px] overflow-hidden divide-y divide-neutral-800/60">
-                  {hqRankRows.map((row) => (
-                    <div key={row.id} className="px-4 py-3 space-y-2">
-                      <div className="flex items-center gap-3">
-                        <span className="text-sm font-black text-zinc-500 font-mono w-5 shrink-0">
-                          {row.rank}
-                        </span>
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-1.5">
-                            <span className="text-sm font-black text-white truncate">{row.name}</span>
-                            {row.prevRank == null ? (
-                              <span className="text-[10px] text-sky-400 font-bold shrink-0">신규</span>
-                            ) : row.rankDelta != null && row.rankDelta !== 0 ? (
-                              <span
-                                className={`text-[10px] font-black shrink-0 ${
-                                  row.rankDelta > 0 ? 'text-emerald-400' : 'text-rose-400'
-                                }`}
-                              >
-                                {row.rankDelta > 0 ? '↑' : '↓'}
-                                {Math.abs(row.rankDelta)}
-                              </span>
-                            ) : null}
-                          </div>
-                        </div>
-                        <div className="text-right shrink-0">
-                          <span className="text-base font-black text-white font-mono block">
-                            {row.total}대
-                          </span>
-                          {row.totalDelta !== 0 && (
+              ) : (
+                hqCompanyRows.map((row) => {
+                  const metrics = [
+                    { label: '에어픽', value: row.airpick, tone: 'text-fuchsia-300' },
+                    { label: '홈', value: row.homepage, tone: 'text-sky-300' },
+                    { label: '합계', value: row.total, tone: 'text-white' },
+                  ];
+                  return (
+                    <div
+                      key={row.id}
+                      className="bg-[#121214] border border-neutral-800/80 rounded-2xl px-4 py-3.5 space-y-2.5"
+                    >
+                      <span className="text-sm font-black text-white block truncate">{row.name}</span>
+                      <div className="grid grid-cols-3 gap-2">
+                        {metrics.map((m) => (
+                          <div
+                            key={m.label}
+                            className="rounded-xl bg-neutral-900/80 border border-neutral-800 px-2 py-2 text-center"
+                          >
+                            <span className="text-[10px] text-zinc-500 font-bold block">{m.label}</span>
                             <span
-                              className={`text-[10px] font-mono ${
-                                row.totalDelta > 0 ? 'text-emerald-400/90' : 'text-rose-400/90'
+                              className={`text-base font-black font-mono tracking-tight ${
+                                m.value > 0 ? m.tone : 'text-zinc-600'
                               }`}
                             >
-                              {row.totalDelta > 0 ? '+' : ''}
-                              {row.totalDelta}대
+                              {m.value}
                             </span>
-                          )}
-                        </div>
-                      </div>
-                      <div className="grid grid-cols-3 gap-1.5">
-                        <div className="rounded-lg bg-fuchsia-500/10 px-2 py-1.5">
-                          <span className="text-[9px] text-fuchsia-300 font-bold block">에어픽</span>
-                          <span className="text-[12px] font-black text-fuchsia-100 font-mono">
-                            {row.airpick}대
-                          </span>
-                          <span className="text-[9px] text-zinc-500 font-mono block">
-                            {row.airpickRevenue.toLocaleString()}원
-                          </span>
-                        </div>
-                        <div className="rounded-lg bg-sky-500/10 px-2 py-1.5">
-                          <span className="text-[9px] text-sky-300 font-bold block">홈페이지</span>
-                          <span className="text-[12px] font-black text-sky-100 font-mono">
-                            {row.homepage}대
-                          </span>
-                          <span className="text-[9px] text-zinc-500 font-mono block">
-                            {row.homepageRevenue.toLocaleString()}원
-                          </span>
-                        </div>
-                        <div className="rounded-lg bg-neutral-900 px-2 py-1.5">
-                          <span className="text-[9px] text-zinc-500 font-bold block">현장</span>
-                          <span className="text-[12px] font-black text-zinc-300 font-mono">
-                            {row.onsite}대
-                          </span>
-                          <span className="text-[9px] text-zinc-600 font-mono block">수수료 제외</span>
-                        </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                  ))}
-                </div>
-              </>
-            )}
+                  );
+                })
+              )}
+            </div>
           </div>
         )}
       </div>

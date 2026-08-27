@@ -24,6 +24,7 @@ export const HQ_ADMIN_VIEWS: AppView[] = [
   'hq_partner_board',
   'hq_reviews',
   'hq_customers',
+  'acquisition_funnel',
 ];
 // HQ는 배차표 불필요 — 파트너 관리자만 dispatch_board 사용
 

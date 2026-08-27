@@ -313,6 +313,15 @@ export interface Reservation {
   customerNotes?: string;
   userRequest?: string;
   reservationPassword?: string;
+
+  /**
+   * 영업 유입(명함 QR 등). createdBy(채널)와 별개.
+   * 일반 홈/현장/B2C 예약에는 두지 않음.
+   */
+  acquisitionSource?: string;
+  acquisitionMedium?: string;
+  acquisitionCampaign?: string;
+  acquisitionClickId?: string;
 }
 
 export type AppView = 
@@ -332,4 +341,6 @@ export type AppView =
   /** 본사 · 후기 숨김/삭제 */
   | 'hq_reviews'
   /** 본사 · 고객 전화 조회 */
-  | 'hq_customers';
+  | 'hq_customers'
+  /** 본사 전용 · 명함 QR 유입 성과 */
+  | 'acquisition_funnel';

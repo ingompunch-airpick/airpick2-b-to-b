@@ -1,6 +1,12 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
-import { initializeFirestore, doc, persistentLocalCache, persistentMultipleTabManager } from 'firebase/firestore';
+import {
+  initializeFirestore,
+  memoryLocalCache,
+  persistentLocalCache,
+  persistentSingleTabManager,
+  type FirestoreSettings,
+} from 'firebase/firestore';
 import { getFunctions } from 'firebase/functions';
 import { getStorage } from 'firebase/storage';
 import firebaseConfig from '../firebase-applet-config.json' with { type: 'json' };
@@ -8,17 +14,47 @@ import firebaseConfig from '../firebase-applet-config.json' with { type: 'json' 
 // Initialize Firebase SDK
 const app = initializeApp(firebaseConfig);
 
-// Initialize Firestore (named DB when firestoreDatabaseId is set; otherwise default database)
-const firestoreSettings = {
-  experimentalForceLongPolling: true,
-  localCache: persistentLocalCache({
-    tabManager: persistentMultipleTabManager()
-  })
-};
+/**
+ * Capacitor WebView에서는 multi-tab IndexedDB 잠금이 실패하며
+ * 모듈 초기화가 깨져 스플래시(흰 화면+아이콘)에 고착될 수 있다.
+ * 단일 탭(+ 실패 시 메모리 캐시)으로 안전하게 초기화한다.
+ */
+function buildFirestoreSettings(): FirestoreSettings {
+  const base: FirestoreSettings = { experimentalForceLongPolling: true };
+  try {
+    return {
+      ...base,
+      localCache: persistentLocalCache({
+        tabManager: persistentSingleTabManager({ forceOwnership: true }),
+      }),
+    };
+  } catch (err) {
+    console.warn('[firestore] persistent cache unavailable, using memory', err);
+    return { ...base, localCache: memoryLocalCache() };
+  }
+}
+
 const namedDbId = (firebaseConfig as { firestoreDatabaseId?: string }).firestoreDatabaseId;
-export const db = namedDbId
-  ? initializeFirestore(app, firestoreSettings, namedDbId)
-  : initializeFirestore(app, firestoreSettings);
+
+function initDb() {
+  try {
+    const settings = buildFirestoreSettings();
+    return namedDbId
+      ? initializeFirestore(app, settings, namedDbId)
+      : initializeFirestore(app, settings);
+  } catch (err) {
+    console.warn('[firestore] init failed, retrying with memory cache', err);
+    const fallback: FirestoreSettings = {
+      experimentalForceLongPolling: true,
+      localCache: memoryLocalCache(),
+    };
+    return namedDbId
+      ? initializeFirestore(app, fallback, namedDbId)
+      : initializeFirestore(app, fallback);
+  }
+}
+
+export const db = initDb();
 
 export const auth = getAuth(app);
 export const storage = getStorage(app, firebaseConfig.storageBucket);

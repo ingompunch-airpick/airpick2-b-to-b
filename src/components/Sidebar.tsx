@@ -15,6 +15,7 @@ import {
   LayoutGrid,
   MessageSquareWarning,
   UserRoundSearch,
+  QrCode,
 } from 'lucide-react';
 import { AppView } from '../types';
 import { isAirpickHeadquarters } from '../constants/platform';
@@ -113,6 +114,7 @@ export default function Sidebar({
         { id: 'admin_partner_board', label: '③ 업체 상태판', icon: LayoutGrid, view: 'hq_partner_board' as AppView },
         { id: 'admin_reviews', label: '④ 후기 관리', icon: MessageSquareWarning, view: 'hq_reviews' as AppView },
         { id: 'admin_customers', label: '⑤ 고객 조회', icon: UserRoundSearch, view: 'hq_customers' as AppView },
+        { id: 'admin_acquisition', label: '⑥ 명함 QR', icon: QrCode, view: 'acquisition_funnel' as AppView },
       ]
     : isAdminModeActive
     ? [
@@ -219,11 +221,7 @@ export default function Sidebar({
                 <button
                   key={item.id}
                   onClick={() => {
-                    if (item.id === 'admin_master_settings' && isAirpickHeadquarters(currentCompanyId)) {
-                      if (onOpenAdmin) onOpenAdmin();
-                    } else {
-                      onNavigate(item.view);
-                    }
+                    onNavigate(item.view);
                     onClose();
                   }}
                   className={`w-full text-left p-3.5 rounded-2xl flex items-center justify-between transition-all group ${

@@ -15,6 +15,10 @@ export default defineConfig(() => {
         '@': path.resolve(__dirname, '.'),
       },
     },
+    build: {
+      // Capacitor WebView (Chromium) — 너무 최신 문법만 쓰면 구형 WebView에서 흰 화면
+      target: ['es2020', 'chrome90'],
+    },
     server: {
       // HMR is disabled in AI Studio via DISABLE_HMR env var.
       // Do not modifyâfile watching is disabled to prevent flickering during agent edits.

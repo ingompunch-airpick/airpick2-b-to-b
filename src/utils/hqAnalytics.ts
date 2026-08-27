@@ -1,10 +1,12 @@
-import type { Reservation } from '../types';
+import type { Company, Reservation } from '../types';
+import { isAirpickHeadquarters } from '../constants/platform';
 import { normalizeDateString } from './reservationNormalize';
-import { isAdmitted } from './reservationStatus';
+import { isAdmitted, isParked } from './reservationStatus';
+import { toKSTDateOnlyString } from './kstDate';
 import {
   resolveBookingSourceFromReservation,
 } from './bookingSource';
-
+import { isWawaCompany } from './pricing';
 export function shiftMonthPrefix(prefix: string, delta: number): string {
   const [y, m] = prefix.split('-').map(Number);
   const d = new Date(y, m - 1 + delta, 1);
@@ -40,11 +42,36 @@ export type HqCompanyRow = {
   homepageRevenue: number;
 };
 
-export function buildHqCompanyRows(admitted: Reservation[]): HqCompanyRow[] {
+function partnerDirectory(companies: Company[] | undefined): { id: string; name: string }[] {
+  if (!companies?.length) return [];
+  return companies
+    .filter((c) => c.id && !isAirpickHeadquarters(c.id))
+    .map((c) => ({
+      id: String(c.id).toLowerCase().trim(),
+      name: String(c.name || c.id).trim() || c.id,
+    }));
+}
+
+export function buildHqCompanyRows(
+  admitted: Reservation[],
+  companies?: Company[]
+): HqCompanyRow[] {
   const map = new Map<string, HqCompanyRow>();
+  for (const c of partnerDirectory(companies)) {
+    map.set(c.id, {
+      id: c.id,
+      name: c.name,
+      airpick: 0,
+      homepage: 0,
+      onsite: 0,
+      total: 0,
+      revenue: 0,
+      airpickRevenue: 0,
+      homepageRevenue: 0,
+    });
+  }
   for (const r of admitted) {
-    const id = (r.companyId || r.companyName || 'unknown').toLowerCase().trim();
-    const name = r.companyName || r.companyId || '미지정';
+    const { id, name } = companyIdAndName(r);
     if (!map.has(id)) {
       map.set(id, {
         id,
@@ -73,7 +100,75 @@ export function buildHqCompanyRows(admitted: Reservation[]): HqCompanyRow[] {
     row.total += 1;
     row.revenue += price;
   }
-  return [...map.values()].sort((a, b) => b.airpick - a.airpick || b.total - a.total);
+  return [...map.values()].sort(
+    (a, b) => b.airpick - a.airpick || b.total - a.total || a.name.localeCompare(b.name, 'ko')
+  );
+}
+
+export type HqTodayCompanyRow = {
+  id: string;
+  name: string;
+  received: number;
+  admitted: number;
+  exited: number;
+  parked: number;
+};
+
+function companyIdAndName(r: Reservation): { id: string; name: string } {
+  const rawId = String(r.companyId || '').trim();
+  const rawName = String(r.companyName || '').trim();
+  // 와와 별칭(wawa_valet·표시명만 와와 등)이 총합에는 잡히고 업체 카드에서는 빠지지 않게 통일
+  if (isWawaCompany(rawId, rawName)) {
+    return { id: 'wawa', name: '와와발렛' };
+  }
+  const id = (rawId || rawName || 'unknown').toLowerCase().trim();
+  const name = rawName || rawId || '미지정';
+  return { id, name };
+}
+
+function exitDateYmd(r: Reservation): string {
+  if (r.actualExitTime) return normalizeDateString(r.actualExitTime.slice(0, 10));
+  return normalizeDateString(r.arrivalDate);
+}
+
+/** 오늘 업체별 운영 대수 — 입점업체 전부, 매출 없음 */
+export function buildHqTodayCompanyRows(
+  reservations: Reservation[],
+  todayYmd: string,
+  companies?: Company[]
+): HqTodayCompanyRow[] {
+  const map = new Map<string, HqTodayCompanyRow>();
+  for (const c of partnerDirectory(companies)) {
+    map.set(c.id, { id: c.id, name: c.name, received: 0, admitted: 0, exited: 0, parked: 0 });
+  }
+
+  const ensure = (r: Reservation): HqTodayCompanyRow => {
+    const { id, name } = companyIdAndName(r);
+    if (!map.has(id)) {
+      map.set(id, { id, name, received: 0, admitted: 0, exited: 0, parked: 0 });
+    }
+    return map.get(id)!;
+  };
+
+  for (const r of reservations) {
+    if (r.status === 'cancelled') continue;
+    const row = ensure(r);
+    if (toKSTDateOnlyString(r.createdAt) === todayYmd) row.received += 1;
+    if (normalizeDateString(r.departureDate) === todayYmd && isAdmitted(r.status)) {
+      row.admitted += 1;
+    }
+    if (exitDateYmd(r) === todayYmd && r.status === 'completed_out') {
+      row.exited += 1;
+    }
+    if (isParked(r.status)) row.parked += 1;
+  }
+
+  return [...map.values()].sort((a, b) => {
+    const aAct = a.parked + a.admitted + a.received;
+    const bAct = b.parked + b.admitted + b.received;
+    if (bAct !== aAct) return bAct - aAct;
+    return a.name.localeCompare(b.name, 'ko');
+  });
 }
 
 export type HqRankChangeRow = HqCompanyRow & {
@@ -165,40 +260,3 @@ export function computeCustomerMix(
   };
 }
 
-export type AirpickShareMonth = {
-  prefix: string;
-  label: string;
-  total: number;
-  airpick: number;
-  pct: number;
-};
-
-/** 최근 N개월 에어픽 입고 비중 추이 (선택 월 포함, 과거 방향) */
-export function buildAirpickShareTrend(
-  allReservations: Reservation[],
-  endMonthPrefix: string,
-  monthCount = 6
-): AirpickShareMonth[] {
-  const prefixes: string[] = [];
-  let p = endMonthPrefix;
-  for (let i = 0; i < monthCount; i++) {
-    prefixes.unshift(p);
-    p = shiftMonthPrefix(p, -1);
-  }
-
-  return prefixes.map((prefix) => {
-    const admitted = filterAdmittedInMonth(allReservations, prefix);
-    const airpick = admitted.filter(
-      (r) => resolveBookingSourceFromReservation(r) === 'airpick-b2c'
-    ).length;
-    const total = admitted.length;
-    const pct = total > 0 ? Math.round((airpick / total) * 100) : 0;
-    return {
-      prefix,
-      label: monthLabelFromPrefix(prefix),
-      total,
-      airpick,
-      pct,
-    };
-  });
-}

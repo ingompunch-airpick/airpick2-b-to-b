@@ -1,5 +1,6 @@
-import { Car, Phone } from 'lucide-react';
+import { Phone } from 'lucide-react';
 import type { PartnerHomepageConfig } from '../utils/partnerHomepageDefaults';
+import { partnerMarkText } from '../utils/partnerWordmark';
 
 /**
  * 손님용 마케팅 홈(airpick-partner-homepage)을 축소 재현한 초안 미리보기.
@@ -32,9 +33,17 @@ export default function HomepagePreview({
       {/* header */}
       <header className="flex items-center justify-between border-b border-slate-100 px-4 py-3">
         <div className="flex items-center gap-2">
-          <span className="grid size-7 place-items-center rounded-lg bg-slate-900 text-amber-300">
-            <Car size={15} />
-          </span>
+          {config.logoSrc ? (
+            <img src={config.logoSrc} alt="" className="size-7 object-contain" />
+          ) : (
+            <span
+              className={`grid size-7 place-items-center rounded-lg bg-slate-900 font-black leading-none text-amber-300 ${
+                [...partnerMarkText(config.name)].length > 1 ? 'text-[10px]' : 'text-xs'
+              }`}
+            >
+              {partnerMarkText(config.name)}
+            </span>
+          )}
           <span className="text-sm font-bold tracking-tight">
             {brandMain}
             {brandRest ? <span className="font-medium opacity-60"> {brandRest}</span> : null}

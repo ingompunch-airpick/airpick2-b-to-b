@@ -129,7 +129,17 @@ service cloud.firestore {
      */
     function reservationProtectedFieldsUnchanged() {
       return !request.resource.data.diff(resource.data).affectedKeys()
-        .hasAny(['reservationPassword', 'receiptToken', 'createdBy', 'createdAt', 'userId']);
+        .hasAny([
+          'reservationPassword',
+          'receiptToken',
+          'createdBy',
+          'createdAt',
+          'userId',
+          'acquisitionSource',
+          'acquisitionMedium',
+          'acquisitionCampaign',
+          'acquisitionClickId',
+        ]);
     }
 
     function canListReservation() {
@@ -192,6 +202,46 @@ service cloud.firestore {
     match /capacity/{capacityId} {
       allow read: if true;
       allow write: if false;
+    }
+
+    // ── acquisitionClicks (명함 QR 등 영업 유입) ───────────────────────────
+    // 목록(성과)은 본사만. get/create/update 는 손님 /h/ 추적에 필요.
+
+    match /acquisitionClicks/{clickId} {
+      allow get: if isSignedIn();
+      allow list: if isPlatformAdmin();
+
+      allow create: if isSignedIn()
+        && clickId.matches('acq_[a-zA-Z0-9]{8,40}')
+        && request.resource.data.keys().hasAll([
+          'companyId', 'source', 'medium', 'campaign', 'clickedAt'
+        ])
+        && request.resource.data.companyId is string
+        && request.resource.data.companyId.size() > 0
+        && request.resource.data.companyId.size() < 64
+        && request.resource.data.source is string
+        && request.resource.data.medium is string
+        && request.resource.data.campaign is string
+        && request.resource.data.clickedAt is string
+        && !('phone' in request.resource.data)
+        && !('userName' in request.resource.data)
+        && !('carNumber' in request.resource.data);
+
+      allow update: if isSignedIn()
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['landedAt', 'convertedReservationId', 'convertedAt'])
+        && request.resource.data.companyId == resource.data.companyId
+        && request.resource.data.source == resource.data.source
+        && request.resource.data.medium == resource.data.medium
+        && request.resource.data.campaign == resource.data.campaign
+        && request.resource.data.clickedAt == resource.data.clickedAt
+        && (
+          !('convertedReservationId' in resource.data)
+          || resource.data.convertedReservationId == null
+          || request.resource.data.convertedReservationId == resource.data.convertedReservationId
+        );
+
+      allow delete: if false;
     }
 
     // ── customers (방문 횟수 — 전화 숫자 키) ───────────────────────────────

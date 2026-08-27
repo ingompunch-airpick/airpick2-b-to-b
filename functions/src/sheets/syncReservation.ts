@@ -321,6 +321,39 @@ export async function syncReservationToSheets(
     }
   }
 
+  // 탭이 바뀐 경우(예: 와와 → 와와홈) 이전 탭에 남은 동일 예약ID 행 제거
+  const previousTab =
+    existing?.spreadsheetId === config.spreadsheetId &&
+    typeof existing?.tab === 'string' &&
+    existing.tab.trim() &&
+    existing.tab !== tabName
+      ? existing.tab.trim()
+      : null;
+  if (previousTab) {
+    try {
+      const oldTabs = await listTabTitles(sheets, config.spreadsheetId);
+      const oldSheetId = oldTabs.get(previousTab);
+      if (oldSheetId != null) {
+        const oldRows = await findRowsByReservationId(
+          sheets,
+          config.spreadsheetId,
+          previousTab,
+          reservationId
+        );
+        if (oldRows.length > 0) {
+          await deleteSheetRows(sheets, config.spreadsheetId, oldSheetId, oldRows);
+        }
+      }
+    } catch (err) {
+      console.warn('[sheets] previous tab cleanup failed', {
+        reservationId,
+        previousTab,
+        tabName,
+        err: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
   return {
     spreadsheetId: config.spreadsheetId,
     tab: tabName,

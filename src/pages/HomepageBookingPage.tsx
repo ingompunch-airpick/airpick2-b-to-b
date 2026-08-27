@@ -39,6 +39,13 @@ import {
   normalizeArrivalFlightId,
   toFlightDateYmd,
 } from '../lib/icnArrival';
+import { parseAidFromSearch, parseAcquisitionIntentFromSearch } from '../utils/acquisition';
+import {
+  createAcquisitionClickClient,
+  markAcquisitionConverted,
+  markAcquisitionLanded,
+  validateAcquisitionForBooking,
+} from '../lib/acquisitionFirestore';
 
 type Terminal = string;
 
@@ -90,6 +97,47 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
   const [parkingHint, setParkingHint] = useState<ParkingCapacityResult | null>(null);
   const [arrivalFlightHint, setArrivalFlightHint] = useState<string | null>(null);
   const [arrivalFlightLooking, setArrivalFlightLooking] = useState(false);
+  const [acquisitionAid, setAcquisitionAid] = useState<string | null>(() =>
+    parseAidFromSearch(typeof window !== 'undefined' ? window.location.search : '')
+  );
+
+  useEffect(() => {
+    if (!companyId) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        await ensureFirestoreAuth();
+        let aid = acquisitionAid;
+
+        if (!aid) {
+          const intent = parseAcquisitionIntentFromSearch(window.location.search);
+          if (!intent) return;
+          const created = await createAcquisitionClickClient({
+            companyId,
+            source: intent.source,
+            medium: intent.medium,
+            campaign: intent.campaignRaw || undefined,
+          });
+          if (cancelled || !created) return;
+          aid = created.clickId;
+          setAcquisitionAid(aid);
+          const next = `/h/${encodeURIComponent(companyId)}?aid=${encodeURIComponent(aid)}`;
+          window.history.replaceState({}, '', next);
+        }
+
+        const validated = await validateAcquisitionForBooking(aid, companyId);
+        if (cancelled || !validated) return;
+        await markAcquisitionLanded(aid);
+      } catch {
+        // 유입 표시 실패해도 예약은 가능
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // 최초 진입·companyId 만 — aid state 갱신으로 재실행하지 않음
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [companyId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -308,6 +356,20 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
         isT2
       );
 
+      // createdBy 는 채널(homepage) 유지. 명함 QR 등은 acquisition* 만 추가.
+      let acquisitionFields: Partial<Reservation> = {};
+      if (acquisitionAid) {
+        const validated = await validateAcquisitionForBooking(acquisitionAid, company.id);
+        if (validated) {
+          acquisitionFields = {
+            acquisitionSource: validated.acquisitionSource,
+            acquisitionMedium: validated.acquisitionMedium,
+            acquisitionCampaign: validated.acquisitionCampaign,
+            acquisitionClickId: validated.acquisitionClickId,
+          };
+        }
+      }
+
       const payload: Omit<Reservation, 'id'> = {
         userId: auth.currentUser?.uid || 'guest',
         companyId: company.id,
@@ -342,9 +404,17 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
         ...(customerNotes.trim()
           ? { customerNotes: customerNotes.trim(), userRequest: customerNotes.trim() }
           : {}),
+        ...acquisitionFields,
       };
 
       await persistReservation(id, payload);
+      if (acquisitionFields.acquisitionClickId) {
+        try {
+          await markAcquisitionConverted(acquisitionFields.acquisitionClickId, id);
+        } catch {
+          // 전환 마킹 실패해도 예약은 이미 저장됨
+        }
+      }
       const receiptUrl = buildReceiptUrl({ id, receiptToken, receiptCode: undefined });
       setDone({ id, receiptUrl });
     } catch (submitErr) {
