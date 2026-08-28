@@ -728,7 +728,6 @@ export default function App() {
                     setScratchModalTargetId={setScratchModalTargetId}
                     setSelectedParkingSpace={setSelectedParkingSpace}
                     showCompanyLabel={showCompanyNameOnCards}
-                    primaryCompanyId={currentCompanyId}
                     companies={companies}
                     onUpdatePayment={handleUpdatePaymentMethod}
                   />
@@ -1140,6 +1139,7 @@ export default function App() {
         employeeName={employeeName}
         isSuperAdmin={isSuperAdmin}
         currentCompanyId={currentCompanyId}
+        companies={companies}
         handleUpdateValetStatus={handleUpdateValetStatus}
         getKSTDateTimeString={getKSTDateTimeString}
       />
@@ -1160,6 +1160,7 @@ export default function App() {
             onRevertStatus={handleDriverRevertStatus}
             onCancelReservation={handleDriverCancelReservation}
             companies={companies}
+            showCompanyLabel={showCompanyNameOnCards}
           />
         )}
       </AnimatePresence>

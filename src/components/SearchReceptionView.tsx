@@ -697,7 +697,6 @@ export default function SearchReceptionView({
                       setScratchModalTargetId={setScratchModalTargetId}
                       setSelectedParkingSpace={setSelectedParkingSpace}
                       showCompanyLabel={showCompanyLabel}
-                      primaryCompanyId={currentCompanyId}
                       companies={companies}
                     />
                   ))}

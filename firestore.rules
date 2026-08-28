@@ -39,11 +39,20 @@ service cloud.firestore {
       return cid in ['wawa', 'wawa_valet', '와와', '와와발렛'];
     }
 
+    /** parentCompanyId 가 대표 업체인 하위 브랜드(가유→hi·season 등) */
+    function isChildOfPartnerCompany(cid) {
+      return isValidCompanyId(cid)
+        && exists(/databases/$(database)/documents/companies/$(cid))
+        && get(/databases/$(database)/documents/companies/$(cid)).data.parentCompanyId is string
+        && get(/databases/$(database)/documents/companies/$(cid)).data.parentCompanyId == partnerCompanyId();
+    }
+
     function partnerCanAccessCompany(cid) {
       return isPartner()
         && (
           partnerCompanyId() == cid
           || (isWawaCompanyId(partnerCompanyId()) && isWawaCompanyId(cid))
+          || isChildOfPartnerCompany(cid)
         );
     }
 

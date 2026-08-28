@@ -6,8 +6,13 @@ import {
   CheckCircle2, 
   X 
 } from 'lucide-react';
-import { Reservation } from '../types';
+import { Reservation, Company } from '../types';
 import { patchReservation } from '../lib/reservationFirestore';
+import MetaField from './MetaField';
+import {
+  isMultiOperatorScope,
+  resolveOperatorBrandLabel,
+} from '../utils/operatorBrandLabel';
 function cn(...classes: (string | boolean | undefined)[]) {
   return classes.filter(Boolean).join(' ');
 }
@@ -22,6 +27,7 @@ interface AdminReservationEditModalProps {
   employeeName: string;
   isSuperAdmin: boolean;
   currentCompanyId: string;
+  companies?: Company[];
   handleUpdateValetStatus: (resId: string, nextStatus: any, additionalPayload?: any) => Promise<void>;
   getKSTDateTimeString: () => string;
 }
@@ -36,12 +42,18 @@ export default function AdminReservationEditModal({
   employeeName,
   isSuperAdmin,
   currentCompanyId,
+  companies = [],
   handleUpdateValetStatus,
   getKSTDateTimeString
 }: AdminReservationEditModalProps) {
   const targetReservationForEdit = useMemo(() => {
     return reservations.find(r => r.id === reservationId) || null;
   }, [reservations, reservationId]);
+
+  const multiOperatorScope = isMultiOperatorScope(currentCompanyId, companies);
+  const operatorBrandLabel = targetReservationForEdit
+    ? resolveOperatorBrandLabel(targetReservationForEdit, companies, multiOperatorScope)
+    : null;
 
   // Form Fields states holding current editing details
   const [editBasePrice, setEditBasePrice] = useState<number>(0);
@@ -153,14 +165,18 @@ export default function AdminReservationEditModal({
 
         <div className="overflow-y-auto p-5 flex-1 space-y-4 max-h-[70vh]">
           {/* Reservation Header */}
-          <div className="p-3.5 bg-neutral-950 border border-neutral-850 rounded-2xl flex items-center justify-between">
-            <div className="space-y-0.5">
+          <div className="p-3.5 bg-neutral-950 border border-neutral-850 rounded-2xl flex items-center justify-between gap-3">
+            <div className="space-y-0.5 min-w-0">
               <span className="text-[11px] text-zinc-500 font-semibold uppercase block">고유 수납 코드 (Receipt ID)</span>
               <span className="text-xs font-black text-white font-mono">{targetReservationForEdit.receiptCode || targetReservationForEdit.id}</span>
             </div>
-            <span className="text-[12px] text-amber-500 bg-amber-500/10 px-3 py-1 rounded-xl border border-amber-500/20 font-black">
-              {targetReservationForEdit.companyName}
-            </span>
+            {operatorBrandLabel ? (
+              <MetaField label="업체" value={operatorBrandLabel} className="shrink-0 text-right" />
+            ) : (
+              <span className="text-[12px] text-zinc-300 shrink-0">
+                {targetReservationForEdit.companyName}
+              </span>
+            )}
           </div>
 
           {/* 1st Section: Vehicles/Model space */}

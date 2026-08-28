@@ -46,6 +46,11 @@ import {
   monthLabelFromPrefix,
   shiftMonthPrefix,
 } from '../utils/hqAnalytics';
+import MetaField from './MetaField';
+import {
+  isMultiOperatorScope,
+  resolveOperatorBrandLabel,
+} from '../utils/operatorBrandLabel';
 
 function CustomerVisitBadge({ phone }: { phone?: string }) {
   const [visitCount, setVisitCount] = useState<number | null>(null);
@@ -132,7 +137,10 @@ export default function StatisticsView({
   const [crmSearch, setCrmSearch] = useState('');
   const [crmTab, setCrmTab] = useState<'today_reserve' | 'today_parked' | 'today_released'>('today_reserve');
   const [crmDatePickerOpen, setCrmDatePickerOpen] = useState(false);  
-  const [filterType, setFilterType] = useState<'this_month' | 'last_month'>('this_month');
+  /** 파트너 입·출차 요약 월 (YYYY-MM) — 좌우로 넘김 */
+  const [summaryMonthPrefix, setSummaryMonthPrefix] = useState(() =>
+    getKSTDateOnlyString().substring(0, 7)
+  );
   const [hqMonthPrefix, setHqMonthPrefix] = useState(() => getKSTDateOnlyString().substring(0, 7));
   const [hqTab, setHqTab] = useState<'today' | 'month'>('today');
   
@@ -158,6 +166,11 @@ export default function StatisticsView({
   /** CRM 조회일 — 기본 오늘, 사용자가 다른 날 선택 가능 */
   const [crmDate, setCrmDate] = useState(() => getKSTDateString());
   const currentMonthPrefix = todayStr.substring(0, 7); // "2026-05"
+
+  const multiOperatorScope = useMemo(
+    () => isMultiOperatorScope(currentCompanyId || '', companies),
+    [currentCompanyId, companies]
+  );
 
   // Automatically refresh date-related views when midnight KST rolls over
   useEffect(() => {
@@ -207,33 +220,22 @@ export default function StatisticsView({
 
   const datesRange = useMemo(() => {
     const list: string[] = [];
-    const [yearStr, monthStr, dayStrPart] = todayStr.split('-');
-    const currentYearNum = parseInt(yearStr, 10);
-    const currentMonthNum = parseInt(monthStr, 10);
+    const [yearStr, monthStr] = summaryMonthPrefix.split('-');
+    const yearNum = parseInt(yearStr, 10);
+    const monthNum = parseInt(monthStr, 10);
+    if (!yearNum || !monthNum) return list;
 
-    if (filterType === 'this_month') {
-      const day = parseInt(dayStrPart, 10);
-      for (let dNum = day; dNum >= 1; dNum--) {
-        const dd = String(dNum).padStart(2, '0');
-        list.push(`${yearStr}-${monthStr}-${dd}`);
-      }
-    } else {
-      let lastYearNum = currentYearNum;
-      let lastMonthNum = currentMonthNum - 1;
-      if (lastMonthNum === 0) {
-        lastMonthNum = 12;
-        lastYearNum = currentYearNum - 1;
-      }
-      const lastYearStr = String(lastYearNum);
-      const lastMonthStr = String(lastMonthNum).padStart(2, '0');
-      const lastMonthDaysCount = new Date(lastYearNum, lastMonthNum, 0).getDate();
-      for (let dNum = lastMonthDaysCount; dNum >= 1; dNum--) {
-        const dd = String(dNum).padStart(2, '0');
-        list.push(`${lastYearStr}-${lastMonthStr}-${dd}`);
-      }
+    const daysInMonth = new Date(yearNum, monthNum, 0).getDate();
+    const isCurrentMonth = summaryMonthPrefix === todayStr.substring(0, 7);
+    const maxDay = isCurrentMonth
+      ? parseInt(todayStr.split('-')[2] || String(daysInMonth), 10)
+      : daysInMonth;
+
+    for (let dNum = maxDay; dNum >= 1; dNum--) {
+      list.push(`${yearStr}-${monthStr}-${String(dNum).padStart(2, '0')}`);
     }
     return list;
-  }, [filterType, todayStr]);
+  }, [summaryMonthPrefix, todayStr]);
 
   // Helper matching reservation list dynamically to each major node
   const getCompanyReservations = (allResList: Reservation[], compId: string) => {
@@ -610,6 +612,8 @@ export default function StatisticsView({
   const totalExited = dailyFlow.reduce((s, d) => s + d.exitedCount, 0);
   const activeDays = dailyFlow.filter(d => d.admittedCount > 0 || d.exitedCount > 0).length;
   const avgAdmitted = activeDays > 0 ? Math.round((totalAdmitted / activeDays) * 10) / 10 : 0;
+  const summaryMonthMax = todayStr.substring(0, 7);
+  const canGoNextSummary = summaryMonthPrefix < summaryMonthMax;
 
   // 현재 주차 중(재차) 대수 — 입고 완료했지만 아직 출차하지 않은 차량
   const parkedNow = activeReservations.filter(r => isParked(r.status)).length;
@@ -855,6 +859,11 @@ export default function StatisticsView({
               <div className="space-y-2.5">
                 {crmFiltered.map((res, idx) => {
                   const space = res.parkingSpace || '미지정';
+                  const operatorBrandLabel = resolveOperatorBrandLabel(
+                    res,
+                    companies,
+                    multiOperatorScope
+                  );
                   return (
                     <div
                       key={`${res.id}-${idx}`}
@@ -889,6 +898,9 @@ export default function StatisticsView({
                         </div>
                         {getStatusBadge(res.status)}
                       </div>
+                      {operatorBrandLabel ? (
+                        <MetaField label="업체" value={operatorBrandLabel} />
+                      ) : null}
                       <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[13px]">
                         <div className="text-zinc-500">입고: <span className="text-zinc-300 font-mono">{res.departureDate} {res.departureTime}</span></div>
                         <div className="text-zinc-500">주차: <span className="text-zinc-300 font-mono">{space}</span></div>
@@ -906,24 +918,50 @@ export default function StatisticsView({
 
       {/* 📊 월별 흐름 */}
       <div className="space-y-3 pt-1 border-t border-neutral-800/60">
-        <div className="flex p-1 bg-[#1C1C1E] rounded-xl border border-neutral-800/40 select-none">
-          {(['this_month', 'last_month'] as const).map((t) => (
+        <div className="flex items-center justify-between gap-2 px-1 select-none">
+          <h3 className="text-[12.5px] text-zinc-400 font-extrabold tracking-wider uppercase shrink-0">
+            입·출차 요약
+          </h3>
+          <div className="flex items-center gap-1 bg-[#1C1C1E] border border-neutral-800/50 rounded-xl p-1">
             <button
-              key={t}
               type="button"
-              onClick={() => setFilterType(t)}
-              className={`flex-1 py-1.5 rounded-lg text-[12px] font-bold transition-all ${filterType === t ? 'bg-amber-500 text-neutral-950 shadow-sm' : 'text-zinc-500 hover:text-white'}`}
+              onClick={() => setSummaryMonthPrefix((p) => shiftMonthPrefix(p, -1))}
+              className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-neutral-800 transition-colors"
+              aria-label="이전 달"
             >
-              {t === 'this_month' ? '이번 달' : '지난 달'}
+              <ChevronLeft size={16} />
             </button>
-          ))}
+            <input
+              type="month"
+              value={summaryMonthPrefix}
+              max={summaryMonthMax}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v && v <= summaryMonthMax) setSummaryMonthPrefix(v);
+              }}
+              className="bg-transparent text-xs font-black text-amber-400 font-mono text-center min-w-[7.5rem] outline-none [color-scheme:dark]"
+              aria-label="조회 월"
+            />
+            <button
+              type="button"
+              disabled={!canGoNextSummary}
+              onClick={() =>
+                canGoNextSummary && setSummaryMonthPrefix((p) => shiftMonthPrefix(p, 1))
+              }
+              className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-neutral-800 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+              aria-label="다음 달"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
         </div>
 
         <div className="space-y-2.5">
           <div className="flex items-center justify-between px-1 select-none">
-            <h3 className="text-[12.5px] text-zinc-400 font-extrabold tracking-wider uppercase">
-              입·출차 요약 ({filterType === 'this_month' ? '이번 달' : '지난 달'})
-            </h3>
+            <p className="text-[11px] text-zinc-500 font-bold">
+              {monthLabelFromPrefix(summaryMonthPrefix)}
+              {summaryMonthPrefix === currentMonthPrefix ? ' · 오늘까지' : ''}
+            </p>
           </div>
 
           {/* 현재 재차(주차 중) + 월 요약 */}

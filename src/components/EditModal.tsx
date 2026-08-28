@@ -32,6 +32,8 @@ import {
 import { buildReceiptUrl } from '../utils/receipt';
 import { inferFacilityType } from '../utils/companyProfile';
 import { recalculateReservationPrice } from '../utils/pricing';
+import MetaField from './MetaField';
+import { resolveOperatorBrandLabel } from '../utils/operatorBrandLabel';
 function cn(...classes: (string | boolean | undefined | null)[]) {
   return classes.filter(Boolean).join(' ');
 }
@@ -50,6 +52,8 @@ interface EditModalProps {
   onRevertStatus?: () => Promise<void>;
   onCancelReservation?: () => Promise<void>;
   companies?: Company[];
+  /** 대표+하위 통합 관리 — 업체 메타 표시 */
+  showCompanyLabel?: boolean;
 }
 
 export default function EditModal({
@@ -64,6 +68,7 @@ export default function EditModal({
   onRevertStatus,
   onCancelReservation,
   companies = [],
+  showCompanyLabel = false,
 }: EditModalProps) {
   const [driverEditPhone, setDriverEditPhone] = useState('');
   const [driverEditUserName, setDriverEditUserName] = useState('');
@@ -211,6 +216,11 @@ export default function EditModal({
   const showMoreMenu = canCancel || canRevertStatus || !!receiptUrl;
   const hideReservationPassword = isExternalCustomerBooking(driverDetailRes);
   const companyLots = resolveCompanyLotsForReservation(companies, driverDetailRes.companyId);
+  const operatorBrandLabel = resolveOperatorBrandLabel(
+    driverDetailRes,
+    companies,
+    showCompanyLabel
+  );
   const parkingTypeChoices = buildParkingTypeChoices({
     lots: companyLots,
     showIndoor: showIndoorOption,
@@ -379,6 +389,9 @@ export default function EditModal({
 
         {/* Scrollable Form Body */}
         <div className="flex-1 overflow-y-auto px-5 py-5 space-y-5">
+          {operatorBrandLabel ? (
+            <MetaField label="업체" value={operatorBrandLabel} />
+          ) : null}
 
           <div className="grid grid-cols-2 gap-4">
             <div className="relative group">

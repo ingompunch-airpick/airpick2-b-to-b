@@ -1,5 +1,6 @@
 ﻿import React, { useState } from 'react';
-import { PlusCircle, Bell, CheckCircle2 } from 'lucide-react';import { Reservation, ReservationStatus, PaymentMethod, type Company } from '../types';
+import { PlusCircle, Bell, CheckCircle2 } from 'lucide-react';
+import { Reservation, ReservationStatus, PaymentMethod, type Company } from '../types';
 import { isReservationUnpaid } from '../utils/paymentStatus';
 import { isNotYetAdmitted, isPending, statusBadgeColorClass, statusToLabel } from '../utils/reservationStatus';
 import {
@@ -21,6 +22,10 @@ import {
   parkingFacilityBadgeLabel,
   resolveCompanyLotsForReservation,
 } from '../utils/parkingLot';
+import MetaField from './MetaField';
+import {
+  resolveOperatorBrandLabel,
+} from '../utils/operatorBrandLabel';
 
 function cn(...classes: (string | boolean | undefined | null)[]) {
   return classes.filter(Boolean).join(' ');
@@ -33,12 +38,9 @@ interface ReservationCardProps {
   /** 타임라인 탭과 동일한 상태면 뱃지 생략 (기사 모드) */
   activeCounterTab?: ReservationStatus;
   /**
-   * 대표+하위 통합 그룹일 때 true.
-   * 하위(대표 id와 다른 companyId) 예약만 가격 왼쪽에 업체명 텍스트 표시.
+   * 대표+하위 통합 그룹일 때 true — 모든 예약에 업체 메타 표시.
    */
   showCompanyLabel?: boolean;
-  /** 로그인 대표 업체 id — 하위 여부 판별용 */
-  primaryCompanyId?: string;
   setAdminEditingReservationId: (id: string) => void;
   setDriverDetailRes: (res: Reservation) => void;
   handleUpdateValetStatus: (id: string, status: ReservationStatus, extra?: any) => void;
@@ -57,7 +59,6 @@ export default function ReservationCard({
   isAdminModeActive,
   activeCounterTab,
   showCompanyLabel = false,
-  primaryCompanyId = '',
   setAdminEditingReservationId,
   setDriverDetailRes,
   handleUpdateValetStatus,
@@ -110,15 +111,7 @@ export default function ReservationCard({
 
   const badgeColorClass = statusBadgeColorClass(res.status);
 
-  const resCompanyId = (res.companyId || '').trim().toLowerCase();
-  const primaryId = (primaryCompanyId || '').trim().toLowerCase();
-  const subCompanyName =
-    showCompanyLabel &&
-    resCompanyId &&
-    primaryId &&
-    resCompanyId !== primaryId
-      ? (res.companyName || '').trim() || resCompanyId
-      : '';
+  const operatorBrandLabel = resolveOperatorBrandLabel(res, companies, showCompanyLabel);
 
   return (
     <div 
@@ -229,6 +222,9 @@ export default function ReservationCard({
           <div className="text-toss-body leading-none tabular-nums text-[var(--color-toss-fg-muted)]">
             {showAsExitSchedule ? res.arrivalTime : res.departureTime}
           </div>
+          {operatorBrandLabel ? (
+            <MetaField label="업체" value={operatorBrandLabel} className="text-[12px]" />
+          ) : null}
         </div>
       </div>
 
@@ -314,11 +310,6 @@ export default function ReservationCard({
           'flex items-baseline justify-end gap-1.5 min-w-0',
           isExitScheduleNotAdmitted && 'opacity-40'
         )}>
-          {subCompanyName ? (
-            <span className="text-toss-label text-[var(--color-toss-fg-muted)] truncate max-w-[5.5rem] sm:max-w-[7.5rem]">
-              {subCompanyName}
-            </span>
-          ) : null}
           <span className="text-[11px] sm:text-toss-label tabular-nums text-[var(--color-toss-fg-muted)] shrink-0">
             {res.totalPrice?.toLocaleString()}원
           </span>

@@ -36,8 +36,6 @@ interface TimelineViewProps {
   setScratchModalTargetId: (id: string | null) => void;
   setSelectedParkingSpace: (space: string) => void;
   showCompanyLabel?: boolean;
-  /** 로그인 대표 업체 id — 하위 예약 업체명 표시용 */
-  primaryCompanyId?: string;
   companies?: Company[];
   onUpdatePayment?: (id: string, method: PaymentMethod) => void | Promise<void>;
 }
@@ -59,7 +57,6 @@ export default function TimelineView({
   setScratchModalTargetId,
   setSelectedParkingSpace,
   showCompanyLabel = false,
-  primaryCompanyId = '',
   companies = [],
   onUpdatePayment,
 }: TimelineViewProps) {
@@ -241,7 +238,6 @@ export default function TimelineView({
                 setScratchModalTargetId={setScratchModalTargetId}
                 setSelectedParkingSpace={setSelectedParkingSpace}
                 showCompanyLabel={showCompanyLabel}
-                primaryCompanyId={primaryCompanyId}
                 companies={companies}
                 onUpdatePayment={onUpdatePayment}
               />
