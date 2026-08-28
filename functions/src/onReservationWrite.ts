@@ -26,9 +26,9 @@ const ncpAccessKey = defineString('NCP_ALIMTALK_ACCESS_KEY', { default: '' });
 const ncpSecretKey = defineString('NCP_ALIMTALK_SECRET_KEY', { default: '' });
 const ncpServiceId = defineString('NCP_ALIMTALK_SERVICE_ID', { default: '' });
 const ncpPlusFriendId = defineString('NCP_ALIMTALK_PLUS_FRIEND_ID', { default: '@airpickup' });
-const ncpTemplateReserve = defineString('NCP_ALIMTALK_TEMPLATE_RESERVE', { default: 'reservation' });
+const ncpTemplateReserve = defineString('NCP_ALIMTALK_TEMPLATE_RESERVE', { default: 'reservation2' });
 const ncpTemplateCheckin = defineString('NCP_ALIMTALK_TEMPLATE_CHECKIN', { default: '' });
-const ncpTemplateCheckout = defineString('NCP_ALIMTALK_TEMPLATE_CHECKOUT', { default: '' });
+const ncpTemplateCheckout = defineString('NCP_ALIMTALK_TEMPLATE_CHECKOUT', { default: 'checkout1' });
 
 const sheetsArchiveEnabled = defineString('SHEETS_ARCHIVE_ENABLED', { default: 'false' });
 const sheetsSpreadsheetId = defineString('GOOGLE_SHEETS_SPREADSHEET_ID', {

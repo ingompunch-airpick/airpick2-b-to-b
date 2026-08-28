@@ -5,7 +5,8 @@ import type { AlimtalkTemplateParams } from './types';
  * NCP 콘솔에 등록·검수된 템플릿 본문과 동일해야 함.
  * 변수는 #{이름} 형식 — 발송 전 치환.
  *
- * reserve = 에어픽_예약완료 (코드: reservation, 기본형)
+ * reserve = 에어픽_예약완료_강조 (코드: reservation2)
+ * checkout = 에어픽_출고완료 (코드: checkout1)
  * 본문·버튼명·버튼 URL은 콘솔 등록값과 일치시킬 것.
  */
 const NCP_TEMPLATE_BODIES: Record<
@@ -13,7 +14,8 @@ const NCP_TEMPLATE_BODIES: Record<
   { title?: string; body: string }
 > = {
   reserve: {
-    // 기본형 — title 없음
+    // reservation2 강조표기 — 콘솔 제목·본문과 일치해야 함 (3028 방지)
+    title: '[에어픽] 주차 예약',
     body: `[에어픽] #{고객명}님 #{차량번호} 예약 접수가 완료되었습니다. 아래 버튼에서 접수증을 확인하세요.`,
   },
   checkin: {

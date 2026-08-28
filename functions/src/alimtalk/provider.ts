@@ -32,8 +32,9 @@ export function resolveTemplateCode(
     };
     const fromEnv = envMap[eventType];
     if (fromEnv) return fromEnv;
-    // reserve만 기본값 reservation (콘솔에 등록한 코드)
-    if (eventType === 'reserve') return 'reservation';
+    // reserve / checkout 콘솔 코드 (reservation 정지 → reservation2, checkout1)
+    if (eventType === 'reserve') return 'reservation2';
+    if (eventType === 'checkout') return 'checkout1';
     return '';
   }
   return ALIMTALK_TEMPLATE_CODES[eventType];
