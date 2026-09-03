@@ -83,6 +83,8 @@ export interface Company {
   outdoorParkingLat?: number;
   outdoorParkingLng?: number;
   parkingLots?: CompanyParkingLot[];
+  /** 사업자등록증·주차장 계약서 등 내부 심사용 서류 */
+  verificationDocuments?: CompanyVerificationDocuments;
   insurance?: CompanyInsurance;
   hasInsurance?: boolean;
   insuranceProvider?: string;
@@ -152,6 +154,12 @@ export interface CompanyInsurance {
   /** 보험증권 이미지 URL (B2C 손님 상세에서 확인) */
   certificateUrl?: string;
   updatedAt?: string;
+}
+
+/** 입점 심사·내부 확인용 증명서류 (사업자등록증·주차장 계약서) */
+export interface CompanyVerificationDocuments {
+  businessRegistrationUrl?: string;
+  parkingContractUrl?: string;
 }
 
 export interface CompanyInfo {

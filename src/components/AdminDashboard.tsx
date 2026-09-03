@@ -11,6 +11,7 @@ import { auth } from '../firebase';
 import { Company, Reservation, PartnerCompany } from '../types';
 import PartnerOnboardingChecklist from './PartnerOnboardingChecklist';
 import HomepageCreateModal from './HomepageCreateModal';
+import { partnerMarketingHomeUrl } from '../utils/partnerHomepageDefaults';
 import {
   isPlatformAdminUser,
 } from '../lib/firebaseAuth';
@@ -46,7 +47,7 @@ import {
   validatePartnerParkingLots,
   type PartnerProfileInput,
 } from '../utils/companyProfile';
-import { uploadCompanyInsuranceCertificate, uploadCompanyParkingImages } from '../lib/companyPhotos';
+import { uploadCompanyInsuranceCertificate, uploadCompanyParkingImages, uploadCompanyVerificationDocument } from '../lib/companyPhotos';
 
 const getKSTMonthOnlyString = () => {
   const kstDate = new Date(Date.now() + 9 * 60 * 60 * 1000);
@@ -84,6 +85,28 @@ async function resolveProfileParkingPhotos(
     next = { ...next, insuranceCertificateUrl: certificateUrl || '' };
   } else if (!next.insuranceEnrolled) {
     next = { ...next, insuranceCertificateUrl: '' };
+  }
+
+  if (next.businessRegistrationUrl.trim()) {
+    const businessRegistrationUrl = await uploadCompanyVerificationDocument(
+      companyId,
+      next.businessRegistrationUrl,
+      'business-registration'
+    );
+    next = { ...next, businessRegistrationUrl: businessRegistrationUrl || '' };
+  } else {
+    next = { ...next, businessRegistrationUrl: '' };
+  }
+
+  if (next.parkingContractUrl.trim()) {
+    const parkingContractUrl = await uploadCompanyVerificationDocument(
+      companyId,
+      next.parkingContractUrl,
+      'parking-contract'
+    );
+    next = { ...next, parkingContractUrl: parkingContractUrl || '' };
+  } else {
+    next = { ...next, parkingContractUrl: '' };
   }
 
   return next;
@@ -153,6 +176,9 @@ export default function AdminDashboard({
 
   // State for editing a sub-operator (companies only)
   const [editingSubCompany, setEditingSubCompany] = useState<Company | null>(null);
+  const [editSubName, setEditSubName] = useState('');
+  const [editSubRep, setEditSubRep] = useState('');
+  const [editSubPhone, setEditSubPhone] = useState('');
   const [editSubProfile, setEditSubProfile] = useState<PartnerProfileInput>({ ...DEFAULT_PARTNER_PROFILE });
   
   // State for editing a partner company
@@ -179,12 +205,20 @@ export default function AdminDashboard({
 
   const handleStartEditSub = (c: Company) => {
     setEditingSubCompany(c);
+    setEditSubName(c.name || '');
+    setEditSubRep(c.representative || '');
+    setEditSubPhone(c.phone || '');
     setEditSubProfile(readPartnerProfileFromCompany(c));
   };
 
   const handleSaveSubEdit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editingSubCompany) return;
+
+    if (!editSubName.trim() || !editSubRep.trim() || !editSubPhone.trim()) {
+      alert('상호명, 대표자, 연락처는 필수입니다.');
+      return;
+    }
 
     const parkingErr = validatePartnerParkingLots(editSubProfile);
     if (parkingErr) {
@@ -205,7 +239,13 @@ export default function AdminDashboard({
 
     const updatedCompanies = companies.map((c) => {
       if (c.id === targetId) {
-        return applyPartnerProfileToCompany(c, profileToSave);
+        const withBasics = {
+          ...c,
+          name: editSubName.trim(),
+          phone: editSubPhone.trim(),
+          representative: editSubRep.trim(),
+        };
+        return applyPartnerProfileToCompany(withBasics, profileToSave);
       }
       return c;
     });
@@ -216,6 +256,9 @@ export default function AdminDashboard({
       await adminUpsertCompany({
         companyId: targetId,
         patch: {
+          name: editSubName.trim(),
+          phone: editSubPhone.trim(),
+          representative: editSubRep.trim(),
           ...profileExtrasForFirestore(profileToSave),
           parentCompanyId: editingSubCompany.parentCompanyId,
           isOperatorPrimary: false,
@@ -788,10 +831,10 @@ export default function AdminDashboard({
                             type="button"
                             onClick={() => setHomepagePartner(p)}
                             className="px-2 py-1.5 bg-neutral-900 border border-neutral-700 text-zinc-300 hover:bg-sky-500/10 hover:text-sky-300 hover:border-sky-500/40 rounded-lg text-[12px] font-black tracking-tight inline-flex items-center gap-1 transition-all mr-1.5"
-                            title={company?.partnerHomepage?.config ? '홈페이지 수정' : '홈페이지 생성'}
+                            title={company?.partnerHomepage?.config ? '홈 연동·공개' : '홈 연동'}
                           >
                             <Globe size={11} />
-                            {company?.partnerHomepage?.config ? '홈수정' : '홈생성'}
+                            {company?.partnerHomepage?.config ? '홈연동' : '홈연동'}
                           </button>
                           <button
                             type="button"
@@ -834,7 +877,7 @@ export default function AdminDashboard({
                         </td>
                         <td className="py-3 px-2 align-middle text-center">
                           <div className="flex flex-col items-center gap-1">
-                            <span className="text-[11px] text-zinc-500 font-bold">B2C 하위</span>
+                            <span className="text-[11px] text-zinc-500 font-bold">하위 브랜드</span>
                             {c.partnerHomepage?.config && (
                               <span
                                 className={`rounded-full border px-1.5 py-0.5 text-[10px] font-black ${
@@ -857,10 +900,10 @@ export default function AdminDashboard({
                             type="button"
                             onClick={() => setHomepagePartner(subCompanyToHomepagePartner(c))}
                             className="px-2 py-1.5 bg-neutral-900 border border-neutral-700 text-zinc-300 hover:bg-sky-500/10 hover:text-sky-300 hover:border-sky-500/40 rounded-lg text-[12px] font-black tracking-tight inline-flex items-center gap-1 transition-all mr-1.5"
-                            title={c.partnerHomepage?.config ? '하위업체 홈페이지 수정' : '하위업체 홈페이지 생성'}
+                            title={c.partnerHomepage?.config ? '홈 연동·공개' : '홈 연동'}
                           >
                             <Globe size={11} />
-                            {c.partnerHomepage?.config ? '홈수정' : '홈생성'}
+                            {c.partnerHomepage?.config ? '홈연동' : '홈연동'}
                           </button>
                           <button
                             type="button"
@@ -896,7 +939,7 @@ export default function AdminDashboard({
                 onUpdateCompanies(mergeCompanyIntoList(companies, next));
                 setHomepagePartner(null);
                 alert(
-                  `[${next.name}] 마케팅 홈 설정이 저장되었습니다.\n예약: /h/${next.id}`
+                  `[${next.name}] 홈페이지가 저장되었습니다.\n공개: ${next.partnerHomepage?.enabled ? 'ON' : 'OFF'}\n${partnerMarketingHomeUrl(next.id)}`
                 );
               }}
             />
@@ -1068,6 +1111,39 @@ export default function AdminDashboard({
                       </button>
                     </div>
                     <div className="px-5 py-3 space-y-3 overflow-y-auto flex-1 min-h-0">
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-[12px] text-zinc-400 block mb-1 font-bold">가맹사 법인명 (상호명) *</label>
+                          <input
+                            type="text"
+                            value={editSubName}
+                            onChange={(e) => setEditSubName(e.target.value)}
+                            className="w-full px-3 py-2 border border-neutral-700 bg-[#1C1C1E] text-zinc-100 rounded-xl focus:outline-none focus:ring-1 focus:ring-violet-500/40 font-bold"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[12px] text-zinc-400 block mb-1 font-bold">대표자 성함 *</label>
+                          <input
+                            type="text"
+                            value={editSubRep}
+                            onChange={(e) => setEditSubRep(e.target.value)}
+                            className="w-full px-3 py-2 border border-neutral-700 bg-[#1C1C1E] text-zinc-100 rounded-xl focus:outline-none focus:ring-1 focus:ring-violet-500/40 font-semibold"
+                          />
+                        </div>
+                      </div>
+                      <div>
+                        <label className="text-[12px] text-zinc-400 block mb-1 font-bold">업체 대표 연락처 *</label>
+                        <input
+                          type="text"
+                          value={editSubPhone}
+                          onChange={(e) => setEditSubPhone(e.target.value)}
+                          className="w-full px-3 py-2 border border-neutral-700 bg-[#1C1C1E] text-zinc-100 rounded-xl focus:outline-none focus:ring-1 focus:ring-violet-500/40 font-mono font-semibold"
+                          placeholder="예: 010-1234-5678"
+                        />
+                        <p className="text-[11px] text-zinc-500 mt-1">
+                          B2C·홈페이지에 노출되는 예약 전화번호입니다.
+                        </p>
+                      </div>
                       <PartnerProfileFormFields
                         profile={editSubProfile}
                         onChange={setEditSubProfile}

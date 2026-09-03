@@ -34,6 +34,7 @@ export const ALLOWED_COMPANY_PATCH_KEYS = [
   'outdoorParkingLat',
   'outdoorParkingLng',
   'parkingLots',
+  'verificationDocuments',
   'insurance',
   'hasInsurance',
   'insuranceProvider',

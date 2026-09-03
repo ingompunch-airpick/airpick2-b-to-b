@@ -160,6 +160,36 @@ export default function PartnerParkingProfileReadonly({ company }: { company?: C
             ) : null}
           </div>
 
+          <div className="rounded-xl border border-neutral-800 bg-[#131315] p-3 space-y-2">
+            <p className="text-[12px] font-black text-white">증명서류</p>
+            <div className="flex flex-wrap gap-2">
+              {company.verificationDocuments?.businessRegistrationUrl ? (
+                <a
+                  href={company.verificationDocuments.businessRegistrationUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex text-[11px] font-bold text-amber-400 underline-offset-2 hover:underline"
+                >
+                  사업자 등록증
+                </a>
+              ) : (
+                <span className="text-[11px] text-white/40 font-semibold">사업자 등록증 없음</span>
+              )}
+              {company.verificationDocuments?.parkingContractUrl ? (
+                <a
+                  href={company.verificationDocuments.parkingContractUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex text-[11px] font-bold text-amber-400 underline-offset-2 hover:underline"
+                >
+                  주차장 계약서
+                </a>
+              ) : (
+                <span className="text-[11px] text-white/40 font-semibold">주차장 계약서 없음</span>
+              )}
+            </div>
+          </div>
+
           {lots.length === 0 ? (
             <p className="text-[11px] text-white/50 font-semibold">등록된 주차장 없음</p>
           ) : (

@@ -1,4 +1,10 @@
-import type { Company, CompanyInsurance, CompanyParkingLot, FacilityType } from '../types';
+import type {
+  Company,
+  CompanyInsurance,
+  CompanyParkingLot,
+  CompanyVerificationDocuments,
+  FacilityType,
+} from '../types';
 import { airportTerminalCodes, normalizeAirportId } from './airport';
 import { resolveInsuranceProductNameForStorage, normalizeInsuranceProductName } from './insurance';
 
@@ -29,6 +35,10 @@ export interface PartnerProfileInput {
   insuranceCoverageLimitWon: string;
   /** 보험증권 이미지 — http(s) 또는 data URL(저장 시 업로드) */
   insuranceCertificateUrl: string;
+  /** 사업자등록증 — http(s) 또는 data URL(저장 시 업로드) */
+  businessRegistrationUrl: string;
+  /** 주차장 계약서 — http(s) 또는 data URL(저장 시 업로드) */
+  parkingContractUrl: string;
 }
 
 function newLotId(): string {
@@ -79,6 +89,8 @@ export const DEFAULT_PARTNER_PROFILE: PartnerProfileInput = {
   insuranceProductName: '',
   insuranceCoverageLimitWon: '',
   insuranceCertificateUrl: '',
+  businessRegistrationUrl: '',
+  parkingContractUrl: '',
 };
 
 export function inferFacilityType(company?: Partial<Company>): FacilityType {
@@ -237,6 +249,8 @@ export function readPartnerProfileFromCompany(company?: Company): PartnerProfile
   const imageUrls =
     galleryRaw.length > 0 ? galleryRaw : primaryImage ? [primaryImage] : [];
 
+  const verificationDocuments = raw.verificationDocuments as CompanyVerificationDocuments | undefined;
+
   return {
     facilityType,
     airport: normalizeAirportId(company.airport),
@@ -248,7 +262,16 @@ export function readPartnerProfileFromCompany(company?: Company): PartnerProfile
     insuranceProductName,
     insuranceCoverageLimitWon,
     insuranceCertificateUrl,
+    businessRegistrationUrl: verificationDocuments?.businessRegistrationUrl?.trim() || '',
+    parkingContractUrl: verificationDocuments?.parkingContractUrl?.trim() || '',
   };
+}
+
+function buildVerificationDocuments(input: PartnerProfileInput): CompanyVerificationDocuments | undefined {
+  const businessRegistrationUrl = input.businessRegistrationUrl.trim() || undefined;
+  const parkingContractUrl = input.parkingContractUrl.trim() || undefined;
+  if (!businessRegistrationUrl && !parkingContractUrl) return undefined;
+  return { businessRegistrationUrl, parkingContractUrl };
 }
 
 export function buildInsurancePayload(input: PartnerProfileInput): {
@@ -402,6 +425,7 @@ export function applyPartnerProfileToCompany(
     outdoorParkingLat: firstOutdoor?.lat,
     outdoorParkingLng: firstOutdoor?.lng,
     parkingLots: parkingLots.length > 0 ? parkingLots : undefined,
+    verificationDocuments: buildVerificationDocuments(input),
     insurance: insuranceFields.insurance,
     hasInsurance: insuranceFields.hasInsurance,
     insuranceProvider: insuranceFields.insuranceProvider,
@@ -449,6 +473,7 @@ export function profileExtrasForFirestore(input: PartnerProfileInput): Record<st
     outdoorParkingLat: company.outdoorParkingLat ?? null,
     outdoorParkingLng: company.outdoorParkingLng ?? null,
     parkingLots: company.parkingLots ?? [],
+    verificationDocuments: company.verificationDocuments ?? null,
     insurance: company.insurance,
     hasInsurance: company.hasInsurance,
     insuranceProvider: company.insuranceProvider ?? '',

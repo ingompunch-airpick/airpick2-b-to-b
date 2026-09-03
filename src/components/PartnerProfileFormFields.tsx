@@ -39,13 +39,88 @@ function withPhotos(profile: PartnerProfileInput, urls: string[]): PartnerProfil
   };
 }
 
+type VerificationDocKey =
+  | 'businessRegistrationUrl'
+  | 'parkingContractUrl'
+  | 'insuranceCertificateUrl';
+
+function VerificationDocumentSlot({
+  label,
+  url,
+  disabled,
+  disabledHint,
+  variant,
+  onPick,
+  onClear,
+}: {
+  label: string;
+  url: string;
+  disabled?: boolean;
+  disabledHint?: string;
+  variant: 'light' | 'dark';
+  onPick: () => void;
+  onClear: () => void;
+}) {
+  const labelCls =
+    variant === 'dark'
+      ? 'text-[12px] text-zinc-300 block mb-1 font-bold'
+      : 'text-[12px] text-slate-500 block mb-1 font-bold';
+  const boxCls =
+    variant === 'dark'
+      ? 'rounded-xl border border-neutral-800 bg-[#141416] p-2 space-y-2'
+      : 'rounded-xl border border-slate-200 bg-white p-2 space-y-2';
+  const addBtnCls =
+    variant === 'dark'
+      ? 'w-full min-h-[5.5rem] rounded-lg border border-dashed border-neutral-600 bg-neutral-900/60 text-zinc-500 hover:border-amber-500/50 hover:text-amber-400 flex flex-col items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed'
+      : 'w-full min-h-[5.5rem] rounded-lg border border-dashed border-slate-300 bg-slate-50 text-slate-500 hover:border-indigo-400 hover:text-indigo-600 flex flex-col items-center justify-center gap-1 disabled:opacity-50 disabled:cursor-not-allowed';
+
+  return (
+    <div className={boxCls}>
+      <p className={labelCls}>{label}</p>
+      {url ? (
+        <div className="relative overflow-hidden rounded-lg ring-1 ring-slate-200 dark:ring-neutral-700">
+          <img src={url} alt={label} className="max-h-28 w-full object-contain bg-slate-50 dark:bg-neutral-900" />
+          <button
+            type="button"
+            onClick={onClear}
+            className="absolute right-1.5 top-1.5 rounded-full bg-black/60 p-1 text-white"
+            aria-label={`${label} 삭제`}
+          >
+            <X size={12} />
+          </button>
+        </div>
+      ) : (
+        <button type="button" onClick={onPick} disabled={disabled} className={addBtnCls}>
+          <ImagePlus size={16} />
+          <span className="text-[10px] font-bold">이미지 올리기</span>
+        </button>
+      )}
+      {disabled && disabledHint ? (
+        <p className="text-[10px] text-zinc-500 font-medium leading-snug">{disabledHint}</p>
+      ) : url ? (
+        <button
+          type="button"
+          onClick={onPick}
+          className={`text-[10px] font-bold underline underline-offset-2 ${
+            variant === 'dark' ? 'text-amber-400' : 'text-indigo-600'
+          }`}
+        >
+          다시 선택
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 export default function PartnerProfileFormFields({
   profile,
   onChange,
   variant = 'light',
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const certInputRef = useRef<HTMLInputElement>(null);
+  const businessDocInputRef = useRef<HTMLInputElement>(null);
+  const parkingDocInputRef = useRef<HTMLInputElement>(null);
+  const insuranceDocInputRef = useRef<HTMLInputElement>(null);
   const profileRef = useRef(profile);
   profileRef.current = profile;
   const [uploading, setUploading] = useState(false);
@@ -115,6 +190,22 @@ export default function PartnerProfileFormFields({
   const removePhotoAt = (index: number) => {
     const next = photos.filter((_, i) => i !== index);
     onChange(withPhotos(profile, next));
+  };
+
+  const pickVerificationDocument = (key: VerificationDocKey) => {
+    if (key === 'businessRegistrationUrl') businessDocInputRef.current?.click();
+    else if (key === 'parkingContractUrl') parkingDocInputRef.current?.click();
+    else insuranceDocInputRef.current?.click();
+  };
+
+  const handleVerificationDocumentFile = async (file: File | undefined, key: VerificationDocKey) => {
+    if (!file) return;
+    try {
+      const [dataUrl] = await readImageFilesAsDataUrls([file]);
+      if (dataUrl) set(key, dataUrl);
+    } catch {
+      /* ignore */
+    }
   };
 
   return (
@@ -249,6 +340,68 @@ export default function PartnerProfileFormFields({
       />
 
       <div className={sectionCls}>
+        <div>
+          <p className={labelCls}>증명서류</p>
+          <p className={`${hintCls} mt-0`}>입점 심사·내부 보관용입니다. JPG/PNG 이미지를 올려 주세요.</p>
+        </div>
+        <input
+          ref={businessDocInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            void handleVerificationDocumentFile(e.target.files?.[0], 'businessRegistrationUrl');
+            e.target.value = '';
+          }}
+        />
+        <input
+          ref={parkingDocInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            void handleVerificationDocumentFile(e.target.files?.[0], 'parkingContractUrl');
+            e.target.value = '';
+          }}
+        />
+        <input
+          ref={insuranceDocInputRef}
+          type="file"
+          accept="image/*"
+          className="hidden"
+          onChange={(e) => {
+            void handleVerificationDocumentFile(e.target.files?.[0], 'insuranceCertificateUrl');
+            e.target.value = '';
+          }}
+        />
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <VerificationDocumentSlot
+            label="사업자 등록증"
+            url={profile.businessRegistrationUrl}
+            variant={variant}
+            onPick={() => pickVerificationDocument('businessRegistrationUrl')}
+            onClear={() => set('businessRegistrationUrl', '')}
+          />
+          <VerificationDocumentSlot
+            label="주차장 계약서"
+            url={profile.parkingContractUrl}
+            variant={variant}
+            onPick={() => pickVerificationDocument('parkingContractUrl')}
+            onClear={() => set('parkingContractUrl', '')}
+          />
+          <VerificationDocumentSlot
+            label="보험"
+            url={profile.insuranceCertificateUrl}
+            variant={variant}
+            disabled={!profile.insuranceEnrolled}
+            disabledHint={!profile.insuranceEnrolled ? '보험 가입을 켜면 업로드할 수 있습니다.' : undefined}
+            onPick={() => pickVerificationDocument('insuranceCertificateUrl')}
+            onClear={() => set('insuranceCertificateUrl', '')}
+          />
+        </div>
+      </div>
+
+      <div className={sectionCls}>
         <div className="flex items-center justify-between gap-2">
           <label className={labelCls}>보험 가입 여부</label>
           <button
@@ -303,59 +456,8 @@ export default function PartnerProfileFormFields({
                 placeholder="예: 100000000"
               />
               <p className={`mt-1 text-[10px] font-medium ${hintCls}`}>
-                손님 앱 목록에는 금액을 노출하지 않습니다. 보험증권으로 확인합니다.
+                손님 앱 목록에는 금액을 노출하지 않습니다. 보험증권은 위 「증명서류」에 등록합니다.
               </p>
-            </div>
-            <div>
-              <label className={labelCls}>보험증권 이미지</label>
-              {profile.insuranceCertificateUrl ? (
-                <div className="relative mb-2 overflow-hidden rounded-xl ring-1 ring-slate-200">
-                  <img
-                    src={profile.insuranceCertificateUrl}
-                    alt="보험증권"
-                    className="max-h-40 w-full object-contain bg-slate-50"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => set('insuranceCertificateUrl', '')}
-                    className="absolute right-2 top-2 rounded-full bg-black/60 p-1 text-white"
-                    aria-label="보험증권 삭제"
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-              ) : null}
-              <input
-                ref={certInputRef}
-                type="file"
-                accept="image/*"
-                className="hidden"
-                onChange={(e) => {
-                  void (async () => {
-                    const file = e.target.files?.[0];
-                    e.target.value = '';
-                    if (!file) return;
-                    try {
-                      const [dataUrl] = await readImageFilesAsDataUrls([file]);
-                      if (dataUrl) set('insuranceCertificateUrl', dataUrl);
-                    } catch {
-                      /* ignore */
-                    }
-                  })();
-                }}
-              />
-              <button
-                type="button"
-                onClick={() => certInputRef.current?.click()}
-                className={`inline-flex items-center gap-1.5 rounded-xl px-3 py-2 text-[11px] font-bold ring-1 ${
-                  variant === 'dark'
-                    ? 'bg-neutral-900 text-zinc-200 ring-neutral-700'
-                    : 'bg-white text-slate-700 ring-slate-200'
-                }`}
-              >
-                <ImagePlus size={14} />
-                {profile.insuranceCertificateUrl ? '증권 다시 선택' : '증권 이미지 올리기'}
-              </button>
             </div>
           </div>
         )}

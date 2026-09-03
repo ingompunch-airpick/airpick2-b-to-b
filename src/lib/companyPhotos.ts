@@ -147,13 +147,48 @@ export async function uploadCompanyInsuranceCertificate(
   companyId: string,
   source: string
 ): Promise<string | undefined> {
+  return uploadCompanyDocumentImage(companyId, source, 'insurance/certificate', '보험증권');
+}
+
+export type CompanyVerificationDocumentKind = 'business-registration' | 'parking-contract';
+
+const VERIFICATION_DOC_PATH: Record<CompanyVerificationDocumentKind, string> = {
+  'business-registration': 'documents/business_registration',
+  'parking-contract': 'documents/parking_contract',
+};
+
+const VERIFICATION_DOC_LABEL: Record<CompanyVerificationDocumentKind, string> = {
+  'business-registration': '사업자등록증',
+  'parking-contract': '주차장 계약서',
+};
+
+/** 사업자등록증·주차장 계약서 → companies/{companyId}/documents/… */
+export async function uploadCompanyVerificationDocument(
+  companyId: string,
+  source: string,
+  kind: CompanyVerificationDocumentKind
+): Promise<string | undefined> {
+  return uploadCompanyDocumentImage(
+    companyId,
+    source,
+    VERIFICATION_DOC_PATH[kind],
+    VERIFICATION_DOC_LABEL[kind]
+  );
+}
+
+async function uploadCompanyDocumentImage(
+  companyId: string,
+  source: string,
+  storagePathStem: string,
+  label: string
+): Promise<string | undefined> {
   const src = source.trim();
   if (!companyId || !src) return undefined;
 
   if (isRemoteImageUrl(src)) return src;
 
   if (!src.startsWith('data:')) {
-    throw new Error('보험증권은 JPG/PNG 이미지로 올려 주세요.');
+    throw new Error(`${label}은 JPG/PNG 이미지로 올려 주세요.`);
   }
 
   await ensureAdminCallableAuth();
@@ -161,13 +196,13 @@ export async function uploadCompanyInsuranceCertificate(
 
   try {
     const blob = await dataUrlToCompressedBlob(src, 2000);
-    const path = `companies/${safeCompany}/insurance/certificate_${Date.now()}.jpg`;
+    const path = `companies/${safeCompany}/${storagePathStem}_${Date.now()}.jpg`;
     const storageRef = ref(storage, path);
     await withTimeout(
       uploadBytes(storageRef, blob, { contentType: 'image/jpeg' }),
-      '보험증권 업로드'
+      `${label} 업로드`
     );
-    return await withTimeout(getDownloadURL(storageRef), '보험증권 URL');
+    return await withTimeout(getDownloadURL(storageRef), `${label} URL`);
   } catch (err) {
     throw new Error(formatUploadError(err));
   }
