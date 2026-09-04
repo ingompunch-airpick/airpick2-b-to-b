@@ -104,6 +104,17 @@ function reservationExitOn(r: Reservation, ymd: string): boolean {
   return exitDate === ymd;
 }
 
+/** 선택일 실제 입고 처리 — actualParkingTime 또는 checkedInAt(KST) */
+function reservationCheckedInOn(r: Reservation, ymd: string): boolean {
+  if (r.actualParkingTime) {
+    return normalizeDateString(r.actualParkingTime.slice(0, 10)) === ymd;
+  }
+  if (r.checkedInAt) {
+    return toKSTDateOnlyString(r.checkedInAt) === ymd;
+  }
+  return false;
+}
+
 /** 선택일 예약 = 해당일(KST) 접수(createdAt)한 건 */
 function isTodayReserveRow(r: Reservation, ymd: string): boolean {
   return toKSTDateOnlyString(r.createdAt) === ymd;
@@ -213,9 +224,9 @@ export default function StatisticsView({
   const monthSourceMetrics = useMemo(
     () =>
       aggregateGroupedBookingSourceMetrics(activeReservations, (r) =>
-        reservationDepartureInMonthThrough(r, currentMonthPrefix, todayStr)
+        reservationDepartureInMonthThrough(r, summaryMonthPrefix, salesMonthThrough)
       ),
-    [activeReservations, currentMonthPrefix, todayStr]
+    [activeReservations, summaryMonthPrefix, salesMonthThrough]
   );
 
   const datesRange = useMemo(() => {
@@ -590,8 +601,16 @@ export default function StatisticsView({
     .filter(r => reservationDepartureOn(r, todayStr))
     .reduce((sum, r) => sum + (r.totalPrice || 0), 0);
 
+  const salesMonthIsNow = summaryMonthPrefix === currentMonthPrefix;
+  const salesMonthThrough = useMemo(() => {
+    if (salesMonthIsNow) return todayStr;
+    const [y, m] = summaryMonthPrefix.split('-').map(Number);
+    const lastDay = new Date(y, m, 0).getDate();
+    return `${summaryMonthPrefix}-${String(lastDay).padStart(2, '0')}`;
+  }, [summaryMonthPrefix, salesMonthIsNow, todayStr]);
+
   const realMonthSales = activeReservations
-    .filter((r) => reservationDepartureInMonthThrough(r, currentMonthPrefix, todayStr))
+    .filter((r) => reservationDepartureInMonthThrough(r, summaryMonthPrefix, salesMonthThrough))
     .reduce((sum, r) => sum + (r.totalPrice || 0), 0);
 
   const todaySales = realTodaySales;
@@ -600,7 +619,7 @@ export default function StatisticsView({
   // --- 월 요약 (입고·출고·일평균) + 현재 재차 ---
   const dailyFlow = datesRange.map((date) => {
     const admittedCount = activeReservations.filter(
-      (r) => reservationDepartureOn(r, date) && isAdmitted(r.status)
+      (r) => reservationCheckedInOn(r, date) && isAdmitted(r.status)
     ).length;
     const exitedCount = activeReservations.filter(
       (r) => isCompletedOut(r.status) && reservationExitOn(r, date)
@@ -688,24 +707,57 @@ export default function StatisticsView({
             <Coins size={14} className="text-amber-500" />
             매출 통계
           </span>
+          <div className="flex items-center gap-1 bg-[#1C1C1E] border border-neutral-800/50 rounded-xl p-0.5">
+            <button
+              type="button"
+              onClick={() => setSummaryMonthPrefix((p) => shiftMonthPrefix(p, -1))}
+              className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-neutral-800 transition-colors"
+              aria-label="이전 달"
+            >
+              <ChevronLeft size={14} />
+            </button>
+            <input
+              type="month"
+              value={summaryMonthPrefix}
+              max={summaryMonthMax}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v && v <= summaryMonthMax) setSummaryMonthPrefix(v);
+              }}
+              className="bg-transparent text-[11px] font-black text-amber-400 font-mono text-center min-w-[7rem] outline-none [color-scheme:dark]"
+              aria-label="매출 조회 월"
+            />
+            <button
+              type="button"
+              disabled={!canGoNextSummary}
+              onClick={() => canGoNextSummary && setSummaryMonthPrefix((p) => shiftMonthPrefix(p, 1))}
+              className="p-1 rounded-lg text-zinc-400 hover:text-white hover:bg-neutral-800 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+              aria-label="다음 달"
+            >
+              <ChevronRight size={14} />
+            </button>
+          </div>
         </div>
 
         <div className="pt-1.5 space-y-4">
-          <div>
-            <span className="text-[12px] text-[#8E8E93] font-bold block mb-0.5">오늘 총 매출액 · 입고일 기준</span>
-            <div className="text-2xl font-black text-amber-400 tracking-tight font-mono">
-              {todaySales.toLocaleString()}원
-            </div>
-          </div>
-
-          <div className="h-px bg-neutral-800/40" />
+          {salesMonthIsNow && (
+            <>
+              <div>
+                <span className="text-[12px] text-[#8E8E93] font-bold block mb-0.5">오늘 총 매출액 · 입고일 기준</span>
+                <div className="text-2xl font-black text-amber-400 tracking-tight font-mono">
+                  {todaySales.toLocaleString()}원
+                </div>
+              </div>
+              <div className="h-px bg-neutral-800/40" />
+            </>
+          )}
 
           <div className="flex justify-between items-center text-xs font-mono">
             <div>
               <span className="text-[12px] text-[#8E8E93] font-bold block mb-0.5">
-                이번 달 누적 매출 · 오늘까지 입고일
+                {monthLabelFromPrefix(summaryMonthPrefix)} 누적 매출{salesMonthIsNow ? ' · 오늘까지 입고일' : ''}
               </span>
-              <span className="text-base font-black text-white tracking-tight">
+              <span className={`${salesMonthIsNow ? 'text-base' : 'text-2xl text-amber-400'} font-black tracking-tight`}>
                 {monthSales.toLocaleString()}원
               </span>
             </div>
@@ -715,10 +767,12 @@ export default function StatisticsView({
 
           <div className="space-y-3">
             <span className="text-[12px] text-[#8E8E93] font-bold block">유입별 매출 비교</span>
-            {(['today', 'month'] as const).map((period) => {
+            {(salesMonthIsNow ? ['today', 'month'] as const : ['month'] as const).map((period) => {
               const metrics = period === 'today' ? todaySourceMetrics : monthSourceMetrics;
               const totalRev = GROUPED_SOURCE_ROWS.reduce((s, row) => s + metrics[row.key].revenue, 0);
-              const title = period === 'today' ? '오늘 (입고일 기준)' : '이번 달 · 오늘까지 (입고일)';
+              const title = period === 'today'
+                ? '오늘 (입고일 기준)'
+                : `${monthLabelFromPrefix(summaryMonthPrefix)}${salesMonthIsNow ? ' · 오늘까지 (입고일)' : ' 전체'}`;
               return (
                 <div key={period} className="space-y-2">
                   <div className="flex items-center justify-between text-[11px]">
@@ -768,7 +822,9 @@ export default function StatisticsView({
         const activeRes = reservations.filter(r => r.status !== 'cancelled');
         const crmCounts = {
           today_reserve: activeRes.filter(r => isTodayReserveRow(r, crmDate)).length,
-          today_parked: activeRes.filter(r => reservationDepartureOn(r, crmDate) && isParked(r.status)).length,
+          today_parked: activeRes.filter(
+            (r) => reservationCheckedInOn(r, crmDate) && isAdmitted(r.status)
+          ).length,
           today_released: activeRes.filter(r =>
             r.status === 'completed_out' && reservationExitOn(r, crmDate)
           ).length,
@@ -783,7 +839,9 @@ export default function StatisticsView({
           }
           return activeRes.filter(r => {
             if (crmTab === 'today_reserve') return isTodayReserveRow(r, crmDate);
-            if (crmTab === 'today_parked') return reservationDepartureOn(r, crmDate) && isParked(r.status);
+            if (crmTab === 'today_parked') {
+              return reservationCheckedInOn(r, crmDate) && isAdmitted(r.status);
+            }
             if (crmTab === 'today_released') {
               return r.status === 'completed_out' && reservationExitOn(r, crmDate);
             }
