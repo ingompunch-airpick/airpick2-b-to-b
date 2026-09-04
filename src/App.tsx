@@ -1016,7 +1016,7 @@ export default function App() {
                 )}
                 
                 <div className="space-y-1">
-                  <label className="text-[11px] font-black text-zinc-500 uppercase">최고승인 ID / 이메일</label>
+                  <label className="text-[11px] font-black text-zinc-500">관리자 아이디 / 이메일</label>
                   <input 
                     type="text"
                     value={loginEmail}
@@ -1027,15 +1027,15 @@ export default function App() {
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[11px] font-black text-zinc-500 uppercase">보안 비밀번호</label>
+                  <label className="text-[11px] font-black text-zinc-500">비밀번호</label>
                   <input 
                     type="password"
                     value={loginPassword}
                     onChange={e => setLoginPassword(e.target.value)}
-                    placeholder="Firebase Auth 비밀번호"
+                    placeholder="비밀번호를 입력해 주세요"
                     className="w-full px-3 py-2.5 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-200 outline-none focus:border-amber-500 text-xs font-mono"
                   />
-                  <p className="text-[10.5px] text-zinc-650">본사는 Firebase Console Authentication 비밀번호를 사용합니다.</p>
+                  <p className="text-[10.5px] text-zinc-650">본사 계정은 등록된 관리자 이메일의 비밀번호를 사용합니다.</p>
                 </div>
 
                 <div className="flex gap-2 pt-2">

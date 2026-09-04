@@ -429,7 +429,7 @@ export default function ScratchModal({
               {/* Render lists of thumbnails */}
               {uploadedPhotos.length > 0 && (
                 <div className="space-y-1.5">
-                  <span className="text-[12px] uppercase font-black tracking-wider text-zinc-500 px-0.5">촬영 내역 (바둑판식 배열)</span>
+                  <span className="text-[12px] uppercase font-black tracking-wider text-zinc-500 px-0.5">촬영 내역</span>
                   <div className="grid grid-cols-4 gap-2 max-h-[180px] overflow-y-auto p-1 bg-neutral-950 rounded-xl border border-neutral-850/60">
                     {uploadedPhotos.map((url, idx) => (
                       <div key={idx} className="relative aspect-video rounded-lg border border-neutral-850/60 bg-neutral-900 overflow-hidden group">

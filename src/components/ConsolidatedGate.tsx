@@ -215,7 +215,7 @@ export default function ConsolidatedGate({ onLoginSuccess, partners, companies }
                   required
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  placeholder="보안 암호를 바르게 기입해 주십시오"
+                  placeholder="비밀번호를 입력해 주세요"
                   className="w-full bg-[#1C1C1E] border border-neutral-800 rounded-xl pl-3.5 pr-10 py-3 text-toss-body text-white placeholder:text-[var(--color-toss-fg-subtle)] outline-none focus:border-amber-500/90 transition-all tabular-nums"
                 />
                 <button

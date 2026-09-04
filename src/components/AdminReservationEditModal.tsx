@@ -132,7 +132,7 @@ export default function AdminReservationEditModal({
           r.id === targetReservationForEdit.id ? { ...r, ...updatePayload } : r
         )
       );
-      alert("관리자 권한의 정밀 수납 예약 데이터 수동 제어가 완료되었습니다.");
+      alert("예약 정보가 저장되었습니다.");
     } catch (_) {
       alert("저장에 실패했습니다. 인터넷 연결 후 다시 시도해 주세요.");
     } finally {
@@ -167,7 +167,7 @@ export default function AdminReservationEditModal({
           {/* Reservation Header */}
           <div className="p-3.5 bg-neutral-950 border border-neutral-850 rounded-2xl flex items-center justify-between gap-3">
             <div className="space-y-0.5 min-w-0">
-              <span className="text-[11px] text-zinc-500 font-semibold uppercase block">고유 수납 코드 (Receipt ID)</span>
+              <span className="text-[11px] text-zinc-500 font-semibold block">접수 번호</span>
               <span className="text-xs font-black text-white font-mono">{targetReservationForEdit.receiptCode || targetReservationForEdit.id}</span>
             </div>
             {operatorBrandLabel ? (
@@ -213,7 +213,7 @@ export default function AdminReservationEditModal({
 
           {/* 2nd Section: Pricing Details manually defined (with VAT) */}
           <div className="p-4 bg-neutral-955 border border-neutral-850 rounded-2xl space-y-3 font-sans text-xs">
-            <span className="text-[12px] font-extrabold text-amber-500 uppercase tracking-wider block">정형 정밀 금융 수납 수동 조율</span>
+            <span className="text-[12px] font-extrabold text-amber-500 tracking-wider block">결제 금액 수정</span>
             
             <div className="grid grid-cols-2 gap-3.5">
               <div>
@@ -291,11 +291,11 @@ export default function AdminReservationEditModal({
 
           {/* 3rd Section: Admin notes */}
           <div className="bg-neutral-950 border border-neutral-850 p-4 rounded-xl space-y-1.5 font-sans text-xs">
-            <label className="text-[11.5px] font-bold text-zinc-500 block mb-1 uppercase tracking-wider font-semibold">가외 주유/차량 보관 정보 관리자 메모창</label>
+            <label className="text-[11.5px] font-bold text-zinc-500 block mb-1 tracking-wider">관리자 메모</label>
             <textarea 
               value={editAdminMemo}
               onChange={e => setEditAdminMemo(e.target.value)}
-              placeholder="고객 요청사안 및 주차 위치 상세사항을 추가적으로 정밀 기재하십시오."
+              placeholder="고객 요청사항이나 주차 위치를 적어 주세요."
               className="w-full h-16 px-3 py-2 bg-neutral-900 border border-neutral-800 rounded-xl text-zinc-300 font-semibold placeholder-zinc-750 outline-none focus:border-amber-500 text-[12.5px] leading-relaxed resize-none"
             />
           </div>
@@ -304,10 +304,10 @@ export default function AdminReservationEditModal({
           <div className="bg-neutral-955 border border-red-955/40 p-4 rounded-xl space-y-3 font-sans text-xs">
             <div className="flex items-center gap-1.5 text-zinc-400 font-bold uppercase tracking-wider text-[12px]">
               <ShieldCheck size={13} className="text-red-500 animate-pulse" />
-              <span>관리자 마스터 권한 (Master Override)</span>
+              <span>차량 상태 강제 변경</span>
             </div>
             <p className="text-[11.5px] text-zinc-500 leading-normal">
-              본 제어 기능은 손가락 오작동을 최소화하면서도 마스터 권한을 행사할 수 있게 특별 구성되었습니다. 상태 변경 시 즉시 Firestore 실시간 서버 데이터와 동기화됩니다.
+              현장 상황에 맞춰 차량 상태를 직접 바꿀 수 있습니다. 변경하면 즉시 저장되며 손님 앱에도 바로 반영됩니다.
             </p>
 
             <div className="pt-1.5">
@@ -315,7 +315,7 @@ export default function AdminReservationEditModal({
                 <button
                   type="button"
                   onClick={async () => {
-                    if (window.confirm("정말 강제로 차량 상태를 변경하시겠습니까? 현장 데이터가 즉시 동기화됩니다.")) {
+                    if (window.confirm("차량 상태를 출고요청으로 변경하시겠습니까? 즉시 반영됩니다.")) {
                       await handleUpdateValetStatus(targetReservationForEdit.id || '', 'request_out');
                     }
                   }}
@@ -328,7 +328,7 @@ export default function AdminReservationEditModal({
                 <button
                   type="button"
                   onClick={async () => {
-                    if (window.confirm("정말 강제로 차량 상태를 변경하시겠습니까? 현장 데이터가 즉시 동기화됩니다.")) {
+                    if (window.confirm("차량 상태를 출고완료로 변경하시겠습니까? 즉시 반영됩니다.")) {
                       await handleUpdateValetStatus(targetReservationForEdit.id || '', 'completed_out', {
                         actualExitTime: getKSTDateTimeString()
                       });
@@ -360,10 +360,10 @@ export default function AdminReservationEditModal({
           <button 
             type="button"
             onClick={() => {
-              const reason = window.prompt("취소 사유를 기술하십시오 (예: 고객 취소 요청):", "관리자에 의한 정밀 수동 취소 처리");
+              const reason = window.prompt("취소 사유를 입력해 주세요 (예: 고객 취소 요청)", "관리자 취소 처리");
               if (reason !== null) {
                 handleUpdateValetStatus(targetReservationForEdit.id || '', 'cancelled', {
-                  cancelReason: reason || "관리자에 의한 정밀 수동 취소 처리",
+                  cancelReason: reason || "관리자 취소 처리",
                   cancelledAt: new Date(Date.now() + 9 * 60 * 60 * 1000)
                     .toISOString()
                     .replace('T', ' ')

@@ -16,7 +16,7 @@ export default function CustomDatePickerModal({
   onClose,
   initialValue,
   onSelect,
-  title = "날짜 정밀 선택",
+  title = "날짜 선택",
   blockedDates = []
 }: CustomDatePickerModalProps) {
   // Parse year, month, day from initial value
@@ -114,7 +114,7 @@ export default function CustomDatePickerModal({
               <Calendar size={16} className="text-amber-500" />
               <div>
                 <h3 className="text-[14px] font-black text-white">{title}</h3>
-                <p className="text-[11px] text-zinc-400 font-bold tracking-tight uppercase">DATE SELECTION CENTER</p>
+                <p className="text-[11px] text-zinc-400 font-bold tracking-tight">날짜를 선택해 주세요</p>
               </div>
             </div>
             <button

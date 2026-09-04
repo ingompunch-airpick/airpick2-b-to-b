@@ -15,7 +15,7 @@ export default function TimePickerModal({
   onClose,
   initialValue,
   onSelect,
-  title = "시간 정밀 선택"
+  title = "시간 선택"
 }: TimePickerModalProps) {
   const [ampm, setAmpm] = useState<'AM' | 'PM'>('AM');
   const [selectedHour, setSelectedHour] = useState<number>(0);
@@ -100,7 +100,7 @@ export default function TimePickerModal({
               <Clock size={16} className="text-amber-500" />
               <div>
                 <h3 className="text-[14px] font-black text-white">{title}</h3>
-                <p className="text-[11px] text-zinc-400 font-bold tracking-tight uppercase">TIME SELECTION CENTER</p>
+                <p className="text-[11px] text-zinc-400 font-bold tracking-tight">시·분을 선택해 주세요</p>
               </div>
             </div>
             <button 

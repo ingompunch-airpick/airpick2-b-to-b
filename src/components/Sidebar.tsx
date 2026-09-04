@@ -248,7 +248,7 @@ export default function Sidebar({
           {/* Admin portal (Toggled modal) */}
           {!isAirpickHeadquarters(currentCompanyId) && !isSuperAdmin && !isAdmin && !isEmployee && (
             <div className="pt-4 mt-4 border-t border-neutral-800/80 space-y-2">
-              <p className="text-[12px] text-zinc-500 font-bold tracking-widest uppercase px-2">시스템 권한 관리</p>
+              <p className="text-[12px] text-zinc-500 font-bold tracking-widest px-2">관리자 로그인</p>
               
               <button
                 onClick={() => {

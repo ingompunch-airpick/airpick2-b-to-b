@@ -95,7 +95,7 @@ export default function PaymentChangeView({ onBack, reservations, onUpdatePaymen
         </button>
         <div>
           <h2 className="text-sm font-black tracking-tight text-white">결제 사후 수정</h2>
-          <p className="text-[12px] text-zinc-500 font-bold uppercase">Payment Mutation Sync</p>
+          <p className="text-[12px] text-zinc-500 font-bold">결제 수단을 나중에 변경합니다</p>
         </div>
       </div>
 
@@ -242,7 +242,7 @@ export default function PaymentChangeView({ onBack, reservations, onUpdatePaymen
       {selectedRes && (
         <div className="mt-6 border-t border-neutral-800/80 pt-5 space-y-4 animate-in fade-in slide-in-from-bottom-3 duration-250">
           <div className="bg-neutral-900/60 border border-neutral-800 p-4 rounded-2xl">
-            <p className="text-[12px] text-zinc-450 uppercase font-black tracking-wider">변경 타겟 정보</p>
+            <p className="text-[12px] text-zinc-450 font-black tracking-wider">변경할 예약</p>
             <p className="text-xs font-black text-white mt-1.5 flex items-center gap-2">
               <span>{selectedRes.carNumber}</span>
               <span className="text-zinc-500">|</span>
@@ -251,11 +251,11 @@ export default function PaymentChangeView({ onBack, reservations, onUpdatePaymen
               <span className="text-amber-550 font-mono text-amber-500">{selectedRes.totalPrice?.toLocaleString()}원 계산</span>
             </p>
             <span className="text-[12px] text-zinc-500 font-bold inline-block mt-1">
-              현재 수정전 수납 방식: <strong className="text-zinc-300 font-black">{getMethodDetails(selectedRes.paymentMethod).text}</strong>
+              현재 결제 수단: <strong className="text-zinc-300 font-black">{getMethodDetails(selectedRes.paymentMethod).text}</strong>
             </span>
           </div>
 
-          <p className="text-[12px] font-black uppercase text-zinc-500 tracking-wider">수정 정산 수단 선택</p>
+          <p className="text-[12px] font-black text-zinc-500 tracking-wider">변경할 결제 수단 선택</p>
           
           <div className="grid grid-cols-3 gap-2.5">
             {[
