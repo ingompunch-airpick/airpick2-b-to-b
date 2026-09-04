@@ -212,6 +212,13 @@ export default function StatisticsView({
   // ── Partner-scope derived data ────────────────────────────
   // 훅은 반드시 조기 return 이전에 무조건 호출되어야 함(에어픽 본사 ↔ 입점 업체 전환 시 훅 순서 고정)
   const activeReservations = reservations.filter(r => r.status !== 'cancelled');
+  const salesMonthIsNow = summaryMonthPrefix === currentMonthPrefix;
+  const salesMonthThrough = useMemo(() => {
+    if (salesMonthIsNow) return todayStr;
+    const [y, m] = summaryMonthPrefix.split('-').map(Number);
+    const lastDay = new Date(y, m, 0).getDate();
+    return `${summaryMonthPrefix}-${String(lastDay).padStart(2, '0')}`;
+  }, [summaryMonthPrefix, salesMonthIsNow, todayStr]);
 
   const todaySourceMetrics = useMemo(
     () =>
@@ -600,14 +607,6 @@ export default function StatisticsView({
   const realTodaySales = activeReservations
     .filter(r => reservationDepartureOn(r, todayStr))
     .reduce((sum, r) => sum + (r.totalPrice || 0), 0);
-
-  const salesMonthIsNow = summaryMonthPrefix === currentMonthPrefix;
-  const salesMonthThrough = useMemo(() => {
-    if (salesMonthIsNow) return todayStr;
-    const [y, m] = summaryMonthPrefix.split('-').map(Number);
-    const lastDay = new Date(y, m, 0).getDate();
-    return `${summaryMonthPrefix}-${String(lastDay).padStart(2, '0')}`;
-  }, [summaryMonthPrefix, salesMonthIsNow, todayStr]);
 
   const realMonthSales = activeReservations
     .filter((r) => reservationDepartureInMonthThrough(r, summaryMonthPrefix, salesMonthThrough))
