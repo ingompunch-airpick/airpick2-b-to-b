@@ -301,6 +301,24 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    // ── partnerHomepageStats (파트너 홈 일별 조회수) ─────────────────────
+    // 공개 페이지에서 increment. 목록/조회는 본사 Admin만.
+    match /partnerHomepageStats/{companyId}/days/{dayId} {
+      allow read: if isPlatformAdmin();
+      allow create, update: if isValidCompanyId(companyId)
+        && dayId.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && request.resource.data.keys().hasOnly(['pageViews', 'updatedAt'])
+        && request.resource.data.pageViews is int
+        && request.resource.data.pageViews > 0
+        && request.resource.data.pageViews < 100000000
+        && request.resource.data.updatedAt is string
+        && (
+          !exists(/databases/$(database)/documents/partnerHomepageStats/$(companyId)/days/$(dayId))
+          || request.resource.data.pageViews >= resource.data.pageViews
+        );
+      allow delete: if false;
+    }
+
     // ── FCM 디바이스 토큰 (파트너 앱 푸시) ───────────────────────────────
     match /fcmTokens/{tokenId} {
       allow read: if false;

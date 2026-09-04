@@ -1,5 +1,7 @@
+import * as admin from 'firebase-admin';
 import { google, sheets_v4 } from 'googleapis';
-import { DEFAULT_SPREADSHEET_ID, SHEET_HEADERS } from './constants';
+import { normalizePhoneDigits } from '../customerVisit';
+import { DEFAULT_SPREADSHEET_ID, SHEET_HEADERS, SHEET_LAST_COLUMN } from './constants';
 import { buildReservationSheetRow } from './reservationRow';
 import { resolveSheetTabName } from './tabName';
 
@@ -89,18 +91,23 @@ async function ensureTabWithHeaders(
     tabs = await listTabTitles(sheets, spreadsheetId);
   }
 
-  const headerRes = await sheets.spreadsheets.values.get({
+  const headerRowRes = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: `'${tabName.replace(/'/g, "''")}'!A1:A1`,
+    range: `${quoteTab(tabName)}!1:1`,
   });
-  const firstCell = headerRes.data.values?.[0]?.[0];
-  if (!firstCell) {
+  const existingHeaders = headerRowRes.data.values?.[0] || [];
+  const expected = Array.from(SHEET_HEADERS);
+  const needsHeaderUpdate =
+    existingHeaders.length !== expected.length ||
+    expected.some((header, index) => String(existingHeaders[index] || '').trim() !== header);
+
+  if (needsHeaderUpdate) {
     await sheets.spreadsheets.values.update({
       spreadsheetId,
-      range: `'${tabName.replace(/'/g, "''")}'!A1`,
+      range: `${quoteTab(tabName)}!A1:${SHEET_LAST_COLUMN}1`,
       valueInputOption: 'USER_ENTERED',
       requestBody: {
-        values: [Array.from(SHEET_HEADERS)],
+        values: [expected],
       },
     });
   }
@@ -162,6 +169,18 @@ async function deleteSheetRows(
   });
 }
 
+async function fetchCustomerVisitCount(phone: unknown): Promise<number | null> {
+  const phoneKey = normalizePhoneDigits(phone);
+  if (!phoneKey || phoneKey.length < 10) return null;
+  try {
+    const snap = await admin.firestore().doc(`customers/${phoneKey}`).get();
+    const n = snap.data()?.visitCount;
+    return typeof n === 'number' && Number.isFinite(n) ? n : null;
+  } catch {
+    return null;
+  }
+}
+
 async function appendReservationRow(
   sheets: sheets_v4.Sheets,
   spreadsheetId: string,
@@ -170,7 +189,7 @@ async function appendReservationRow(
 ): Promise<number> {
   const res = await sheets.spreadsheets.values.append({
     spreadsheetId,
-    range: `${quoteTab(tabName)}!A:U`,
+    range: `${quoteTab(tabName)}!A:${SHEET_LAST_COLUMN}`,
     valueInputOption: 'USER_ENTERED',
     insertDataOption: 'INSERT_ROWS',
     requestBody: {
@@ -194,7 +213,7 @@ async function updateReservationRow(
 ): Promise<void> {
   await sheets.spreadsheets.values.update({
     spreadsheetId,
-    range: `${quoteTab(tabName)}!A${rowNumber}:U${rowNumber}`,
+    range: `${quoteTab(tabName)}!A${rowNumber}:${SHEET_LAST_COLUMN}${rowNumber}`,
     valueInputOption: 'USER_ENTERED',
     requestBody: {
       values: [rowValues],
@@ -252,7 +271,8 @@ export async function syncReservationToSheets(
 ): Promise<SheetsArchiveMeta | null> {
   const sheets = createSheetsClient(config.serviceAccountJson || undefined);
   const tabName = resolveSheetTabName(data);
-  const rowValues = buildReservationSheetRow(reservationId, data);
+  const visitCount = await fetchCustomerVisitCount(data.phone);
+  const rowValues = buildReservationSheetRow(reservationId, data, { visitCount });
   const sheetId = await ensureTabWithHeaders(sheets, config.spreadsheetId, tabName);
 
   const existing = data.sheetsArchive as SheetsArchiveMeta | undefined;

@@ -8,7 +8,12 @@ export type PartnerHomepageConfig = {
   tagline: string;
   headline: string;
   themeId: 'sunny' | 'wawa' | string;
-  seo: { title: string; description: string };
+  seo: {
+    title: string;
+    description: string;
+    ogImage?: string;
+    keywords?: string;
+  };
   geo: {
     address: string;
     region: string;
@@ -131,7 +136,7 @@ export function buildPartnerHomepageConfig(seed: PartnerHomepageSeed): PartnerHo
   const insuranceShort = insurance.replace(/\s*가입\s*$/u, '');
   const tagline = seed.tagline?.trim() || '인천공항 주차대행';
   const headline =
-    seed.headline?.trim() || '설레는 여행의 시작, 주차 걱정까지 맡기세요';
+    seed.headline?.trim() || '여유로운 출국, 검증된 주차부터.';
   const address = seed.address?.trim() || '';
   const region = seed.region?.trim() || '';
   const serviceAreaLabel = seed.serviceAreaLabel?.trim() || '인천공항 주차대행';
@@ -163,8 +168,20 @@ export function buildPartnerHomepageConfig(seed: PartnerHomepageSeed): PartnerHo
     kakaoId: seed.kakaoId,
     customerCountLabel: customerCount,
     seo: {
-      title: `${name} | ${tagline}`,
-      description: `${tagline} ${nick}. ${pricePreview.headline}, ${insurance}·24시간 CCTV. 온라인으로 간편 예약.`,
+      title: `${name} | 인천공항 주차대행 · ${tagline}`,
+      description: `${name} — ${serviceAreaLabel}. ${tagline} ${pricePreview.headline}, ${insurance}·24시간 CCTV. 에어픽 입점 파트너, T1·T2 온라인 예약.`,
+      keywords: [
+        name,
+        nick,
+        '인천공항 주차대행',
+        '인천공항 발렛',
+        '공항 주차대행',
+        '장기주차',
+        'T1 주차대행',
+        'T2 주차대행',
+        '에어픽',
+        insuranceShort,
+      ].join(', '),
     },
     geo: {
       address,
@@ -232,7 +249,7 @@ export function buildPartnerHomepageConfig(seed: PartnerHomepageSeed): PartnerHo
       },
       {
         title: '도착 전 연락',
-        body: `공항 도착 전 ${nick}(${phone})로 연락하면 인계 위치를 안내합니다.`,
+        body: `공항 도착 30분전 ${nick}(${phone})로 연락하면 인계 위치를 안내합니다.`,
       },
       {
         title: '차량 인계·보관',
@@ -254,13 +271,21 @@ export function buildPartnerHomepageConfig(seed: PartnerHomepageSeed): PartnerHo
     documents: [],
     faqs: [
       {
+        question: '에어픽 입점업체인가요?',
+        answer: `네. ${nick}는 에어픽이 확인한 공식 입점 파트너입니다. 보험·주차장·운영 기준을 통과한 업체만 에어픽 입점으로 안내됩니다.`,
+      },
+      {
+        question: '주차장에 직접 가서 맡기나요?',
+        answer: `아니요. 고객님은 주차장으로 직접 이동하지 않으셔도 됩니다. 인천공항 터미널 인근에서 차량을 인계하시면, ${nick}가 전용 주차장으로 이동·보관합니다. 귀국 후에도 안내받은 장소에서 차량을 반환받습니다.`,
+      },
+      {
         question: '예약은 어떻게 하고, 확인은 어떻게 하나요?',
         answer:
           '홈페이지의 「예약하기」를 누르면 예약 페이지로 이동합니다. 일정·차량 정보를 입력해 신청하세요.',
       },
       {
         question: '차량 인계는 어디서 하나요?',
-        answer: `인천공항 제1·제2터미널 모두 이용 가능합니다. 도착 전 ${nick}(${phone})로 연락해 주시면 터미널별 인계 장소를 안내해 드립니다.`,
+        answer: `인천공항 제1·제2터미널 모두 이용 가능합니다. 공항 도착 30분 전 ${nick}(${phone})로 연락해 주시면 터미널별 인계 장소를 안내해 드립니다.`,
       },
       {
         question: '도착 후 차량은 어떻게 받나요?',
@@ -269,6 +294,10 @@ export function buildPartnerHomepageConfig(seed: PartnerHomepageSeed): PartnerHo
       {
         question: '주차 요금은 어떻게 되나요?',
         answer: `제1·제2터미널 요금이 동일합니다. 기본료는 ${pricing.baseDays}일까지 ${formatWon(pricing.baseFee)}원이며, ${pricing.baseDays + 1}일부터는 하루 ${formatWon(pricing.dailyAfter)}원이 추가됩니다. 상세 금액은 예약 페이지에서 확인할 수 있습니다.`,
+      },
+      {
+        question: '보험과 CCTV는 어떻게 되어 있나요?',
+        answer: `${insurance} 상태이며, 주차장은 24시간 CCTV로 촬영·모니터링합니다.`,
       },
       {
         question: '일정이 바뀌면 어떻게 하나요?',
@@ -292,10 +321,28 @@ export function buildPartnerHomepageConfig(seed: PartnerHomepageSeed): PartnerHo
 }
 
 export function partnerHomepageBookingUrl(companyId: string) {
-  return `https://airpick-reservation.web.app/h/${encodeURIComponent(companyId)}`;
+  const id = companyId.trim().toLowerCase();
+  const external: Record<string, string> = {
+    gayu: 'https://www.itcha.co.kr/reserve/gayou/',
+    hi: 'https://www.itcha.co.kr/reserve/annyeong',
+    annyeong: 'https://www.itcha.co.kr/reserve/annyeong',
+    season: 'https://itcha.co.kr/reserve/seasonparking',
+    seasonparking: 'https://itcha.co.kr/reserve/seasonparking',
+  };
+  if (external[id]) return external[id];
+  return `https://airpick-reservation.web.app/h/${encodeURIComponent(id)}`;
 }
 
-/** 마케팅 홈 공개 URL — 배포 환경에 맞게 추후 교체 */
+/** 마케팅 홈 공개 URL */
 export function partnerMarketingHomeUrl(companyId: string) {
   return `https://airpick-partner-homepage.web.app/?company=${encodeURIComponent(companyId)}`;
+}
+
+/** 마케팅 홈 관리 (partner-homepage /admin) */
+export function partnerHomepageAdminUrl(companyId: string) {
+  const base =
+    typeof import.meta !== 'undefined' && import.meta.env?.VITE_PARTNER_HOMEPAGE_ADMIN_BASE
+      ? String(import.meta.env.VITE_PARTNER_HOMEPAGE_ADMIN_BASE).replace(/\/$/, '')
+      : 'https://airpick-partner-homepage.web.app';
+  return `${base}/admin?company=${encodeURIComponent(companyId)}`;
 }
