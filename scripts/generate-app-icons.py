@@ -16,6 +16,8 @@ from PIL import Image, ImageDraw
 
 ROOT = Path(__file__).resolve().parent.parent
 LOGO = ROOT / "public/brand/airpick-logo-3d.png"
+# 검정 배경이 살아있는 원본 — 밝은 배경용 변형을 뽑을 때 필요하다.
+LOGO_SOURCE = ROOT / "public/brand/airpick-logo-3d-source-1024.png"
 RES = ROOT / "android/app/src/main/res"
 
 # 브랜드 시트의 앱 아이콘과 동일한 배경 — 앱 테마(#09090B)와도 일치해
@@ -93,6 +95,85 @@ def circle_mask(size: int) -> Image.Image:
     return mask
 
 
+def logo_on_light() -> Image.Image:
+    """밝은 배경에 얹을 로고.
+
+    LOGO 는 검정을 전부 투명으로 만든 것이라 비행기·궤적까지 뚫려 있다.
+    어두운 앱 아이콘 배경에서는 의도대로 보이지만 크림색 인수증 위에서는
+    비행기가 사라진다. 그래서 원본에서 바깥 배경만 테두리부터 흘려
+    지우고 내부 검정은 남긴다.
+    """
+    src = Image.open(LOGO_SOURCE).convert("RGB")
+    w, h = src.size
+    px = src.load()
+
+    lum = [0] * (w * h)
+    for y in range(h):
+        row = y * w
+        for x in range(w):
+            r, g, b = px[x, y]
+            lum[row + x] = (r * 77 + g * 150 + b * 29) >> 8
+
+    DARK = 45
+    outside = bytearray(w * h)
+    stack = []
+    for x in range(w):
+        for y in (0, h - 1):
+            i = y * w + x
+            if lum[i] <= DARK and not outside[i]:
+                outside[i] = 1
+                stack.append(i)
+    for y in range(h):
+        for x in (0, w - 1):
+            i = y * w + x
+            if lum[i] <= DARK and not outside[i]:
+                outside[i] = 1
+                stack.append(i)
+
+    while stack:
+        i = stack.pop()
+        x, y = i % w, i // w
+        if x > 0:
+            j = i - 1
+            if lum[j] <= DARK and not outside[j]:
+                outside[j] = 1
+                stack.append(j)
+        if x < w - 1:
+            j = i + 1
+            if lum[j] <= DARK and not outside[j]:
+                outside[j] = 1
+                stack.append(j)
+        if y > 0:
+            j = i - w
+            if lum[j] <= DARK and not outside[j]:
+                outside[j] = 1
+                stack.append(j)
+        if y < h - 1:
+            j = i + w
+            if lum[j] <= DARK and not outside[j]:
+                outside[j] = 1
+                stack.append(j)
+
+    # 바깥은 밝기 램프로 알파를 깎아 경계를 매끄럽게, 내부는 그대로 불투명.
+    LO, HI = 8, 42
+    alpha = Image.new("L", (w, h))
+    ap = alpha.load()
+    for y in range(h):
+        row = y * w
+        for x in range(w):
+            i = row + x
+            if not outside[i]:
+                ap[x, y] = 255
+                continue
+            v = lum[i]
+            ap[x, y] = 0 if v <= LO else (255 if v >= HI else round((v - LO) / (HI - LO) * 255))
+
+    out = src.convert("RGBA")
+    out.putalpha(alpha)
+    bbox = alpha.point(lambda v: 255 if v > 40 else 0).getbbox()
+    return out.crop(bbox) if bbox else out
+
+
 def save(img: Image.Image, path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     img.save(path, "PNG")
@@ -145,6 +226,15 @@ def main() -> None:
         ).resize((size, size), Image.LANCZOS)
         icon.putalpha(rounded_mask(size, 0.22))
         save(icon, ROOT / f"public/icon-{size}-v2.png")
+
+    print("차량 인수증 배지 (밝은 배경용)")
+    light = logo_on_light()
+    badge = Image.new("RGBA", (192, 192), (0, 0, 0, 0))
+    placed = fit(light, 192)
+    badge.alpha_composite(
+        placed, ((192 - placed.size[0]) // 2, (192 - placed.size[1]) // 2)
+    )
+    save(badge, ROOT / "public/brand/airpick-icon-192.png")
 
     print(
         f"\n완료. values/ic_launcher_background.xml 배경색이 "
