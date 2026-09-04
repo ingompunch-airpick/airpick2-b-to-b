@@ -111,7 +111,7 @@ export function normalizeDocsArray(items: unknown[]): Reservation[] {
     );
 
     return {
-      ...(r as Reservation),
+      ...(r as unknown as Reservation),
       createdBy,
       userId: String(r.userId || r.uid || 'external_system'),
       phone: normalizePhoneDigits(String(r.phone || r.userPhone || '')) || String(r.phone || r.userPhone || ''),

@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "417452643834",
+    "project_id": "airpick-reservation",
+    "storage_bucket": "airpick-reservation.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:417452643834:android:fec3fd407e653e82370043",
+        "android_client_info": {
+          "package_name": "com.airpick.manager"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "417452643834-1epvqtst9tf9gbkaod8d9vv2287ef4p4.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAbcjzJaaI0w4IKp_1mhn9hqrTgi5TDRT0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "417452643834-1epvqtst9tf9gbkaod8d9vv2287ef4p4.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

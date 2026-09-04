@@ -47,13 +47,19 @@ function Root() {
 
 const rootEl = document.getElementById('root');
 if (rootEl) {
-  createRoot(rootEl).render(
-    <StrictMode>
-      <Root />
-    </StrictMode>,
-  );
-  void dismissNativeSplash();
-  window.setTimeout(() => {
-    void dismissNativeSplash();
-  }, 2500);
+  try {
+    createRoot(rootEl).render(
+      <StrictMode>
+        <Root />
+      </StrictMode>,
+    );
+  } catch (err) {
+    console.error('[boot] render failed', err);
+  }
 }
+
+// 렌더가 실패해도 네이티브 스플래시(아이콘 화면)에 고착되지 않게 항상 해제한다.
+void dismissNativeSplash();
+window.setTimeout(() => {
+  void dismissNativeSplash();
+}, 2500);

@@ -138,11 +138,6 @@ export default function ConsolidatedGate({ onLoginSuccess, partners, companies }
           employeeName: verified.employeeName || '',
           employeeRole: verified.employeeRole || 'driver',
         });
-        alert(
-          isEmpAdmin
-            ? `소속 관리자 [${verified.employeeName}] 님 로그인 성공! [${verified.name}] 대시보드 관리자 모드로 진입합니다.`
-            : `소속 직원 [${verified.employeeName}] 기사님 로그인 성공! [${verified.name}] 대시보드 기사 모드 전용으로 진입합니다.`
-        );
         return;
       }
 
@@ -154,7 +149,6 @@ export default function ConsolidatedGate({ onLoginSuccess, partners, companies }
         companyId: verified.companyId,
         companyInfo: brandInfo,
       });
-      alert(`B2B 제휴업체 [${verified.name}] 로그인 성공! 전용 주차/기사 관리 터미널이 열립니다.`);
       return;
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));

@@ -34,10 +34,7 @@ export function normalizeArrivalFlightId(raw: string): string {
 export async function fetchIcnArrival(
   flightId: string,
   dateYmd: string
-): Promise<
-  | { ok: true; data: IcnArrivalLookup }
-  | { ok: false; status: number; data: IcnArrivalLookup | null }
-> {
+): Promise<{ ok: boolean; status: number; data: IcnArrivalLookup | null }> {
   const id = normalizeArrivalFlightId(flightId);
   const date = toFlightDateYmd(dateYmd);
   if (id.length < 3 || date.length !== 8) {
@@ -48,8 +45,7 @@ export async function fetchIcnArrival(
   try {
     const res = await fetch(`${ARRIVAL_API}?${qs.toString()}`);
     const data = (await res.json().catch(() => null)) as IcnArrivalLookup | null;
-    if (!res.ok) return { ok: false, status: res.status, data };
-    return { ok: true, data: data! };
+    return { ok: res.ok, status: res.status, data };
   } catch {
     return { ok: false, status: 0, data: null };
   }

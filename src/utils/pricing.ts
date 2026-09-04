@@ -30,30 +30,36 @@ export function isWawaCompany(companyId?: string, companyName?: string): boolean
 }
 
 /** Firestore·로컬에 값이 없을 때 와와 기본 요금 채움 */
-export function mergePartnerPricing<T extends Record<string, unknown>>(
+export function mergePartnerPricing<T extends object>(
   partner: T,
   companyId?: string
 ): T {
-  if (!isWawaCompany(companyId, String(partner.name || ''))) {
+  const p = partner as Record<string, unknown>;
+  if (!isWawaCompany(companyId, String(p.name || ''))) {
     return partner;
   }
   const d = WAWA_FEE_DEFAULTS;
+  /** 명시적 0은 존중하고, 값이 없거나 숫자가 아닐 때만 기본값 */
+  const num = (v: unknown, fallback: number): number => {
+    const n = Number(v);
+    return Number.isFinite(n) ? n : fallback;
+  };
   return {
     ...partner,
-    outdoorBasePrice: Number(partner.outdoorBasePrice) || d.outdoorBasePrice,
-    outdoorBaseDays: Number(partner.outdoorBaseDays) || d.outdoorBaseDays,
-    outdoorExtraPrice: Number(partner.outdoorExtraPrice) || d.outdoorExtraPrice,
-    indoorBasePrice: Number(partner.indoorBasePrice) || d.indoorBasePrice,
-    indoorBaseDays: Number(partner.indoorBaseDays) || d.indoorBaseDays,
-    indoorExtraPrice: Number(partner.indoorExtraPrice) || d.indoorExtraPrice,
-    base_price: Number(partner.base_price) || d.base_price,
-    base_days: Number(partner.base_days) || d.base_days,
-    extra_day_price: Number(partner.extra_day_price) || d.extra_day_price,
-    surchargePrice: Number(partner.surchargePrice) || d.surchargePrice,
-    surchargeStartTime: (partner.surchargeStartTime as string) || d.surchargeStartTime,
-    surchargeEndTime: (partner.surchargeEndTime as string) || d.surchargeEndTime,
-    t2Surcharge: Number(partner.t2Surcharge) ?? d.t2Surcharge,
-  };
+    outdoorBasePrice: num(p.outdoorBasePrice, d.outdoorBasePrice) || d.outdoorBasePrice,
+    outdoorBaseDays: num(p.outdoorBaseDays, d.outdoorBaseDays) || d.outdoorBaseDays,
+    outdoorExtraPrice: num(p.outdoorExtraPrice, d.outdoorExtraPrice) || d.outdoorExtraPrice,
+    indoorBasePrice: num(p.indoorBasePrice, d.indoorBasePrice) || d.indoorBasePrice,
+    indoorBaseDays: num(p.indoorBaseDays, d.indoorBaseDays) || d.indoorBaseDays,
+    indoorExtraPrice: num(p.indoorExtraPrice, d.indoorExtraPrice) || d.indoorExtraPrice,
+    base_price: num(p.base_price, d.base_price) || d.base_price,
+    base_days: num(p.base_days, d.base_days) || d.base_days,
+    extra_day_price: num(p.extra_day_price, d.extra_day_price) || d.extra_day_price,
+    surchargePrice: num(p.surchargePrice, d.surchargePrice) || d.surchargePrice,
+    surchargeStartTime: (p.surchargeStartTime as string) || d.surchargeStartTime,
+    surchargeEndTime: (p.surchargeEndTime as string) || d.surchargeEndTime,
+    t2Surcharge: num(p.t2Surcharge, d.t2Surcharge),
+  } as T;
 }
 
 /** 입차일~출차일 **포함** 일수 (홈페이지·현장 정산과 맞춤) */
@@ -131,7 +137,7 @@ export function getCalculatePrice(
   isT2 = false
 ): number {
   if (!company) return 0;
-  const priced = mergePartnerPricing(company as Record<string, unknown>, company.id) as Company;
+  const priced = mergePartnerPricing(company, company.id);
   const diffDays = getParkingDayCount(start, end);
 
   let basePrice = 0;
@@ -235,7 +241,7 @@ export function recalculateReservationPrice(
       id: res.companyId,
       name: res.companyName,
     } as Company);
-  const partner = mergePartnerPricing(raw as Record<string, unknown>, res.companyId || company?.id) as Company;
+  const partner = mergePartnerPricing(raw, res.companyId || company?.id);
   const start = `${depDate}T${depTime}`;
   const end = `${arrDate}T${arrTime}`;
   const isT2 = companyRouteNeedsTerminalSurcharge(partner, depTerm, arrTerm);

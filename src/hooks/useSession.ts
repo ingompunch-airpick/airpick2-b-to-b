@@ -270,7 +270,6 @@ export function useSession({ companiesRef, setCurrentView }: UseSessionParams) {
           localStorage.setItem('local_is_admin_mode_active', 'true');
           setCurrentView('statistics');
           setShowLoginModal(false);
-          alert(`최고관리자 ${signedIn.email} 님 마스터 자격 인증이 완료되었습니다!`);
         } catch (err) {
           setLoginError(formatPlatformAdminAuthError(err));
         }
@@ -316,9 +315,6 @@ export function useSession({ companiesRef, setCurrentView }: UseSessionParams) {
           JSON.stringify(resolveOperatorCompanyIds(verified.companyId, companiesRef.current))
         );
         setShowLoginModal(false);
-        alert(
-          `제휴업체 [${verified.name}]의 마스터 관리자 인증이 성공 통과하여 관리자 모드가 활성화되었습니다!`
-        );
       } catch (err) {
         const msg = err instanceof Error ? err.message : String(err);
         setLoginError(msg || '인증이 기각되었습니다. 아이디와 보안 비밀번호를 재확인 바랍니다.');

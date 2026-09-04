@@ -312,6 +312,8 @@ export interface Reservation {
   departureFlight?: string;
   arrivalAirline?: string;
   arrivalFlight?: string;
+  /** @deprecated arrivalFlight 레거시 별칭 — 저장 시 함께 기록 */
+  inboundFlight?: string;
   /** 와와 홈페이지 레거시 — normalize 시 표준 필드로 매핑 */
   entryAirline?: string;
   entryFlight?: string;

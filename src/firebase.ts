@@ -1,3 +1,4 @@
+import { Capacitor } from '@capacitor/core';
 import { initializeApp } from 'firebase/app';
 import { getAuth } from 'firebase/auth';
 import {
@@ -15,12 +16,25 @@ import firebaseConfig from '../firebase-applet-config.json' with { type: 'json' 
 const app = initializeApp(firebaseConfig);
 
 /**
- * Capacitor WebView에서는 multi-tab IndexedDB 잠금이 실패하며
- * 모듈 초기화가 깨져 스플래시(흰 화면+아이콘)에 고착될 수 있다.
- * 단일 탭(+ 실패 시 메모리 캐시)으로 안전하게 초기화한다.
+ * Capacitor WebView(및 IndexedDB가 차단된 브라우저)에서는 영구 캐시 잠금 획득이
+ * 비동기로 실패하고, Firestore 쿼리가 영구히 대기해 스플래시(흰 화면+아이콘)에
+ * 고착될 수 있다. try/catch 로는 잡히지 않으므로(동기 예외가 아님) 네이티브·
+ * IndexedDB 미지원 환경은 처음부터 메모리 캐시로 초기화한다.
  */
+function canUsePersistentCache(): boolean {
+  if (Capacitor.isNativePlatform()) return false;
+  try {
+    return typeof indexedDB !== 'undefined' && indexedDB !== null;
+  } catch {
+    return false;
+  }
+}
+
 function buildFirestoreSettings(): FirestoreSettings {
   const base: FirestoreSettings = { experimentalForceLongPolling: true };
+  if (!canUsePersistentCache()) {
+    return { ...base, localCache: memoryLocalCache() };
+  }
   try {
     return {
       ...base,
