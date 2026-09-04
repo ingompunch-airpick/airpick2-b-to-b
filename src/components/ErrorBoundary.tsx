@@ -26,11 +26,14 @@ export default class ErrorBoundary extends React.Component<Props, State> {
 
   private handleReset = () => {
     try {
+      // 저장된 로그인 ID는 남겨 두고 손상 가능성이 있는 캐시만 비운다.
+      const savedId = localStorage.getItem('saved_id');
       localStorage.clear();
-      window.location.reload();
+      if (savedId) localStorage.setItem('saved_id', savedId);
     } catch (_) {
-      window.location.reload();
+      // storage 접근 불가 시에도 새로고침은 시도한다.
     }
+    window.location.reload();
   };
 
   public render() {

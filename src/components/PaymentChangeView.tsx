@@ -70,7 +70,7 @@ export default function PaymentChangeView({ onBack, reservations, onUpdatePaymen
       setStatusMsg(`차량번호 ${selectedRes.carNumber}의 결제가 [${getMethodDetails(method).text}]으로 완료 변경되었습니다.`);
       setTimeout(() => setStatusMsg(''), 4000);
     } catch (_) {
-      alert("결제 통계 처리에 에러가 발생했으나, 로컬 캐시 메모리에 동기화되었습니다.");
+      alert('결제 수단 변경에 실패했습니다. 네트워크 상태를 확인한 뒤 다시 시도해 주세요.');
     } finally {
       setIsUpdating(false);
     }

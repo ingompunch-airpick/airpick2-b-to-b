@@ -10,7 +10,7 @@
     "deploy:hosting": "npm run build && npx -y firebase-tools@latest deploy --only hosting",
     "deploy:rules": "npx -y firebase-tools@latest deploy --only firestore:rules,storage",
     "deploy:functions": "cd functions && npm install && npm run build && cd .. && npx -y firebase-tools@latest deploy --only functions",
-    "build:android": "npm run build && npx cap sync android",
+    "build:android": "npm run build && npx cap sync android && rm -f android/app/src/main/assets/public/server.cjs android/app/src/main/assets/public/server.cjs.map",
     "bundle:android": "npm run build:android && cd android && ./gradlew bundleRelease",
     "start": "node dist/server.cjs",
     "preview": "vite preview",

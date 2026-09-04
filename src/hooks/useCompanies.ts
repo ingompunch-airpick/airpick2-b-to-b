@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
-import { collection, doc, getDoc, getDocs, onSnapshot, setDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, onSnapshot, setDoc } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import type { AppView, Company, CompanyInfo, PartnerCompany } from '../types';
 import { formatPartnerDisplayName } from '../utils/companyDisplay';
@@ -303,29 +303,6 @@ export function useCompanies({
     },
     [companyInfo]
   );
-
-  useEffect(() => {
-    const triggerDBCleanup = async () => {
-      try {
-        const compSnap = await getDocs(collection(db, 'companies'));
-        let wawaExists = false;
-        for (const d of compSnap.docs) {
-          if (d.id === 'wawa') {
-            wawaExists = true;
-            break;
-          }
-        }
-        if (!wawaExists) {
-          console.warn(
-            'companies/wawa 문서가 없습니다. 클라이언트 생성은 Rules에서 차단됩니다. 본사 Callable 또는 Console로 생성하세요.'
-          );
-        }
-      } catch (err) {
-        console.warn('Automated master DB validation on load bypassed:', err);
-      }
-    };
-    void triggerDBCleanup();
-  }, []);
 
   useEffect(() => {
     const unsub = onSnapshot(

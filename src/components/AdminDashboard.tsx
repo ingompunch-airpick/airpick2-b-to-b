@@ -352,7 +352,7 @@ export default function AdminDashboard({
 
       if (!isPlatformAdminUser(auth.currentUser)) {
         setSaveEditError(
-          '본사 Firebase 세션이 없습니다. 로그아웃 후 Gate에서 관리자 이메일(예: drive5746@gmail.com)과 Firebase 비밀번호로 다시 로그인해 주세요.'
+          '본사 Firebase 세션이 없습니다. 로그아웃 후 본사 관리자 이메일과 비밀번호로 다시 로그인해 주세요.'
         );
         return;
       }

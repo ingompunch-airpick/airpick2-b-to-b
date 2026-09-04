@@ -168,7 +168,7 @@ export default function ConsolidatedGate({ onLoginSuccess, partners, companies }
         {/* Top visual brand header */}
         <div className="text-center mb-8">
           <h2 className="text-toss-display flex items-center justify-center gap-2">
-            airpick Check-in <span className="text-toss-caption text-amber-400 font-semibold bg-amber-500/15 border border-amber-500/20 px-2 py-0.5 rounded-lg">Gate</span>
+            에어픽 파트너 <span className="text-toss-caption text-amber-400 font-semibold bg-amber-500/15 border border-amber-500/20 px-2 py-0.5 rounded-lg">로그인</span>
           </h2>
         </div>
 
@@ -206,7 +206,7 @@ export default function ConsolidatedGate({ onLoginSuccess, partners, companies }
             {/* Password Input */}
             <div className="space-y-1.5">
               <label htmlFor="gate-password" className="text-toss-caption block">
-                보안 비밀번호 (Password)
+                비밀번호
               </label>
               <div className="relative">
                 <input

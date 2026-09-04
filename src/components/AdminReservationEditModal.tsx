@@ -151,8 +151,8 @@ export default function AdminReservationEditModal({
           <div className="flex items-center gap-2">
             <Settings className="text-amber-500 animate-spin" size={16} />
             <div>
-              <span className="text-xs font-black text-white block">관리자 초정밀 예약 정보 수동 조정 (Master Override)</span>
-              <span className="text-[10.5px] text-zinc-500 font-mono font-bold uppercase">DATABASE OVERRIDE WORKSTATION</span>
+              <span className="text-xs font-black text-white block">예약 정보 수동 수정</span>
+              <span className="text-[10.5px] text-zinc-500 font-bold">관리자 전용 · 저장 시 즉시 반영됩니다</span>
             </div>
           </div>
           <button 

@@ -45,17 +45,24 @@ function Root() {
   );
 }
 
-const rootEl = document.getElementById('root');
-if (rootEl) {
-  try {
-    createRoot(rootEl).render(
-      <StrictMode>
-        <Root />
-      </StrictMode>,
-    );
-  } catch (err) {
-    console.error('[boot] render failed', err);
-  }
+// #root 가 없더라도(문서 변조·확장 프로그램 등) 빈 화면으로 끝나지 않게 직접 만든다.
+function resolveRootElement(): HTMLElement {
+  const existing = document.getElementById('root');
+  if (existing) return existing;
+  const created = document.createElement('div');
+  created.id = 'root';
+  document.body.appendChild(created);
+  return created;
+}
+
+try {
+  createRoot(resolveRootElement()).render(
+    <StrictMode>
+      <Root />
+    </StrictMode>,
+  );
+} catch (err) {
+  console.error('[boot] render failed', err);
 }
 
 // 렌더가 실패해도 네이티브 스플래시(아이콘 화면)에 고착되지 않게 항상 해제한다.

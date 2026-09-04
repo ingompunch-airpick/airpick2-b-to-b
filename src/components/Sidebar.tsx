@@ -101,7 +101,7 @@ export default function Sidebar({
   if (!isOpen) return null;
 
   const safeCompanyInfo = {
-    name: isAirpickHeadquarters(currentCompanyId) ? '에어픽' : (companyInfo?.name || '와와'),
+    name: isAirpickHeadquarters(currentCompanyId) ? '에어픽' : (companyInfo?.name || '업체'),
     region: isAirpickHeadquarters(currentCompanyId) ? '플랫폼 본사' : (companyInfo?.region || airportRegionLabel()),
     phone: companyInfo?.phone || '1545-5746',
     logo: isAirpickHeadquarters(currentCompanyId) ? '' : (companyInfo?.logo || '')

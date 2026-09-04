@@ -137,7 +137,7 @@ export default function StatisticsView({
   reservations = [], 
   allReservations = [],
   companies = [],
-  companyName = '와와주차장',
+  companyName = '에어픽',
   isSuperAdmin = false,
   currentCompanyId = AIRPICK_HQ_ID,
   blockedDates = [],

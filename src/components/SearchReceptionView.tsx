@@ -288,6 +288,12 @@ export default function SearchReceptionView({
       setIsSubmittingBooking(false);
       return;
     }
+
+    if (!userName.trim() || !carNumber.trim() || !phone.trim()) {
+      alert('고객 성함, 차량 번호, 연락처는 필수 입력입니다.');
+      setIsSubmittingBooking(false);
+      return;
+    }
     let partnerObj = companies.find(c => c.id === activeCompId);
     if (!partnerObj) {
       try {
@@ -395,10 +401,10 @@ export default function SearchReceptionView({
       companyId: partner.id,
       companyName: formatPartnerDisplayName(partner.name, partner.id) || partner.name,
       airport: resolveCompanyAirportId(partnerObj),
-      userName: userName.trim() || '테스트고객',
-      carModel: carModel.trim() || '제네시스 GV80',
-      carNumber: carNumber.trim() || '12가 3456',
-      phone: phone.trim() || '010-1234-5678',
+      userName: userName.trim(),
+      carModel: carModel.trim(),
+      carNumber: carNumber.trim(),
+      phone: phone.trim(),
       departureDate: depDateStr,
       departureTime: depTimeStr,
       departureTerminal,
@@ -430,7 +436,7 @@ export default function SearchReceptionView({
       onUpdateReservations((prev) => {
         return [{ id, ...bookingPayload }, ...prev.filter((r) => r.id !== id)];
       });
-      alert(`차량 번호 ${bookingPayload.carNumber} 현장 접수가 완료됐습니다.\n\n(Firestore에 저장됨 · ID: ${id})`);
+      alert(`차량 번호 ${bookingPayload.carNumber} 현장 접수가 완료됐습니다.`);
       onNavigate('timeline');
       setUserName('');
       setCarModel('');
@@ -621,7 +627,7 @@ export default function SearchReceptionView({
                   <div className="bg-neutral-900/30 p-10 rounded-3xl border border-neutral-850/50 text-center space-y-2">
                     <Search size={22} className="mx-auto text-zinc-600 mb-1" />
                     <p className="text-xs text-zinc-400 font-bold">검색어를 입력해 주세요.</p>
-                    <p className="text-[12px] text-zinc-650">반납완료·테스트 건도 검색됩니다. 열어서 결제·취소·되돌리기 하세요.</p>
+                    <p className="text-[12px] text-zinc-650">반납완료·취소 건도 검색됩니다. 열어서 결제·취소·되돌리기 하세요.</p>
                   </div>
                 );
               }
