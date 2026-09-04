@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
-"""에어픽 파트너 앱 아이콘 생성기.
+"""에어픽 파트너 앱 아이콘·스플래시 생성기.
 
 public/brand/airpick-icon-512.png (주황/크림 원본)의 형태를 그대로 쓰고
-색만 네이비/골드로 치환해 Android 런처 아이콘·PWA 아이콘을 만든다.
+색만 네이비/골드로 치환해 Android 런처 아이콘·스플래시·PWA 아이콘을 만든다.
 
 사용법:  python3 scripts/generate-app-icons.py
-브랜드 색을 바꾸려면 BG / FG 상수만 수정하면 된다.
+브랜드 색을 바꾸려면 BG / FG / SPLASH_BG 상수만 수정하면 된다.
 """
 
 from pathlib import Path
@@ -23,6 +23,29 @@ SRC_FG = (229, 100, 39)
 # 목표 브랜드 색 — B2C 로고와 동일
 BG = (17, 26, 45)      # #111A2D
 FG = (231, 200, 126)   # #E7C87E
+
+# 스플래시 배경은 앱 테마(#09090B)와 맞춰 실행 중 색 튐을 없앤다.
+# capacitor.config.ts 의 SplashScreen.backgroundColor 및
+# styles.xml 의 windowSplashScreenBackground 와 동일해야 한다.
+SPLASH_BG = (9, 9, 11)  # #09090B
+
+# Capacitor SplashScreen 플러그인이 이름으로 찾는 drawable 목록
+SPLASH_TARGETS = {
+    "drawable": (480, 320),
+    "drawable-land-mdpi": (480, 320),
+    "drawable-land-hdpi": (800, 480),
+    "drawable-land-xhdpi": (1280, 720),
+    "drawable-land-xxhdpi": (1600, 960),
+    "drawable-land-xxxhdpi": (1920, 1280),
+    "drawable-port-mdpi": (320, 480),
+    "drawable-port-hdpi": (480, 800),
+    "drawable-port-xhdpi": (720, 1280),
+    "drawable-port-xxhdpi": (960, 1600),
+    "drawable-port-xxxhdpi": (1280, 1920),
+}
+
+# 스플래시 로고가 화면 짧은 변에서 차지할 비율
+SPLASH_LOGO_RATIO = 0.28
 
 # 밀도별 (런처 아이콘 px, adaptive foreground 캔버스 px)
 DENSITIES = {
@@ -146,6 +169,21 @@ def main() -> None:
             logo, ((fg_px - logo.size[0]) // 2, (fg_px - logo.size[1]) // 2)
         )
         save(canvas, RES / f"mipmap-{density}/ic_launcher_foreground.png")
+
+    print("Capacitor 스플래시")
+    logo_src = fg_only.crop(bbox)
+    for folder, (sw, sh) in SPLASH_TARGETS.items():
+        canvas = Image.new("RGBA", (sw, sh), SPLASH_BG + (255,))
+        target = max(1, int(round(min(sw, sh) * SPLASH_LOGO_RATIO)))
+        lw, lh = logo_src.size
+        scale = target / max(lw, lh)
+        logo = logo_src.resize(
+            (max(1, round(lw * scale)), max(1, round(lh * scale))), Image.LANCZOS
+        )
+        canvas.alpha_composite(
+            logo, ((sw - logo.size[0]) // 2, (sh - logo.size[1]) // 2)
+        )
+        save(canvas, RES / folder / "splash.png")
 
     print("Play Store / PWA 아이콘")
     # Play Store 등록용은 투명도 없는 512 정사각형
