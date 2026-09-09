@@ -148,6 +148,9 @@ service cloud.firestore {
           'acquisitionMedium',
           'acquisitionCampaign',
           'acquisitionClickId',
+          'affiliateCode',
+          'affiliateCustomerDiscountWon',
+          'affiliateReferrerCreditWon',
         ]);
     }
 
@@ -251,6 +254,36 @@ service cloud.firestore {
         );
 
       allow delete: if false;
+    }
+
+    // ── affiliates (B2C 추천·제휴) ─────────────────────────────────────────
+    // 문서 ID = 코드. 목록·쓰기는 본사만.
+    // 단건 get 은 비로그인 B2C도 허용 — 비교·예약 화면에서 할인액 조회.
+
+    match /affiliates/{affiliateId} {
+      allow get: if affiliateId.matches('^[a-z0-9_]{3,16}$');
+      allow list: if isPlatformAdmin();
+      allow create, update: if isPlatformAdmin()
+        && affiliateId.matches('^[a-z0-9_]{3,16}$')
+        && request.resource.data.keys().hasAll([
+          'code', 'name', 'status', 'createdAt', 'updatedAt',
+          'customerDiscountWon', 'referrerCreditWon'
+        ])
+        && request.resource.data.code == affiliateId
+        && request.resource.data.name is string
+        && request.resource.data.name.size() > 0
+        && request.resource.data.name.size() <= 80
+        && request.resource.data.status in ['active', 'suspended']
+        && request.resource.data.createdAt is string
+        && request.resource.data.updatedAt is string
+        && request.resource.data.customerDiscountWon is number
+        && request.resource.data.customerDiscountWon >= 0
+        && request.resource.data.customerDiscountWon <= 1000000
+        && request.resource.data.referrerCreditWon is number
+        && request.resource.data.referrerCreditWon >= 0
+        && request.resource.data.referrerCreditWon <= 1000000;
+      allow delete: if isPlatformAdmin()
+        && affiliateId.matches('^[a-z0-9_]{3,16}$');
     }
 
     // ── customers (방문 횟수 — 전화 숫자 키) ───────────────────────────────
