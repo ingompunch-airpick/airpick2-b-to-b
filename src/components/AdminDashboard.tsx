@@ -193,6 +193,12 @@ export default function AdminDashboard({
   const [savingEdit, setSavingEdit] = useState(false);
   const [saveEditError, setSaveEditError] = useState('');
   const savingEditRef = React.useRef(false);
+  const [pendingDelete, setPendingDelete] = useState<{
+    companyId: string;
+    companyName: string;
+    kind: 'partner' | 'sub';
+  } | null>(null);
+  const [deletingPartner, setDeletingPartner] = useState(false);
 
   const primaryPartners = (partners || []).filter((p) => {
     if (!p?.companyId) return false;
@@ -278,15 +284,11 @@ export default function AdminDashboard({
     setEditingSubCompany(null);
   };
 
-  const handleDeleteSub = async (companyId: string, companyName: string) => {
-    if (
-      !window.confirm(
-        `[${companyName} (${companyId})] 하위 업체를 삭제하시겠습니까?\nB2C 노출 및 Firestore companies 문서가 삭제됩니다.`
-      )
-    ) {
-      return;
-    }
+  const requestDeleteSub = (companyId: string, companyName: string) => {
+    setPendingDelete({ companyId, companyName, kind: 'sub' });
+  };
 
+  const executeDeleteSub = async (companyId: string, companyName: string) => {
     const nextCompanies = companies.filter((c) => c.id !== companyId);
     onUpdateCompanies(nextCompanies);
     safeStorage.setItem('companies', JSON.stringify(nextCompanies));
@@ -692,36 +694,47 @@ export default function AdminDashboard({
     setActiveTab('partners');
   };
 
-  // Deletion logic
-  const handleDeletePartner = async (companyId: string, companyName: string) => {
-    if (window.confirm(`경고: [${companyName} (${companyId})] 제휴업체를 완전히 삭제하시겠습니까?\n삭제 즉시 해당 제휴업체의 계정 정보 및 Firestore 파티션 설정이 영구 폐기되며 복구할 수 없습니다.`)) {
-      // 1. Delete from partners list
-      const nextPartners = partners.filter(p => p.companyId !== companyId);
-      onUpdatePartners(nextPartners);
-      writePartnersToStorage(nextPartners, (k, v) => safeStorage.setItem(k, v));
+  const requestDeletePartner = (companyId: string, companyName: string) => {
+    setPendingDelete({ companyId, companyName, kind: 'partner' });
+  };
 
-      // 2. Delete from companies list
-      const nextCompanies = companies.filter(c => c.id !== companyId);
-      onUpdateCompanies(nextCompanies);
-      safeStorage.setItem('companies', JSON.stringify(nextCompanies));
+  const executeDeletePartner = async (companyId: string, companyName: string) => {
+    const nextPartners = partners.filter((p) => p.companyId !== companyId);
+    onUpdatePartners(nextPartners);
+    writePartnersToStorage(nextPartners, (k, v) => safeStorage.setItem(k, v));
 
-      // 3. Delete from firestore
-      try {
-        await deletePartnerFromFirestore(companyId);
-      } catch (err: unknown) {
-        console.warn('adminDeleteCompany failed:', err);
-        alert(
-          `Firebase 업체 삭제에 실패했습니다.\n${
-            err instanceof Error ? err.message : String(err)
-          }`
-        );
-        return;
+    const nextCompanies = companies.filter((c) => c.id !== companyId);
+    onUpdateCompanies(nextCompanies);
+    safeStorage.setItem('companies', JSON.stringify(nextCompanies));
+
+    try {
+      await deletePartnerFromFirestore(companyId);
+    } catch (err: unknown) {
+      console.warn('adminDeleteCompany failed:', err);
+      alert(
+        `Firebase 업체 삭제에 실패했습니다.\n${
+          err instanceof Error ? err.message : String(err)
+        }`
+      );
+      return;
+    }
+
+    removePartnerLocalPartitions(companyId, safeStorage);
+    alert(`[${companyName}] 업체 정보가 성공적으로 영구 삭제되었습니다.`);
+  };
+
+  const confirmPendingDelete = async () => {
+    if (!pendingDelete || deletingPartner) return;
+    setDeletingPartner(true);
+    try {
+      if (pendingDelete.kind === 'sub') {
+        await executeDeleteSub(pendingDelete.companyId, pendingDelete.companyName);
+      } else {
+        await executeDeletePartner(pendingDelete.companyId, pendingDelete.companyName);
       }
-
-      // 4. Clean up reservations/drivers local storage keys
-      removePartnerLocalPartitions(companyId, safeStorage);
-
-      alert(`[${companyName}] 업체 정보가 성공적으로 영구 삭제되었습니다.`);
+      setPendingDelete(null);
+    } finally {
+      setDeletingPartner(false);
     }
   };
 
@@ -846,7 +859,7 @@ export default function AdminDashboard({
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleDeletePartner(p.companyId, p.name)}
+                            onClick={() => requestDeletePartner(p.companyId, p.name)}
                             className="px-2 py-1.5 bg-rose-500/10 border border-rose-500/30 text-rose-300 hover:bg-rose-500 hover:text-white rounded-lg text-[12px] font-black tracking-tight inline-flex items-center gap-1 transition-all"
                           >
                             <Trash2 size={11} />
@@ -915,7 +928,7 @@ export default function AdminDashboard({
                           </button>
                           <button
                             type="button"
-                            onClick={() => handleDeleteSub(c.id, c.name)}
+                            onClick={() => requestDeleteSub(c.id, c.name)}
                             className="px-2 py-1.5 bg-rose-500/10 border border-rose-500/30 text-rose-300 hover:bg-rose-500 hover:text-white rounded-lg text-[12px] font-black tracking-tight inline-flex items-center gap-1 transition-all"
                           >
                             <Trash2 size={11} />
@@ -944,6 +957,54 @@ export default function AdminDashboard({
               }}
             />
           )}
+
+          {pendingDelete &&
+            createPortal(
+              <div className="fixed inset-0 z-[99999]" role="dialog" aria-modal="true" aria-labelledby="partner-delete-title">
+                <div
+                  className="absolute inset-0 bg-slate-950/75 backdrop-blur-xs"
+                  onClick={() => {
+                    if (!deletingPartner) setPendingDelete(null);
+                  }}
+                />
+                <div className="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
+                  <div className="pointer-events-auto w-full max-w-sm rounded-2xl border border-rose-500/30 bg-[#17171A] shadow-xl overflow-hidden">
+                    <div className="px-5 pt-5 pb-3 border-b border-neutral-800 bg-[#1C1C1E]">
+                      <h4 id="partner-delete-title" className="text-sm font-black text-rose-300">
+                        정말 삭제할까요?
+                      </h4>
+                      <p className="text-[12px] text-zinc-400 mt-1.5 leading-relaxed font-semibold">
+                        [{pendingDelete.companyName}]{' '}
+                        <span className="font-mono text-amber-400/90">{pendingDelete.companyId}</span>
+                        {pendingDelete.kind === 'sub'
+                          ? ' 하위 업체를 삭제합니다. B2C 노출과 Firestore 문서가 제거됩니다.'
+                          : ' 제휴업체를 완전히 삭제합니다. 계정·설정은 복구할 수 없습니다.'}
+                      </p>
+                    </div>
+                    <div className="px-5 py-4 flex gap-2 justify-end">
+                      <button
+                        type="button"
+                        disabled={deletingPartner}
+                        onClick={() => setPendingDelete(null)}
+                        className="px-3.5 py-2 rounded-xl border border-neutral-700 bg-neutral-900 text-zinc-200 text-[12px] font-black hover:bg-neutral-800 disabled:opacity-50"
+                      >
+                        취소
+                      </button>
+                      <button
+                        type="button"
+                        disabled={deletingPartner}
+                        onClick={() => void confirmPendingDelete()}
+                        className="px-3.5 py-2 rounded-xl border border-rose-500/40 bg-rose-500 text-white text-[12px] font-black hover:bg-rose-400 disabled:opacity-50 inline-flex items-center gap-1.5"
+                      >
+                        <Trash2 size={12} />
+                        {deletingPartner ? '삭제 중…' : '삭제 확인'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>,
+              document.body
+            )}
 
           {/* Edit Partner — body portal + 높은 z-index (네이버지도/부모 transform 클릭 가로채기 방지) */}
           {editingPartner &&
