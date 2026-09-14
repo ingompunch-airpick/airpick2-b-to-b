@@ -332,6 +332,15 @@ export interface Reservation {
   acquisitionMedium?: string;
   acquisitionCampaign?: string;
   acquisitionClickId?: string;
+
+  /**
+   * B2C(에어픽.kr) 제휴·추천 코드.
+   * affiliates/{code} 와 대응. 업체 홈 명함 QR(acquisition*) 과 별개.
+   */
+  affiliateCode?: string;
+  /** 예약 시점 스냅샷 — 이후 제휴 금액이 바뀌어도 이 건 할인·페이백은 유지 */
+  affiliateCustomerDiscountWon?: number;
+  affiliateReferrerCreditWon?: number;
 }
 
 export type AppView = 
@@ -353,4 +362,6 @@ export type AppView =
   /** 본사 · 고객 전화 조회 */
   | 'hq_customers'
   /** 본사 전용 · 명함 QR 유입 성과 */
-  | 'acquisition_funnel';
+  | 'acquisition_funnel'
+  /** 본사 전용 · B2C 제휴(어필리에이트) */
+  | 'affiliate_admin';

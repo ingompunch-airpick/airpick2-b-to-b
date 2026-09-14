@@ -39,6 +39,13 @@
         }
       },
       {
+        "source": "/api/affiliate-stats",
+        "function": {
+          "functionId": "getAffiliateStats",
+          "region": "asia-northeast3"
+        }
+      },
+      {
         "source": "**",
         "destination": "/index.html"
       }

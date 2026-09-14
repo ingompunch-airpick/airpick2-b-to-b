@@ -267,7 +267,7 @@ service cloud.firestore {
         && affiliateId.matches('^[a-z0-9_]{3,16}$')
         && request.resource.data.keys().hasAll([
           'code', 'name', 'status', 'createdAt', 'updatedAt',
-          'customerDiscountWon', 'referrerCreditWon'
+          'marketingBudgetWon', 'customerDiscountWon', 'referrerCreditWon'
         ])
         && request.resource.data.code == affiliateId
         && request.resource.data.name is string
@@ -276,12 +276,33 @@ service cloud.firestore {
         && request.resource.data.status in ['active', 'suspended']
         && request.resource.data.createdAt is string
         && request.resource.data.updatedAt is string
+        && request.resource.data.marketingBudgetWon is number
+        && request.resource.data.marketingBudgetWon >= 0
+        && request.resource.data.marketingBudgetWon <= 1000000
         && request.resource.data.customerDiscountWon is number
         && request.resource.data.customerDiscountWon >= 0
         && request.resource.data.customerDiscountWon <= 1000000
         && request.resource.data.referrerCreditWon is number
         && request.resource.data.referrerCreditWon >= 0
-        && request.resource.data.referrerCreditWon <= 1000000;
+        && request.resource.data.referrerCreditWon <= 1000000
+        && request.resource.data.customerDiscountWon + request.resource.data.referrerCreditWon
+          <= request.resource.data.marketingBudgetWon;
+      allow delete: if isPlatformAdmin()
+        && affiliateId.matches('^[a-z0-9_]{3,16}$');
+    }
+
+    // 제휴 실적 포털 토큰 — 공개 affiliates get 과 분리. 본사만 클라이언트 읽기.
+    match /affiliateSecrets/{affiliateId} {
+      allow get: if isPlatformAdmin()
+        && affiliateId.matches('^[a-z0-9_]{3,16}$');
+      allow list: if false;
+      allow create, update: if isPlatformAdmin()
+        && affiliateId.matches('^[a-z0-9_]{3,16}$')
+        && request.resource.data.keys().hasAll(['statsToken', 'updatedAt'])
+        && request.resource.data.statsToken is string
+        && request.resource.data.statsToken.size() >= 16
+        && request.resource.data.statsToken.size() <= 64
+        && request.resource.data.updatedAt is string;
       allow delete: if isPlatformAdmin()
         && affiliateId.matches('^[a-z0-9_]{3,16}$');
     }
@@ -349,6 +370,21 @@ service cloud.firestore {
           !exists(/databases/$(database)/documents/partnerHomepageStats/$(companyId)/days/$(dayId))
           || request.resource.data.pageViews >= resource.data.pageViews
         );
+      allow delete: if false;
+    }
+
+    // ── appConfig (본사 설정) ────────────────────────────────────────────
+    match /appConfig/{configId} {
+      allow get: if isSignedIn();
+      allow list: if isPlatformAdmin();
+      allow create, update: if isPlatformAdmin()
+        && configId == 'reservationAlerts'
+        && request.resource.data.titleAirpick is string
+        && request.resource.data.titleAirpick.size() > 0
+        && request.resource.data.titleAirpick.size() <= 24
+        && request.resource.data.titleOther is string
+        && request.resource.data.titleOther.size() > 0
+        && request.resource.data.titleOther.size() <= 24;
       allow delete: if false;
     }
 

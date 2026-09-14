@@ -65,8 +65,7 @@ export const COMPANY_TAB_BY_ID: Record<string, string> = {
 
 export const FALLBACK_TAB = '기타';
 
-/** 업체 홈페이지 유입 → 「와와홈」「가유홈」 형태로 현장 탭과 분리 */
+/** @deprecated 홈페이지도 업체 탭에 합침. 남겨 둔 건 예전 호출 호환용 */
 export function homepageTabFromCompanyTab(companyTab: string): string {
-  const base = companyTab.replace(/홈$/, '').trim() || FALLBACK_TAB;
-  return `${base}홈`;
+  return companyTab.replace(/홈$/, '').trim() || FALLBACK_TAB;
 }

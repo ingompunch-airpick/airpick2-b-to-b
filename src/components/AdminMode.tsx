@@ -8,6 +8,7 @@ import HqPartnerBoardView from './HqPartnerBoardView';
 import HqReviewsView from './HqReviewsView';
 import HqCustomersView from './HqCustomersView';
 import AcquisitionFunnelView from './AcquisitionFunnelView';
+import AffiliateAdminView from './AffiliateAdminView';
 
 interface AdminModeProps {
   currentView: AppView;
@@ -166,6 +167,14 @@ export default function AdminMode({
           companies={companies}
           currentCompanyId={currentCompanyId}
           isSuperAdmin
+        />
+      );
+
+    case 'affiliate_admin':
+      if (!isSuperAdmin) return statisticsPanel;
+      return (
+        <AffiliateAdminView
+          reservations={allReservations.length > 0 ? allReservations : reservations}
         />
       );
 

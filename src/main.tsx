@@ -6,8 +6,10 @@ import App from './App.tsx';
 import ErrorBoundary from './components/ErrorBoundary.tsx';
 import HomepageBookingPage from './pages/HomepageBookingPage.tsx';
 import VehicleReceiptPage from './pages/VehicleReceiptPage.tsx';
+import AffiliateStatsPage from './pages/AffiliateStatsPage.tsx';
 import { parseHomepageCompanyIdFromPath } from './utils/homepageBookingPath.ts';
 import { parseReceiptCodeFromPath } from './utils/receipt.ts';
+import { parseAffiliateCodeFromStatsPath } from './utils/affiliate.ts';
 import './index.css';
 
 async function dismissNativeSplash(): Promise<void> {
@@ -34,6 +36,15 @@ function Root() {
     return (
       <ErrorBoundary>
         <VehicleReceiptPage code={receiptCode} />
+      </ErrorBoundary>
+    );
+  }
+
+  const affiliateStatsCode = parseAffiliateCodeFromStatsPath(window.location.pathname);
+  if (affiliateStatsCode) {
+    return (
+      <ErrorBoundary>
+        <AffiliateStatsPage code={affiliateStatsCode} />
       </ErrorBoundary>
     );
   }

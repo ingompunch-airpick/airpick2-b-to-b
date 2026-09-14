@@ -11,13 +11,16 @@ import {
 import type { AlimtalkButton } from './shared';
 import { normalizeRecipientPhone } from './phone';
 import { buildReceiptUrl, buildReviewUrl, resolveReceiptPathCode } from './receiptUrl';
+import { renderTemplateBody } from './ncpTemplates';
 import {
   buildCheckinParams,
   buildCheckoutParams,
+  buildPartnerDetailParams,
   buildReserveParams,
 } from './templateParams';
 import type { AlimtalkTemplateParams, ReservationSnapshot } from './types';
 import { resolveBookingSource } from '../sheets/bookingSource';
+import type { RenderedAlimtalkContent } from './shared';
 
 const CLAIM_TTL_MS = 90_000;
 
@@ -270,8 +273,27 @@ export async function processReservationAlimtalk(
   /** 업체 전용 카카오 채널이 설정돼 있으면 그 발신 프로필로 보낸다 */
   const sendConfig = applyCompanyChannel(config, companySettings.channel);
 
+  /**
+   * 에어픽(B2C) 예약은 항상 공용 템플릿.
+   * 홈페이지·현장은 업체 전용 템플릿이 있을 때만 보내고, 없으면 건너뛴다.
+   * (에어픽 문구가 업체 고객에게 나가지 않게)
+   */
   for (const eventType of events) {
+    const partnerTemplate =
+      source !== 'airpick-b2c' ? companySettings.templates?.[eventType] : undefined;
+
+    if (source !== 'airpick-b2c' && !partnerTemplate) {
+      console.log('[alimtalk] skipped — no partner template for event', {
+        reservationId,
+        companyId: after?.companyId,
+        source,
+        eventType,
+      });
+      continue;
+    }
+
     if (
+      !partnerTemplate &&
       config.provider === 'ncp' &&
       !isNcpTemplateReady(eventType, {
         provider: config.provider,
@@ -292,14 +314,34 @@ export async function processReservationAlimtalk(
       continue;
     }
 
-    const templateCode = resolveTemplateCode(eventType, config.provider);
+    const templateCode = partnerTemplate?.code || resolveTemplateCode(eventType, config.provider);
     if (!templateCode) {
       console.log('[alimtalk] skipped — empty template code', { reservationId, eventType });
       continue;
     }
-    const templateParameter = resolveTemplateParams(eventType, reservationForSend, companyPhone);
-    const button = resolveAlimtalkButton(eventType, reservationForSend);
-    if (!button) {
+    const templateParameter = partnerTemplate
+      ? buildPartnerDetailParams(reservationForSend)
+      : resolveTemplateParams(eventType, reservationForSend, companyPhone);
+    const rendered: RenderedAlimtalkContent | undefined = partnerTemplate
+      ? {
+          ...(partnerTemplate.title ? { title: partnerTemplate.title } : {}),
+          content: renderTemplateBody(partnerTemplate.body, templateParameter),
+        }
+      : undefined;
+
+    const receiptUrl = buildReceiptUrl(reservationForSend);
+    const button = partnerTemplate
+      ? partnerTemplate.buttonName && receiptUrl
+        ? {
+            ordering: 1,
+            type: 'WL' as const,
+            name: partnerTemplate.buttonName,
+            linkMo: receiptUrl,
+            linkPc: receiptUrl,
+          }
+        : null
+      : resolveAlimtalkButton(eventType, reservationForSend);
+    if (!partnerTemplate && !button) {
       console.warn('[alimtalk] skipped — button link empty', { reservationId, eventType });
       await markAlimtalkSent(reservationId, eventType, {
         templateCode,
@@ -308,8 +350,8 @@ export async function processReservationAlimtalk(
       });
       continue;
     }
-    const buttons: AlimtalkButton[] = [button];
-    const buttonUrl = button.linkMo || '';
+    const buttons: AlimtalkButton[] | undefined = button ? [button] : undefined;
+    const buttonUrl = button?.linkMo || '';
 
     try {
       const result = await sendAlimtalkMessage(
@@ -317,7 +359,8 @@ export async function processReservationAlimtalk(
         templateCode,
         recipientNo,
         templateParameter,
-        buttons
+        buttons,
+        rendered
       );
 
       if (result.ok) {
@@ -349,7 +392,9 @@ export async function processReservationAlimtalk(
           sendConfig,
           templateCode,
           recipientNo,
-          templateParameter
+          templateParameter,
+          undefined,
+          rendered
         );
         if (finalResult.ok) {
           await markAlimtalkSent(reservationId, eventType, {

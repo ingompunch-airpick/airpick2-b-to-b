@@ -18,6 +18,7 @@ import { getCalculatePrice, recalculateReservationPrice } from './utils/pricing'
 import { getKSTDateOnlyString, getKSTDateTimeString } from './utils/kstDate';
 import { AIRPICK_HQ_ID, isAirpickHeadquarters } from './constants/platform';
 import { isPending } from './utils/reservationStatus';
+import { newReservationAlertTitle } from './utils/reservationNotifications';
 import {
   buildParkingAssignmentFields,
   defaultParkingLotId,
@@ -469,9 +470,9 @@ export default function App() {
         <div className="fixed top-0 inset-x-0 z-[100] px-3 pt-3">
           <div className="mx-auto max-w-md rounded-2xl border border-amber-500/30 bg-neutral-900/95 backdrop-blur-md p-3 shadow-xl flex items-start gap-3">
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-black text-amber-400">신규 예약 알림</p>
+              <p className="text-xs font-black text-amber-400">예약 알림</p>
               <p className="text-[11px] text-zinc-400 mt-1 leading-relaxed">
-                홈페이지·앱 접수 시 소리와 알림을 받습니다. 안드로이드 앱에서는 앱을 꺼도 푸시가 갑니다.
+                에어픽은 「에어픽 예약」, 그 외는 「예약」만 울립니다. 안드로이드는 앱을 꺼도 푸시가 옵니다.
               </p>
             </div>
             <div className="flex flex-col gap-1 shrink-0">
@@ -503,10 +504,8 @@ export default function App() {
             className="fixed bottom-24 inset-x-0 z-[100] px-4 pointer-events-none"
           >
             <div className="mx-auto max-w-md rounded-2xl border border-sky-500/40 bg-neutral-900/95 backdrop-blur-md px-4 py-3 shadow-2xl pointer-events-auto">
-              <p className="text-xs font-black text-sky-400">신규 입고예정</p>
-              <p className="text-sm font-bold text-white mt-1">
-                {incomingReservationToast.carNumber}
-                {incomingReservationToast.userName ? ` · ${incomingReservationToast.userName}` : ''}
+              <p className="text-base font-black text-white">
+                {newReservationAlertTitle(incomingReservationToast)}
               </p>
             </div>
           </motion.div>
@@ -697,7 +696,7 @@ export default function App() {
 
       {/* 3. Core Workspace Content Switcher - Dynamically widened for Timeline & Dashboards */}
       {(() => {
-        const isWideView = ['timeline', 'statistics', 'cancelled_list', 'master_settings', 'dispatch_board', 'service_history', 'parking_departure', 'payment_change', 'acquisition_funnel', 'hq_partner_board', 'hq_reviews', 'hq_customers'].includes(currentView);
+        const isWideView = ['timeline', 'statistics', 'cancelled_list', 'master_settings', 'dispatch_board', 'service_history', 'parking_departure', 'payment_change', 'acquisition_funnel', 'affiliate_admin', 'hq_partner_board', 'hq_reviews', 'hq_customers'].includes(currentView);
         return (
           <main className={cn("mx-auto p-4 mt-2 transition-all duration-200", isWideView ? "max-w-4xl" : "max-w-md")}>
             <AnimatePresence mode="wait">

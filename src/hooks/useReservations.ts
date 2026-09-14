@@ -36,9 +36,11 @@ import {
   notifyNewReservation,
   requestReservationNotificationPermission,
   setReservationAlertsEnabled,
+  setRuntimeReservationAlertCopy,
   wasNotificationPermissionAsked,
 } from '../utils/reservationNotifications';
 import { registerPartnerPushDevice } from '../lib/partnerPush';
+import { fetchReservationAlertCopy } from '../lib/reservationAlertCopyFirestore';
 export interface UseReservationsParams {
   isLoggedIn: boolean;
   currentCompanyId: string;
@@ -482,6 +484,14 @@ export function useReservations({
       scopeCompanyIds: scopes,
     });
   }, [isLoggedIn, currentCompanyId, operatorCompanyIds]);
+
+  // 알림 문구(에어픽/홈·현장) 로드
+  useEffect(() => {
+    if (!isLoggedIn) return;
+    void fetchReservationAlertCopy()
+      .then((copy) => setRuntimeReservationAlertCopy(copy))
+      .catch(() => undefined);
+  }, [isLoggedIn]);
 
   const countPending = useMemo(() => {
     return visibleReservations.filter((r) => {

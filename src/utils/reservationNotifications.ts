@@ -2,9 +2,25 @@ import type { Reservation } from '../types';
 import { reservationBelongsToCompany } from './reservationScope';
 import { filterReservationsForOperatorGroup } from './operatorHierarchy';
 import { isPending } from './reservationStatus';
+import { resolveBookingSource } from './bookingSource';
+import {
+  DEFAULT_RESERVATION_ALERT_COPY,
+  alertTitleForBookingSource,
+  type ReservationAlertCopy,
+} from './reservationAlertCopy';
 
 const ENABLED_KEY = 'reservation_alerts_enabled';
 const PERMISSION_ASKED_KEY = 'reservation_alerts_permission_asked';
+
+let runtimeAlertCopy: ReservationAlertCopy = DEFAULT_RESERVATION_ALERT_COPY;
+
+export function setRuntimeReservationAlertCopy(copy: ReservationAlertCopy): void {
+  runtimeAlertCopy = copy;
+}
+
+export function getRuntimeReservationAlertCopy(): ReservationAlertCopy {
+  return runtimeAlertCopy;
+}
 
 export function areReservationAlertsEnabled(): boolean {
   return localStorage.getItem(ENABLED_KEY) !== 'false';
@@ -30,56 +46,78 @@ export async function requestReservationNotificationPermission(): Promise<Notifi
   return Notification.requestPermission();
 }
 
-/** 짧은 알림음 (mp3 파일 없이 Web Audio) */
-export function playNewReservationAlertSound(): void {
+/** 선택한 알림 제목만 읽어 줌 (비프음 없음 — 문구만) */
+export function speakReservationAlertPreview(input: {
+  title: string;
+  body?: string;
+  kind?: 'airpick' | 'other';
+}): void {
+  const title = String(input.title || '').trim();
+  if (!title) return;
+
+  if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
+
   try {
-    const Ctx = window.AudioContext || (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!Ctx) return;
-    const ctx = new Ctx();
-    const playTone = (freq: number, start: number, duration: number) => {
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-      osc.type = 'sine';
-      osc.frequency.value = freq;
-      gain.gain.setValueAtTime(0.0001, start);
-      gain.gain.exponentialRampToValueAtTime(0.25, start + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, start + duration);
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(start);
-      osc.stop(start + duration + 0.05);
+    window.speechSynthesis.cancel();
+    const utter = new SpeechSynthesisUtterance(title);
+    utter.lang = 'ko-KR';
+    utter.rate = 1.05;
+    utter.pitch = input.kind === 'airpick' ? 1.15 : 1.0;
+
+    const pickKoVoice = () => {
+      const voices = window.speechSynthesis.getVoices();
+      const ko =
+        voices.find((v) => v.lang === 'ko-KR') ||
+        voices.find((v) => v.lang.toLowerCase().startsWith('ko'));
+      if (ko) utter.voice = ko;
+      window.speechSynthesis.speak(utter);
     };
-    const t = ctx.currentTime;
-    playTone(880, t, 0.12);
-    playTone(1174, t + 0.14, 0.18);
-    window.setTimeout(() => void ctx.close(), 500);
+
+    if (window.speechSynthesis.getVoices().length > 0) {
+      pickKoVoice();
+    } else {
+      window.speechSynthesis.addEventListener('voiceschanged', pickKoVoice, {
+        once: true,
+      });
+      window.setTimeout(pickKoVoice, 250);
+    }
   } catch {
-    // ignore — 일부 브라우저는 사용자 제스처 없이 AudioContext 차단
+    // TTS 미지원
   }
 }
 
-function formatReservationAlertBody(res: Reservation): string {
-  const car = res.carNumber || '차량미상';
-  const name = res.userName || '';
-  const date = res.departureDate || '';
-  const time = res.departureTime || '';
-  const schedule = [date, time].filter(Boolean).join(' ');
-  return [car, name, schedule].filter(Boolean).join(' · ');
+/** 에어픽 B2C → titleAirpick, 홈·현장 → titleOther */
+export function newReservationAlertTitle(
+  res: Pick<Reservation, 'createdBy'> & Partial<Reservation>,
+  copy: ReservationAlertCopy = runtimeAlertCopy
+): string {
+  const source = resolveBookingSource(
+    res.createdBy,
+    res as unknown as Record<string, unknown>
+  );
+  return alertTitleForBookingSource(copy, source);
 }
 
-export function notifyNewReservation(res: Reservation, companyLabel: string): void {
+export function notifyNewReservation(res: Reservation, _companyLabel: string): void {
   if (!areReservationAlertsEnabled()) return;
 
-  playNewReservationAlertSound();
+  const title = newReservationAlertTitle(res);
+  const kind =
+    resolveBookingSource(res.createdBy, res as unknown as Record<string, unknown>) ===
+    'airpick-b2c'
+      ? 'airpick'
+      : 'other';
+
+  // 비프 없이 제목만 읽음 (옛 알림음과 겹치지 않게)
+  speakReservationAlertPreview({ title, kind });
 
   if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
     try {
-      const body = formatReservationAlertBody(res);
-      new Notification(`신규 입고예정 · ${companyLabel}`, {
-        body,
+      new Notification(title, {
         tag: `res-${res.id}`,
         renotify: true,
-      } as NotificationOptions & { renotify?: boolean });
+        silent: true,
+      } as NotificationOptions & { renotify?: boolean; silent?: boolean });
     } catch {
       // mobile Safari 등
     }

@@ -2,7 +2,7 @@ import { Capacitor } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { doc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
-import { ensureFirestoreAuth } from './firebaseAuth';
+import { waitForAuthReady } from './firebaseAuth';
 import { isAirpickHeadquarters } from '../constants/platform';
 
 async function sha256Hex(value: string): Promise<string> {
@@ -22,7 +22,13 @@ async function persistFcmToken(params: {
   const { token, companyId, scopeCompanyIds, platform } = params;
   if (!token || !companyId || isAirpickHeadquarters(companyId)) return;
 
-  await ensureFirestoreAuth();
+  const user = await waitForAuthReady();
+  if (!user) {
+    throw new Error('푸시 등록을 위해 로그인이 필요합니다.');
+  }
+  // partnerCompanyId claim 반영을 위해 토큰 갱신
+  await user.getIdToken(true);
+
   const id = await sha256Hex(token);
   const scopes = Array.from(
     new Set([companyId, ...scopeCompanyIds].map((s) => String(s || '').trim()).filter(Boolean))
@@ -37,6 +43,7 @@ async function persistFcmToken(params: {
       platform,
       enabled: true,
       updatedAt: new Date().toISOString(),
+      uid: user.uid,
     },
     { merge: true }
   );
@@ -48,6 +55,7 @@ let pendingContext: {
   scopeCompanyIds: string[];
 } | null = null;
 let lastFcmToken: string | null = null;
+let registerInFlight: Promise<boolean> | null = null;
 
 function ensurePushListeners(): void {
   if (listenersReady || !Capacitor.isNativePlatform()) return;
@@ -91,63 +99,74 @@ export async function registerPartnerPushDevice(params: {
   if (!companyId || isAirpickHeadquarters(companyId)) return false;
   if (!Capacitor.isNativePlatform()) return false;
 
-  pendingContext = {
-    companyId,
-    scopeCompanyIds: params.scopeCompanyIds || [companyId],
-  };
-  ensurePushListeners();
+  if (registerInFlight) return registerInFlight;
 
-  // 업체 전환 시 이미 받은 토큰을 새 스코프로 즉시 재등록
-  if (lastFcmToken) {
-    void persistFcmToken({
-      token: lastFcmToken,
-      companyId: pendingContext.companyId,
-      scopeCompanyIds: pendingContext.scopeCompanyIds,
-      platform: Capacitor.getPlatform(),
-    }).catch((err) => console.warn('[FCM] token rebind failed:', err));
-  }
+  registerInFlight = (async () => {
+    pendingContext = {
+      companyId,
+      scopeCompanyIds: params.scopeCompanyIds || [companyId],
+    };
+    ensurePushListeners();
 
-  let perm = await PushNotifications.checkPermissions();
-  if (perm.receive === 'prompt' || perm.receive === 'prompt-with-rationale') {
-    perm = await PushNotifications.requestPermissions();
-  }
-  if (perm.receive !== 'granted') {
-    console.warn('[FCM] permission not granted:', perm.receive);
-    return false;
-  }
+    // 업체 전환 시 이미 받은 토큰을 새 스코프로 즉시 재등록
+    if (lastFcmToken) {
+      try {
+        await persistFcmToken({
+          token: lastFcmToken,
+          companyId: pendingContext.companyId,
+          scopeCompanyIds: pendingContext.scopeCompanyIds,
+          platform: Capacitor.getPlatform(),
+        });
+      } catch (err) {
+        console.warn('[FCM] token rebind failed:', err);
+      }
+    }
 
-  try {
-    await PushNotifications.createChannel({
-      id: 'new_reservations',
-      name: '신규 예약',
-      description: '신규 입고예정 예약 알림',
-      importance: 5,
-      visibility: 1,
-      sound: 'default',
-      vibration: true,
-    });
-    await PushNotifications.createChannel({
-      id: 'flight_delays',
-      name: '항공편 연착',
-      description: '입국 항공편 연착·결항·도착 알림',
-      importance: 5,
-      visibility: 1,
-      sound: 'default',
-      vibration: true,
-    });
-    await PushNotifications.createChannel({
-      id: 'valet_status',
-      name: '입·출고 상태',
-      description: '입고·출고 탭 이동 알림',
-      importance: 5,
-      visibility: 1,
-      sound: 'default',
-      vibration: true,
-    });
-  } catch {
-    // 웹·구버전 무시
-  }
+    let perm = await PushNotifications.checkPermissions();
+    if (perm.receive === 'prompt' || perm.receive === 'prompt-with-rationale') {
+      perm = await PushNotifications.requestPermissions();
+    }
+    if (perm.receive !== 'granted') {
+      console.warn('[FCM] permission not granted:', perm.receive);
+      return false;
+    }
 
-  await PushNotifications.register();
-  return true;
+    try {
+      await PushNotifications.createChannel({
+        id: 'new_reservations',
+        name: '예약 알림',
+        description: '새 예약이 들어오면 알려줍니다',
+        importance: 5,
+        visibility: 1,
+        sound: 'default',
+        vibration: true,
+      });
+    } catch {
+      // 웹·구버전 무시
+    }
+
+    await PushNotifications.register();
+
+    // registration 콜백이 늦게 올 수 있어, 이미 토큰이 있으면 저장 완료로 본다
+    if (lastFcmToken) {
+      try {
+        await persistFcmToken({
+          token: lastFcmToken,
+          companyId: pendingContext.companyId,
+          scopeCompanyIds: pendingContext.scopeCompanyIds,
+          platform: Capacitor.getPlatform(),
+        });
+        return true;
+      } catch (err) {
+        console.warn('[FCM] token save after register failed:', err);
+        return false;
+      }
+    }
+
+    return true;
+  })().finally(() => {
+    registerInFlight = null;
+  });
+
+  return registerInFlight;
 }

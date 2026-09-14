@@ -341,7 +341,7 @@ export async function syncReservationToSheets(
     }
   }
 
-  // 탭이 바뀐 경우(예: 와와 → 와와홈) 이전 탭에 남은 동일 예약ID 행 제거
+  // 탭이 바뀐 경우(예: 예전 와와홈 → 와와) 이전 탭에 남은 동일 예약ID 행 제거
   const previousTab =
     existing?.spreadsheetId === config.spreadsheetId &&
     typeof existing?.tab === 'string' &&

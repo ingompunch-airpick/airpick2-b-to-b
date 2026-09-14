@@ -8,6 +8,15 @@ export interface AlimtalkButton {
   linkPc?: string;
 }
 
+/**
+ * 업체 전용 템플릿처럼 본문이 코드 밖에 있을 때, 치환까지 끝낸 결과를
+ * 그대로 넘기기 위한 형태. 없으면 공용 템플릿에서 렌더한다.
+ */
+export interface RenderedAlimtalkContent {
+  title?: string;
+  content: string;
+}
+
 export interface AlimtalkSendResult {
   ok: boolean;
   requestId?: string;

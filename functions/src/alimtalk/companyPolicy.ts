@@ -3,6 +3,15 @@ import * as admin from 'firebase-admin';
 import type { BookingSource } from '../sheets/bookingSource';
 import { DEFAULT_COMPANY_PHONE, type AlimtalkEventType } from './constants';
 import type { AlimtalkConfig } from './shared';
+import {
+  WAWA_RESERVE_TEMPLATE_BODY,
+  WAWA_RESERVE_TEMPLATE_CODE,
+} from './wawaReserveTemplate';
+
+/** 콘솔 코드 → 리포에 고정한 본문. Firestore body 가 있으면 그쪽이 우선. */
+const KNOWN_TEMPLATE_BODIES: Record<string, string> = {
+  [WAWA_RESERVE_TEMPLATE_CODE]: WAWA_RESERVE_TEMPLATE_BODY,
+};
 
 const ALL_EVENTS: AlimtalkEventType[] = ['reserve', 'checkin', 'checkout'];
 const ALL_SOURCES: BookingSource[] = ['airpick-b2c', 'homepage', 'b2b'];
@@ -15,7 +24,10 @@ const ALL_SOURCES: BookingSource[] = ['airpick-b2c', 'homepage', 'b2b'];
  *   enabled: true,
  *   sources: ['airpick-b2c', 'homepage'],
  *   events: ['reserve', 'checkin', 'checkout'],
- *   channel: { plusFriendId: '@업체채널' }   // 없으면 에어픽 공용 채널
+ *   channel: { plusFriendId: '@업체채널' },  // 없으면 에어픽 공용 채널
+ *   templates: {                             // 홈페이지·현장만. B2C는 항상 공용
+ *     reserve: { code: 'wawa_reserve', body: '...', buttonName: '접수증 보기' }
+ *   }
  * }
  */
 const DEFAULT_SOURCES: BookingSource[] = ['airpick-b2c'];
@@ -25,6 +37,19 @@ export interface CompanyAlimtalkChannel {
   senderKey?: string;
 }
 
+/**
+ * 업체 전용 템플릿. 업체마다 양식이 달라서 본문을 코드에 두지 않고
+ * Firestore 에 둔다. body 는 NCP 콘솔에 검수 승인된 본문과 글자 하나까지
+ * 같아야 한다(다르면 발송 시 3028).
+ */
+export interface CompanyAlimtalkTemplate {
+  code: string;
+  title?: string;
+  body: string;
+  /** 콘솔에 등록한 버튼명 — 다르면 발송 거부된다 */
+  buttonName?: string;
+}
+
 export interface CompanyAlimtalkSettings {
   enabled: boolean;
   sources: BookingSource[];
@@ -32,6 +57,8 @@ export interface CompanyAlimtalkSettings {
   phone: string;
   /** 업체 전용 카카오 채널 — 미설정이면 전역 발신프로필 사용 */
   channel?: CompanyAlimtalkChannel;
+  /** 업체 전용 템플릿 — 미설정이면 에어픽 공용 템플릿 사용 */
+  templates?: Partial<Record<AlimtalkEventType, CompanyAlimtalkTemplate>>;
 }
 
 function parseStringList<T extends string>(raw: unknown, allowed: T[], fallback: T[]): T[] {
@@ -54,6 +81,33 @@ function parseChannel(raw: unknown): CompanyAlimtalkChannel | undefined {
   };
 }
 
+function parseTemplates(
+  raw: unknown
+): Partial<Record<AlimtalkEventType, CompanyAlimtalkTemplate>> | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const obj = raw as Record<string, unknown>;
+  const out: Partial<Record<AlimtalkEventType, CompanyAlimtalkTemplate>> = {};
+
+  for (const event of ALL_EVENTS) {
+    const entry = obj[event];
+    if (!entry || typeof entry !== 'object') continue;
+    const e = entry as Record<string, unknown>;
+    const code = String(e.code ?? '').trim();
+    const body = String(e.body ?? '').trim() || KNOWN_TEMPLATE_BODIES[code] || '';
+    if (!code || !body) continue;
+    const title = String(e.title ?? '').trim();
+    const buttonName = String(e.buttonName ?? '').trim();
+    out[event] = {
+      code,
+      body,
+      ...(title ? { title } : {}),
+      ...(buttonName ? { buttonName } : {}),
+    };
+  }
+
+  return Object.keys(out).length > 0 ? out : undefined;
+}
+
 export function parseCompanyAlimtalkSettings(
   data: Record<string, unknown> | undefined
 ): CompanyAlimtalkSettings {
@@ -73,6 +127,7 @@ export function parseCompanyAlimtalkSettings(
     events: parseStringList(obj.events, ALL_EVENTS, ALL_EVENTS),
     phone,
     channel: parseChannel(obj.channel),
+    templates: parseTemplates(obj.templates),
   };
 }
 

@@ -8,6 +8,7 @@ import type {
   AlimtalkSendResult,
   NcpAlimtalkConfig,
   NhnAlimtalkConfig,
+  RenderedAlimtalkContent,
 } from './shared';
 import type { AlimtalkTemplateParams } from './types';
 
@@ -98,7 +99,8 @@ export async function sendAlimtalkMessage(
   templateCode: string,
   recipientNo: string,
   templateParameter: AlimtalkTemplateParams,
-  buttons?: AlimtalkButton[]
+  buttons?: AlimtalkButton[],
+  rendered?: RenderedAlimtalkContent
 ): Promise<AlimtalkSendResult> {
   if (config.provider === 'ncp') {
     return sendNcpAlimtalkMessage(
@@ -106,7 +108,8 @@ export async function sendAlimtalkMessage(
       templateCode,
       recipientNo,
       templateParameter,
-      buttons
+      buttons,
+      rendered
     );
   }
   return sendNhnAlimtalkMessage(

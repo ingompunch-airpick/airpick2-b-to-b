@@ -2,7 +2,12 @@ import { NCP_ALIMTALK_API_BASE } from './constants';
 import type { AlimtalkEventType } from './constants';
 import { buildNcpApiSignature, buildNcpApiTimestamp } from './ncpSignature';
 import { renderNcpTemplateContent } from './ncpTemplates';
-import type { AlimtalkButton, AlimtalkSendResult, NcpAlimtalkConfig } from './shared';
+import type {
+  AlimtalkButton,
+  AlimtalkSendResult,
+  NcpAlimtalkConfig,
+  RenderedAlimtalkContent,
+} from './shared';
 import type { AlimtalkTemplateParams } from './types';
 
 interface NcpSendResponse {
@@ -41,17 +46,19 @@ export async function sendNcpAlimtalkMessage(
   templateCode: string,
   recipientNo: string,
   templateParameter: AlimtalkTemplateParams,
-  buttons?: AlimtalkButton[]
+  buttons?: AlimtalkButton[],
+  renderedOverride?: RenderedAlimtalkContent
 ): Promise<AlimtalkSendResult> {
-  const eventType = resolveEventTypeFromTemplateCode(config, templateCode);
-  if (!eventType) {
+  const rendered = renderedOverride ?? (() => {
+    const eventType = resolveEventTypeFromTemplateCode(config, templateCode);
+    return eventType ? renderNcpTemplateContent(eventType, templateParameter) : null;
+  })();
+  if (!rendered) {
     return {
       ok: false,
       resultMessage: `unknown NCP template code: ${templateCode}`,
     };
   }
-
-  const rendered = renderNcpTemplateContent(eventType, templateParameter);
   const urlPath = `/alimtalk/v2/services/${config.serviceId}/messages`;
   const timestamp = buildNcpApiTimestamp();
   const signature = buildNcpApiSignature(

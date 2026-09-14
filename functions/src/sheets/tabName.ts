@@ -2,7 +2,6 @@ import { resolveBookingSource } from './bookingSource';
 import {
   COMPANY_TAB_BY_ID,
   FALLBACK_TAB,
-  homepageTabFromCompanyTab,
   TAB_AIRPICK_B2C,
 } from './constants';
 
@@ -32,8 +31,8 @@ function tabFromCompany(companyId?: string, companyName?: string): string {
 /**
  * 탭 분리:
  * - 에어픽 B2C → 「에어픽」
- * - 업체 홈페이지 → 「와와홈」「가유홈」…
- * - 현장·B2B → 「와와」「가유」…
+ * - 그 외(현장·B2B·업체 홈페이지) → 「와와」「가유」… (홈페이지도 같은 업체 탭)
+ * 유입 구분은 시트 「유입」 열(홈페이지 / 현장·B2B)로만 본다.
  */
 export function resolveSheetTabName(data: Record<string, unknown>): string {
   const source = resolveBookingSource(
@@ -43,12 +42,8 @@ export function resolveSheetTabName(data: Record<string, unknown>): string {
 
   if (source === 'airpick-b2c') return TAB_AIRPICK_B2C;
 
-  const companyTab = tabFromCompany(
+  return tabFromCompany(
     typeof data.companyId === 'string' ? data.companyId : undefined,
     typeof data.companyName === 'string' ? data.companyName : undefined
   );
-
-  if (source === 'homepage') return homepageTabFromCompanyTab(companyTab);
-
-  return companyTab;
 }

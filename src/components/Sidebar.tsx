@@ -1,4 +1,5 @@
 ﻿import React from 'react';
+import { Capacitor } from '@capacitor/core';
 import {
   X,
   Camera,
@@ -16,6 +17,7 @@ import {
   MessageSquareWarning,
   UserRoundSearch,
   QrCode,
+  UserPlus,
 } from 'lucide-react';
 import { AppView } from '../types';
 import { isAirpickHeadquarters } from '../constants/platform';
@@ -24,8 +26,11 @@ import {
   areReservationAlertsEnabled,
   requestReservationNotificationPermission,
   setReservationAlertsEnabled,
+  setRuntimeReservationAlertCopy,
 } from '../utils/reservationNotifications';
 import { registerPartnerPushDevice } from '../lib/partnerPush';
+import ReservationAlertSettingsModal from './ReservationAlertSettingsModal';
+import { fetchReservationAlertCopy } from '../lib/reservationAlertCopyFirestore';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -75,7 +80,14 @@ export default function Sidebar({
   companyInfo
 }: SidebarProps) {
   const [alertsEnabled, setAlertsEnabled] = React.useState(() => areReservationAlertsEnabled());
+  const [alertSettingsOpen, setAlertSettingsOpen] = React.useState(false);
 
+  React.useEffect(() => {
+    if (!isOpen) return;
+    void fetchReservationAlertCopy()
+      .then((copy) => setRuntimeReservationAlertCopy(copy))
+      .catch(() => undefined);
+  }, [isOpen]);
   const toggleAlerts = async () => {
     const next = !alertsEnabled;
     if (next) {
@@ -87,10 +99,15 @@ export default function Sidebar({
       if (currentCompanyId && !isAirpickHeadquarters(currentCompanyId)) {
         const scopes =
           operatorCompanyIds.length > 0 ? operatorCompanyIds : [currentCompanyId];
-        void registerPartnerPushDevice({
+        const ok = await registerPartnerPushDevice({
           companyId: currentCompanyId,
           scopeCompanyIds: scopes,
         });
+        if (!ok && Capacitor.isNativePlatform()) {
+          window.alert(
+            '알림 권한이 꺼져 있거나 푸시 등록에 실패했습니다.\n설정 → 앱 → 알림을 켠 뒤 다시 시도해 주세요.'
+          );
+        }
       }
       return;
     }
@@ -98,7 +115,7 @@ export default function Sidebar({
     setAlertsEnabled(false);
   };
 
-  if (!isOpen) return null;
+  if (!isOpen && !alertSettingsOpen) return null;
 
   const safeCompanyInfo = {
     name: isAirpickHeadquarters(currentCompanyId) ? '에어픽' : (companyInfo?.name || '업체'),
@@ -115,6 +132,7 @@ export default function Sidebar({
         { id: 'admin_reviews', label: '④ 후기 관리', icon: MessageSquareWarning, view: 'hq_reviews' as AppView },
         { id: 'admin_customers', label: '⑤ 고객 조회', icon: UserRoundSearch, view: 'hq_customers' as AppView },
         { id: 'admin_acquisition', label: '⑥ 명함 QR', icon: QrCode, view: 'acquisition_funnel' as AppView },
+        { id: 'admin_affiliate', label: '⑦ 제휴 코드', icon: UserPlus, view: 'affiliate_admin' as AppView },
       ]
     : isAdminModeActive
     ? [
@@ -130,6 +148,8 @@ export default function Sidebar({
       ];
 
   return (
+    <>
+    {isOpen ? (
     <div className="fixed inset-0 z-[100] flex">
       {/* Backdrop */}
       <div 
@@ -272,7 +292,7 @@ export default function Sidebar({
           <button
             type="button"
             onClick={toggleAlerts}
-            className={`w-full mb-3 py-2.5 px-3 rounded-xl border text-left flex items-center gap-2 transition-all ${
+            className={`w-full mb-2 py-2.5 px-3 rounded-xl border text-left flex items-center gap-2 transition-all ${
               alertsEnabled
                 ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
                 : 'bg-neutral-900 border-neutral-800 text-zinc-500'
@@ -283,6 +303,13 @@ export default function Sidebar({
               <span className="text-xs font-black block">신규 예약 알림</span>
               <span className="text-[10px] opacity-80">{alertsEnabled ? '켜짐 · 소리+푸시' : '꺼짐'}</span>
             </div>
+          </button>
+          <button
+            type="button"
+            onClick={() => setAlertSettingsOpen(true)}
+            className="w-full mb-3 py-2 px-3 rounded-xl border border-neutral-800 bg-neutral-950 text-left text-[11px] font-bold text-zinc-400 hover:text-zinc-200 hover:border-neutral-700 transition-all"
+          >
+            알림 문구 미리듣기 · 조정
           </button>
 
           <div className="flex gap-2">
@@ -316,5 +343,14 @@ export default function Sidebar({
 
       </div>
     </div>
+    ) : null}
+
+    <ReservationAlertSettingsModal
+      open={alertSettingsOpen}
+      onClose={() => setAlertSettingsOpen(false)}
+      currentCompanyId={currentCompanyId || ''}
+      canEdit={isSuperAdmin || isAirpickHeadquarters(currentCompanyId)}
+    />
+    </>
   );
 }

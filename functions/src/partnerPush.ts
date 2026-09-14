@@ -1,16 +1,64 @@
 import * as admin from 'firebase-admin';
+import { resolveBookingSource } from './sheets/bookingSource';
 
 function db() {
   return admin.firestore();
 }
 
-function formatPushBody(data: FirebaseFirestore.DocumentData): string {
-  const car = String(data.carNumber || '차량미상').trim();
-  const name = String(data.userName || '').trim();
-  const date = String(data.departureDate || '').trim();
-  const time = String(data.departureTime || '').trim();
-  const schedule = [date, time].filter(Boolean).join(' ');
-  return [car, name, schedule].filter(Boolean).join(' · ');
+const DEFAULT_TITLE_AIRPICK = '에어픽 예약';
+const DEFAULT_TITLE_OTHER = '예약';
+
+type AlertCopy = { titleAirpick: string; titleOther: string };
+
+let alertCopyCache: AlertCopy | null = null;
+let alertCopyCacheAt = 0;
+const ALERT_COPY_CACHE_MS = 60_000;
+
+function normalizeTitle(raw: unknown, fallback: string): string {
+  const s = String(raw ?? '')
+    .trim()
+    .replace(/\s+/g, ' ')
+    .slice(0, 24);
+  return s || fallback;
+}
+
+async function loadAlertCopy(): Promise<AlertCopy> {
+  if (alertCopyCache && Date.now() - alertCopyCacheAt < ALERT_COPY_CACHE_MS) {
+    return alertCopyCache;
+  }
+  try {
+    const snap = await db().doc('appConfig/reservationAlerts').get();
+    const data = snap.exists ? (snap.data() as Record<string, unknown>) : {};
+    alertCopyCache = {
+      titleAirpick: normalizeTitle(data.titleAirpick, DEFAULT_TITLE_AIRPICK),
+      titleOther: normalizeTitle(data.titleOther, DEFAULT_TITLE_OTHER),
+    };
+  } catch (err) {
+    console.warn('[partnerPush] alert copy load failed', err);
+    alertCopyCache = {
+      titleAirpick: DEFAULT_TITLE_AIRPICK,
+      titleOther: DEFAULT_TITLE_OTHER,
+    };
+  }
+  alertCopyCacheAt = Date.now();
+  return alertCopyCache;
+}
+
+function formatPushBody(_data: FirebaseFirestore.DocumentData): string {
+  // 제목만 울림 — 차량번호·일정 본문 없음
+  return '';
+}
+
+/** 에어픽 B2C vs 홈·현장 알림 제목 분리 (appConfig/reservationAlerts) */
+async function newReservationPushTitle(
+  data: FirebaseFirestore.DocumentData
+): Promise<string> {
+  const copy = await loadAlertCopy();
+  const source = resolveBookingSource(
+    typeof data.createdBy === 'string' ? data.createdBy : null,
+    data as Record<string, unknown>
+  );
+  return source === 'airpick-b2c' ? copy.titleAirpick : copy.titleOther;
 }
 
 async function sendPartnerMulticast(params: {
@@ -47,7 +95,9 @@ async function sendPartnerMulticast(params: {
 
   const response = await admin.messaging().sendEachForMulticast({
     tokens,
-    notification: { title, body },
+    notification: body.trim()
+      ? { title, body }
+      : { title },
     data: {
       reservationId,
       companyId,
@@ -100,11 +150,10 @@ export async function notifyPartnersNewReservation(
   const companyId = String(data.companyId || '').trim();
   if (!companyId) return;
 
-  const companyLabel = String(data.companyName || companyId).trim() || companyId;
   await sendPartnerMulticast({
     companyId,
     reservationId,
-    title: `신규 입고예정 · ${companyLabel}`,
+    title: await newReservationPushTitle(data),
     body: formatPushBody(data),
     type: 'new_reservation',
     channelId: 'new_reservations',
@@ -120,100 +169,31 @@ export type FlightDelayPushInfo = {
   cancelled: boolean;
 };
 
-/** 입국 항공편 연착·결항 시 파트너 푸시 */
+/** 입국 항공편 연착·결항 시 파트너 푸시 — 사용 안 함(예약 유입만 알림) */
 export async function notifyPartnersFlightDelay(
-  reservationId: string,
-  data: FirebaseFirestore.DocumentData,
-  info: FlightDelayPushInfo
+  _reservationId: string,
+  _data: FirebaseFirestore.DocumentData,
+  _info: FlightDelayPushInfo
 ): Promise<void> {
-  const companyId = String(data.companyId || '').trim();
-  if (!companyId) return;
-
-  const car = String(data.carNumber || '').trim();
-  const name = String(data.userName || '').trim();
-  const who = [name, car].filter(Boolean).join(' · ') || '고객';
-
-  const title = info.cancelled
-    ? `항공편 결항 · ${info.flightId}`
-    : `항공편 연착 · ${info.flightId}`;
-  const body = info.cancelled
-    ? `${who} · 결항 (${info.remark || '결항'})`
-    : `${who} · ${info.scheduleLabel} → ${info.estimatedLabel} (+${info.delayMinutes}분)`;
-
-  await sendPartnerMulticast({
-    companyId,
-    reservationId,
-    title,
-    body,
-    type: info.cancelled ? 'flight_cancel' : 'flight_delay',
-    channelId: 'flight_delays',
-    extraData: {
-      flightId: info.flightId,
-      schedule: info.scheduleLabel,
-      estimated: info.estimatedLabel,
-      delayMinutes: String(info.delayMinutes),
-    },
-  });
+  return;
 }
 
-/** 입국 항공편 도착 시 출고요청 자동 전환 알림 */
+/** 입국 항공편 도착 시 출고요청 자동 전환 알림 — 사용 안 함 */
 export async function notifyPartnersFlightArrival(
-  reservationId: string,
-  data: FirebaseFirestore.DocumentData,
-  info: { flightId: string; estimatedLabel: string }
+  _reservationId: string,
+  _data: FirebaseFirestore.DocumentData,
+  _info: { flightId: string; estimatedLabel: string }
 ): Promise<void> {
-  const companyId = String(data.companyId || '').trim();
-  if (!companyId) return;
-
-  const car = String(data.carNumber || '').trim();
-  const name = String(data.userName || '').trim();
-  const who = [name, car].filter(Boolean).join(' · ') || '고객';
-
-  await sendPartnerMulticast({
-    companyId,
-    reservationId,
-    title: `항공편 도착 · ${info.flightId}`,
-    body: `${who} · 도착 ${info.estimatedLabel} · 출고 탭으로 이동됨`,
-    type: 'flight_arrival',
-    channelId: 'flight_delays',
-    extraData: {
-      flightId: info.flightId,
-      estimated: info.estimatedLabel,
-    },
-  });
+  return;
 }
 
 /**
- * 출고예정 → 출고(request_out) 수동 전환 알림.
- * 입고완료·반납완료는 보내지 않음.
- * 비행기 자동 출고는 notifyPartnersFlightArrival이 이미 보내므로 스킵.
+ * 출고예정 → 출고(request_out) 수동 전환 알림 — 사용 안 함(예약 유입만 알림).
  */
 export async function notifyPartnersValetStatusChange(
-  reservationId: string,
-  before: FirebaseFirestore.DocumentData | undefined,
-  after: FirebaseFirestore.DocumentData
+  _reservationId: string,
+  _before: FirebaseFirestore.DocumentData | undefined,
+  _after: FirebaseFirestore.DocumentData
 ): Promise<void> {
-  const companyId = String(after.companyId || '').trim();
-  if (!companyId) return;
-
-  const prev = String(before?.status || '').trim();
-  const next = String(after.status || '').trim();
-  if (next !== 'request_out' || prev === 'request_out') return;
-
-  const updatedBy = String(after.updatedBy || '').trim();
-  if (updatedBy === 'flight-arrival-auto') return;
-
-  const car = String(after.carNumber || '').trim();
-  const name = String(after.userName || '').trim();
-  const who = [car, name].filter(Boolean).join(' · ') || '고객';
-  const by = updatedBy ? ` · ${updatedBy}` : '';
-
-  await sendPartnerMulticast({
-    companyId,
-    reservationId,
-    title: '출고 · 출고 탭으로 이동',
-    body: `${who}${by}`,
-    type: 'status_request_out',
-    channelId: 'valet_status',
-  });
+  return;
 }

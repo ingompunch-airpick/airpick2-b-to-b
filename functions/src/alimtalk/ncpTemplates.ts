@@ -34,18 +34,26 @@ const NCP_TEMPLATE_BODIES: Record<
   },
 };
 
+/** `#{변수}` 치환 — 값이 없는 변수는 그대로 남겨 발송 시 불일치로 드러나게 둔다 */
+export function renderTemplateBody(
+  body: string,
+  params: AlimtalkTemplateParams
+): string {
+  let content = body;
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined) continue;
+    content = content.split(`#{${key}}`).join(String(value));
+  }
+  return content;
+}
+
 export function renderNcpTemplateContent(
   eventType: AlimtalkEventType,
   params: AlimtalkTemplateParams
 ): { title?: string; content: string } {
   const template = NCP_TEMPLATE_BODIES[eventType];
-  let content = template.body;
-  for (const [key, value] of Object.entries(params)) {
-    if (value === undefined) continue;
-    content = content.split(`#{${key}}`).join(String(value));
-  }
   return {
     ...(template.title ? { title: template.title } : {}),
-    content,
+    content: renderTemplateBody(template.body, params),
   };
 }
