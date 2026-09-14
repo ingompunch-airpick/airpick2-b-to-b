@@ -6,7 +6,7 @@ import { processReservationSheetsArchive } from './sheets/processReservationShee
 import { enforceHourlyCapacityOnCreate } from './hourlyCapacity';
 import { enforceParkingCapacityOnCreate } from './parkingCapacity';
 import { enforceBookingPolicyOnCreate } from './bookingPolicy';
-import { bumpCustomerVisitOnCreate } from './customerVisit';
+import { bumpCustomerVisitOnCheckout } from './customerVisit';
 import {
   notifyPartnersNewReservation,
   notifyPartnersValetStatusChange,
@@ -117,14 +117,6 @@ export const onReservationSync = onDocumentWritten(
       const rejected = await enforceHourlyCapacityOnCreate(reservationId, afterData);
       if (rejected) return;
       try {
-        await bumpCustomerVisitOnCreate(reservationId, afterData);
-      } catch (err) {
-        console.error('[customerVisit] bump failed', {
-          reservationId,
-          err: err instanceof Error ? err.message : String(err),
-        });
-      }
-      try {
         await notifyPartnersNewReservation(reservationId, afterData);
       } catch (err) {
         console.error('[partnerPush] failed', {
@@ -133,6 +125,14 @@ export const onReservationSync = onDocumentWritten(
         });
       }
     } else {
+      try {
+        await bumpCustomerVisitOnCheckout(reservationId, beforeData, afterData);
+      } catch (err) {
+        console.error('[customerVisit] bump failed', {
+          reservationId,
+          err: err instanceof Error ? err.message : String(err),
+        });
+      }
       try {
         await notifyPartnersValetStatusChange(reservationId, beforeData, afterData);
       } catch (err) {

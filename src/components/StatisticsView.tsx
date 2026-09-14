@@ -28,7 +28,7 @@ import {
 } from '../utils/reservationStatus';
 import { normalizeDateString } from '../utils/reservationNormalize';
 import { getKSTDateOnlyString, toKSTDateOnlyString } from '../utils/kstDate';
-import { fetchCustomerVisitCount } from '../lib/customerVisit';
+import { computeReservationVisitOrdinal } from '../lib/customerVisit';
 import DateNavBar from './DateNavBar';
 import {
   aggregateGroupedBookingSourceMetrics,
@@ -52,31 +52,23 @@ import {
   resolveOperatorBrandLabel,
 } from '../utils/operatorBrandLabel';
 
-function CustomerVisitBadge({ phone }: { phone?: string }) {
-  const [visitCount, setVisitCount] = useState<number | null>(null);
+function CustomerVisitBadge({
+  reservation,
+  pool,
+}: {
+  reservation: Reservation;
+  pool: Reservation[];
+}) {
+  const ordinal = useMemo(
+    () => computeReservationVisitOrdinal(reservation, pool),
+    [reservation, pool]
+  );
 
-  useEffect(() => {
-    let cancelled = false;
-    setVisitCount(null);
-
-    void fetchCustomerVisitCount(phone)
-      .then((count) => {
-        if (!cancelled) setVisitCount(count);
-      })
-      .catch(() => {
-        if (!cancelled) setVisitCount(null);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [phone]);
-
-  if (visitCount === null) return null;
+  if (ordinal == null) return null;
 
   return (
     <span className="inline-flex shrink-0 rounded-md border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 align-middle text-[10px] font-black text-emerald-400">
-      방문 {visitCount}회
+      방문 {ordinal}회
     </span>
   );
 }
@@ -940,7 +932,7 @@ export default function StatisticsView({
                         <div className="flex items-center gap-2 min-w-0">
                           <span className="text-xs font-black text-white font-mono">{res.carNumber}</span>
                           <span className="text-[12px] text-zinc-500 truncate">{res.carModel}</span>
-                          <CustomerVisitBadge phone={res.phone} />
+                          <CustomerVisitBadge reservation={res} pool={allReservations} />
                           {(() => {
                             const grouped = toGroupedBookingSource(resolveBookingSourceFromReservation(res));
                             if (grouped === 'other') return null;

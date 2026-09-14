@@ -24,22 +24,33 @@ function formatPhoneDisplay(digits: string): string {
   return digits;
 }
 
+function isCompletedOut(status: unknown): boolean {
+  return String(status || '').trim() === 'completed_out';
+}
+
 /**
- * 신규 예약 생성 시 customers/{phoneKey}.visitCount +1
- * (홈·B2B·B2C 공통 — Firestore create 트리거)
+ * 출고 완료(completed_out)로 바뀌는 순간 customers/{phoneKey}.visitCount +1
+ * 예약만 잡고 취소·재예약한 경우는 방문으로 치지 않음.
  */
-export async function bumpCustomerVisitOnCreate(
+export async function bumpCustomerVisitOnCheckout(
   reservationId: string,
-  data: FirebaseFirestore.DocumentData
+  before: FirebaseFirestore.DocumentData | undefined,
+  after: FirebaseFirestore.DocumentData
 ): Promise<void> {
-  const phoneKey = normalizePhoneDigits(data.phone);
+  if (!isCompletedOut(after.status)) return;
+  if (before && isCompletedOut(before.status)) return;
+
+  const phoneKey = normalizePhoneDigits(after.phone);
   if (!phoneKey || phoneKey.length < 10 || !phoneKey.startsWith('01')) {
-    console.log('[customerVisit] skipped — invalid phone', { reservationId, phone: data.phone });
+    console.log('[customerVisit] skipped — invalid phone', {
+      reservationId,
+      phone: after.phone,
+    });
     return;
   }
 
-  const nameLast = String(data.userName || data.name || '').trim();
-  const companyId = String(data.companyId || '').trim();
+  const nameLast = String(after.userName || after.name || '').trim();
+  const companyId = String(after.companyId || '').trim();
   const now = new Date().toISOString();
   const ref = admin.firestore().collection('customers').doc(phoneKey);
 
@@ -75,5 +86,5 @@ export async function bumpCustomerVisitOnCreate(
     });
   });
 
-  console.log('[customerVisit] bumped', { reservationId, phoneKey });
+  console.log('[customerVisit] bumped on checkout', { reservationId, phoneKey });
 }
