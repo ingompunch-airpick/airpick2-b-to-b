@@ -965,6 +965,7 @@ export default function StatisticsView({
                         <div className="flex items-center gap-2 min-w-0">
                           <span className="text-xs font-black text-white font-mono">{res.carNumber}</span>
                           <span className="text-[12px] text-zinc-500 truncate">{res.carModel}</span>
+                          <CustomerVisitBadge reservation={res} pool={visitOrdinalPool} />
                           {(() => {
                             const grouped = toGroupedBookingSource(resolveBookingSourceFromReservation(res));
                             if (grouped === 'other') return null;
@@ -985,12 +986,7 @@ export default function StatisticsView({
                       <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[13px]">
                         <div className="text-zinc-500">입고: <span className="text-zinc-300 font-mono">{res.departureDate} {res.departureTime}</span></div>
                         <div className="text-zinc-500">주차: <span className="text-zinc-300 font-mono">{space}</span></div>
-                        <div className="text-zinc-500 flex items-center gap-1.5 min-w-0">
-                          <span className="shrink-0">
-                            고객: <span className="text-zinc-300">{res.userName}</span>
-                          </span>
-                          <CustomerVisitBadge reservation={res} pool={visitOrdinalPool} />
-                        </div>
+                        <div className="text-zinc-500">고객: <span className="text-zinc-300">{res.userName}</span></div>
                         <div className="text-zinc-500">금액: <span className="text-amber-400 font-black font-mono">{(res.totalPrice||0).toLocaleString()}원</span></div>
                       </div>
                     </div>

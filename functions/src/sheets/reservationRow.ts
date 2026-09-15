@@ -6,16 +6,6 @@ export type SheetRowExtras = {
   visitCount?: number | null;
 };
 
-const STORE_LABEL_BY_ID: Record<string, string> = {
-  gayu: '가유',
-  gayu_partner: '가유',
-  hi: '안녕',
-  annyeong: '안녕',
-  season: '시즌',
-  wawa: '와와',
-  wawa_valet: '와와',
-};
-
 function statusLabel(status: unknown): string {
   switch (status) {
     case 'pending':
@@ -75,18 +65,6 @@ function firstStr(...values: unknown[]): string {
   return '';
 }
 
-function resolveStoreLabel(companyId: unknown, companyName: unknown): string {
-  const id = String(companyId || '').trim().toLowerCase();
-  if (id && STORE_LABEL_BY_ID[id]) return STORE_LABEL_BY_ID[id];
-
-  const name = String(companyName || '').trim();
-  if (name.includes('가유')) return '가유';
-  if (name.includes('안녕')) return '안녕';
-  if (name.includes('시즌')) return '시즌';
-  if (name.includes('와와')) return '와와';
-  return name || id || '-';
-}
-
 function resolveCustomerRequest(data: Record<string, unknown>): string {
   return firstStr(data.userRequest, data.customerNotes) || '-';
 }
@@ -119,9 +97,6 @@ export function buildReservationSheetRow(
     상태: statusLabel(data.status),
     유입: bookingSourceLabel(source),
     업체ID: str(data.companyId, ''),
-    // 예약 스냅샷(와와/와와발렛) 대신 탭·매장과 같은 정규화 표기
-    업체명: resolveStoreLabel(data.companyId, data.companyName),
-    매장: resolveStoreLabel(data.companyId, data.companyName),
     고객명: str(data.userName, ''),
     연락처: str(data.phone, ''),
     차량번호: str(data.carNumber, ''),
