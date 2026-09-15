@@ -95,6 +95,8 @@ export default function EditModal({
   const [notesOpen, setNotesOpen] = useState(false);
   /** 헤더 ⋯ — 되돌리기·취소 */
   const [moreOpen, setMoreOpen] = useState(false);
+  const [editTotalPrice, setEditTotalPrice] = useState(0);
+  const [priceManual, setPriceManual] = useState(false);
 
   useEffect(() => {
     if (driverDetailRes) {
@@ -133,6 +135,8 @@ export default function EditModal({
       setDriverEditDepartureTerminal(driverDetailRes.departureTerminal || '');
       setDriverEditArrivalTerminal(driverDetailRes.arrivalTerminal || '');
       setPaymentChoice(reservationToPaymentChoice(driverDetailRes));
+      setEditTotalPrice(Number(driverDetailRes.totalPrice) || 0);
+      setPriceManual(!!driverDetailRes.priceManual);
     }
   }, [driverDetailRes, companies]);
 
@@ -168,6 +172,12 @@ export default function EditModal({
     driverEditDepartureTerminal,
     driverEditArrivalTerminal,
   ]);
+
+  useEffect(() => {
+    if (!priceManual) {
+      setEditTotalPrice(recalculatedPrice);
+    }
+  }, [recalculatedPrice, priceManual]);
 
   if (!driverDetailRes) return null;
 
@@ -254,7 +264,8 @@ export default function EditModal({
       departureTerminal: driverEditDepartureTerminal,
       arrivalTerminal: driverEditArrivalTerminal,
       paymentMethod: paymentChoiceToMethod(paymentChoice),
-      totalPrice: recalculatedPrice,
+      totalPrice: Math.max(0, Math.round(Number(editTotalPrice) || 0)),
+      priceManual,
       updatedBy: operatorName,
       updatedAt: new Date().toISOString(),
     };
@@ -713,15 +724,21 @@ export default function EditModal({
         <div className="border-t border-neutral-800 shrink-0 bg-[#1C1C1E]">
           <div className="px-5 py-2.5 flex items-center justify-between gap-3 border-b border-neutral-800/80">
             <span className="text-[12px] font-bold text-zinc-500">주차 요금</span>
-            <div className="text-right">
-              <span className="text-[15px] font-black tabular-nums text-amber-400">
-                {recalculatedPrice.toLocaleString()}원
-              </span>
-              {recalculatedPrice !== (driverDetailRes.totalPrice ?? 0) && (
-                <p className="text-[11px] text-zinc-500 font-semibold tabular-nums">
-                  기존 {(driverDetailRes.totalPrice ?? 0).toLocaleString()}원 → 저장 시 반영
-                </p>
-              )}
+            <div className="flex items-center gap-1 shrink-0">
+              <input
+                type="number"
+                inputMode="numeric"
+                min={0}
+                step={1000}
+                value={editTotalPrice}
+                onChange={(e) => {
+                  setPriceManual(true);
+                  setEditTotalPrice(Number(e.target.value) || 0);
+                }}
+                className="w-[7.5rem] bg-[#131315] border border-neutral-700 rounded-lg px-2 py-1.5 text-right text-[15px] font-black tabular-nums text-amber-400 focus:outline-none focus:border-amber-500/50"
+                aria-label="주차 요금"
+              />
+              <span className="text-[13px] font-bold text-zinc-500">원</span>
             </div>
           </div>
           <div className="flex items-stretch">

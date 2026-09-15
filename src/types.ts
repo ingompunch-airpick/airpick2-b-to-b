@@ -235,6 +235,11 @@ export interface Reservation {
   /** 예약 시점 공항 (업체 airport 스탬프). 미설정 시 ICN */
   airport?: 'ICN' | 'GMP';
   totalPrice: number;
+  /**
+   * true면 업체가 최종 금액을 수동 확정한 상태.
+   * 일정·실내외 변경 시 자동 요금 재계산으로 덮어쓰지 않음.
+   */
+  priceManual?: boolean;
   status: ReservationStatus;
   createdAt: string;
   updatedAt?: string;

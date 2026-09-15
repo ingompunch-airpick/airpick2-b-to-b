@@ -574,7 +574,9 @@ export default function ScratchModal({
                     await handleUpdateValetStatus(scratchModalTargetId, 'completed_in', {
                       ...parkingFields,
                       isIndoor: nextIsIndoor,
-                      totalPrice: nextTotalPrice,
+                      ...(targetReservationForScratch.priceManual
+                        ? {}
+                        : { totalPrice: nextTotalPrice }),
                       actualParkingTime: getKSTDateTimeString(),
                       images: finalImages,
                       scratchPhotos: buildScratchPhotoSet(finalImages, true),

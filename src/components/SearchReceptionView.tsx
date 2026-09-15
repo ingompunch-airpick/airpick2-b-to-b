@@ -122,6 +122,8 @@ export default function SearchReceptionView({
   const [editSearchedDestination, setEditSearchedDestination] = useState('');
   const [editSearchedCustomerNotes, setEditSearchedCustomerNotes] = useState('');
   const [editSearchedReservationPassword, setEditSearchedReservationPassword] = useState('');
+  const [editSearchedTotalPrice, setEditSearchedTotalPrice] = useState(0);
+  const [editSearchedPriceManual, setEditSearchedPriceManual] = useState(false);
   // New Contract Intake Form states
   const [selectedCompanyId, setSelectedCompanyId] = useState('');
 
@@ -198,6 +200,8 @@ export default function SearchReceptionView({
   const [destination, setDestination] = useState('');
   const [customerNotes, setCustomerNotes] = useState('');
   const [reservationPassword, setReservationPassword] = useState('');
+  const [intakePriceManual, setIntakePriceManual] = useState(false);
+  const [intakeTotalPrice, setIntakeTotalPrice] = useState(0);
   // Date and Time picker control states
   const [datePickerTarget, setDatePickerTarget] = useState<'intakeStart' | 'intakeEnd' | 'editSearchedDeparture' | 'editSearchedArrival' | null>(null);
   const [timePickerTarget, setTimePickerTarget] = useState<'intakeStart' | 'intakeEnd' | 'editDeparture' | 'editArrival' | null>(null);
@@ -391,7 +395,11 @@ export default function SearchReceptionView({
     }
 
     const isT2 = companyRouteNeedsTerminalSurcharge(partner, departureTerminal, arrivalTerminal);
-    const totalPrice = getCalculatePrice(partner, intakeStartDate, intakeEndDate, isIndoor, isT2);
+    const autoPrice = getCalculatePrice(partner, intakeStartDate, intakeEndDate, isIndoor, isT2);
+    const totalPrice =
+      intakePriceManual && Number.isFinite(intakeTotalPrice)
+        ? Math.max(0, Math.round(intakeTotalPrice))
+        : autoPrice;
     const id = createReservationId();
     const targetUserId = user ? user.uid : 'anonymous_guest';
     const randReceipt = `177020${Math.floor(1000 + Math.random() * 9000)}_BEIAKF`;
@@ -412,6 +420,7 @@ export default function SearchReceptionView({
       arrivalTime: arrTimeStr,
       arrivalTerminal,
       totalPrice,
+      priceManual: intakePriceManual && totalPrice !== autoPrice,
       status: 'pending' as const,
       createdAt: new Date().toISOString(),
       createdBy: isEmployee ? employeeName : (isSuperAdmin ? '본사 마스터(최고관리자)' : '업체 마스터'),
@@ -455,6 +464,8 @@ export default function SearchReceptionView({
       setDestination('');
       setCustomerNotes('');
       setReservationPassword('');
+      setIntakePriceManual(false);
+      setIntakeTotalPrice(0);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : String(err);
       alert(
@@ -497,6 +508,9 @@ export default function SearchReceptionView({
       editSearchedArrivalTerminal
     );
     const computedPrice = getCalculatePrice(partner, depFullStr, arrFullStr, editSearchedIsIndoor, isT2);
+    const totalPrice = editSearchedPriceManual
+      ? Math.max(0, Math.round(Number(editSearchedTotalPrice) || 0))
+      : computedPrice;
 
     const updatePayload: Partial<Reservation> = {
       userName: editSearchedUserName.trim(),
@@ -512,7 +526,8 @@ export default function SearchReceptionView({
       isIndoor: editSearchedIsIndoor,
       startDate: depFullStr.replace('T', ' '),
       endDate: arrFullStr.replace('T', ' '),
-      totalPrice: computedPrice,
+      totalPrice,
+      priceManual: editSearchedPriceManual,
       departureAirline: editSearchedDepartureAirline.trim(),
       departureFlight: editSearchedDepartureFlight.trim(),
       arrivalAirline: editSearchedArrivalAirline.trim(),
@@ -697,6 +712,8 @@ export default function SearchReceptionView({
                         setEditSearchedDestination(target.destination || '');
                         setEditSearchedCustomerNotes(target.customerNotes || target.userRequest || '');
                         setEditSearchedReservationPassword(target.reservationPassword || '');
+                        setEditSearchedTotalPrice(Number(target.totalPrice) || 0);
+                        setEditSearchedPriceManual(!!target.priceManual);
                       }}
                       handleUpdateValetStatus={handleUpdateValetStatus}
                       getKSTDateTimeString={getKSTDateTimeString}
@@ -1101,9 +1118,24 @@ export default function SearchReceptionView({
                     </span>
                   </div>
                 </div>
-                <div className="flex justify-between items-center pt-2 border-t border-dashed border-neutral-800 text-sm mt-1">
+                <div className="flex justify-between items-center pt-2 border-t border-dashed border-neutral-800 text-sm mt-1 gap-2">
                   <span className="font-extrabold text-white">합계</span>
-                  <span className="font-black text-amber-500 text-[15px] font-mono">{finalTotalPrice.toLocaleString()}원</span>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      min={0}
+                      step={1000}
+                      value={intakePriceManual ? intakeTotalPrice : finalTotalPrice}
+                      onChange={(e) => {
+                        setIntakePriceManual(true);
+                        setIntakeTotalPrice(Number(e.target.value) || 0);
+                      }}
+                      className="w-[7.5rem] bg-[#1C1C1E] border border-neutral-700 rounded-lg px-2 py-1 text-right text-[15px] font-black font-mono text-amber-500 focus:outline-none focus:border-amber-500/50"
+                      aria-label="합계 요금"
+                    />
+                    <span className="font-black text-amber-500 text-[13px]">원</span>
+                  </div>
                 </div>
               </div>
             );
@@ -1430,6 +1462,50 @@ export default function SearchReceptionView({
                   </button>
                 </div>
               </div>
+
+              {(() => {
+                const editComp =
+                  companies.find((c) => c.id === editingSearchedRes.companyId) || null;
+                const autoEditPrice = getCalculatePrice(
+                  mergePartnerPricing(
+                    {
+                      id: editingSearchedRes.companyId,
+                      name: editingSearchedRes.companyName || '',
+                      ...(editComp || {}),
+                    } as Company,
+                    editingSearchedRes.companyId
+                  ),
+                  `${editSearchedDepartureDate}T${editSearchedDepartureTime}`,
+                  `${editSearchedArrivalDate}T${editSearchedArrivalTime}`,
+                  editSearchedIsIndoor,
+                  companyRouteNeedsTerminalSurcharge(
+                    editComp,
+                    editSearchedDepartureTerminal,
+                    editSearchedArrivalTerminal
+                  )
+                );
+                const shown = editSearchedPriceManual ? editSearchedTotalPrice : autoEditPrice;
+                return (
+                  <div className="col-span-2 flex items-center justify-between gap-2 p-3 rounded-xl border border-neutral-800 bg-[#141416]">
+                    <span className="text-[11px] font-black text-amber-500">주차 요금</span>
+                    <div className="flex items-center gap-1 shrink-0">
+                      <input
+                        type="number"
+                        inputMode="numeric"
+                        min={0}
+                        step={1000}
+                        value={shown}
+                        onChange={(e) => {
+                          setEditSearchedPriceManual(true);
+                          setEditSearchedTotalPrice(Number(e.target.value) || 0);
+                        }}
+                        className="w-[7.5rem] bg-[#1C1C1E] border border-neutral-700 rounded-lg px-2 py-1.5 text-right text-sm font-black font-mono text-amber-400 focus:outline-none focus:border-amber-500/50"
+                      />
+                      <span className="text-[12px] font-bold text-zinc-500">원</span>
+                    </div>
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Action operations */}

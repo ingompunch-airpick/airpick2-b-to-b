@@ -94,10 +94,13 @@ export function enrichReservationWritePatch(
   const ensurePriceOnCheckInOut =
     nextStatus === 'completed_in' || nextStatus === 'completed_out';
   const currentPrice = Number(current.totalPrice) || 0;
+  const nextPriceManual =
+    patch.priceManual !== undefined ? !!patch.priceManual : !!current.priceManual;
   const needsRecalc =
     hasPriceAffectingChange(patch) || (ensurePriceOnCheckInOut && currentPrice <= 0);
 
-  if (!priceExplicit && needsRecalc) {
+  // 수동 확정 금액은 일정 변경으로 덮지 않음 (totalPrice를 patch에 명시한 경우는 존중)
+  if (!priceExplicit && needsRecalc && !nextPriceManual) {
     const mergedForPrice = { ...current, ...patch } as Reservation;
     const price = recalculateReservationPrice(mergedForPrice, company);
     /**

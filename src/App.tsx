@@ -354,9 +354,13 @@ export default function App() {
       await handleUpdateValetStatus(driverDetailRes.id, 'completed_in', {
         ...extra,
         isIndoor: nextIsIndoor,
-        totalPrice: recalculateReservationPrice(driverDetailRes, company, {
-          isIndoor: nextIsIndoor,
-        }),
+        ...(driverDetailRes.priceManual
+          ? {}
+          : {
+              totalPrice: recalculateReservationPrice(driverDetailRes, company, {
+                isIndoor: nextIsIndoor,
+              }),
+            }),
         actualParkingTime: getKSTDateTimeString(),
       });
     } else if (driverDetailRes.status === 'completed_in') {
