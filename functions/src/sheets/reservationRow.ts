@@ -119,7 +119,8 @@ export function buildReservationSheetRow(
     상태: statusLabel(data.status),
     유입: bookingSourceLabel(source),
     업체ID: str(data.companyId, ''),
-    업체명: str(data.companyName, ''),
+    // 예약 스냅샷(와와/와와발렛) 대신 탭·매장과 같은 정규화 표기
+    업체명: resolveStoreLabel(data.companyId, data.companyName),
     매장: resolveStoreLabel(data.companyId, data.companyName),
     고객명: str(data.userName, ''),
     연락처: str(data.phone, ''),
