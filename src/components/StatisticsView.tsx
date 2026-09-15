@@ -28,7 +28,7 @@ import {
 } from '../utils/reservationStatus';
 import { normalizeDateString } from '../utils/reservationNormalize';
 import { getKSTDateOnlyString, toKSTDateOnlyString } from '../utils/kstDate';
-import { computeReservationVisitOrdinal } from '../lib/customerVisit';
+import { computeReservationVisitOrdinal, fetchCustomerVisitCount } from '../lib/customerVisit';
 import DateNavBar from './DateNavBar';
 import {
   aggregateGroupedBookingSourceMetrics,
@@ -63,12 +63,33 @@ function CustomerVisitBadge({
     () => computeReservationVisitOrdinal(reservation, pool),
     [reservation, pool]
   );
+  const [fallbackCount, setFallbackCount] = useState<number | null>(null);
 
-  if (ordinal == null) return null;
+  useEffect(() => {
+    if (ordinal != null) {
+      setFallbackCount(null);
+      return;
+    }
+    let cancelled = false;
+    setFallbackCount(null);
+    void fetchCustomerVisitCount(reservation.phone)
+      .then((count) => {
+        if (!cancelled) setFallbackCount(count);
+      })
+      .catch(() => {
+        if (!cancelled) setFallbackCount(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [ordinal, reservation.phone]);
+
+  const visitCount = ordinal ?? fallbackCount;
+  if (visitCount == null || visitCount < 1) return null;
 
   return (
     <span className="inline-flex shrink-0 rounded-md border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 align-middle text-[10px] font-black text-emerald-400">
-      방문 {ordinal}회
+      방문 {visitCount}회
     </span>
   );
 }
@@ -174,6 +195,18 @@ export default function StatisticsView({
     () => isMultiOperatorScope(currentCompanyId || '', companies),
     [currentCompanyId, companies]
   );
+
+  /** 방문 순번용 — visible + 전체 목록 합쳐 같은 번호 이력을 빠뜨리지 않음 */
+  const visitOrdinalPool = useMemo(() => {
+    const byId = new Map<string, Reservation>();
+    for (const r of allReservations) {
+      if (r?.id) byId.set(String(r.id), r);
+    }
+    for (const r of reservations) {
+      if (r?.id) byId.set(String(r.id), r);
+    }
+    return [...byId.values()];
+  }, [allReservations, reservations]);
 
   // Automatically refresh date-related views when midnight KST rolls over
   useEffect(() => {
@@ -932,7 +965,6 @@ export default function StatisticsView({
                         <div className="flex items-center gap-2 min-w-0">
                           <span className="text-xs font-black text-white font-mono">{res.carNumber}</span>
                           <span className="text-[12px] text-zinc-500 truncate">{res.carModel}</span>
-                          <CustomerVisitBadge reservation={res} pool={allReservations} />
                           {(() => {
                             const grouped = toGroupedBookingSource(resolveBookingSourceFromReservation(res));
                             if (grouped === 'other') return null;
@@ -953,7 +985,12 @@ export default function StatisticsView({
                       <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[13px]">
                         <div className="text-zinc-500">입고: <span className="text-zinc-300 font-mono">{res.departureDate} {res.departureTime}</span></div>
                         <div className="text-zinc-500">주차: <span className="text-zinc-300 font-mono">{space}</span></div>
-                        <div className="text-zinc-500">고객: <span className="text-zinc-300">{res.userName}</span></div>
+                        <div className="text-zinc-500 flex items-center gap-1.5 min-w-0">
+                          <span className="shrink-0">
+                            고객: <span className="text-zinc-300">{res.userName}</span>
+                          </span>
+                          <CustomerVisitBadge reservation={res} pool={visitOrdinalPool} />
+                        </div>
                         <div className="text-zinc-500">금액: <span className="text-amber-400 font-black font-mono">{(res.totalPrice||0).toLocaleString()}원</span></div>
                       </div>
                     </div>

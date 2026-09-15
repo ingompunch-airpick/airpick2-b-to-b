@@ -37,19 +37,25 @@ export function computeReservationVisitOrdinal(
   if (!phone || !target.id) return null;
   if (normalizeReservationStatus(target.status) === 'cancelled') return null;
 
-  const same = pool
-    .filter((r) => normalizePhoneDigits(r.phone) === phone)
-    .filter((r) => normalizeReservationStatus(r.status) !== 'cancelled')
-    .slice()
-    .sort((a, b) => {
-      const ta = Date.parse(a.createdAt || '') || 0;
-      const tb = Date.parse(b.createdAt || '') || 0;
-      if (ta !== tb) return ta - tb;
-      return String(a.id || '').localeCompare(String(b.id || ''));
-    });
+  const byId = new Map<string, VisitOrdinalReservation>();
+  for (const r of pool) {
+    if (!r?.id) continue;
+    if (normalizePhoneDigits(r.phone) !== phone) continue;
+    if (normalizeReservationStatus(r.status) === 'cancelled') continue;
+    byId.set(String(r.id), r);
+  }
+  // CRM 목록만 넘어온 경우 등 — 대상 예약이 pool에 없어도 본인을 포함
+  byId.set(String(target.id), target);
 
-  const idx = same.findIndex((r) => r.id === target.id);
-  return idx >= 0 ? idx + 1 : null;
+  const same = [...byId.values()].sort((a, b) => {
+    const ta = Date.parse(a.createdAt || '') || 0;
+    const tb = Date.parse(b.createdAt || '') || 0;
+    if (ta !== tb) return ta - tb;
+    return String(a.id || '').localeCompare(String(b.id || ''));
+  });
+
+  const idx = same.findIndex((r) => String(r.id) === String(target.id));
+  return idx >= 0 ? idx + 1 : 1;
 }
 
 export async function fetchCustomerVisitCount(
