@@ -11,6 +11,8 @@ import {
 /** 콘솔 코드 → 리포에 고정한 본문. Firestore body 가 있으면 그쪽이 우선. */
 const KNOWN_TEMPLATE_BODIES: Record<string, string> = {
   [WAWA_RESERVE_TEMPLATE_CODE]: WAWA_RESERVE_TEMPLATE_BODY,
+  // 예전 Firestore 값(밑줄) — 콘솔은 영문·숫자만 허용
+  wawa_reserve: WAWA_RESERVE_TEMPLATE_BODY,
 };
 
 const ALL_EVENTS: AlimtalkEventType[] = ['reserve', 'checkin', 'checkout'];
@@ -92,7 +94,9 @@ function parseTemplates(
     const entry = obj[event];
     if (!entry || typeof entry !== 'object') continue;
     const e = entry as Record<string, unknown>;
-    const code = String(e.code ?? '').trim();
+    const codeRaw = String(e.code ?? '').trim();
+    const code =
+      codeRaw === 'wawa_reserve' ? WAWA_RESERVE_TEMPLATE_CODE : codeRaw;
     const body = String(e.body ?? '').trim() || KNOWN_TEMPLATE_BODIES[code] || '';
     if (!code || !body) continue;
     const title = String(e.title ?? '').trim();
@@ -101,7 +105,11 @@ function parseTemplates(
       code,
       body,
       ...(title ? { title } : {}),
-      ...(buttonName ? { buttonName } : {}),
+      ...(buttonName
+        ? { buttonName }
+        : code === WAWA_RESERVE_TEMPLATE_CODE
+          ? { buttonName: '접수증보기' }
+          : {}),
     };
   }
 
@@ -137,7 +145,18 @@ export async function fetchCompanyAlimtalkSettings(
   if (!companyId) return parseCompanyAlimtalkSettings(undefined);
   try {
     const snap = await admin.firestore().doc(`companies/${companyId}`).get();
-    return parseCompanyAlimtalkSettings(snap.data());
+    const settings = parseCompanyAlimtalkSettings(snap.data());
+    // 와와 전용 채널 — Firestore channel 누락 시 콘솔 @wawa0521 사용
+    if (
+      String(companyId).trim().toLowerCase() === 'wawa' &&
+      !settings.channel?.plusFriendId
+    ) {
+      return {
+        ...settings,
+        channel: { ...(settings.channel || {}), plusFriendId: '@wawa0521' },
+      };
+    }
+    return settings;
   } catch (err) {
     console.warn('[alimtalk] company settings read failed — using defaults', {
       companyId,

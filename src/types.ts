@@ -116,6 +116,20 @@ export interface Company {
     updatedBy?: string;
     config: Record<string, unknown>;
   };
+  /**
+   * 업체 알림톡 (NCP). 홈페이지·현장 예약용.
+   * 에어픽 B2C 공용 템플릿과 별개 — channel·templates.reserve.code 필요.
+   */
+  alimtalk?: {
+    enabled?: boolean;
+    channel?: { plusFriendId?: string; senderKey?: string };
+    sources?: string[];
+    events?: string[];
+    templates?: Record<
+      string,
+      { code?: string; body?: string; buttonName?: string; title?: string }
+    >;
+  };
 }
 
 /** 업체 주차장 (실내1·실외2 … 여러 개) */

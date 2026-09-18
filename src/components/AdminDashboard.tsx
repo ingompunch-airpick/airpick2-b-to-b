@@ -33,6 +33,12 @@ import {
 import { resolveCompanyAirportId } from '../utils/airport';
 import { writePartnersToStorage } from '../utils/partnerSync';
 import {
+  EMPTY_ALIMTALK_EDIT_FORM,
+  buildAlimtalkSettingsPatch,
+  readAlimtalkEditForm,
+  type CompanyAlimtalkEditForm,
+} from '../utils/companyAlimtalk';
+import {
   getPrimaryOperatorCandidates,
   isSubOperatorCompany,
   isSubOperatorLoginBlocked,
@@ -189,6 +195,9 @@ export default function AdminDashboard({
   const [editPhone, setEditPhone] = useState('');
   const [editPassword, setEditPassword] = useState('');
   const [editMemo, setEditMemo] = useState('');
+  const [editAlimtalk, setEditAlimtalk] = useState<CompanyAlimtalkEditForm>(
+    EMPTY_ALIMTALK_EDIT_FORM
+  );
   const [editProfile, setEditProfile] = useState<PartnerProfileInput>({ ...DEFAULT_PARTNER_PROFILE });
   const [savingEdit, setSavingEdit] = useState(false);
   const [saveEditError, setSaveEditError] = useState('');
@@ -321,6 +330,7 @@ export default function AdminDashboard({
     setEditMemo(p.settlementMemo || '');
     const company = companies.find((c) => c.id === p.companyId);
     setEditProfile(readPartnerProfileFromCompany(company));
+    setEditAlimtalk(readAlimtalkEditForm(company?.alimtalk));
   };
 
   const handleSaveEdit = async (e?: React.FormEvent | React.MouseEvent) => {
@@ -375,6 +385,24 @@ export default function AdminDashboard({
         return;
       }
 
+      const alimtalkPatch = buildAlimtalkSettingsPatch(editAlimtalk);
+      if (editAlimtalk.enabled) {
+        if (!alimtalkPatch.channel?.plusFriendId) {
+          setSaveEditError('알림톡을 켜려면 채널 ID(@…)를 입력하세요.');
+          savingEditRef.current = false;
+          setSavingEdit(false);
+          return;
+        }
+        if (!alimtalkPatch.templates?.reserve?.code) {
+          setSaveEditError(
+            '알림톡을 켜려면 예약완료 템플릿 코드(영문·숫자만)를 입력하세요.'
+          );
+          savingEditRef.current = false;
+          setSavingEdit(false);
+          return;
+        }
+      }
+
       const updatedPartners = partners.map((p) => {
         if (p.companyId === targetId) {
           return {
@@ -398,6 +426,7 @@ export default function AdminDashboard({
             name: editName.trim(),
             phone: editPhone.trim(),
             representative: editRep.trim(),
+            alimtalk: alimtalkPatch,
           };
           return applyPartnerProfileToCompany(withBasics, profileToSave);
         }
@@ -417,6 +446,7 @@ export default function AdminDashboard({
             settlementMemo: editMemo.trim(),
             status: editingPartner.status || 'active',
             isOperatorPrimary: true,
+            alimtalk: alimtalkPatch,
             ...profileExtrasForFirestore(profileToSave),
           },
         });
@@ -1093,6 +1123,117 @@ export default function AdminDashboard({
                           onChange={(e) => setEditMemo(e.target.value)}
                           className="w-full px-3 py-2 border border-neutral-700 bg-[#1C1C1E] text-zinc-100 rounded-xl h-20 focus:outline-none focus:ring-1 focus:ring-amber-500/40 font-sans font-medium"
                         />
+                      </div>
+
+                      <div className="rounded-xl border border-neutral-800 bg-neutral-950/50 p-3 space-y-2.5">
+                        <div className="flex items-center justify-between gap-2">
+                          <div>
+                            <p className="text-[12px] font-black text-zinc-200">알림톡 (NCP)</p>
+                            <p className="text-[10px] text-zinc-500 font-semibold mt-0.5 leading-relaxed">
+                              콘솔에서 템플릿 등록·활성화 후, 여기 코드·채널만 맞추면 됩니다.
+                            </p>
+                          </div>
+                          <label className="inline-flex items-center gap-1.5 text-[11px] font-black text-zinc-300 shrink-0">
+                            <input
+                              type="checkbox"
+                              checked={editAlimtalk.enabled}
+                              onChange={(e) =>
+                                setEditAlimtalk((prev) => ({
+                                  ...prev,
+                                  enabled: e.target.checked,
+                                }))
+                              }
+                              className="rounded border-neutral-600"
+                            />
+                            사용
+                          </label>
+                        </div>
+                        <label className="block space-y-1">
+                          <span className="text-[10px] font-black text-zinc-500 uppercase">
+                            채널 ID
+                          </span>
+                          <input
+                            type="text"
+                            value={editAlimtalk.plusFriendId}
+                            onChange={(e) =>
+                              setEditAlimtalk((prev) => ({
+                                ...prev,
+                                plusFriendId: e.target.value,
+                              }))
+                            }
+                            placeholder="@wawa0521"
+                            disabled={!editAlimtalk.enabled}
+                            className="w-full px-3 py-2 border border-neutral-700 bg-[#1C1C1E] text-zinc-100 rounded-xl font-mono text-[12px] disabled:opacity-40"
+                          />
+                        </label>
+                        <div className="grid grid-cols-2 gap-2">
+                          <label className="block space-y-1">
+                            <span className="text-[10px] font-black text-zinc-500 uppercase">
+                              예약완료 코드
+                            </span>
+                            <input
+                              type="text"
+                              value={editAlimtalk.reserveCode}
+                              onChange={(e) =>
+                                setEditAlimtalk((prev) => ({
+                                  ...prev,
+                                  reserveCode: e.target.value,
+                                }))
+                              }
+                              placeholder="wawareserve"
+                              disabled={!editAlimtalk.enabled}
+                              className="w-full px-3 py-2 border border-neutral-700 bg-[#1C1C1E] text-zinc-100 rounded-xl font-mono text-[12px] disabled:opacity-40"
+                            />
+                          </label>
+                          <label className="block space-y-1">
+                            <span className="text-[10px] font-black text-zinc-500 uppercase">
+                              버튼명
+                            </span>
+                            <input
+                              type="text"
+                              value={editAlimtalk.reserveButtonName}
+                              onChange={(e) =>
+                                setEditAlimtalk((prev) => ({
+                                  ...prev,
+                                  reserveButtonName: e.target.value,
+                                }))
+                              }
+                              placeholder="접수증보기"
+                              disabled={!editAlimtalk.enabled}
+                              className="w-full px-3 py-2 border border-neutral-700 bg-[#1C1C1E] text-zinc-100 rounded-xl text-[12px] font-semibold disabled:opacity-40"
+                            />
+                          </label>
+                        </div>
+                        <div className="flex flex-wrap gap-3 text-[11px] font-bold text-zinc-400">
+                          <label className="inline-flex items-center gap-1.5">
+                            <input
+                              type="checkbox"
+                              checked={editAlimtalk.sourceHomepage}
+                              onChange={(e) =>
+                                setEditAlimtalk((prev) => ({
+                                  ...prev,
+                                  sourceHomepage: e.target.checked,
+                                }))
+                              }
+                              disabled={!editAlimtalk.enabled}
+                            />
+                            홈페이지 예약
+                          </label>
+                          <label className="inline-flex items-center gap-1.5">
+                            <input
+                              type="checkbox"
+                              checked={editAlimtalk.sourceB2b}
+                              onChange={(e) =>
+                                setEditAlimtalk((prev) => ({
+                                  ...prev,
+                                  sourceB2b: e.target.checked,
+                                }))
+                              }
+                              disabled={!editAlimtalk.enabled}
+                            />
+                            현장·B2B 접수
+                          </label>
+                        </div>
                       </div>
 
                       <PartnerProfileFormFields
