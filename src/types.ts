@@ -360,7 +360,7 @@ export type AppView =
   | 'master_settings'
   /** 관리자 · 입출차 배차표 (인쇄/CSV) */
   | 'dispatch_board'
-  /** 본사 · 전체 업체 영업/프로필 상태판 */
+  /** @deprecated 「② 주차 업체」로 통합 — master_settings 로 리다이렉트 */
   | 'hq_partner_board'
   /** 본사 · 후기 숨김/삭제 */
   | 'hq_reviews'

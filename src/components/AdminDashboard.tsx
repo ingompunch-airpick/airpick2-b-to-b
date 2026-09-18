@@ -777,7 +777,7 @@ export default function AdminDashboard({
             <div>
               <h4 className="text-xs font-black text-zinc-100">주차 대행 업체 수정·삭제</h4>
               <p className="text-[12px] text-zinc-500 mt-0.5">
-                예약·입출고를 다루는 업체만 관리합니다. 마케팅 제휴사는 「⑦ 제휴사 · 실적」에서 등록하세요.
+            예약·입출고를 다루는 업체만 관리합니다. 마케팅 제휴는 「⑥ 마케팅 제휴」에서 등록하세요.
               </p>
             </div>
             <span className="text-[12px] bg-rose-500/15 text-rose-300 px-2.5 py-1 rounded-xl font-bold font-mono shrink-0 border border-rose-500/20">

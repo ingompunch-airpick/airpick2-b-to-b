@@ -116,7 +116,7 @@ export default function AcquisitionFunnelView({
           <QrCode size={18} />
         </div>
         <div className="min-w-0">
-          <h2 className="text-base font-black text-white">명함 QR · 유입 성과</h2>
+          <h2 className="text-base font-black text-white">업체 명함 QR · 유입 성과</h2>
           <p className="text-[11px] text-zinc-500 font-semibold mt-0.5">
             본사 전용 · 업체별 스캔→예약 전환과 명함용 URL
           </p>

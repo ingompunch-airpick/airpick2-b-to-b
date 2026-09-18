@@ -5,7 +5,7 @@
  * 계좌·문의전화는 와와 전용이라 변수로 두지 않는다.
  * 에어픽 B2C 예약은 이 템플릿을 쓰지 않는다.
  */
-export const WAWA_RESERVE_TEMPLATE_CODE = 'wawa_reserve';
+export const WAWA_RESERVE_TEMPLATE_CODE = 'wawareserve';
 
 export const WAWA_RESERVE_TEMPLATE_BODY = `안녕하십니까. 와와주차대행 입니다.
 #{고객명} 고객님 차량 예약이 정상 처리 되었습니다.

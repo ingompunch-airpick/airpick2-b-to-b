@@ -316,7 +316,7 @@ export default function AffiliateAdminView({ reservations }: Props) {
           <UserPlus size={18} />
         </div>
         <div className="min-w-0">
-          <h2 className="text-base font-black text-white">제휴사 · 실적</h2>
+          <h2 className="text-base font-black text-white">마케팅 제휴</h2>
           <p className="text-[11px] text-zinc-500 font-semibold mt-0.5 leading-relaxed">
             마케팅 제휴사만 등록합니다. 주차 업체 Gate와 분리 · 실적은 /a 포털 로그인.
           </p>
@@ -324,8 +324,8 @@ export default function AffiliateAdminView({ reservations }: Props) {
       </div>
 
       <div className="rounded-xl border border-neutral-800 bg-neutral-950/80 px-3 py-2.5 text-[11px] text-zinc-500 font-semibold leading-relaxed">
-        <span className="text-zinc-300 font-black">주차 업체</span> → ② 주차 업체 관리 ·{' '}
-        <span className="text-zinc-300 font-black">제휴사</span> → 여기서 코드·할인·고객 링크·포털
+        <span className="text-zinc-300 font-black">주차 업체</span> → ② 주차 업체 ·{' '}
+        <span className="text-zinc-300 font-black">마케팅 제휴</span> → 여기서 코드·할인·고객 링크·포털
         비밀번호
       </div>
 

@@ -21,7 +21,6 @@ export const DRIVER_ONLY_VIEWS: AppView[] = [
 export const HQ_ADMIN_VIEWS: AppView[] = [
   'statistics',
   'master_settings',
-  'hq_partner_board',
   'hq_reviews',
   'hq_customers',
   'acquisition_funnel',
@@ -32,6 +31,7 @@ export const HQ_ADMIN_VIEWS: AppView[] = [
 /** dead code 정리 전 localStorage·history에 남을 수 있는 레거시 화면 */
 export function resolveLegacyAppView(view: AppView | string): AppView {
   if (view === 'parkingRegister') return 'statistics';
+  if (view === 'hq_partner_board') return 'master_settings';
   return view as AppView;
 }
 

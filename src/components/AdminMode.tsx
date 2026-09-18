@@ -4,7 +4,7 @@ import StatisticsView from './StatisticsView';
 import CancelledListView from './CancelledListView';
 import MasterSettingsView from './MasterSettingsView';
 import DispatchBoardView from './DispatchBoardView';
-import HqPartnerBoardView from './HqPartnerBoardView';
+import HqParkingPartnersView from './HqParkingPartnersView';
 import HqReviewsView from './HqReviewsView';
 import HqCustomersView from './HqCustomersView';
 import AcquisitionFunnelView from './AcquisitionFunnelView';
@@ -36,6 +36,8 @@ interface AdminModeProps {
 
 function resolveAdminView(view: AppView | string): AppView {
   if (view === 'parkingRegister') return 'statistics';
+  // 예전 「업체 상태판」 → 「주차 업체」로 통합
+  if (view === 'hq_partner_board') return 'master_settings';
   return view as AppView;
 }
 
@@ -104,6 +106,23 @@ export default function AdminMode({
       );
 
     case 'master_settings':
+      if (isSuperAdmin) {
+        return (
+          <HqParkingPartnersView
+            reservations={reservations}
+            companies={companies}
+            partners={partners}
+            onUpdateCompanies={onUpdateCompanies}
+            onUpdatePartners={onUpdatePartners}
+            onToggleCompanyOpen={onToggleCompanyOpen}
+            onRemoteOpenCompany={onRemoteOpenCompany}
+            onOpenPartnerEditor={onOpenPartnerEditor}
+            onOpenReviews={openCompanyReviews}
+            onBack={() => setCurrentView('statistics')}
+            initialTab="board"
+          />
+        );
+      }
       return (
         <MasterSettingsView
           companyInfo={companyInfo}
@@ -126,20 +145,6 @@ export default function AdminMode({
           reservations={reservations}
           companyName={companyInfo.name}
           companies={companies}
-        />
-      );
-
-    case 'hq_partner_board':
-      return (
-        <HqPartnerBoardView
-          companies={companies}
-          onUpdateCompanies={onUpdateCompanies}
-          onToggleCompanyOpen={async (companyId, isOpen) => {
-            if (onToggleCompanyOpen) await onToggleCompanyOpen(companyId, isOpen);
-          }}
-          onRemoteOpen={(companyId) => onRemoteOpenCompany?.(companyId)}
-          onOpenPartnerEditor={onOpenPartnerEditor}
-          onOpenReviews={openCompanyReviews}
         />
       );
 
