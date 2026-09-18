@@ -1,25 +1,36 @@
-import { timingSafeEqual } from 'crypto';
 import * as admin from 'firebase-admin';
 import { onRequest } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions';
 
 const CODE_RE = /^[a-z0-9_]{3,16}$/;
 
-function tokenMatches(stored: string, provided: string): boolean {
-  const a = Buffer.from(stored);
-  const b = Buffer.from(provided);
-  if (a.length !== b.length || a.length === 0) return false;
-  return timingSafeEqual(a, b);
-}
-
 function num(v: unknown): number {
   const n = typeof v === 'number' ? v : Number(v);
   return Number.isFinite(n) ? n : 0;
 }
 
+async function resolveAffiliateCodeFromAuth(req: {
+  get: (name: string) => string | undefined;
+}): Promise<string | null> {
+  const header = String(req.get('Authorization') || '');
+  const match = /^Bearer\s+(.+)$/i.exec(header);
+  if (!match?.[1]) return null;
+  try {
+    const decoded = await admin.auth().verifyIdToken(match[1]);
+    if (String(decoded.role || '') !== 'affiliate') return null;
+    const code = String(decoded.affiliateCode || '')
+      .trim()
+      .toLowerCase();
+    return CODE_RE.test(code) ? code : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
- * 제휴 실적 포털 — code + statsToken 검증 후 집계만 반환 (고객 PII 없음).
- * GET ?code=&t=
+ * 제휴 실적 포털 — Firebase Auth(제휴 claim) 검증 후 집계만 반환 (고객 PII 없음).
+ * Authorization: Bearer <idToken>
+ * GET ?days=
  */
 export const getAffiliateStats = onRequest(
   { region: 'asia-northeast3', cors: true },
@@ -33,39 +44,22 @@ export const getAffiliateStats = onRequest(
       return;
     }
 
-    const code = String(req.query.code ?? '')
-      .trim()
-      .toLowerCase();
-    const token = String(req.query.t ?? '').trim();
-    if (!CODE_RE.test(code) || !token) {
-      res.status(400).json({ error: 'missing_params' });
+    const code = await resolveAffiliateCodeFromAuth(req);
+    if (!code) {
+      res.status(401).json({ error: 'unauthorized' });
       return;
     }
 
     try {
       const db = admin.firestore();
-      const [affSnap, secretSnap] = await Promise.all([
-        db.doc(`affiliates/${code}`).get(),
-        db.doc(`affiliateSecrets/${code}`).get(),
-      ]);
+      const affSnap = await db.doc(`affiliates/${code}`).get();
 
       if (!affSnap.exists) {
         res.status(404).json({ error: 'not_found' });
         return;
       }
-      if (!secretSnap.exists) {
-        res.status(403).json({ error: 'invalid_token' });
-        return;
-      }
 
       const aff = affSnap.data() as Record<string, unknown>;
-      const storedToken = String(
-        (secretSnap.data() as { statsToken?: string }).statsToken ?? ''
-      ).trim();
-      if (!tokenMatches(storedToken, token)) {
-        res.status(403).json({ error: 'invalid_token' });
-        return;
-      }
 
       if (String(aff.status || '') === 'suspended') {
         res.status(403).json({ error: 'suspended' });

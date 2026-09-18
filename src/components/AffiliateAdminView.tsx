@@ -1,21 +1,22 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Copy, Link2, Plus, RefreshCw, UserPlus } from 'lucide-react';
+import { Copy, KeyRound, Link2, Plus, RefreshCw, UserPlus } from 'lucide-react';
 import type { Reservation } from '../types';
 import {
   DEFAULT_AFFILIATE_CUSTOMER_DISCOUNT_WON,
   DEFAULT_AFFILIATE_MARKETING_BUDGET_WON,
   DEFAULT_AFFILIATE_REFERRER_CREDIT_WON,
   affiliateHqRemainderWon,
-  buildAffiliateStatsUrl,
+  buildAffiliatePortalUrl,
   buildB2cAffiliateUrl,
   formatAffiliateRewardWon,
+  generateAffiliatePortalPassword,
 } from '../utils/affiliate';
 import {
+  affiliatePortalPasswordSet,
   computeAffiliateStats,
   createAffiliate,
-  ensureAffiliateStatsToken,
   listAffiliates,
-  rotateAffiliateStatsToken,
+  setAffiliatePortalPassword,
   updateAffiliate,
   type AffiliateRow,
 } from '../lib/affiliateRepos';
@@ -87,9 +88,13 @@ export default function AffiliateAdminView({ reservations }: Props) {
   const [days, setDays] = useState(30);
   const [selectedCode, setSelectedCode] = useState<string>('');
   const [copied, setCopied] = useState(false);
-  const [copiedStats, setCopiedStats] = useState(false);
-  const [statsLink, setStatsLink] = useState('');
-  const [statsLinkLoading, setStatsLinkLoading] = useState(false);
+  const [copiedPortal, setCopiedPortal] = useState(false);
+  const [copiedPassword, setCopiedPassword] = useState(false);
+  /** 방금 등록·재발급 시 한 번만 보여 주는 비밀번호 */
+  const [revealedPassword, setRevealedPassword] = useState<string | null>(null);
+  const [passwordHasSet, setPasswordHasSet] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [justCreatedCode, setJustCreatedCode] = useState<string | null>(null);
 
   const [draftCode, setDraftCode] = useState('');
   const [draftName, setDraftName] = useState('');
@@ -138,6 +143,7 @@ export default function AffiliateAdminView({ reservations }: Props) {
 
   const selected = rows.find((r) => r.code === selectedCode) || null;
   const link = selected ? buildB2cAffiliateUrl(selected.code) : '';
+  const portalUrl = selected ? buildAffiliatePortalUrl(selected.code) : buildAffiliatePortalUrl();
   const stats = selected
     ? computeAffiliateStats(reservations, selected.code, { sinceIso })
     : null;
@@ -147,29 +153,29 @@ export default function AffiliateAdminView({ reservations }: Props) {
       setEditBudget('');
       setEditCustomerDiscount('');
       setEditReferrerCredit('');
-      setStatsLink('');
+      setPasswordHasSet(false);
+      setNewPassword('');
+      if (justCreatedCode == null) setRevealedPassword(null);
       return;
     }
     setEditBudget(String(selected.marketingBudgetWon ?? 0));
     setEditCustomerDiscount(String(selected.customerDiscountWon ?? 0));
     setEditReferrerCredit(String(selected.referrerCreditWon ?? 0));
-    setStatsLink('');
+    setNewPassword('');
+    if (justCreatedCode !== selected.code) setRevealedPassword(null);
     let cancelled = false;
-    setStatsLinkLoading(true);
     void (async () => {
       try {
-        const token = await ensureAffiliateStatsToken(selected.code);
-        if (!cancelled) setStatsLink(buildAffiliateStatsUrl(selected.code, token));
+        const has = await affiliatePortalPasswordSet(selected.code);
+        if (!cancelled) setPasswordHasSet(has);
       } catch {
-        if (!cancelled) setStatsLink('');
-      } finally {
-        if (!cancelled) setStatsLinkLoading(false);
+        if (!cancelled) setPasswordHasSet(false);
       }
     })();
     return () => {
       cancelled = true;
     };
-  }, [selected]);
+  }, [selected, justCreatedCode]);
 
   const draftOver =
     affiliateHqRemainderWon({
@@ -185,19 +191,22 @@ export default function AffiliateAdminView({ reservations }: Props) {
       referrerCreditWon: parseWonInput(editReferrerCredit),
     }) < 0;
 
-  const copyText = async (text: string, kind: 'booking' | 'stats') => {
+  const copyText = async (text: string, kind: 'booking' | 'portal' | 'password') => {
     if (!text) return;
     try {
       await navigator.clipboard.writeText(text);
       if (kind === 'booking') {
         setCopied(true);
         window.setTimeout(() => setCopied(false), 1500);
+      } else if (kind === 'portal') {
+        setCopiedPortal(true);
+        window.setTimeout(() => setCopiedPortal(false), 1500);
       } else {
-        setCopiedStats(true);
-        window.setTimeout(() => setCopiedStats(false), 1500);
+        setCopiedPassword(true);
+        window.setTimeout(() => setCopiedPassword(false), 1500);
       }
     } catch {
-      window.prompt('링크 복사', text);
+      window.prompt('복사', text);
     }
   };
 
@@ -205,22 +214,34 @@ export default function AffiliateAdminView({ reservations }: Props) {
     await copyText(link, 'booking');
   };
 
-  const copyStatsLink = async () => {
-    await copyText(statsLink, 'stats');
+  const copyPortal = async () => {
+    await copyText(portalUrl, 'portal');
   };
 
-  const rotateStatsLink = async () => {
+  const savePassword = async (password: string) => {
     if (!selected) return;
+    const pw = password.trim();
+    if (pw.length < 4) {
+      setError('비밀번호는 4자 이상이어야 합니다.');
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
-      const token = await rotateAffiliateStatsToken(selected.code);
-      setStatsLink(buildAffiliateStatsUrl(selected.code, token));
+      await setAffiliatePortalPassword(selected.code, pw);
+      setRevealedPassword(pw);
+      setPasswordHasSet(true);
+      setNewPassword('');
     } catch (err) {
-      setError(err instanceof Error ? err.message : '실적 링크 재발급에 실패했습니다.');
+      setError(err instanceof Error ? err.message : '비밀번호 저장에 실패했습니다.');
     } finally {
       setSaving(false);
     }
+  };
+
+  const resetPassword = async () => {
+    const pw = generateAffiliatePortalPassword();
+    await savePassword(pw);
   };
 
   const handleCreate = async () => {
@@ -245,6 +266,9 @@ export default function AffiliateAdminView({ reservations }: Props) {
       setDraftReferrerCredit(String(DEFAULT_AFFILIATE_REFERRER_CREDIT_WON));
       await load();
       setSelectedCode(created.code);
+      setJustCreatedCode(created.code);
+      setRevealedPassword(created.initialPassword);
+      setPasswordHasSet(true);
     } catch (err) {
       setError(err instanceof Error ? err.message : '등록에 실패했습니다.');
     } finally {
@@ -292,16 +316,22 @@ export default function AffiliateAdminView({ reservations }: Props) {
           <UserPlus size={18} />
         </div>
         <div className="min-w-0">
-          <h2 className="text-base font-black text-white">제휴 · 추천 코드</h2>
-          <p className="text-[11px] text-zinc-500 font-semibold mt-0.5">
-            본사 전용 · 링크마다 마케팅 버짓을 고객 할인·제휴 페이백·본사 잔여로 배분
+          <h2 className="text-base font-black text-white">제휴사 · 실적</h2>
+          <p className="text-[11px] text-zinc-500 font-semibold mt-0.5 leading-relaxed">
+            마케팅 제휴사만 등록합니다. 주차 업체 Gate와 분리 · 실적은 /a 포털 로그인.
           </p>
         </div>
       </div>
 
+      <div className="rounded-xl border border-neutral-800 bg-neutral-950/80 px-3 py-2.5 text-[11px] text-zinc-500 font-semibold leading-relaxed">
+        <span className="text-zinc-300 font-black">주차 업체</span> → ② 주차 업체 관리 ·{' '}
+        <span className="text-zinc-300 font-black">제휴사</span> → 여기서 코드·할인·고객 링크·포털
+        비밀번호
+      </div>
+
       <div className="rounded-2xl border border-neutral-800 bg-[#1C1C1E] p-4 space-y-3">
         <p className="text-[11px] font-black text-zinc-300 flex items-center gap-1.5">
-          <Plus size={12} /> 제휴 등록
+          <Plus size={12} /> 제휴사 등록
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <label className="space-y-1">
@@ -382,7 +412,7 @@ export default function AffiliateAdminView({ reservations }: Props) {
           referrer={parseWonInput(draftReferrerCredit)}
         />
         <p className="text-[10px] text-zinc-600 font-semibold">
-          코드: 영문 소문자·숫자·밑줄 3~16자 · 고객+제휴 ≤ 버짓
+          코드: 영문 소문자·숫자·밑줄 3~16자 · 고객+제휴 ≤ 버짓 · Firestore companies 미생성
         </p>
         <button
           type="button"
@@ -390,13 +420,13 @@ export default function AffiliateAdminView({ reservations }: Props) {
           onClick={() => void handleCreate()}
           className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-500 text-neutral-950 text-[11px] font-black disabled:opacity-40"
         >
-          등록
+          제휴사 등록
         </button>
       </div>
 
       <div className="flex flex-wrap gap-2 items-end">
         <label className="space-y-1">
-          <span className="text-[10px] font-black text-zinc-500 uppercase">제휴</span>
+          <span className="text-[10px] font-black text-zinc-500 uppercase">제휴사</span>
           <select
             value={selectedCode}
             onChange={(e) => setSelectedCode(e.target.value)}
@@ -443,6 +473,25 @@ export default function AffiliateAdminView({ reservations }: Props) {
       </div>
 
       {error ? <p className="text-sm font-semibold text-red-400">{error}</p> : null}
+
+      {justCreatedCode && selected?.code === justCreatedCode ? (
+        <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 space-y-1">
+          <p className="text-[12px] font-black text-emerald-300">
+            [{selected.name}] 제휴사 등록 완료
+          </p>
+          <p className="text-[11px] text-emerald-200/80 font-semibold leading-relaxed">
+            아래 고객 예약 링크와 포털 비밀번호를 제휴사에 전달하세요. 주차 업체 계정은 만들지
+            않았습니다.
+          </p>
+          <button
+            type="button"
+            onClick={() => setJustCreatedCode(null)}
+            className="text-[10px] font-black text-emerald-400/80 hover:text-emerald-300 pt-1"
+          >
+            안내 닫기
+          </button>
+        </div>
+      ) : null}
 
       {selected ? (
         <>
@@ -504,9 +553,15 @@ export default function AffiliateAdminView({ reservations }: Props) {
             </button>
           </div>
 
-          <div className="rounded-2xl border border-neutral-800 bg-[#1C1C1E] p-4 space-y-2">
+          <div
+            className={`rounded-2xl border bg-[#1C1C1E] p-4 space-y-2 ${
+              justCreatedCode === selected.code
+                ? 'border-emerald-500/40 ring-1 ring-emerald-500/20'
+                : 'border-neutral-800'
+            }`}
+          >
             <p className="text-[11px] font-black text-zinc-300 flex items-center gap-1.5">
-              <Link2 size={12} /> ① 고객 예약 링크 (B2C)
+              <Link2 size={12} /> 고객 예약 링크 (B2C 유입)
             </p>
             <p className="text-[10px] text-zinc-500 font-semibold break-all font-mono">{link}</p>
             <p className="text-[10px] text-zinc-600 font-semibold">
@@ -537,33 +592,77 @@ export default function AffiliateAdminView({ reservations }: Props) {
             ) : null}
           </div>
 
-          <div className="rounded-2xl border border-neutral-800 bg-[#1C1C1E] p-4 space-y-2">
+          <div
+            className={`rounded-2xl border bg-[#1C1C1E] p-4 space-y-2 ${
+              justCreatedCode === selected.code
+                ? 'border-emerald-500/40 ring-1 ring-emerald-500/20'
+                : 'border-neutral-800'
+            }`}
+          >
             <p className="text-[11px] font-black text-zinc-300 flex items-center gap-1.5">
-              <Link2 size={12} /> ② 제휴 실적 링크 (상대방용)
+              <KeyRound size={12} /> 실적 포털 로그인
             </p>
             <p className="text-[10px] text-zinc-500 font-semibold break-all font-mono">
-              {statsLinkLoading ? '발급 중…' : statsLink || '발급 실패 — 권한·규칙을 확인하세요'}
+              {portalUrl}
             </p>
-            <p className="text-[10px] text-zinc-600 font-semibold">
-              제휴 상대에게 공유 · 예약 건수·예상 페이백만 표시 (고객 정보 없음)
+            <p className="text-[10px] text-zinc-600 font-semibold leading-relaxed">
+              아이디 = 제휴 코드 ({selected.code})
+              {passwordHasSet ? ' · 비밀번호 설정됨' : ' · 비밀번호 미설정'}
             </p>
+            {revealedPassword ? (
+              <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 space-y-1">
+                <p className="text-[10px] font-black text-amber-300">지금만 보이는 비밀번호</p>
+                <p className="text-sm font-mono font-black text-amber-100 tracking-wide">
+                  {revealedPassword}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => void copyText(revealedPassword, 'password')}
+                  className="inline-flex items-center gap-1.5 text-[11px] font-black text-amber-300 hover:text-amber-200"
+                >
+                  <Copy size={12} />
+                  {copiedPassword ? '복사됨' : '비밀번호 복사'}
+                </button>
+              </div>
+            ) : null}
             <div className="flex flex-wrap gap-2 mt-1">
               <button
                 type="button"
-                disabled={!statsLink}
-                onClick={() => void copyStatsLink()}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500 text-neutral-950 text-[11px] font-black disabled:opacity-40"
+                onClick={() => void copyPortal()}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500 text-neutral-950 text-[11px] font-black"
               >
                 <Copy size={12} />
-                {copiedStats ? '복사됨' : '실적 링크 복사'}
+                {copiedPortal ? '복사됨' : '포털 주소 복사'}
               </button>
               <button
                 type="button"
-                disabled={saving || !selected}
-                onClick={() => void rotateStatsLink()}
+                disabled={saving}
+                onClick={() => void resetPassword()}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-neutral-700 text-[11px] font-black text-zinc-300 hover:text-white disabled:opacity-40"
               >
-                링크 재발급
+                {passwordHasSet ? '비밀번호 재발급' : '비밀번호 발급'}
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-2 items-end pt-1">
+              <label className="space-y-1 flex-1 min-w-[8rem]">
+                <span className="text-[10px] font-black text-zinc-500 uppercase">
+                  직접 지정
+                </span>
+                <input
+                  type="text"
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="4자 이상"
+                  className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-sm text-zinc-100 font-mono"
+                />
+              </label>
+              <button
+                type="button"
+                disabled={saving || newPassword.trim().length < 4}
+                onClick={() => void savePassword(newPassword)}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-neutral-700 text-[11px] font-black text-zinc-300 hover:text-white disabled:opacity-40"
+              >
+                저장
               </button>
             </div>
           </div>
@@ -585,7 +684,7 @@ export default function AffiliateAdminView({ reservations }: Props) {
         <p className="text-[12px] text-zinc-500 font-semibold">불러오는 중…</p>
       ) : (
         <p className="text-[12px] text-zinc-500 font-semibold">
-          제휴를 등록하면 공유 링크와 실적을 볼 수 있습니다.
+          제휴를 등록하면 고객 링크·포털 비밀번호·실적을 볼 수 있습니다.
         </p>
       )}
 

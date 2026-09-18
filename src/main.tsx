@@ -9,7 +9,7 @@ import VehicleReceiptPage from './pages/VehicleReceiptPage.tsx';
 import AffiliateStatsPage from './pages/AffiliateStatsPage.tsx';
 import { parseHomepageCompanyIdFromPath } from './utils/homepageBookingPath.ts';
 import { parseReceiptCodeFromPath } from './utils/receipt.ts';
-import { parseAffiliateCodeFromStatsPath } from './utils/affiliate.ts';
+import { parseAffiliateStatsPortal } from './utils/affiliate.ts';
 import './index.css';
 
 async function dismissNativeSplash(): Promise<void> {
@@ -40,11 +40,11 @@ function Root() {
     );
   }
 
-  const affiliateStatsCode = parseAffiliateCodeFromStatsPath(window.location.pathname);
-  if (affiliateStatsCode) {
+  const affiliatePortal = parseAffiliateStatsPortal(window.location.pathname);
+  if (affiliatePortal.active) {
     return (
       <ErrorBoundary>
-        <AffiliateStatsPage code={affiliateStatsCode} />
+        <AffiliateStatsPage initialCode={affiliatePortal.code} />
       </ErrorBoundary>
     );
   }

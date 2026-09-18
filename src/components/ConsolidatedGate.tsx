@@ -170,6 +170,9 @@ export default function ConsolidatedGate({ onLoginSuccess, partners, companies }
           <h2 className="text-toss-display flex items-center justify-center gap-2">
             에어픽 파트너 <span className="text-toss-caption text-amber-400 font-semibold bg-amber-500/15 border border-amber-500/20 px-2 py-0.5 rounded-lg">로그인</span>
           </h2>
+          <p className="mt-2 text-[11px] text-zinc-500 font-semibold leading-relaxed px-2">
+            주차 업체·본사 계정용입니다. 마케팅 제휴사는 실적 포털(/a)에서 따로 로그인합니다.
+          </p>
         </div>
 
         {/* Central Credential Card Container */}

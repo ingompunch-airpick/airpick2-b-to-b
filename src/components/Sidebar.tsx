@@ -127,12 +127,12 @@ export default function Sidebar({
   const menuItems = isAirpickHeadquarters(currentCompanyId)
     ? [
         { id: 'admin_statistics', label: '① 대시보드 (통계)', icon: TrendingUp, view: 'statistics' as AppView },
-        { id: 'admin_master_settings', label: '② 제휴업체 관리', icon: Settings, view: 'master_settings' as AppView },
+        { id: 'admin_master_settings', label: '② 주차 업체 관리', icon: Settings, view: 'master_settings' as AppView },
         { id: 'admin_partner_board', label: '③ 업체 상태판', icon: LayoutGrid, view: 'hq_partner_board' as AppView },
         { id: 'admin_reviews', label: '④ 후기 관리', icon: MessageSquareWarning, view: 'hq_reviews' as AppView },
         { id: 'admin_customers', label: '⑤ 고객 조회', icon: UserRoundSearch, view: 'hq_customers' as AppView },
         { id: 'admin_acquisition', label: '⑥ 명함 QR', icon: QrCode, view: 'acquisition_funnel' as AppView },
-        { id: 'admin_affiliate', label: '⑦ 제휴 코드', icon: UserPlus, view: 'affiliate_admin' as AppView },
+        { id: 'admin_affiliate', label: '⑦ 제휴사 · 실적', icon: UserPlus, view: 'affiliate_admin' as AppView },
       ]
     : isAdminModeActive
     ? [

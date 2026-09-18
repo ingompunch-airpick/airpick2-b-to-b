@@ -749,7 +749,7 @@ export default function AdminDashboard({
             activeTab === 'create' ? 'bg-[#1C1C1E] text-zinc-50 shadow-xs border border-neutral-700' : 'text-zinc-500 hover:text-zinc-200'
           }`}
         >
-          업체등록
+          주차 업체 등록
         </button>
         <button
           type="button"
@@ -758,7 +758,7 @@ export default function AdminDashboard({
             activeTab === 'partners' ? 'bg-[#1C1C1E] text-zinc-50 shadow-xs border border-neutral-700' : 'text-zinc-500 hover:text-zinc-200'
           }`}
         >
-          업체수정/삭제
+          업체 수정/삭제
         </button>
       </div>
 
@@ -775,8 +775,10 @@ export default function AdminDashboard({
           )}
           <div className="bg-[#1C1C1E] p-3.5 rounded-2xl border border-neutral-800 flex items-center justify-between text-left">
             <div>
-              <h4 className="text-xs font-black text-zinc-100">제휴사 통합 모니터링 및 수정/삭제 관리</h4>
-              <p className="text-[12px] text-zinc-500 mt-0.5">시스템에 등록된 제휴 대행사들을 검토하고 요율 및 계약 조건을 수정하거나 불필요한 업체를 파기합니다.</p>
+              <h4 className="text-xs font-black text-zinc-100">주차 대행 업체 수정·삭제</h4>
+              <p className="text-[12px] text-zinc-500 mt-0.5">
+                예약·입출고를 다루는 업체만 관리합니다. 마케팅 제휴사는 「⑦ 제휴사 · 실적」에서 등록하세요.
+              </p>
             </div>
             <span className="text-[12px] bg-rose-500/15 text-rose-300 px-2.5 py-1 rounded-xl font-bold font-mono shrink-0 border border-rose-500/20">
               총 {primaryPartners.length} 대표 · {subCompanies.length} 하위

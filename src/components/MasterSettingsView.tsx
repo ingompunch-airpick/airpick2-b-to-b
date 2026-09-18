@@ -703,9 +703,9 @@ export default function MasterSettingsView({
     return (
       <div className="bg-black min-h-screen text-zinc-100 p-4 pb-20">
         <div className="mb-5 px-1">
-          <h2 className="text-sm font-black text-white">제휴업체 관리</h2>
-          <p className="text-[12px] text-zinc-500 font-bold uppercase tracking-wider mt-0.5">
-            신규 제휴사 등록 · 기존 업체 수정/삭제
+          <h2 className="text-sm font-black text-white">주차 업체 관리</h2>
+          <p className="text-[12px] text-zinc-500 font-bold mt-0.5 leading-relaxed">
+            예약·입출고용 주차 대행 업체만 등록합니다. 마케팅 제휴사는 「⑦ 제휴사 · 실적」에서 따로 관리합니다.
           </p>
         </div>
         <AdminDashboard

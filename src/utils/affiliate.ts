@@ -9,13 +9,13 @@
 
 export const AFFILIATE_COLLECTION = 'affiliates';
 
-/** 실적 링크용 토큰 — 공개 get 되는 affiliates 문서와 분리 */
+/** 실적 포털용 비밀번호 — 공개 affiliates 문서와 분리 */
 export const AFFILIATE_SECRETS_COLLECTION = 'affiliateSecrets';
 
 /** 손님 앱 기본 랜딩 (B2C) */
 export const B2C_PUBLIC_ORIGIN = 'https://www.에어픽.kr';
 
-/** 제휴 실적 포털 — B2B Hosting `/a/{code}?t=` */
+/** 제휴 실적 포털 — B2B Hosting `/a` 로그인 */
 export const AFFILIATE_STATS_PUBLIC_ORIGIN = 'https://airpick-reservation.web.app';
 
 /** 문서 ID = code. 3~16자 소문자·숫자·밑줄 */
@@ -119,40 +119,49 @@ export function buildB2cAffiliateShortPath(code: string): string {
 }
 
 const AFFILIATE_STATS_PATH_RE = /^\/a\/([^/?#]+)\/?$/i;
+const AFFILIATE_STATS_ROOT_RE = /^\/a\/?$/i;
 
-/** URL 경로에서 제휴 코드 추출 (`/a/{code}`) */
-export function parseAffiliateCodeFromStatsPath(pathname: string): string | null {
+/** `/a` 또는 `/a/{code}` 실적 포털 여부 */
+export function parseAffiliateStatsPortal(pathname: string): {
+  active: boolean;
+  code: string | null;
+} {
+  if (AFFILIATE_STATS_ROOT_RE.test(pathname)) {
+    return { active: true, code: null };
+  }
   const match = pathname.match(AFFILIATE_STATS_PATH_RE);
-  if (!match?.[1]) return null;
+  if (!match?.[1]) return { active: false, code: null };
   try {
-    return normalizeAffiliateCode(decodeURIComponent(match[1]));
+    return {
+      active: true,
+      code: normalizeAffiliateCode(decodeURIComponent(match[1])),
+    };
   } catch {
-    return normalizeAffiliateCode(match[1]);
+    return { active: true, code: normalizeAffiliateCode(match[1]) };
   }
 }
 
-/** 32 hex — 실적 링크 비밀 토큰 */
-export function generateAffiliateStatsToken(): string {
-  const bytes = new Uint8Array(16);
-  crypto.getRandomValues(bytes);
-  return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+/** @deprecated parseAffiliateStatsPortal 사용 */
+export function parseAffiliateCodeFromStatsPath(pathname: string): string | null {
+  return parseAffiliateStatsPortal(pathname).code;
 }
 
-export function buildAffiliateStatsPath(code: string, token: string): string {
-  const normalized = normalizeAffiliateCode(code);
-  const t = String(token || '').trim();
-  if (!normalized || !t) return '';
-  return `/a/${encodeURIComponent(normalized)}?t=${encodeURIComponent(t)}`;
-}
-
-/** 제휴 상대에게 공유 — 예약 건수·예상 페이백만 (고객 예약 링크와 별개) */
-export function buildAffiliateStatsUrl(
-  code: string,
-  token: string,
+/** 본사·제휴사 안내용 포털 주소 (`/a` 또는 `/a/{code}`) */
+export function buildAffiliatePortalUrl(
+  code?: string,
   opts?: { origin?: string }
 ): string {
-  const path = buildAffiliateStatsPath(code, token);
-  if (!path) return '';
   const origin = (opts?.origin || AFFILIATE_STATS_PUBLIC_ORIGIN).replace(/\/$/, '');
-  return `${origin}${path}`;
+  const normalized = code ? normalizeAffiliateCode(code) : '';
+  return normalized
+    ? `${origin}/a/${encodeURIComponent(normalized)}`
+    : `${origin}/a`;
+}
+
+/** 제휴 포털 초기 비밀번호 (8자, 혼동 문자 제외) */
+export function generateAffiliatePortalPassword(): string {
+  const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789';
+  const bytes = new Uint8Array(8);
+  crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join('');
 }

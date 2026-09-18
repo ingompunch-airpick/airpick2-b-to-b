@@ -17,7 +17,7 @@ import {
   AFFILIATE_SECRETS_COLLECTION,
   DEFAULT_AFFILIATE_MARKETING_BUDGET_WON,
   assertAffiliateBudgetAllocation,
-  generateAffiliateStatsToken,
+  generateAffiliatePortalPassword,
   normalizeAffiliateCode,
   normalizeAffiliateName,
   normalizeAffiliateRewardWon,
@@ -27,6 +27,12 @@ import {
 import type { Reservation } from '../types';
 
 export type AffiliateRow = AffiliateDoc & { id: string };
+
+export type CreateAffiliateResult = AffiliateRow & {
+  /** 등록 직후 한 번만 표시용 */
+  initialPassword: string;
+};
+
 
 function coerceAffiliateDoc(id: string, raw: Record<string, unknown>): AffiliateRow {
   const customerDiscountWon = normalizeAffiliateRewardWon(raw.customerDiscountWon);
@@ -86,7 +92,7 @@ export async function createAffiliate(input: {
   marketingBudgetWon?: number;
   customerDiscountWon?: number;
   referrerCreditWon?: number;
-}): Promise<AffiliateRow> {
+}): Promise<CreateAffiliateResult> {
   const code = normalizeAffiliateCode(input.code);
   if (!code) {
     throw new Error('코드는 영문 소문자·숫자·밑줄 3~16자여야 합니다.');
@@ -128,47 +134,46 @@ export async function createAffiliate(input: {
       ? { createdByEmail: auth.currentUser.email }
       : {}),
   };
+  const initialPassword = generateAffiliatePortalPassword();
   await setDoc(ref, payload);
+  // 제휴사는 affiliates(+secrets)만 생성 — companies / 업체 Gate 계정은 절대 만들지 않음
   await setDoc(doc(db, AFFILIATE_SECRETS_COLLECTION, code), {
-    statsToken: generateAffiliateStatsToken(),
+    password: initialPassword,
     updatedAt: now,
   });
-  return { id: code, ...payload };
+  return { id: code, ...payload, initialPassword };
 }
 
-/** 실적 링크 토큰. 없으면 발급. */
-export async function ensureAffiliateStatsToken(code: string): Promise<string> {
+/** 제휴 실적 포털 비밀번호 설정·재발급 */
+export async function setAffiliatePortalPassword(
+  code: string,
+  password: string
+): Promise<void> {
   const id = normalizeAffiliateCode(code);
+  const pw = String(password || '').trim();
   if (!id) throw new Error('잘못된 코드입니다.');
+  if (pw.length < 4 || pw.length > 64) {
+    throw new Error('비밀번호는 4~64자로 입력해 주세요.');
+  }
   await ensureFirestoreAuth();
-  const ref = doc(db, AFFILIATE_SECRETS_COLLECTION, id);
-  const snap = await getDoc(ref);
-  const existing = snap.exists()
-    ? String((snap.data() as { statsToken?: string }).statsToken || '').trim()
-    : '';
-  if (existing.length >= 16) return existing;
-
-  const token = generateAffiliateStatsToken();
-  await setDoc(
-    ref,
-    { statsToken: token, updatedAt: new Date().toISOString() },
-    { merge: true }
-  );
-  return token;
-}
-
-/** 실적 링크 토큰 재발급 — 기존 공유 링크 무효화 */
-export async function rotateAffiliateStatsToken(code: string): Promise<string> {
-  const id = normalizeAffiliateCode(code);
-  if (!id) throw new Error('잘못된 코드입니다.');
-  await ensureFirestoreAuth();
-  const token = generateAffiliateStatsToken();
+  const aff = await getDoc(doc(db, AFFILIATE_COLLECTION, id));
+  if (!aff.exists()) throw new Error('제휴를 찾을 수 없습니다.');
   await setDoc(
     doc(db, AFFILIATE_SECRETS_COLLECTION, id),
-    { statsToken: token, updatedAt: new Date().toISOString() },
+    { password: pw, updatedAt: new Date().toISOString() },
     { merge: true }
   );
-  return token;
+}
+
+/** 비밀번호가 설정돼 있는지 (값은 반환하지 않음) */
+export async function affiliatePortalPasswordSet(code: string): Promise<boolean> {
+  const id = normalizeAffiliateCode(code);
+  if (!id) return false;
+  await ensureFirestoreAuth();
+  const snap = await getDoc(doc(db, AFFILIATE_SECRETS_COLLECTION, id));
+  if (!snap.exists()) return false;
+  const pw = String((snap.data() as { password?: string }).password || '').trim();
+  return pw.length >= 4;
 }
 
 export async function updateAffiliate(

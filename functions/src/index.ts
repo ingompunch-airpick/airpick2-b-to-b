@@ -15,6 +15,7 @@ import { upsertCompanyEmployees } from './admin/upsertCompanyEmployees';
 /** 손님(B2C) HTTPS API — 리전 asia-northeast3 (이름·리전 유지) */
 import { getReceipt } from './api/getReceipt';
 import { getAffiliateStats } from './api/getAffiliateStats';
+import { affiliateLogin } from './api/affiliateLogin';
 import { lookupReservation } from './api/lookupReservation';
 import { cancelReservation } from './api/cancelReservation';
 import { submitReview } from './api/submitReview';
@@ -34,6 +35,7 @@ export {
   upsertCompanyEmployees,
   getReceipt,
   getAffiliateStats,
+  affiliateLogin,
   lookupReservation,
   cancelReservation,
   submitReview,

@@ -291,18 +291,26 @@ service cloud.firestore {
         && affiliateId.matches('^[a-z0-9_]{3,16}$');
     }
 
-    // 제휴 실적 포털 토큰 — 공개 affiliates get 과 분리. 본사만 클라이언트 읽기.
+    // 제휴 실적 포털 비밀번호 — 공개 affiliates get 과 분리. 본사만 클라이언트 읽기/쓰기.
     match /affiliateSecrets/{affiliateId} {
       allow get: if isPlatformAdmin()
         && affiliateId.matches('^[a-z0-9_]{3,16}$');
       allow list: if false;
       allow create, update: if isPlatformAdmin()
         && affiliateId.matches('^[a-z0-9_]{3,16}$')
-        && request.resource.data.keys().hasAll(['statsToken', 'updatedAt'])
-        && request.resource.data.statsToken is string
-        && request.resource.data.statsToken.size() >= 16
-        && request.resource.data.statsToken.size() <= 64
-        && request.resource.data.updatedAt is string;
+        && request.resource.data.keys().hasAll(['password', 'updatedAt'])
+        && request.resource.data.password is string
+        && request.resource.data.password.size() >= 4
+        && request.resource.data.password.size() <= 64
+        && request.resource.data.updatedAt is string
+        && (
+          !('statsToken' in request.resource.data)
+          || (
+            request.resource.data.statsToken is string
+            && request.resource.data.statsToken.size() >= 16
+            && request.resource.data.statsToken.size() <= 64
+          )
+        );
       allow delete: if isPlatformAdmin()
         && affiliateId.matches('^[a-z0-9_]{3,16}$');
     }
