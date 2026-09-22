@@ -270,13 +270,11 @@ export async function processReservationAlimtalk(
   }
 
   const companyPhone = companySettings.phone;
-  /** 업체 전용 카카오 채널이 설정돼 있으면 그 발신 프로필로 보낸다 */
-  const sendConfig = applyCompanyChannel(config, companySettings.channel);
 
   /**
-   * 에어픽(B2C) 예약은 항상 공용 템플릿.
-   * 홈페이지·현장은 업체 전용 템플릿이 있을 때만 보내고, 없으면 건너뛴다.
-   * (에어픽 문구가 업체 고객에게 나가지 않게)
+   * 에어픽(B2C) 예약은 항상 공용 템플릿 + 공용 채널(@airpickup).
+   * 홈페이지·현장만 업체 채널·전용 템플릿을 쓴다.
+   * (업체 채널에 에어픽 템플릿을 실으면 NCP 수신 실패 — @wawa0521+reservation2 사례)
    */
   for (const eventType of events) {
     const partnerTemplate =
@@ -352,6 +350,27 @@ export async function processReservationAlimtalk(
     }
     const buttons: AlimtalkButton[] | undefined = button ? [button] : undefined;
     const buttonUrl = button?.linkMo || '';
+
+    // 업체 전용 템플릿은 반드시 업체 채널로만. 채널 없으면 에어픽에 잘못 실리지 않게 중단.
+    if (partnerTemplate && !companySettings.channel?.plusFriendId && !companySettings.channel?.senderKey) {
+      console.warn('[alimtalk] skipped — partner template without company channel', {
+        reservationId,
+        companyId: after?.companyId,
+        source,
+        eventType,
+        templateCode,
+      });
+      await markAlimtalkSent(reservationId, eventType, {
+        templateCode,
+        recipientNo,
+        error: 'partner template requires company channel',
+      });
+      continue;
+    }
+
+    const sendConfig = partnerTemplate
+      ? applyCompanyChannel(config, companySettings.channel)
+      : config;
 
     try {
       const result = await sendAlimtalkMessage(

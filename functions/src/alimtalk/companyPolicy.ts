@@ -26,7 +26,7 @@ const ALL_SOURCES: BookingSource[] = ['airpick-b2c', 'homepage', 'b2b'];
  *   enabled: true,
  *   sources: ['airpick-b2c', 'homepage'],
  *   events: ['reserve', 'checkin', 'checkout'],
- *   channel: { plusFriendId: '@업체채널' },  // 없으면 에어픽 공용 채널
+ *   channel: { plusFriendId: '@업체채널' },  // 홈페이지·현장 전용. B2C는 항상 @airpickup
  *   templates: {                             // 홈페이지·현장만. B2C는 항상 공용
  *     reserve: { code: 'wawareserve', body: '...' }
  *   }

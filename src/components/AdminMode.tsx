@@ -9,6 +9,7 @@ import HqReviewsView from './HqReviewsView';
 import HqCustomersView from './HqCustomersView';
 import AcquisitionFunnelView from './AcquisitionFunnelView';
 import AffiliateAdminView from './AffiliateAdminView';
+import { isAirpickHeadquarters } from '../constants/platform';
 
 interface AdminModeProps {
   currentView: AppView;
@@ -106,7 +107,8 @@ export default function AdminMode({
       );
 
     case 'master_settings':
-      if (isSuperAdmin) {
+      // 본사 홈: 주차 업체 관리. 원격으로 업체에 들어간 뒤에는 업체와 동일(요금·직원) 화면.
+      if (isSuperAdmin && isAirpickHeadquarters(currentCompanyId)) {
         return (
           <HqParkingPartnersView
             reservations={reservations}

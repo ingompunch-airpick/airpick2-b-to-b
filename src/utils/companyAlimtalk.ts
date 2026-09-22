@@ -69,10 +69,9 @@ export function buildAlimtalkSettingsPatch(
   const code = form.reserveCode.trim().toLowerCase().replace(/[^a-z0-9]/g, '');
   const plusFriendId = form.plusFriendId.trim();
   const buttonName = form.reserveButtonName.trim() || '접수증보기';
-  const sources: CompanyAlimtalkSource[] = [];
+  const sources: CompanyAlimtalkSource[] = ['airpick-b2c'];
   if (form.sourceHomepage) sources.push('homepage');
   if (form.sourceB2b) sources.push('b2b');
-  if (sources.length === 0) sources.push('homepage');
 
   const enabled = form.enabled && Boolean(code && plusFriendId);
 

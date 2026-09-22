@@ -197,9 +197,10 @@ export default function ConsolidatedGate({ onLoginSuccess, partners, companies }
                   id="gate-username"
                   type="text"
                   required
+                  autoComplete="username"
+                  placeholder="예: demo"
                   value={username}
                   onChange={(e) => setUsername(e.target.value)}
-                  placeholder="업체 ID 또는 본사 계정"
                   disabled={loggingIn}
                   className="w-full bg-[#1C1C1E] border border-neutral-800 rounded-xl pl-3.5 pr-10 py-3 text-toss-body text-white placeholder:text-[var(--color-toss-fg-subtle)] outline-none focus:border-amber-500/90 transition-all font-medium"
                 />

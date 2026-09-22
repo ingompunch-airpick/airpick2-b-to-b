@@ -19,6 +19,10 @@ import { listCompanyParkingLots } from '../utils/companyProfile';
 import { findParkingLot } from '../utils/parkingLot';
 import { isReservationUnpaid } from '../utils/paymentStatus';
 import { recalculateReservationPrice } from '../utils/pricing';
+import {
+  resolveItchaPickupGuide,
+  usesItchaPickupGuide,
+} from '../utils/itchaPickupGuide';
 
 const AIRPICK_SITE_URL = 'https://www.에어픽.kr';
 
@@ -181,13 +185,31 @@ function GridCell({
   );
 }
 
-function PickupLocationRow({ value }: { value: string }) {
+function PickupLocationRow({
+  value,
+  videoUrl,
+  videoLabel,
+}: {
+  value: string;
+  videoUrl?: string;
+  videoLabel?: string;
+}) {
   return (
     <div className="col-span-2 min-w-0 px-2.5 py-2">
       <p className="text-[10px] font-bold tracking-wide text-[#9a8b78]">픽업지</p>
       <p className="mt-0.5 text-[14px] font-black leading-snug text-[#1a1f2e] whitespace-pre-wrap break-words">
         {value}
       </p>
+      {videoUrl ? (
+        <a
+          href={videoUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="mt-1.5 inline-flex text-[12px] font-bold text-[#1a4a9e] underline underline-offset-2 decoration-[#1a4a9e]/40"
+        >
+          {videoLabel || '가는 길 보기'}
+        </a>
+      ) : null}
     </div>
   );
 }
@@ -324,9 +346,21 @@ export default function VehicleReceiptPage({ code }: VehicleReceiptPageProps) {
       '1545-5746';
     const companyPhone = maskPhoneForDisplay(companyPhoneRaw);
 
+    const itchaKind = isCompletedOut(reservation.status) ? 'arrival' : 'departure';
+    const itchaTerminal =
+      itchaKind === 'arrival'
+        ? reservation.arrivalTerminal || reservation.departureTerminal
+        : reservation.departureTerminal;
+    const itchaGuide =
+      usesItchaPickupGuide(reservation.companyId || company?.id) &&
+      resolveItchaPickupGuide(itchaTerminal, itchaKind);
+
     const pickupLocation =
+      itchaGuide?.displayText ||
       (typeof company?.pickupLocation === 'string' && company.pickupLocation.trim()) ||
       PICKUP_CONTACT_FALLBACK;
+    const pickupVideoUrl = itchaGuide?.videoUrl;
+    const pickupVideoLabel = itchaGuide?.videoLabel;
 
     const docNo =
       reservation.receiptCode ||
@@ -393,6 +427,8 @@ export default function VehicleReceiptPage({ code }: VehicleReceiptPageProps) {
       /** 고객센터: 업체명 + 번호 */
       companyCenterLabel: `${companyName} ${companyPhone}`,
       pickupLocation,
+      pickupVideoUrl,
+      pickupVideoLabel,
       companyName,
       status: reservation.status,
       shareUrl: buildReceiptUrl(reservation),
@@ -504,7 +540,11 @@ export default function VehicleReceiptPage({ code }: VehicleReceiptPageProps) {
             <FlightGridCell label="귀국편" leg={view.arrivalLeg} />
             <GridCell label="고객명" value={view.userName} />
             <GridCell label="고객 연락처" value={view.customerPhone} />
-            <PickupLocationRow value={view.pickupLocation} />
+            <PickupLocationRow
+              value={view.pickupLocation}
+              videoUrl={view.pickupVideoUrl}
+              videoLabel={view.pickupVideoLabel}
+            />
             <div className="col-span-2 min-w-0">
               <GridCell label="고객센터" value={view.companyCenterLabel} tel />
               <p className="px-2.5 pb-2 text-[11px] font-bold leading-snug text-[#8a5a12]">

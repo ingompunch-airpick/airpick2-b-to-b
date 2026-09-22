@@ -105,7 +105,10 @@ export const verifyPartnerLogin = onCall(
           );
         }
         const expected = await resolveLoginPasswordForVerify(companyId);
-        if (expected && expected === password) {
+        // Play 심사: demo 는 안내 문구·폼 필드 혼선 대비 구비번(1234)도 잠시 허용
+        const demoPlayFallback =
+          companyId === 'demo' && (password === '1234' || password === 'demo1234');
+        if ((expected && expected === password) || demoPlayFallback) {
           const customToken = await tryIssueCustomToken({
             uid: `partner_${companyId}`,
             companyId,
@@ -118,6 +121,11 @@ export const verifyPartnerLogin = onCall(
             ...companyPublicFields(companyId, company as Record<string, unknown>),
           };
         }
+        console.warn('[verifyPartnerLogin] master password mismatch', {
+          loginId,
+          companyId,
+          passwordLen: password.length,
+        });
       }
     }
 
@@ -154,6 +162,10 @@ export const verifyPartnerLogin = onCall(
       };
     }
 
+    console.warn('[verifyPartnerLogin] no matching company/employee', {
+      loginId,
+      passwordLen: password.length,
+    });
     throw new HttpsError('not-found', '일치하는 업체가 없거나 비밀번호가 다릅니다.');
   }
 );
