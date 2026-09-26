@@ -156,6 +156,23 @@ export default function HqPartnerBoardView({
                       {row.id} · {row.airportLabel}
                       {row.parentCompanyId ? ` · →${row.parentCompanyId}` : ''}
                     </p>
+                    <p
+                      className="mt-1 text-[11px] font-semibold text-zinc-500 truncate"
+                      title={row.alimtalk.detail}
+                    >
+                      알림톡{' '}
+                      <span
+                        className={cn(
+                          'font-black',
+                          row.alimtalk.kind === 'partner' && 'text-zinc-300',
+                          row.alimtalk.kind === 'airpick' && 'text-zinc-400',
+                          row.alimtalk.kind === 'incomplete' && 'text-zinc-400',
+                          row.alimtalk.kind === 'off' && 'text-zinc-600'
+                        )}
+                      >
+                        {row.alimtalk.label}
+                      </span>
+                    </p>
                   </div>
                   <button
                     type="button"

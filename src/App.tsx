@@ -250,6 +250,7 @@ export default function App() {
     setReservations,
     loadingReservations,
     reservationSyncError,
+    retryReservationSync,
     visibleReservations,
     operatorCompanyIds,
     operatorGroupLabel,
@@ -456,16 +457,28 @@ export default function App() {
               <p className="text-[11px] text-zinc-400 mt-1 leading-relaxed">
                 {reservationSyncError}
               </p>
+              <p className="text-[10px] text-zinc-600 mt-1 font-semibold">
+                직전 목록은 유지됩니다. 권한이 없으면 로그아웃하세요.
+              </p>
             </div>
-            <button
-              type="button"
-              onClick={() => {
-                void handleOperatorLogout();
-              }}
-              className="shrink-0 px-3 py-1.5 rounded-lg bg-rose-500 text-white text-[11px] font-black"
-            >
-              다시 로그인
-            </button>
+            <div className="flex flex-col gap-1 shrink-0">
+              <button
+                type="button"
+                onClick={() => retryReservationSync()}
+                className="shrink-0 px-3 py-1.5 rounded-lg bg-amber-500 text-neutral-950 text-[11px] font-black"
+              >
+                다시 시도
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  void handleOperatorLogout();
+                }}
+                className="shrink-0 px-3 py-1.5 rounded-lg text-zinc-500 text-[10px] font-bold"
+              >
+                로그아웃
+              </button>
+            </div>
           </div>
         </div>
       )}

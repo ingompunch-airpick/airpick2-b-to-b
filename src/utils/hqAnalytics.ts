@@ -30,6 +30,17 @@ export function filterAdmittedInMonth(
   );
 }
 
+/** 정산건 = 출차 완료(`completed_out`), 실제 출차일(없으면 귀국일) 기준 월 */
+export function filterSettledInMonth(
+  reservations: Reservation[],
+  monthPrefix: string
+): Reservation[] {
+  return reservations.filter(
+    (r) =>
+      r.status === 'completed_out' && exitDateYmd(r).startsWith(monthPrefix)
+  );
+}
+
 export type HqCompanyRow = {
   id: string;
   name: string;
@@ -40,7 +51,26 @@ export type HqCompanyRow = {
   revenue: number;
   airpickRevenue: number;
   homepageRevenue: number;
+  /** 해당 월 출차 완료 건수 (정산) */
+  settled: number;
+  settledRevenue: number;
 };
+
+function emptyHqCompanyRow(id: string, name: string): HqCompanyRow {
+  return {
+    id,
+    name,
+    airpick: 0,
+    homepage: 0,
+    onsite: 0,
+    total: 0,
+    revenue: 0,
+    airpickRevenue: 0,
+    homepageRevenue: 0,
+    settled: 0,
+    settledRevenue: 0,
+  };
+}
 
 function partnerDirectory(companies: Company[] | undefined): { id: string; name: string }[] {
   if (!companies?.length) return [];
@@ -54,38 +84,24 @@ function partnerDirectory(companies: Company[] | undefined): { id: string; name:
 
 export function buildHqCompanyRows(
   admitted: Reservation[],
-  companies?: Company[]
+  companies?: Company[],
+  settled: Reservation[] = []
 ): HqCompanyRow[] {
   const map = new Map<string, HqCompanyRow>();
   for (const c of partnerDirectory(companies)) {
-    map.set(c.id, {
-      id: c.id,
-      name: c.name,
-      airpick: 0,
-      homepage: 0,
-      onsite: 0,
-      total: 0,
-      revenue: 0,
-      airpickRevenue: 0,
-      homepageRevenue: 0,
-    });
+    map.set(c.id, emptyHqCompanyRow(c.id, c.name));
   }
-  for (const r of admitted) {
+
+  const ensure = (r: Reservation): HqCompanyRow => {
     const { id, name } = companyIdAndName(r);
     if (!map.has(id)) {
-      map.set(id, {
-        id,
-        name,
-        airpick: 0,
-        homepage: 0,
-        onsite: 0,
-        total: 0,
-        revenue: 0,
-        airpickRevenue: 0,
-        homepageRevenue: 0,
-      });
+      map.set(id, emptyHqCompanyRow(id, name));
     }
-    const row = map.get(id)!;
+    return map.get(id)!;
+  };
+
+  for (const r of admitted) {
+    const row = ensure(r);
     const src = resolveBookingSourceFromReservation(r);
     const price = r.totalPrice || 0;
     if (src === 'airpick-b2c') {
@@ -100,8 +116,19 @@ export function buildHqCompanyRows(
     row.total += 1;
     row.revenue += price;
   }
+
+  for (const r of settled) {
+    const row = ensure(r);
+    row.settled += 1;
+    row.settledRevenue += r.totalPrice || 0;
+  }
+
   return [...map.values()].sort(
-    (a, b) => b.airpick - a.airpick || b.total - a.total || a.name.localeCompare(b.name, 'ko')
+    (a, b) =>
+      b.settled - a.settled ||
+      b.airpick - a.airpick ||
+      b.total - a.total ||
+      a.name.localeCompare(b.name, 'ko')
   );
 }
 
@@ -126,7 +153,7 @@ function companyIdAndName(r: Reservation): { id: string; name: string } {
   return { id, name };
 }
 
-function exitDateYmd(r: Reservation): string {
+export function exitDateYmd(r: Reservation): string {
   if (r.actualExitTime) return normalizeDateString(r.actualExitTime.slice(0, 10));
   return normalizeDateString(r.arrivalDate);
 }

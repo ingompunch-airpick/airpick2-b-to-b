@@ -10,6 +10,7 @@ import {
 import { isReservationUnpaid } from '../utils/paymentStatus';
 import { airportShortName } from '../utils/airport';
 import { isGenericParkingSpaceLabel } from '../utils/parkingLot';
+import { RESERVATION_DATA_RETENTION_DAYS } from '../constants/dataRetention';
 
 function cn(...classes: (string | boolean | undefined | null)[]) {
   return classes.filter(Boolean).join(' ');
@@ -228,7 +229,7 @@ export default function ServiceHistoryView({
         <div>
           <h2 className="text-sm font-black tracking-tight text-white">나의 서비스 기록</h2>
           <p className="text-[12px] text-zinc-500 font-bold">
-            입고·출고·출차 기록 · 탭하면 결제·취소·되돌리기
+            입고·출고·출차 · 출차 후 {RESERVATION_DATA_RETENTION_DAYS}일까지 앱에 보관
           </p>
         </div>
       </div>

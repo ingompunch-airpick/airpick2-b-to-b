@@ -385,7 +385,11 @@ export default function AdminDashboard({
         return;
       }
 
-      const alimtalkPatch = buildAlimtalkSettingsPatch(editAlimtalk);
+      const existingCompany = companies.find((c) => c.id === targetId);
+      const alimtalkPatch = buildAlimtalkSettingsPatch(
+        editAlimtalk,
+        existingCompany?.alimtalk
+      );
       if (editAlimtalk.enabled) {
         if (!alimtalkPatch.channel?.plusFriendId) {
           setSaveEditError('알림톡을 켜려면 채널 ID(@…)를 입력하세요.');

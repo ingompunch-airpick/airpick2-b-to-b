@@ -89,6 +89,7 @@ export function useReservations({
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [loadingReservations, setLoadingReservations] = useState(false);
   const [reservationSyncError, setReservationSyncError] = useState<string | null>(null);
+  const [reservationSyncRetryKey, setReservationSyncRetryKey] = useState(0);
   const [incomingReservationToast, setIncomingReservationToast] = useState<{
     id: string;
     carNumber: string;
@@ -175,14 +176,21 @@ export function useReservations({
         operatorCompanyIds.length > 0 ? operatorCompanyIds : [currentCompanyId],
     };
 
-    const failSync = (message: string, err?: unknown) => {
+    const failSync = (
+      message: string,
+      err?: unknown,
+      opts?: { clearList?: boolean }
+    ) => {
       if (cancelled) return;
       if (err) {
         console.warn('reservations sync failed:', err);
         handleFirestoreError(err, OperationType.LIST, 'reservations');
       }
-      setReservations([]);
-      reservationsPrevRef.current = [];
+      // 권한 문제는 목록을 비우고, 네트워크/일시 오류는 직전 스냅샷을 유지
+      if (opts?.clearList) {
+        setReservations([]);
+        reservationsPrevRef.current = [];
+      }
       setReservationSyncError(message);
       setLoadingReservations(false);
     };
@@ -228,11 +236,15 @@ export function useReservations({
         const user = auth.currentUser;
         // 파트너 대시보드: 익명 폴백 금지 — claim 없으면 list가 비어 “당일 0건”처럼 보임
         if (!isPlatformAdminUser(user) && !(await hasPartnerCompanyClaim(user))) {
-          failSync('업체 로그인 권한이 없습니다. 로그아웃 후 다시 로그인해 주세요.');
+          failSync('업체 로그인 권한이 없습니다. 다시 로그인해 주세요.', undefined, {
+            clearList: true,
+          });
           return;
         }
       } catch (e: unknown) {
-        failSync('로그인 권한을 확인하지 못했습니다. 다시 로그인해 주세요.', e);
+        failSync('로그인 권한을 확인하지 못했습니다. 다시 로그인해 주세요.', e, {
+          clearList: true,
+        });
         return;
       }
 
@@ -244,10 +256,7 @@ export function useReservations({
           applySnapshot(rows);
         }
       } catch (err) {
-        failSync(
-          '예약 목록을 불러오지 못했습니다. 로그아웃 후 다시 로그인해 주세요.',
-          err
-        );
+        failSync('예약 목록을 불러오지 못했습니다. 다시 시도해 주세요.', err);
         return;
       }
 
@@ -256,10 +265,7 @@ export function useReservations({
         syncScope,
         (rows) => applySnapshot(rows),
         (err) => {
-          failSync(
-            '예약 실시간 동기화에 실패했습니다. 로그아웃 후 다시 로그인해 주세요.',
-            err
-          );
+          failSync('예약 실시간 동기화에 실패했습니다. 다시 시도해 주세요.', err);
         }
       );
     };
@@ -273,7 +279,7 @@ export function useReservations({
       cancelled = true;
       unsub?.();
     };
-  }, [isLoggedIn, reservationSyncScopeKey, currentCompanyId, operatorCompanyIds]);
+  }, [isLoggedIn, reservationSyncScopeKey, currentCompanyId, operatorCompanyIds, reservationSyncRetryKey]);
 
   const statusUpdateInFlightRef = useRef<Set<string>>(new Set());
 
@@ -466,10 +472,15 @@ export function useReservations({
     });
   }, [currentCompanyId, operatorCompanyIds]);
 
+  /** 배너만 닫음 — 알림 ON/OFF 설정은 바꾸지 않음 */
   const dismissReservationAlertsBanner = useCallback(() => {
-    setReservationAlertsEnabled(false);
     markNotificationPermissionAsked();
     setShowAlertPermissionBanner(false);
+  }, []);
+
+  const retryReservationSync = useCallback(() => {
+    setReservationSyncError(null);
+    setReservationSyncRetryKey((n) => n + 1);
   }, []);
 
   // 로그인·알림 ON이면 안드로이드 FCM 토큰 등록 (백그라운드 푸시)
@@ -544,6 +555,7 @@ export function useReservations({
     setReservations,
     loadingReservations,
     reservationSyncError,
+    retryReservationSync,
     visibleReservations,
     operatorCompanyIds,
     operatorGroupLabel,

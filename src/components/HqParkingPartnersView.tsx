@@ -2,9 +2,11 @@ import { useState } from 'react';
 import type { Company, PartnerCompany, Reservation } from '../types';
 import AdminDashboard from './AdminDashboard';
 import HqPartnerBoardView from './HqPartnerBoardView';
+import AcquisitionFunnelView from './AcquisitionFunnelView';
 import { writePartnersToStorage } from '../utils/partnerSync';
+import { AIRPICK_HQ_ID } from '../constants/platform';
 
-type TabId = 'board' | 'edit';
+type TabId = 'board' | 'edit' | 'qr';
 
 type Props = {
   reservations: Reservation[];
@@ -25,7 +27,7 @@ function cn(...parts: Array<string | false | null | undefined>) {
 }
 
 /**
- * 본사 「② 주차 업체」 — 상태(운영) + 등록·편집.
+ * 본사 「② 주차 업체」 — 상태 · 등록·편집 · 명함 QR.
  * 매출·예약 대시보드와 역할을 겹치지 않게 유지.
  */
 export default function HqParkingPartnersView({
@@ -49,7 +51,7 @@ export default function HqParkingPartnersView({
         <div>
           <h2 className="text-sm font-black text-white">주차 업체</h2>
           <p className="text-[11px] text-zinc-500 font-semibold mt-0.5">
-            운영 상태 · 등록. 마케팅 제휴는 ⑥.
+            운영 상태 · 등록 · 명함 QR. 마케팅 제휴는 ⑤.
           </p>
         </div>
 
@@ -58,6 +60,7 @@ export default function HqParkingPartnersView({
             [
               { id: 'board' as const, label: '상태' },
               { id: 'edit' as const, label: '등록·편집' },
+              { id: 'qr' as const, label: '명함 QR' },
             ] as const
           ).map((item) => (
             <button
@@ -92,7 +95,7 @@ export default function HqParkingPartnersView({
           }}
           onOpenReviews={onOpenReviews}
         />
-      ) : (
+      ) : tab === 'edit' ? (
         <div className="px-4 pt-3 pb-20">
           <AdminDashboard
             onClose={() => onBack?.()}
@@ -109,6 +112,12 @@ export default function HqParkingPartnersView({
             }}
           />
         </div>
+      ) : (
+        <AcquisitionFunnelView
+          companies={companies}
+          currentCompanyId={AIRPICK_HQ_ID}
+          isSuperAdmin
+        />
       )}
     </div>
   );

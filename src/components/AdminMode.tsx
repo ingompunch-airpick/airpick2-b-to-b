@@ -7,7 +7,6 @@ import DispatchBoardView from './DispatchBoardView';
 import HqParkingPartnersView from './HqParkingPartnersView';
 import HqReviewsView from './HqReviewsView';
 import HqCustomersView from './HqCustomersView';
-import AcquisitionFunnelView from './AcquisitionFunnelView';
 import AffiliateAdminView from './AffiliateAdminView';
 import { isAirpickHeadquarters } from '../constants/platform';
 
@@ -168,12 +167,21 @@ export default function AdminMode({
       );
 
     case 'acquisition_funnel':
+      // 예전 톱메뉴 → 「② 주차 업체」 명함 QR 탭으로 통합
       if (!isSuperAdmin) return statisticsPanel;
       return (
-        <AcquisitionFunnelView
+        <HqParkingPartnersView
+          reservations={reservations}
           companies={companies}
-          currentCompanyId={currentCompanyId}
-          isSuperAdmin
+          partners={partners}
+          onUpdateCompanies={onUpdateCompanies}
+          onUpdatePartners={onUpdatePartners}
+          onToggleCompanyOpen={onToggleCompanyOpen}
+          onRemoteOpenCompany={onRemoteOpenCompany}
+          onOpenPartnerEditor={onOpenPartnerEditor}
+          onOpenReviews={openCompanyReviews}
+          onBack={() => setCurrentView('statistics')}
+          initialTab="qr"
         />
       );
 

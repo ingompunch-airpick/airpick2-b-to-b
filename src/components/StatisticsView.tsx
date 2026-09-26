@@ -43,6 +43,7 @@ import {
   buildHqTodayCompanyRows,
   computeCustomerMix,
   filterAdmittedInMonth,
+  filterSettledInMonth,
   monthLabelFromPrefix,
   shiftMonthPrefix,
 } from '../utils/hqAnalytics';
@@ -126,6 +127,15 @@ function reservationCheckedInOn(r: Reservation, ymd: string): boolean {
     return toKSTDateOnlyString(r.checkedInAt) === ymd;
   }
   return false;
+}
+
+/** 취소 시각 — `YYYY-MM-DD HH:mm:ss`(KST) 또는 ISO. 없으면 updatedAt */
+function reservationCancelledOnMonth(r: Reservation, monthPrefix: string, throughYmd: string): boolean {
+  const raw = (r.cancelledAt || r.updatedAt || '').trim();
+  if (!raw) return false;
+  const ymd = /^\d{4}-\d{2}-\d{2}/.test(raw) ? raw.slice(0, 10) : toKSTDateOnlyString(raw);
+  if (!ymd.startsWith(monthPrefix)) return false;
+  return ymd <= throughYmd;
 }
 
 /** 선택일 예약 = 해당일(KST) 접수(createdAt)한 건 */
@@ -338,12 +348,15 @@ export default function StatisticsView({
     const hqCanGoNext = hqMonthPrefix < hqMonthMax;
 
     const hqMonthAdmitted = filterAdmittedInMonth(masterActiveRes, hqMonthPrefix);
+    const hqMonthSettled = filterSettledInMonth(masterActiveRes, hqMonthPrefix);
 
     const hqMonthSourceMetrics = aggregateGroupedBookingSourceMetrics(hqMonthAdmitted);
     const hqMonthTotalAdmitted = hqMonthAdmitted.length;
     const hqMonthTotalRevenue = hqMonthAdmitted.reduce((s, r) => s + (r.totalPrice || 0), 0);
+    const hqMonthTotalSettled = hqMonthSettled.length;
+    const hqMonthSettledRevenue = hqMonthSettled.reduce((s, r) => s + (r.totalPrice || 0), 0);
 
-    const hqCompanyRows = buildHqCompanyRows(hqMonthAdmitted, companies);
+    const hqCompanyRows = buildHqCompanyRows(hqMonthAdmitted, companies, hqMonthSettled);
     const hqTodayCompanyRows = buildHqTodayCompanyRows(masterActiveRes, todayStr, companies);
     // 상단 접수 = 업체별 접수 합 (집계 기준 불일치로 4 vs 3 나는 것 방지)
     const masterTodayReservations = hqTodayCompanyRows.reduce((s, row) => s + row.received, 0);
@@ -487,25 +500,38 @@ export default function StatisticsView({
         {hqTab === 'month' && (
           <div className="space-y-4">
             <div className="flex items-center justify-between px-1 gap-2">
-              <h3 className="text-xs font-black text-zinc-400">입고 · 유입</h3>
+              <h3 className="text-xs font-black text-zinc-400">입고 · 정산</h3>
               {hqMonthPicker}
             </div>
 
             <div className="bg-[#121214] rounded-[22px] border border-neutral-800/80 p-4 space-y-4">
-              <div className="flex items-end justify-between gap-3">
+              <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <span className="text-[11px] text-zinc-500 font-bold block">{hqMonthLabel}</span>
+                  <span className="text-[11px] text-zinc-500 font-bold block">
+                    {hqMonthLabel} 입고
+                  </span>
                   <div className="text-3xl font-black text-amber-400 font-mono tracking-tight mt-0.5">
-                    {hqMonthTotalAdmitted}<span className="text-lg ml-0.5">대</span>
+                    {hqMonthTotalAdmitted}
+                    <span className="text-lg ml-0.5">대</span>
                   </div>
-                </div>
-                <div className="text-right">
-                  <span className="text-[11px] text-zinc-500 font-bold block">매출</span>
-                  <span className="text-sm font-black text-white font-mono">
+                  <span className="text-[11px] text-zinc-500 font-bold font-mono mt-1 block">
                     {hqMonthTotalRevenue.toLocaleString()}원
                   </span>
                 </div>
+                <div className="text-right">
+                  <span className="text-[11px] text-zinc-500 font-bold block">정산(출고)</span>
+                  <div className="text-3xl font-black text-emerald-400 font-mono tracking-tight mt-0.5">
+                    {hqMonthTotalSettled}
+                    <span className="text-lg ml-0.5">건</span>
+                  </div>
+                  <span className="text-[11px] text-zinc-500 font-bold font-mono mt-1 block">
+                    {hqMonthSettledRevenue.toLocaleString()}원
+                  </span>
+                </div>
               </div>
+              <p className="text-[10px] text-zinc-600 font-semibold leading-relaxed">
+                정산은 출차 완료 기준 · 출차일. 출차 후 90일이 지난 건은 앱에서 빠질 수 있습니다.
+              </p>
 
               <div className="space-y-2">
                 {GROUPED_SOURCE_ROWS.map(({ key, label }) => {
@@ -579,8 +605,8 @@ export default function StatisticsView({
 
             <div className="space-y-2.5">
               <div className="flex items-center justify-between px-1">
-                <span className="text-[11px] text-zinc-500 font-bold">업체별 입고</span>
-                <span className="text-[10px] text-zinc-600">에어픽 · 홈페이지</span>
+                <span className="text-[11px] text-zinc-500 font-bold">업체별 입고 · 정산</span>
+                <span className="text-[10px] text-zinc-600">에어픽 · 홈 · 출고</span>
               </div>
               {hqCompanyRows.length === 0 ? (
                 <p className="px-4 py-6 text-center text-xs text-zinc-500 font-bold">
@@ -591,14 +617,36 @@ export default function StatisticsView({
                   const metrics = [
                     { label: '에어픽', value: row.airpick, tone: 'text-fuchsia-300' },
                     { label: '홈', value: row.homepage, tone: 'text-sky-300' },
-                    { label: '합계', value: row.total, tone: 'text-white' },
+                    { label: '입고', value: row.total, tone: 'text-white' },
                   ];
                   return (
                     <div
                       key={row.id}
                       className="bg-[#121214] border border-neutral-800/80 rounded-2xl px-4 py-3.5 space-y-2.5"
                     >
-                      <span className="text-sm font-black text-white block truncate">{row.name}</span>
+                      <div className="flex items-start justify-between gap-2">
+                        <span className="text-sm font-black text-white block truncate min-w-0">
+                          {row.name}
+                        </span>
+                        <div className="text-right shrink-0">
+                          <span className="text-[10px] text-emerald-500/80 font-bold block">
+                            정산
+                          </span>
+                          <span
+                            className={`text-base font-black font-mono tracking-tight ${
+                              row.settled > 0 ? 'text-emerald-400' : 'text-zinc-600'
+                            }`}
+                          >
+                            {row.settled}
+                            <span className="text-[10px] font-bold ml-0.5">건</span>
+                          </span>
+                          {row.settled > 0 ? (
+                            <span className="text-[10px] text-zinc-500 font-mono font-bold block">
+                              {row.settledRevenue.toLocaleString()}원
+                            </span>
+                          ) : null}
+                        </div>
+                      </div>
                       <div className="grid grid-cols-3 gap-2">
                         {metrics.map((m) => (
                           <div
@@ -655,6 +703,13 @@ export default function StatisticsView({
   const totalExited = dailyFlow.reduce((s, d) => s + d.exitedCount, 0);
   const activeDays = dailyFlow.filter(d => d.admittedCount > 0 || d.exitedCount > 0).length;
   const avgAdmitted = activeDays > 0 ? Math.round((totalAdmitted / activeDays) * 10) / 10 : 0;
+  // 총 예약 = 당일 예약과 동일: 그달에 접수(createdAt, KST)된 건. 입고일과 별개.
+  const totalReserved = activeReservations.filter((r) =>
+    toKSTDateOnlyString(r.createdAt).startsWith(summaryMonthPrefix)
+  ).length;
+  const totalCancelled = reservations.filter(
+    (r) => r.status === 'cancelled' && reservationCancelledOnMonth(r, summaryMonthPrefix, salesMonthThrough)
+  ).length;
   const summaryMonthMax = todayStr.substring(0, 7);
   const canGoNextSummary = summaryMonthPrefix < summaryMonthMax;
 
@@ -1042,7 +1097,9 @@ export default function StatisticsView({
           <div className="flex items-center justify-between px-1 select-none">
             <p className="text-[11px] text-zinc-500 font-bold">
               {monthLabelFromPrefix(summaryMonthPrefix)}
-              {summaryMonthPrefix === currentMonthPrefix ? ' · 오늘까지' : ''}
+              {summaryMonthPrefix === currentMonthPrefix
+                ? ' · 총 예약은 접수일, 입고·출고는 오늘까지'
+                : ' · 총 예약은 그달 접수일'}
             </p>
           </div>
 
@@ -1054,17 +1111,25 @@ export default function StatisticsView({
                 {parkedNow}<span className="text-[13px] ml-0.5">대</span>
               </span>
             </div>
-            <div className="col-span-3 bg-[#1C1C1E] border border-neutral-800/40 rounded-2xl p-3 grid grid-cols-3 gap-1 items-center">
+            <div className="col-span-3 bg-[#1C1C1E] border border-neutral-800/40 rounded-2xl p-3 grid grid-cols-5 gap-1 items-center">
               <div className="text-center">
-                <span className="text-[11px] text-zinc-500 font-bold uppercase block tracking-wider">총 입고</span>
+                <span className="text-[10px] text-zinc-500 font-bold block tracking-wider leading-tight">총 예약</span>
+                <span className="text-sm font-black text-white font-mono">{totalReserved}</span>
+              </div>
+              <div className="text-center border-l border-neutral-800/60">
+                <span className="text-[10px] text-zinc-500 font-bold block tracking-wider leading-tight">총 입고</span>
                 <span className="text-sm font-black text-white font-mono">{totalAdmitted}</span>
               </div>
-              <div className="text-center border-x border-neutral-800/60">
-                <span className="text-[11px] text-zinc-500 font-bold uppercase block tracking-wider">총 출고</span>
+              <div className="text-center border-l border-neutral-800/60">
+                <span className="text-[10px] text-zinc-500 font-bold block tracking-wider leading-tight">총 출고</span>
                 <span className="text-sm font-black text-white font-mono">{totalExited}</span>
               </div>
-              <div className="text-center">
-                <span className="text-[11px] text-zinc-500 font-bold uppercase block tracking-wider">일평균 입고</span>
+              <div className="text-center border-l border-neutral-800/60">
+                <span className="text-[10px] text-zinc-500 font-bold block tracking-wider leading-tight">취소</span>
+                <span className="text-sm font-black text-rose-400 font-mono">{totalCancelled}</span>
+              </div>
+              <div className="text-center border-l border-neutral-800/60">
+                <span className="text-[10px] text-zinc-500 font-bold block tracking-wider leading-tight">일평균 입고</span>
                 <span className="text-sm font-black text-white font-mono">{avgAdmitted}</span>
               </div>
             </div>

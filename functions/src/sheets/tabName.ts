@@ -7,6 +7,36 @@ import {
 
 const INVALID_TAB_CHARS = /[\\/?*[\]]/g;
 
+const WAWA_COMPANY_IDS = new Set(['wawa', 'wawa_valet', '와와', '와와발렛']);
+
+function isWawaCompanyIdentity(data: Record<string, unknown>): boolean {
+  const id = String(data.companyId || '')
+    .trim()
+    .toLowerCase();
+  const name = String(data.companyName || '').trim();
+  if (WAWA_COMPANY_IDS.has(id) || WAWA_COMPANY_IDS.has(name.toLowerCase())) return true;
+  return name.includes('와와');
+}
+
+/** 와와 현장·홈페이지. 에어픽(B2C) 원본은 에어픽 장부에만 둔다. */
+export function isWawaSheetCompany(data: Record<string, unknown>): boolean {
+  const source = resolveBookingSource(
+    typeof data.createdBy === 'string' ? data.createdBy : null,
+    data
+  );
+  if (source === 'airpick-b2c') return false;
+  return isWawaCompanyIdentity(data);
+}
+
+/** 에어픽으로 들어왔지만 담당이 와와인 예약. 와와 장부에 한 번 더 복사한다. */
+export function shouldCopyAirpickRowToWawa(data: Record<string, unknown>): boolean {
+  const source = resolveBookingSource(
+    typeof data.createdBy === 'string' ? data.createdBy : null,
+    data
+  );
+  return source === 'airpick-b2c' && isWawaCompanyIdentity(data);
+}
+
 export function sanitizeSheetTabName(name: string): string {
   return name.replace(INVALID_TAB_CHARS, ' ').trim().slice(0, 100) || FALLBACK_TAB;
 }

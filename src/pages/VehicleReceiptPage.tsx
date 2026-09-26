@@ -297,7 +297,9 @@ export default function VehicleReceiptPage({ code }: VehicleReceiptPageProps) {
         const res = await fetchReservationByLookupCode(code);
         if (cancelled) return;
         if (!res) {
-          setError('접수증을 찾을 수 없습니다. 링크를 다시 확인해 주세요.');
+          setError(
+            '접수증을 찾을 수 없습니다. 링크를 확인하거나, 출차 후 보관 기간(90일)이 지났는지 문의해 주세요.'
+          );
           setReservation(null);
           return;
         }

@@ -17,7 +17,10 @@ export default function ParkingDepartureView({
 }: ParkingDepartureViewProps) {
   const [activeTab, setActiveTab] = useState<'indoor' | 'outdoor'>('indoor');
 
-  const parkedReservations = reservations.filter((res) => res.status === 'completed_in');
+  // 주차중 + 출고 진행 중(아직 현장에 남아 있는 차)
+  const parkedReservations = reservations.filter(
+    (res) => res.status === 'completed_in' || res.status === 'request_out'
+  );
   const indoorReservations = parkedReservations.filter((res) => res.isIndoor !== false);
   const outdoorReservations = parkedReservations.filter((res) => res.isIndoor === false);
   const displayedReservations = activeTab === 'indoor' ? indoorReservations : outdoorReservations;
@@ -93,7 +96,7 @@ export default function ParkingDepartureView({
               {activeTab === 'indoor' ? '실내 주차 구역' : '실외 주차 구역'}
             </h3>
             <p className="text-[12px] text-zinc-500 font-semibold mt-0.5">
-              차량번호 · 구역 · 출고만 표시
+              차량번호 · 구역 · 출고 · 출고요청 포함
             </p>
           </div>
         </div>
@@ -123,6 +126,11 @@ export default function ParkingDepartureView({
                     <span className="text-sm font-black text-white font-mono tracking-wide">
                       {res.carNumber || '번호미상'}
                     </span>
+                    {res.status === 'request_out' && (
+                      <span className="text-[10px] font-black px-1.5 py-0.5 rounded-md bg-rose-500/15 text-rose-400 border border-rose-500/25">
+                        출고 진행
+                      </span>
+                    )}
                     {isReservationUnpaid(res) && (
                       <span className="text-[10px] font-black px-1.5 py-0.5 rounded-md bg-rose-500/15 text-rose-400 border border-rose-500/25">
                         미납
@@ -151,10 +159,10 @@ export default function ParkingDepartureView({
           <div className="p-12 text-center bg-neutral-900/20 border border-dashed border-neutral-850 rounded-3xl">
             <Car className="mx-auto text-neutral-800 mb-2.5" size={24} />
             <p className="text-xs text-neutral-500 font-bold">
-              현재 {activeTab === 'indoor' ? '실내' : '실외'} 주차장에 완료 상태의 차량이 없습니다
+              현재 {activeTab === 'indoor' ? '실내' : '실외'} 주차장에 주차·출고 진행 차량이 없습니다
             </p>
             <p className="text-[11.5px] text-neutral-650 mt-1 font-medium">
-              차량 상태가 '주차완료'인 차량들만 실시간으로 집계됩니다.
+              주차완료·출고요청 상태만 집계됩니다.
             </p>
           </div>
         )}

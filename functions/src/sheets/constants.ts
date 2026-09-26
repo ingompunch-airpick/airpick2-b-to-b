@@ -1,5 +1,8 @@
-/** Google Sheets — 예약 장부 */
+/** Google Sheets — 예약 장부. 에어픽·기타 업체 */
 export const DEFAULT_SPREADSHEET_ID = '1zxxMHH7cJDz_nyCQbPOt2GCHdBtAVY9mzBDnUVV6lTs';
+
+/** 와와 전용 장부. 업체 간 공유를 막기 위해 에어픽 파일과 분리 */
+export const WAWA_SPREADSHEET_ID = '1QHg5Ta1XmAVdRHYeCCArhTVhK7ukn3nvxL2JyW4vC30';
 
 export const SHEET_HEADERS = [
   '예약ID',

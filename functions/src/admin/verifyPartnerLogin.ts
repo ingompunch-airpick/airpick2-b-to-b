@@ -97,36 +97,40 @@ export const verifyPartnerLogin = onCall(
 
     if (snap?.exists) {
       const company = snap.data() || {};
-      if (!(company.isOperatorPrimary === false && company.parentCompanyId)) {
-        if (company.status === 'suspended') {
-          throw new HttpsError(
-            'permission-denied',
-            '해당 제휴업체 계정은 최고관리자에 의해 [정지] 처리되었습니다.'
-          );
-        }
-        const expected = await resolveLoginPasswordForVerify(companyId);
-        // Play 심사: demo 는 안내 문구·폼 필드 혼선 대비 구비번(1234)도 잠시 허용
-        const demoPlayFallback =
-          companyId === 'demo' && (password === '1234' || password === 'demo1234');
-        if ((expected && expected === password) || demoPlayFallback) {
-          const customToken = await tryIssueCustomToken({
-            uid: `partner_${companyId}`,
-            companyId,
-            partnerRole: 'master',
-          });
-          return {
-            ok: true as const,
-            kind: 'master' as const,
-            customToken,
-            ...companyPublicFields(companyId, company as Record<string, unknown>),
-          };
-        }
-        console.warn('[verifyPartnerLogin] master password mismatch', {
-          loginId,
-          companyId,
-          passwordLen: password.length,
-        });
+      if (company.isOperatorPrimary === false && company.parentCompanyId) {
+        throw new HttpsError(
+          'failed-precondition',
+          '하위 업체 ID는 로그인할 수 없습니다. 대표 업체 ID로 로그인하세요.'
+        );
       }
+      if (company.status === 'suspended') {
+        throw new HttpsError(
+          'permission-denied',
+          '해당 제휴업체 계정은 최고관리자에 의해 [정지] 처리되었습니다.'
+        );
+      }
+      const expected = await resolveLoginPasswordForVerify(companyId);
+      // Play 심사: demo 는 안내 문구·폼 필드 혼선 대비 구비번(1234)도 잠시 허용
+      const demoPlayFallback =
+        companyId === 'demo' && (password === '1234' || password === 'demo1234');
+      if ((expected && expected === password) || demoPlayFallback) {
+        const customToken = await tryIssueCustomToken({
+          uid: `partner_${companyId}`,
+          companyId,
+          partnerRole: 'master',
+        });
+        return {
+          ok: true as const,
+          kind: 'master' as const,
+          customToken,
+          ...companyPublicFields(companyId, company as Record<string, unknown>),
+        };
+      }
+      console.warn('[verifyPartnerLogin] master password mismatch', {
+        loginId,
+        companyId,
+        passwordLen: password.length,
+      });
     }
 
     // 2) 직원

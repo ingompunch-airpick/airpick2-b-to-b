@@ -180,7 +180,10 @@ export default function ReservationCard({
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                void onUpdatePayment(res.id!, showUnpaidBadge ? 'paid' : 'unpaid');
+                const next = showUnpaidBadge ? 'paid' : 'unpaid';
+                const label = next === 'paid' ? '완납' : '미납';
+                if (!window.confirm(`결제 상태를 「${label}」으로 바꿀까요?`)) return;
+                void onUpdatePayment(res.id!, next);
               }}
               className={cn(
                 'text-[13px] px-2 py-0.5 rounded-[6px] font-semibold border shrink-0 cursor-pointer active:scale-95 transition-transform',
@@ -287,13 +290,20 @@ export default function ReservationCard({
               <button
                 type="button"
                 disabled={actionBusy}
-                onClick={() =>
+                onClick={() => {
+                  if (
+                    !window.confirm(
+                      '반납완료 처리할까요?\n출차 후 앱 보관 기간(90일)이 시작됩니다.'
+                    )
+                  ) {
+                    return;
+                  }
                   void runStatus(() =>
                     handleUpdateValetStatus(res.id!, 'completed_out', {
                       actualExitTime: getKSTDateTimeString(),
                     })
-                  )
-                }
+                  );
+                }}
                 className="px-3 py-2 sm:px-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white rounded-[12px] sm:rounded-[14px] text-[13px] sm:text-sm font-semibold transition-all flex items-center justify-center gap-1.5 shadow-sm whitespace-nowrap cursor-pointer"
                 id={`action-complete-${res.id}`}
               >

@@ -16,7 +16,6 @@ import {
   Building2,
   MessageSquareWarning,
   UserRoundSearch,
-  QrCode,
   UserPlus,
 } from 'lucide-react';
 import { AppView } from '../types';
@@ -130,8 +129,7 @@ export default function Sidebar({
         { id: 'admin_master_settings', label: '② 주차 업체', icon: Building2, view: 'master_settings' as AppView },
         { id: 'admin_reviews', label: '③ 후기 관리', icon: MessageSquareWarning, view: 'hq_reviews' as AppView },
         { id: 'admin_customers', label: '④ 고객 조회', icon: UserRoundSearch, view: 'hq_customers' as AppView },
-        { id: 'admin_acquisition', label: '⑤ 업체 명함 QR', icon: QrCode, view: 'acquisition_funnel' as AppView },
-        { id: 'admin_affiliate', label: '⑥ 마케팅 제휴', icon: UserPlus, view: 'affiliate_admin' as AppView },
+        { id: 'admin_affiliate', label: '⑤ 마케팅 제휴', icon: UserPlus, view: 'affiliate_admin' as AppView },
       ]
     : isAdminModeActive
     ? [

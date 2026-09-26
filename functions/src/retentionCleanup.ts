@@ -4,8 +4,15 @@ import {
   addDaysToIso,
   resolvePurgeSchedule,
 } from './retention';
+import { deleteReservationSecrets } from './reservations/reservationSecrets';
 
 const BATCH_LIMIT = 200;
+
+/** 예약 문서 + 하위 secrets. Storage 사진은 건드리지 않음. */
+async function deleteReservationDocument(reservationId: string): Promise<void> {
+  await deleteReservationSecrets(reservationId);
+  await admin.firestore().collection('reservations').doc(reservationId).delete();
+}
 
 /**
  * 차량 사진 Storage는 절대 삭제하지 않는다.
@@ -78,7 +85,7 @@ async function purgeReservationsPastData(nowIso: string): Promise<number> {
     const schedule = resolvePurgeSchedule(data);
     if (!schedule) {
       // 예약 문서만 삭제. Storage 사진은 절대 삭제하지 않음.
-      await docSnap.ref.delete();
+      await deleteReservationDocument(docSnap.id);
       count += 1;
       continue;
     }
@@ -90,7 +97,7 @@ async function purgeReservationsPastData(nowIso: string): Promise<number> {
     }
 
     // 예전엔 여기서 Storage도 지웠음 — 금지. Firestore 예약 문서만 제거.
-    await docSnap.ref.delete();
+    await deleteReservationDocument(docSnap.id);
     count += 1;
   }
   return count;
@@ -114,7 +121,7 @@ async function purgeLegacyCompletedOut(nowIso: string): Promise<number> {
     if (schedule.dataPurgeAt > nowIso) continue;
 
     // Storage 삭제 금지. 예약 문서만 제거.
-    await docSnap.ref.delete();
+    await deleteReservationDocument(docSnap.id);
     count += 1;
   }
   return count;

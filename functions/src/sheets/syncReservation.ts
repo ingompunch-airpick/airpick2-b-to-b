@@ -1,9 +1,14 @@
 import * as admin from 'firebase-admin';
 import { google, sheets_v4 } from 'googleapis';
 import { normalizePhoneDigits } from '../customerVisit';
-import { DEFAULT_SPREADSHEET_ID, SHEET_HEADERS, SHEET_LAST_COLUMN } from './constants';
+import {
+  DEFAULT_SPREADSHEET_ID,
+  SHEET_HEADERS,
+  SHEET_LAST_COLUMN,
+  WAWA_SPREADSHEET_ID,
+} from './constants';
 import { buildReservationSheetRow } from './reservationRow';
-import { resolveSheetTabName } from './tabName';
+import { isWawaSheetCompany, resolveSheetTabName, shouldCopyAirpickRowToWawa } from './tabName';
 
 export interface SheetsArchiveConfig {
   spreadsheetId: string;
@@ -204,6 +209,27 @@ async function appendReservationRow(
   return row;
 }
 
+/** 예약ID가 있으면 그 줄을 고치고, 없으면 한 줄 추가한다. */
+async function upsertReservationRow(
+  sheets: sheets_v4.Sheets,
+  spreadsheetId: string,
+  tabName: string,
+  reservationId: string,
+  rowValues: string[]
+): Promise<void> {
+  const sheetId = await ensureTabWithHeaders(sheets, spreadsheetId, tabName);
+  let matchedRows = await findRowsByReservationId(sheets, spreadsheetId, tabName, reservationId);
+  if (matchedRows.length === 0) {
+    await appendReservationRow(sheets, spreadsheetId, tabName, rowValues);
+    matchedRows = await findRowsByReservationId(sheets, spreadsheetId, tabName, reservationId);
+  } else {
+    await updateReservationRow(sheets, spreadsheetId, tabName, matchedRows[0], rowValues);
+  }
+  if (matchedRows.length > 1) {
+    await deleteSheetRows(sheets, spreadsheetId, sheetId, matchedRows.slice(1));
+  }
+}
+
 async function updateReservationRow(
   sheets: sheets_v4.Sheets,
   spreadsheetId: string,
@@ -247,6 +273,13 @@ export function shouldSyncReservationToSheets(
   return false;
 }
 
+export function resolveArchiveSpreadsheetId(data: Record<string, unknown>): string {
+  const shared =
+    process.env.GOOGLE_SHEETS_SPREADSHEET_ID?.trim() || DEFAULT_SPREADSHEET_ID;
+  if (!isWawaSheetCompany(data)) return shared;
+  return process.env.GOOGLE_SHEETS_SPREADSHEET_ID_WAWA?.trim() || WAWA_SPREADSHEET_ID;
+}
+
 export function buildSheetsConfigFromEnv(): SheetsArchiveConfig | null {
   if (process.env.SHEETS_ARCHIVE_ENABLED !== 'true') return null;
 
@@ -270,14 +303,15 @@ export async function syncReservationToSheets(
   config: SheetsArchiveConfig
 ): Promise<SheetsArchiveMeta | null> {
   const sheets = createSheetsClient(config.serviceAccountJson || undefined);
+  const spreadsheetId = resolveArchiveSpreadsheetId(data);
   const tabName = resolveSheetTabName(data);
   const visitCount = await fetchCustomerVisitCount(data.phone);
   const rowValues = buildReservationSheetRow(reservationId, data, { visitCount });
-  const sheetId = await ensureTabWithHeaders(sheets, config.spreadsheetId, tabName);
+  const sheetId = await ensureTabWithHeaders(sheets, spreadsheetId, tabName);
 
   const existing = data.sheetsArchive as SheetsArchiveMeta | undefined;
   const sameSpreadsheet =
-    existing?.spreadsheetId === config.spreadsheetId &&
+    existing?.spreadsheetId === spreadsheetId &&
     existing?.tab === tabName &&
     typeof existing?.row === 'number' &&
     existing.row > 0;
@@ -285,7 +319,7 @@ export async function syncReservationToSheets(
   // 1) 시트에서 예약ID로 실제 행 찾기 (레이스로 중복 append된 경우 대비)
   let matchedRows = await findRowsByReservationId(
     sheets,
-    config.spreadsheetId,
+    spreadsheetId,
     tabName,
     reservationId
   );
@@ -294,46 +328,46 @@ export async function syncReservationToSheets(
 
   if (matchedRows.length > 0) {
     rowNumber = matchedRows[0];
-    await updateReservationRow(sheets, config.spreadsheetId, tabName, rowNumber, rowValues);
+    await updateReservationRow(sheets, spreadsheetId, tabName, rowNumber, rowValues);
 
     // 중복 행 제거 (2번째 이후)
     if (matchedRows.length > 1) {
-      await deleteSheetRows(sheets, config.spreadsheetId, sheetId, matchedRows.slice(1));
+      await deleteSheetRows(sheets, spreadsheetId, sheetId, matchedRows.slice(1));
       // 삭제 후 행 번호가 바뀔 수 있어 다시 조회
       matchedRows = await findRowsByReservationId(
         sheets,
-        config.spreadsheetId,
+        spreadsheetId,
         tabName,
         reservationId
       );
       rowNumber = matchedRows[0] || rowNumber;
-      await updateReservationRow(sheets, config.spreadsheetId, tabName, rowNumber, rowValues);
+      await updateReservationRow(sheets, spreadsheetId, tabName, rowNumber, rowValues);
     }
   } else if (sameSpreadsheet) {
     // 메타는 있는데 A열에 없음 → 해당 행에 다시 쓰거나 append
     rowNumber = existing!.row;
     try {
-      await updateReservationRow(sheets, config.spreadsheetId, tabName, rowNumber, rowValues);
+      await updateReservationRow(sheets, spreadsheetId, tabName, rowNumber, rowValues);
     } catch {
-      rowNumber = await appendReservationRow(sheets, config.spreadsheetId, tabName, rowValues);
+      rowNumber = await appendReservationRow(sheets, spreadsheetId, tabName, rowValues);
     }
   } else {
-    rowNumber = await appendReservationRow(sheets, config.spreadsheetId, tabName, rowValues);
+    rowNumber = await appendReservationRow(sheets, spreadsheetId, tabName, rowValues);
 
     // append 직후 레이스로 또 들어갔는지 한 번 더 정리
     matchedRows = await findRowsByReservationId(
       sheets,
-      config.spreadsheetId,
+      spreadsheetId,
       tabName,
       reservationId
     );
     if (matchedRows.length > 1) {
       rowNumber = matchedRows[0];
-      await updateReservationRow(sheets, config.spreadsheetId, tabName, rowNumber, rowValues);
-      await deleteSheetRows(sheets, config.spreadsheetId, sheetId, matchedRows.slice(1));
+      await updateReservationRow(sheets, spreadsheetId, tabName, rowNumber, rowValues);
+      await deleteSheetRows(sheets, spreadsheetId, sheetId, matchedRows.slice(1));
       matchedRows = await findRowsByReservationId(
         sheets,
-        config.spreadsheetId,
+        spreadsheetId,
         tabName,
         reservationId
       );
@@ -343,7 +377,7 @@ export async function syncReservationToSheets(
 
   // 탭이 바뀐 경우(예: 예전 와와홈 → 와와) 이전 탭에 남은 동일 예약ID 행 제거
   const previousTab =
-    existing?.spreadsheetId === config.spreadsheetId &&
+    existing?.spreadsheetId === spreadsheetId &&
     typeof existing?.tab === 'string' &&
     existing.tab.trim() &&
     existing.tab !== tabName
@@ -351,17 +385,17 @@ export async function syncReservationToSheets(
       : null;
   if (previousTab) {
     try {
-      const oldTabs = await listTabTitles(sheets, config.spreadsheetId);
+      const oldTabs = await listTabTitles(sheets, spreadsheetId);
       const oldSheetId = oldTabs.get(previousTab);
       if (oldSheetId != null) {
         const oldRows = await findRowsByReservationId(
           sheets,
-          config.spreadsheetId,
+          spreadsheetId,
           previousTab,
           reservationId
         );
         if (oldRows.length > 0) {
-          await deleteSheetRows(sheets, config.spreadsheetId, oldSheetId, oldRows);
+          await deleteSheetRows(sheets, spreadsheetId, oldSheetId, oldRows);
         }
       }
     } catch (err) {
@@ -374,8 +408,46 @@ export async function syncReservationToSheets(
     }
   }
 
+  // 업체 파일을 나눈 뒤, 예전 장부에 남은 같은 예약 행은 지운다.
+  const previousFileId =
+    existing?.spreadsheetId && existing.spreadsheetId !== spreadsheetId
+      ? existing.spreadsheetId
+      : null;
+  const previousFileTab =
+    previousFileId && typeof existing?.tab === 'string' ? existing.tab.trim() : '';
+  if (previousFileId && previousFileTab) {
+    try {
+      const oldTabs = await listTabTitles(sheets, previousFileId);
+      const oldSheetId = oldTabs.get(previousFileTab);
+      if (oldSheetId != null) {
+        const oldRows = await findRowsByReservationId(
+          sheets,
+          previousFileId,
+          previousFileTab,
+          reservationId
+        );
+        if (oldRows.length > 0) {
+          await deleteSheetRows(sheets, previousFileId, oldSheetId, oldRows);
+        }
+      }
+    } catch (err) {
+      console.warn('[sheets] previous spreadsheet cleanup failed', {
+        reservationId,
+        previousFileId,
+        previousFileTab,
+        err: err instanceof Error ? err.message : String(err),
+      });
+    }
+  }
+
+  if (shouldCopyAirpickRowToWawa(data)) {
+    const wawaSpreadsheetId =
+      process.env.GOOGLE_SHEETS_SPREADSHEET_ID_WAWA?.trim() || WAWA_SPREADSHEET_ID;
+    await upsertReservationRow(sheets, wawaSpreadsheetId, '와와', reservationId, rowValues);
+  }
+
   return {
-    spreadsheetId: config.spreadsheetId,
+    spreadsheetId: spreadsheetId,
     tab: tabName,
     row: rowNumber,
     syncedAt: new Date().toISOString(),

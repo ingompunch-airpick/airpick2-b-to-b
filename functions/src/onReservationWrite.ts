@@ -34,6 +34,9 @@ const sheetsArchiveEnabled = defineString('SHEETS_ARCHIVE_ENABLED', { default: '
 const sheetsSpreadsheetId = defineString('GOOGLE_SHEETS_SPREADSHEET_ID', {
   default: '1zxxMHH7cJDz_nyCQbPOt2GCHdBtAVY9mzBDnUVV6lTs',
 });
+const sheetsWawaSpreadsheetId = defineString('GOOGLE_SHEETS_SPREADSHEET_ID_WAWA', {
+  default: '1QHg5Ta1XmAVdRHYeCCArhTVhK7ukn3nvxL2JyW4vC30',
+});
 const sheetsServiceAccountJson = defineSecret('GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON');
 
 function applyRuntimeEnv(): void {
@@ -52,6 +55,7 @@ function applyRuntimeEnv(): void {
 
   process.env.SHEETS_ARCHIVE_ENABLED = sheetsArchiveEnabled.value();
   process.env.GOOGLE_SHEETS_SPREADSHEET_ID = sheetsSpreadsheetId.value();
+  process.env.GOOGLE_SHEETS_SPREADSHEET_ID_WAWA = sheetsWawaSpreadsheetId.value();
   try {
     process.env.GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON = sheetsServiceAccountJson.value();
   } catch {

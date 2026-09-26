@@ -8,6 +8,7 @@ import {
 import { isAirpickHeadquarters } from '../constants/platform';
 import { statusToLabel } from '../utils/reservationStatus';
 import { formatPhoneDisplay } from '../utils/phone';
+import { RESERVATION_DATA_RETENTION_DAYS } from '../constants/dataRetention';
 
 function formatWhen(raw?: string): string {
   const t = String(raw || '').trim();
@@ -82,7 +83,8 @@ export default function HqCustomersView({
               </span>
             </div>
             <p className="text-[12px] text-zinc-500 mt-0.5">
-              휴대폰 번호로 방문 횟수·예약 이력을 찾습니다.
+              휴대폰으로 방문·예약을 찾습니다. 출차 후 {RESERVATION_DATA_RETENTION_DAYS}일이
+              지난 예약은 앱에서 빠지고 시트에만 남습니다.
             </p>
           </div>
         </div>

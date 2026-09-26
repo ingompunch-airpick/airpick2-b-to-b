@@ -2,6 +2,10 @@ import type { Company } from '../types';
 import { isAirpickHeadquarters } from '../constants/platform';
 import { readPartnerProfileFromCompany } from './companyProfile';
 import { getAirport, normalizeAirportId } from './airport';
+import {
+  summarizeCompanyAlimtalkForBoard,
+  type CompanyAlimtalkBoardSummary,
+} from './companyAlimtalk';
 
 export type HqPartnerBoardFilter =
   | 'all'
@@ -33,6 +37,7 @@ export interface HqPartnerBoardRow {
   reviewsCount: number;
   parentCompanyId?: string;
   isOperatorPrimary?: boolean;
+  alimtalk: CompanyAlimtalkBoardSummary;
 }
 
 function hasParkingAddress(company: Company): boolean {
@@ -109,6 +114,7 @@ export function buildHqPartnerBoardRows(companies: Company[]): HqPartnerBoardRow
         reviewsCount: typeof company.reviews_count === 'number' ? company.reviews_count : 0,
         parentCompanyId: company.parentCompanyId,
         isOperatorPrimary: company.isOperatorPrimary,
+        alimtalk: summarizeCompanyAlimtalkForBoard(company.alimtalk),
       };
     })
     .sort((a, b) => a.name.localeCompare(b.name, 'ko'));
