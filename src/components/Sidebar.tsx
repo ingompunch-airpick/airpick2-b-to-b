@@ -297,8 +297,10 @@ export default function Sidebar({
           >
             {alertsEnabled ? <Bell size={16} /> : <BellOff size={16} />}
             <div>
-              <span className="text-xs font-black block">신규 예약 알림</span>
-              <span className="text-[10px] opacity-80">{alertsEnabled ? '켜짐 · 소리+푸시' : '꺼짐'}</span>
+              <span className="text-xs font-black block">알림</span>
+              <span className="text-[10px] opacity-80">
+                {alertsEnabled ? '예약 · 출고 · 켜짐' : '예약 · 출고 · 꺼짐'}
+              </span>
             </div>
           </button>
           <button

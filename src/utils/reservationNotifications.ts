@@ -2,10 +2,8 @@ import type { Reservation } from '../types';
 import { reservationBelongsToCompany } from './reservationScope';
 import { filterReservationsForOperatorGroup } from './operatorHierarchy';
 import { isPending } from './reservationStatus';
-import { resolveBookingSource } from './bookingSource';
 import {
   DEFAULT_RESERVATION_ALERT_COPY,
-  alertTitleForBookingSource,
   type ReservationAlertCopy,
 } from './reservationAlertCopy';
 
@@ -86,30 +84,20 @@ export function speakReservationAlertPreview(input: {
   }
 }
 
-/** 에어픽 B2C → titleAirpick, 홈·현장 → titleOther */
+/** 유입과 관계없이 같은 신규 예약 문구 */
 export function newReservationAlertTitle(
-  res: Pick<Reservation, 'createdBy'> & Partial<Reservation>,
+  _res?: Pick<Reservation, 'createdBy'> & Partial<Reservation>,
   copy: ReservationAlertCopy = runtimeAlertCopy
 ): string {
-  const source = resolveBookingSource(
-    res.createdBy,
-    res as unknown as Record<string, unknown>
-  );
-  return alertTitleForBookingSource(copy, source);
+  return copy.titleReserve;
 }
 
 export function notifyNewReservation(res: Reservation, _companyLabel: string): void {
   if (!areReservationAlertsEnabled()) return;
 
   const title = newReservationAlertTitle(res);
-  const kind =
-    resolveBookingSource(res.createdBy, res as unknown as Record<string, unknown>) ===
-    'airpick-b2c'
-      ? 'airpick'
-      : 'other';
 
-  // 비프 없이 제목만 읽음 (옛 알림음과 겹치지 않게)
-  speakReservationAlertPreview({ title, kind });
+  speakReservationAlertPreview({ title, kind: 'other' });
 
   if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
     try {
@@ -122,6 +110,52 @@ export function notifyNewReservation(res: Reservation, _companyLabel: string): v
       // mobile Safari 등
     }
   }
+}
+
+/** 출고 탭으로 넘어온 건. 비행기 자동 전환과 출고요청 버튼 모두 같은 문구. */
+export function checkoutAlertTitle(): string {
+  return getRuntimeReservationAlertCopy().titleCheckout;
+}
+
+export function notifyRequestOut(res: Reservation): void {
+  if (!areReservationAlertsEnabled()) return;
+
+  const title = checkoutAlertTitle();
+  speakReservationAlertPreview({ title, kind: 'other' });
+
+  if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+    try {
+      new Notification(title, {
+        tag: `out-${res.id}`,
+        renotify: true,
+        silent: true,
+      } as NotificationOptions & { renotify?: boolean; silent?: boolean });
+    } catch {
+      // mobile Safari 등
+    }
+  }
+}
+
+export function findRequestOutReservations(
+  prev: Reservation[],
+  next: Reservation[],
+  companyId: string,
+  operatorCompanyIds?: string[]
+): Reservation[] {
+  const prevById = new Map(
+    prev.filter((r) => r.id).map((r) => [r.id as string, r])
+  );
+  const scoped =
+    operatorCompanyIds && operatorCompanyIds.length > 0
+      ? filterReservationsForOperatorGroup(next, operatorCompanyIds)
+      : next.filter((r) => reservationBelongsToCompany(r, companyId));
+
+  return scoped.filter((r) => {
+    if (!r.id) return false;
+    const before = prevById.get(r.id);
+    if (!before || before.status === 'request_out') return false;
+    return r.status === 'request_out';
+  });
 }
 
 export function findNewIncomingReservations(

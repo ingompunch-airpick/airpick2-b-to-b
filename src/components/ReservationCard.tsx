@@ -1,5 +1,4 @@
 ﻿import React, { useState } from 'react';
-import { PlusCircle, Bell, CheckCircle2 } from 'lucide-react';
 import { Reservation, ReservationStatus, PaymentMethod, type Company } from '../types';
 import { isReservationUnpaid } from '../utils/paymentStatus';
 import { isNotYetAdmitted, isPending, statusBadgeColorClass, statusToLabel } from '../utils/reservationStatus';
@@ -30,6 +29,14 @@ import {
 function cn(...classes: (string | boolean | undefined | null)[]) {
   return classes.filter(Boolean).join(' ');
 }
+
+/** 카드 뱃지 공통 틀. 색만 달라지고 크기·모서리는 같다. */
+const CARD_CHIP =
+  'text-[12px] px-1.5 py-0.5 rounded-md font-semibold border shrink-0';
+
+/** 타임라인 상태 버튼. 탭 글자만 다르고 모양·색은 같다. */
+const CARD_ACTION =
+  'px-3.5 py-1.5 bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-neutral-950 rounded-xl text-[13px] font-semibold whitespace-nowrap cursor-pointer';
 
 interface ReservationCardProps {
   res: Reservation;
@@ -137,40 +144,34 @@ export default function ReservationCard({
           {/* 에어픽(B2C) 유입만 표시 — 홈페이지·현장은 뱃지 없음 */}
           {isAirpickB2CBooking(res.createdBy) && (
             <span
-              className={cn(
-                'text-[13px] px-2.5 py-0.5 rounded-[6px] border shrink-0',
-                bookingSourceBadgeClass('airpick-b2c')
-              )}
+              className={cn(CARD_CHIP, bookingSourceBadgeClass('airpick-b2c'))}
             >
               {bookingSourceLabel('airpick-b2c')}
             </span>
           )}
 
           {showStatusBadge && (
-            <span className={cn(
-              "text-[13px] px-2 py-0.5 rounded-[6px] font-semibold shrink-0 text-center",
-              badgeColorClass
-            )}>
+            <span className={cn(CARD_CHIP, 'text-center', badgeColorClass)}>
               {statusToLabel(res.status, 'driver')}
             </span>
           )}
 
           {isSurchargeTerminal ? (
-            <span className="text-[13px] px-2 py-0.5 rounded-[6px] font-semibold bg-[#FFB800]/10 text-[#FFB800] border border-[#FFB800]/20 shrink-0">
+            <span className={cn(CARD_CHIP, 'bg-[#FFB800]/14 text-[#FFB800] border-[#FFB800]/30')}>
               {terminalBadgeText}
             </span>
           ) : (
-            <span className="text-[13px] px-2 py-0.5 rounded-[6px] font-semibold bg-[#00D2FF]/10 text-[#00D2FF] border border-[#00D2FF]/20 shrink-0">
+            <span className={cn(CARD_CHIP, 'bg-[#00D2FF]/12 text-[#00D2FF] border-[#00D2FF]/28')}>
               {terminalBadgeText}
             </span>
           )}
 
           {facilityBadge.isIndoor ? (
-            <span className="text-[13px] px-2 py-0.5 rounded-[6px] font-semibold bg-[#A855F7] text-white shrink-0">
+            <span className={cn(CARD_CHIP, 'bg-[#A855F7]/16 text-[#C084FC] border-[#A855F7]/35')}>
               {facilityBadge.text}
             </span>
           ) : (
-            <span className="text-[13px] px-2 py-0.5 rounded-[6px] font-semibold bg-[#22C55E] text-white shrink-0">
+            <span className={cn(CARD_CHIP, 'bg-[#22C55E]/14 text-[#4ADE80] border-[#22C55E]/32')}>
               {facilityBadge.text}
             </span>
           )}
@@ -186,10 +187,11 @@ export default function ReservationCard({
                 void onUpdatePayment(res.id!, next);
               }}
               className={cn(
-                'text-[13px] px-2 py-0.5 rounded-[6px] font-semibold border shrink-0 cursor-pointer active:scale-95 transition-transform',
+                CARD_CHIP,
+                'cursor-pointer active:scale-95 transition-transform',
                 showUnpaidBadge
-                  ? 'bg-rose-500/12 text-rose-400 border-rose-500/20'
-                  : 'bg-emerald-500/12 text-emerald-400 border-emerald-500/20'
+                  ? 'bg-rose-500/14 text-rose-400 border-rose-500/30'
+                  : 'bg-emerald-500/14 text-emerald-400 border-emerald-500/30'
               )}
               title={showUnpaidBadge ? '탭하면 완납으로 변경' : '탭하면 미납으로 변경'}
             >
@@ -197,14 +199,14 @@ export default function ReservationCard({
             </button>
           ) : (
             showUnpaidBadge && (
-              <span className="text-[13px] px-2 py-0.5 rounded-[6px] font-semibold bg-rose-500/12 text-rose-400 border border-rose-500/20 shrink-0">
+              <span className={cn(CARD_CHIP, 'bg-rose-500/14 text-rose-400 border-rose-500/30')}>
                 미납
               </span>
             )
           )}
 
           {flightDelayBadge && (
-            <span className="text-[13px] px-2 py-0.5 rounded-[6px] font-semibold bg-orange-500/15 text-orange-300 border border-orange-500/30 shrink-0">
+            <span className={cn(CARD_CHIP, 'bg-orange-500/16 text-orange-300 border-orange-400/35')}>
               {flightDelayBadge.label}
             </span>
           )}
@@ -247,10 +249,9 @@ export default function ReservationCard({
                 onClick={() =>
                   void runStatus(() => handleUpdateValetStatus(res.id!, 'pending_in'))
                 }
-                className="px-3 py-2 sm:px-4 bg-[#007AFF] hover:bg-[#0051FF] disabled:opacity-60 text-white rounded-[12px] sm:rounded-[14px] text-[13px] sm:text-sm font-semibold transition-all flex items-center justify-center gap-1 shadow-sm whitespace-nowrap cursor-pointer"
+                className={CARD_ACTION}
                 id={`action-in-${res.id}`}
               >
-                <PlusCircle size={13} />
                 입고 시작
               </button>
             )}
@@ -263,10 +264,9 @@ export default function ReservationCard({
                   setScratchModalTargetId(res.id!);
                   setSelectedParkingSpace(res.parkingSpace || '');
                 }}
-                className="px-3 py-2 sm:px-4 bg-[#007AFF] hover:bg-[#0051FF] disabled:opacity-60 text-white rounded-[12px] sm:rounded-[14px] text-[13px] sm:text-sm font-semibold transition-all flex items-center justify-center gap-1.5 shadow-sm whitespace-nowrap cursor-pointer"
+                className={CARD_ACTION}
                 id={`action-confirm-${res.id}`}
               >
-                <PlusCircle size={13} />
                 사진 등록
               </button>
             )}
@@ -278,10 +278,9 @@ export default function ReservationCard({
                 onClick={() =>
                   void runStatus(() => handleUpdateValetStatus(res.id!, 'request_out'))
                 }
-                className="px-3 py-2 sm:px-4 bg-rose-600 hover:bg-rose-500 disabled:opacity-60 text-white rounded-[12px] sm:rounded-[14px] text-[13px] sm:text-sm font-semibold transition-all flex items-center justify-center gap-1.5 shadow-sm whitespace-nowrap cursor-pointer"
+                className={CARD_ACTION}
                 id={`action-request-${res.id}`}
               >
-                <Bell size={13} />
                 출고요청
               </button>
             )}
@@ -304,10 +303,9 @@ export default function ReservationCard({
                     })
                   );
                 }}
-                className="px-3 py-2 sm:px-4 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white rounded-[12px] sm:rounded-[14px] text-[13px] sm:text-sm font-semibold transition-all flex items-center justify-center gap-1.5 shadow-sm whitespace-nowrap cursor-pointer"
+                className={CARD_ACTION}
                 id={`action-complete-${res.id}`}
               >
-                <CheckCircle2 size={13} />
                 반납완료
               </button>
             )}

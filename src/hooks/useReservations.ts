@@ -32,8 +32,11 @@ import {
 import {
   areReservationAlertsEnabled,
   findNewIncomingReservations,
+  findRequestOutReservations,
   markNotificationPermissionAsked,
   notifyNewReservation,
+  notifyRequestOut,
+  checkoutAlertTitle,
   requestReservationNotificationPermission,
   setReservationAlertsEnabled,
   setRuntimeReservationAlertCopy,
@@ -94,6 +97,7 @@ export function useReservations({
     id: string;
     carNumber: string;
     userName: string;
+    title?: string;
   } | null>(null);
   const [showAlertPermissionBanner, setShowAlertPermissionBanner] = useState(false);
 
@@ -215,6 +219,22 @@ export function useReservations({
             id: res.id,
             carNumber: res.carNumber || '차량미상',
             userName: res.userName || '',
+          });
+        }
+        const movedOut = findRequestOutReservations(
+          reservationsPrevRef.current,
+          data,
+          currentCompanyIdRef.current,
+          operatorCompanyIdsRef.current
+        );
+        for (const res of movedOut) {
+          if (!res.id) continue;
+          notifyRequestOut(res);
+          setIncomingReservationToast({
+            id: res.id,
+            carNumber: res.carNumber || '차량미상',
+            userName: res.userName || '',
+            title: checkoutAlertTitle(),
           });
         }
       } else {

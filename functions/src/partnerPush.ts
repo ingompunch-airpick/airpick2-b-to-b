@@ -1,14 +1,13 @@
 import * as admin from 'firebase-admin';
-import { resolveBookingSource } from './sheets/bookingSource';
 
 function db() {
   return admin.firestore();
 }
 
-const DEFAULT_TITLE_AIRPICK = '에어픽 예약';
-const DEFAULT_TITLE_OTHER = '예약';
+const DEFAULT_TITLE_RESERVE = '예약';
+const DEFAULT_TITLE_CHECKOUT = '출고요청';
 
-type AlertCopy = { titleAirpick: string; titleOther: string };
+type AlertCopy = { titleReserve: string; titleCheckout: string };
 
 let alertCopyCache: AlertCopy | null = null;
 let alertCopyCacheAt = 0;
@@ -30,14 +29,17 @@ async function loadAlertCopy(): Promise<AlertCopy> {
     const snap = await db().doc('appConfig/reservationAlerts').get();
     const data = snap.exists ? (snap.data() as Record<string, unknown>) : {};
     alertCopyCache = {
-      titleAirpick: normalizeTitle(data.titleAirpick, DEFAULT_TITLE_AIRPICK),
-      titleOther: normalizeTitle(data.titleOther, DEFAULT_TITLE_OTHER),
+      titleReserve: normalizeTitle(
+        data.titleReserve || data.titleOther,
+        DEFAULT_TITLE_RESERVE
+      ),
+      titleCheckout: normalizeTitle(data.titleCheckout, DEFAULT_TITLE_CHECKOUT),
     };
   } catch (err) {
     console.warn('[partnerPush] alert copy load failed', err);
     alertCopyCache = {
-      titleAirpick: DEFAULT_TITLE_AIRPICK,
-      titleOther: DEFAULT_TITLE_OTHER,
+      titleReserve: DEFAULT_TITLE_RESERVE,
+      titleCheckout: DEFAULT_TITLE_CHECKOUT,
     };
   }
   alertCopyCacheAt = Date.now();
@@ -49,16 +51,12 @@ function formatPushBody(_data: FirebaseFirestore.DocumentData): string {
   return '';
 }
 
-/** 에어픽 B2C vs 홈·현장 알림 제목 분리 (appConfig/reservationAlerts) */
+/** 유입과 관계없이 같은 신규 예약 문구 */
 async function newReservationPushTitle(
-  data: FirebaseFirestore.DocumentData
+  _data: FirebaseFirestore.DocumentData
 ): Promise<string> {
   const copy = await loadAlertCopy();
-  const source = resolveBookingSource(
-    typeof data.createdBy === 'string' ? data.createdBy : null,
-    data as Record<string, unknown>
-  );
-  return source === 'airpick-b2c' ? copy.titleAirpick : copy.titleOther;
+  return copy.titleReserve;
 }
 
 async function sendPartnerMulticast(params: {
@@ -178,22 +176,48 @@ export async function notifyPartnersFlightDelay(
   return;
 }
 
-/** 입국 항공편 도착 시 출고요청 자동 전환 알림 — 사용 안 함 */
+/** 출고 탭으로 넘어가면 설정된 문구만 보낸다. 차량번호는 넣지 않는다. */
 export async function notifyPartnersFlightArrival(
-  _reservationId: string,
-  _data: FirebaseFirestore.DocumentData,
+  reservationId: string,
+  data: FirebaseFirestore.DocumentData,
   _info: { flightId: string; estimatedLabel: string }
 ): Promise<void> {
-  return;
+  await notifyRequestOutPush(reservationId, data);
+}
+
+function isRequestOutStatus(raw: unknown): boolean {
+  const s = String(raw || '').trim();
+  return s === 'request_out' || s === '출고요청';
+}
+
+async function notifyRequestOutPush(
+  reservationId: string,
+  data: FirebaseFirestore.DocumentData
+): Promise<void> {
+  const companyId = String(data.companyId || '').trim();
+  if (!companyId) return;
+  const copy = await loadAlertCopy();
+  await sendPartnerMulticast({
+    companyId,
+    reservationId,
+    title: copy.titleCheckout,
+    body: '',
+    type: 'request_out',
+    channelId: 'new_reservations',
+  });
 }
 
 /**
- * 출고예정 → 출고(request_out) 수동 전환 알림 — 사용 안 함(예약 유입만 알림).
+ * 출고 탭(request_out)으로 넘어갈 때 파트너 푸시.
+ * 비행기 자동 전환은 notifyPartnersFlightArrival가 먼저 보내므로 여기선 제외한다.
  */
 export async function notifyPartnersValetStatusChange(
-  _reservationId: string,
-  _before: FirebaseFirestore.DocumentData | undefined,
-  _after: FirebaseFirestore.DocumentData
+  reservationId: string,
+  before: FirebaseFirestore.DocumentData | undefined,
+  after: FirebaseFirestore.DocumentData
 ): Promise<void> {
-  return;
+  if (!before) return;
+  if (isRequestOutStatus(before.status) || !isRequestOutStatus(after.status)) return;
+  if (String(after.updatedBy || '') === 'flight-arrival-auto') return;
+  await notifyRequestOutPush(reservationId, after);
 }

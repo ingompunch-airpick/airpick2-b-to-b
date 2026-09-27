@@ -688,7 +688,7 @@ export default function StatisticsView({
   const todaySales = realTodaySales;
   const monthSales = realMonthSales;
 
-  // --- 월 요약 (입고·출고·일평균) + 현재 재차 ---
+  // --- 월 요약 (입고·출고·취소) + 현재 재차 ---
   const dailyFlow = datesRange.map((date) => {
     const admittedCount = activeReservations.filter(
       (r) => reservationCheckedInOn(r, date) && isAdmitted(r.status)
@@ -701,8 +701,6 @@ export default function StatisticsView({
 
   const totalAdmitted = dailyFlow.reduce((s, d) => s + d.admittedCount, 0);
   const totalExited = dailyFlow.reduce((s, d) => s + d.exitedCount, 0);
-  const activeDays = dailyFlow.filter(d => d.admittedCount > 0 || d.exitedCount > 0).length;
-  const avgAdmitted = activeDays > 0 ? Math.round((totalAdmitted / activeDays) * 10) / 10 : 0;
   // 총 예약 = 당일 예약과 동일: 그달에 접수(createdAt, KST)된 건. 입고일과 별개.
   const totalReserved = activeReservations.filter((r) =>
     toKSTDateOnlyString(r.createdAt).startsWith(summaryMonthPrefix)
@@ -1111,7 +1109,7 @@ export default function StatisticsView({
                 {parkedNow}<span className="text-[13px] ml-0.5">대</span>
               </span>
             </div>
-            <div className="col-span-3 bg-[#1C1C1E] border border-neutral-800/40 rounded-2xl p-3 grid grid-cols-5 gap-1 items-center">
+            <div className="col-span-3 bg-[#1C1C1E] border border-neutral-800/40 rounded-2xl p-3 grid grid-cols-4 gap-1 items-center">
               <div className="text-center">
                 <span className="text-[10px] text-zinc-500 font-bold block tracking-wider leading-tight">총 예약</span>
                 <span className="text-sm font-black text-white font-mono">{totalReserved}</span>
@@ -1127,10 +1125,6 @@ export default function StatisticsView({
               <div className="text-center border-l border-neutral-800/60">
                 <span className="text-[10px] text-zinc-500 font-bold block tracking-wider leading-tight">취소</span>
                 <span className="text-sm font-black text-rose-400 font-mono">{totalCancelled}</span>
-              </div>
-              <div className="text-center border-l border-neutral-800/60">
-                <span className="text-[10px] text-zinc-500 font-bold block tracking-wider leading-tight">일평균 입고</span>
-                <span className="text-sm font-black text-white font-mono">{avgAdmitted}</span>
               </div>
             </div>
           </div>

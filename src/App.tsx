@@ -489,7 +489,7 @@ export default function App() {
             <div className="flex-1 min-w-0">
               <p className="text-xs font-black text-amber-400">예약 알림</p>
               <p className="text-[11px] text-zinc-400 mt-1 leading-relaxed">
-                에어픽은 「에어픽 예약」, 그 외는 「예약」만 울립니다. 안드로이드는 앱을 꺼도 푸시가 옵니다.
+                새 예약은 「예약」, 출고로 넘어가면 「출고요청」이 울립니다. 안드로이드는 앱을 꺼도 푸시가 옵니다.
               </p>
             </div>
             <div className="flex flex-col gap-1 shrink-0">
@@ -522,7 +522,8 @@ export default function App() {
           >
             <div className="mx-auto max-w-md rounded-2xl border border-sky-500/40 bg-neutral-900/95 backdrop-blur-md px-4 py-3 shadow-2xl pointer-events-auto">
               <p className="text-base font-black text-white">
-                {newReservationAlertTitle(incomingReservationToast)}
+                {incomingReservationToast.title ||
+                  newReservationAlertTitle(incomingReservationToast)}
               </p>
             </div>
           </motion.div>

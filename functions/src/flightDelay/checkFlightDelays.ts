@@ -79,6 +79,25 @@ function notifyFingerprint(arrival: IncheonArrival, kind: 'delay' | 'cancel'): s
   return `${kind}|${arrival.estimatedHhmm}|${arrival.remark}`;
 }
 
+function trackingSnapshotUnchanged(
+  prev: Record<string, unknown>,
+  base: {
+    arrivalFlight: string;
+    scheduleHhmm: string;
+    estimatedHhmm: string;
+    remark: string;
+    delayMinutes: number;
+  }
+): boolean {
+  return (
+    String(prev.arrivalFlight || '') === base.arrivalFlight &&
+    String(prev.scheduleHhmm || '') === base.scheduleHhmm &&
+    String(prev.estimatedHhmm || '') === base.estimatedHhmm &&
+    String(prev.remark || '') === base.remark &&
+    Number(prev.delayMinutes || 0) === base.delayMinutes
+  );
+}
+
 /** 공항 예상시각(HHMM) → 예약 arrivalTime(HH:mm) · endDate 동기화 */
 function arrivalSchedulePatch(
   data: FirebaseFirestore.DocumentData,
@@ -118,7 +137,8 @@ export type FlightDelayCheckResult = {
  * 오늘(KST) 출고 예정 + 입국 항공편이 있는 예약을
  * 인천공항 당일 도착 현황과 대조해
  * - 입국편 도착 시 주차완료(출고예정) → 출고요청 자동 전환
- * - 연착/결항 시 파트너 FCM 푸시
+ * - 공항 예상시각이 바뀔 때마다 출고 예정 시각(arrivalTime·endDate) 맞춤. 연착·조착 모두
+ * - 15분 이상 연착/결항 시 파트너 FCM 푸시
  */
 export async function runFlightDelayCheck(serviceKey: string): Promise<FlightDelayCheckResult> {
   const key = serviceKey.trim();
@@ -213,16 +233,30 @@ export async function runFlightDelayCheck(serviceKey: string): Promise<FlightDel
       continue;
     }
 
+    const schedulePatch = cancelled
+      ? {}
+      : arrivalSchedulePatch(data, arrival.estimatedHhmm);
+
     if (!delayed && !cancelled) {
-      await doc.ref.set({ flightTracking: trackingBase }, { merge: true }).catch(() => undefined);
+      const timeChanged = Object.keys(schedulePatch).length > 0;
+      if (!timeChanged && trackingSnapshotUnchanged(prev, trackingBase)) continue;
+      await doc.ref
+        .set(
+          {
+            ...schedulePatch,
+            ...(timeChanged
+              ? { updatedBy: 'flight-schedule', updatedAt: now }
+              : {}),
+            flightTracking: trackingBase,
+          },
+          { merge: true }
+        )
+        .catch(() => undefined);
       continue;
     }
 
     const kind = cancelled ? 'cancel' : 'delay';
     const fp = notifyFingerprint(arrival, kind);
-    const schedulePatch = cancelled
-      ? {}
-      : arrivalSchedulePatch(data, arrival.estimatedHhmm);
 
     if (String(prev.lastNotifiedFingerprint || '') === fp) {
       // 알림은 이미 보냈어도, 예상시각이 바뀌었으면 출고예정 시각만 맞춤

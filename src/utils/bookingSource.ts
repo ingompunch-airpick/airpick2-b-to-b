@@ -96,7 +96,7 @@ export function bookingSourceBadgeClass(source: BookingSource): string {
     case 'homepage':
       return 'bg-sky-500/15 text-sky-400 border-sky-500/25';
     case 'airpick-b2c':
-      return 'bg-fuchsia-500/25 text-fuchsia-100 border-fuchsia-400/60 shadow-[0_0_12px_rgba(217,70,239,0.35)] font-black tracking-tight';
+      return 'bg-fuchsia-500/16 text-fuchsia-300 border-fuchsia-400/35';
     case 'b2b':
       return 'bg-amber-500/15 text-amber-400 border-amber-500/25';
     default:
@@ -107,7 +107,7 @@ export function bookingSourceBadgeClass(source: BookingSource): string {
 /** 예약 카드 전체 강조 — 에어픽 유입만 눈에 띄게 */
 export function bookingSourceCardClass(source: BookingSource): string {
   if (source === 'airpick-b2c') {
-    return 'border-fuchsia-500/40 bg-gradient-to-br from-fuchsia-950/50 via-[#1C1C1E] to-[#1C1C1E] ring-1 ring-fuchsia-500/30 shadow-[0_0_20px_rgba(192,38,211,0.12)]';
+    return 'border-fuchsia-400/20 bg-[#1C1C1E]';
   }
   return 'border-neutral-800/80 bg-[#1C1C1E]';
 }

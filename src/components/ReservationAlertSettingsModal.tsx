@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Bell, Play, Save, X } from 'lucide-react';
 import {
-  ALERT_TITLE_AIRPICK_PRESETS,
-  ALERT_TITLE_OTHER_PRESETS,
+  ALERT_TITLE_CHECKOUT_PRESETS,
+  ALERT_TITLE_RESERVE_PRESETS,
   DEFAULT_RESERVATION_ALERT_COPY,
   coerceReservationAlertCopy,
   type ReservationAlertCopy,
@@ -88,7 +88,7 @@ export default function ReservationAlertSettingsModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedFlash, setSavedFlash] = useState(false);
-  const [previewKind, setPreviewKind] = useState<'airpick' | 'other' | null>(null);
+  const [previewKind, setPreviewKind] = useState<'reserve' | 'checkout' | null>(null);
 
   const hq = isAirpickHeadquarters(currentCompanyId) || canEdit;
 
@@ -120,10 +120,10 @@ export default function ReservationAlertSettingsModal({
 
   if (!open) return null;
 
-  const playPreview = (kind: 'airpick' | 'other') => {
+  const playPreview = (kind: 'reserve' | 'checkout') => {
     setPreviewKind(kind);
-    const title = kind === 'airpick' ? copy.titleAirpick : copy.titleOther;
-    speakReservationAlertPreview({ title, kind });
+    const title = kind === 'checkout' ? copy.titleCheckout : copy.titleReserve;
+    speakReservationAlertPreview({ title, kind: 'other' });
     window.setTimeout(() => setPreviewKind(null), 2500);
   };
 
@@ -151,7 +151,7 @@ export default function ReservationAlertSettingsModal({
           <div className="flex items-center gap-2">
             <Bell size={16} className="text-amber-400" />
             <div>
-              <p className="text-sm font-black text-white">예약 알림 문구</p>
+              <p className="text-sm font-black text-white">알림 문구</p>
               <p className="text-[10px] text-zinc-500 font-semibold">
                 미리 듣고 · 고르고 · {hq ? '저장' : '본사만 저장 가능'}
               </p>
@@ -172,58 +172,58 @@ export default function ReservationAlertSettingsModal({
           ) : (
             <>
               <section className="space-y-2">
-                <p className="text-[10px] font-black uppercase tracking-wide text-fuchsia-400/90">
-                  에어픽.kr 예약
+                <p className="text-[10px] font-black uppercase tracking-wide text-amber-400/90">
+                  신규 예약
                 </p>
                 <PresetRow
-                  presets={ALERT_TITLE_AIRPICK_PRESETS}
-                  value={copy.titleAirpick}
+                  presets={ALERT_TITLE_RESERVE_PRESETS}
+                  value={copy.titleReserve}
                   disabled={!hq}
-                  onPick={(v) => setCopy((c) => ({ ...c, titleAirpick: v }))}
+                  onPick={(v) => setCopy((c) => ({ ...c, titleReserve: v }))}
                 />
                 <input
-                  value={copy.titleAirpick}
+                  value={copy.titleReserve}
                   disabled={!hq}
                   maxLength={24}
                   onChange={(e) =>
-                    setCopy((c) => ({ ...c, titleAirpick: e.target.value }))
-                  }
-                  className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-sm text-zinc-100 font-bold disabled:opacity-50"
-                  placeholder="에어픽 예약"
-                />
-                <button
-                  type="button"
-                  onClick={() => playPreview('airpick')}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-fuchsia-500/30 text-fuchsia-300 text-[11px] font-black"
-                >
-                  <Play size={12} /> 미리 듣기
-                </button>
-              </section>
-
-              <section className="space-y-2">
-                <p className="text-[10px] font-black uppercase tracking-wide text-sky-400/90">
-                  홈페이지 · 현장 예약
-                </p>
-                <PresetRow
-                  presets={ALERT_TITLE_OTHER_PRESETS}
-                  value={copy.titleOther}
-                  disabled={!hq}
-                  onPick={(v) => setCopy((c) => ({ ...c, titleOther: v }))}
-                />
-                <input
-                  value={copy.titleOther}
-                  disabled={!hq}
-                  maxLength={24}
-                  onChange={(e) =>
-                    setCopy((c) => ({ ...c, titleOther: e.target.value }))
+                    setCopy((c) => ({ ...c, titleReserve: e.target.value }))
                   }
                   className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-sm text-zinc-100 font-bold disabled:opacity-50"
                   placeholder="예약"
                 />
                 <button
                   type="button"
-                  onClick={() => playPreview('other')}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-sky-500/30 text-sky-300 text-[11px] font-black"
+                  onClick={() => playPreview('reserve')}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-amber-500/30 text-amber-300 text-[11px] font-black"
+                >
+                  <Play size={12} /> 미리 듣기
+                </button>
+              </section>
+
+              <section className="space-y-2">
+                <p className="text-[10px] font-black uppercase tracking-wide text-amber-400/90">
+                  출고
+                </p>
+                <PresetRow
+                  presets={ALERT_TITLE_CHECKOUT_PRESETS}
+                  value={copy.titleCheckout}
+                  disabled={!hq}
+                  onPick={(v) => setCopy((c) => ({ ...c, titleCheckout: v }))}
+                />
+                <input
+                  value={copy.titleCheckout}
+                  disabled={!hq}
+                  maxLength={24}
+                  onChange={(e) =>
+                    setCopy((c) => ({ ...c, titleCheckout: e.target.value }))
+                  }
+                  className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-sm text-zinc-100 font-bold disabled:opacity-50"
+                  placeholder="출고요청"
+                />
+                <button
+                  type="button"
+                  onClick={() => playPreview('checkout')}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-amber-500/30 text-amber-300 text-[11px] font-black"
                 >
                   <Play size={12} /> 미리 듣기
                 </button>
@@ -231,14 +231,14 @@ export default function ReservationAlertSettingsModal({
 
               <div className="space-y-2">
                 <p className="text-[10px] font-black text-zinc-500 uppercase">미리보기</p>
-                <PreviewCard title={copy.titleAirpick} tone="fuchsia" />
-                <PreviewCard title={copy.titleOther} tone="sky" />
+                <PreviewCard title={copy.titleReserve} tone="sky" />
+                <PreviewCard title={copy.titleCheckout} tone="fuchsia" />
               </div>
 
               {previewKind ? (
                 <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 px-3 py-3 animate-pulse">
                   <p className="text-sm font-black text-amber-300">
-                    {previewKind === 'airpick' ? copy.titleAirpick : copy.titleOther}
+                    {previewKind === 'checkout' ? copy.titleCheckout : copy.titleReserve}
                   </p>
                 </div>
               ) : null}

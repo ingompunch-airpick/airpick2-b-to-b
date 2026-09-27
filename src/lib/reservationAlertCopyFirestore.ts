@@ -45,6 +45,9 @@ export async function saveReservationAlertCopy(
     alertsDocRef(),
     {
       ...next,
+      // 예전 함수가 유입별로 읽어도 같은 문구가 나가게 맞춘다.
+      titleAirpick: next.titleReserve,
+      titleOther: next.titleReserve,
       updatedAt: new Date().toISOString(),
     },
     { merge: true }
