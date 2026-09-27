@@ -271,25 +271,6 @@ export default function StatisticsView({
     [activeReservations, summaryMonthPrefix, salesMonthThrough]
   );
 
-  const datesRange = useMemo(() => {
-    const list: string[] = [];
-    const [yearStr, monthStr] = summaryMonthPrefix.split('-');
-    const yearNum = parseInt(yearStr, 10);
-    const monthNum = parseInt(monthStr, 10);
-    if (!yearNum || !monthNum) return list;
-
-    const daysInMonth = new Date(yearNum, monthNum, 0).getDate();
-    const isCurrentMonth = summaryMonthPrefix === todayStr.substring(0, 7);
-    const maxDay = isCurrentMonth
-      ? parseInt(todayStr.split('-')[2] || String(daysInMonth), 10)
-      : daysInMonth;
-
-    for (let dNum = maxDay; dNum >= 1; dNum--) {
-      list.push(`${yearStr}-${monthStr}-${String(dNum).padStart(2, '0')}`);
-    }
-    return list;
-  }, [summaryMonthPrefix, todayStr]);
-
   // Helper matching reservation list dynamically to each major node
   const getCompanyReservations = (allResList: Reservation[], compId: string) => {
     const list = allResList || [];
@@ -688,19 +669,13 @@ export default function StatisticsView({
   const todaySales = realTodaySales;
   const monthSales = realMonthSales;
 
-  // --- 월 요약 (입고·출고·취소) + 현재 재차 ---
-  const dailyFlow = datesRange.map((date) => {
-    const admittedCount = activeReservations.filter(
-      (r) => reservationCheckedInOn(r, date) && isAdmitted(r.status)
-    ).length;
-    const exitedCount = activeReservations.filter(
-      (r) => isCompletedOut(r.status) && reservationExitOn(r, date)
-    ).length;
-    return { date, admittedCount, exitedCount };
-  });
-
-  const totalAdmitted = dailyFlow.reduce((s, d) => s + d.admittedCount, 0);
-  const totalExited = dailyFlow.reduce((s, d) => s + d.exitedCount, 0);
+  // 총 입고·총 출고 = 그달 예정 입고일·출고일. 이번 달도 오늘 이후 예정을 포함한다.
+  const totalAdmitted = activeReservations.filter((r) =>
+    normalizeDateString(r.departureDate).startsWith(summaryMonthPrefix)
+  ).length;
+  const totalExited = activeReservations.filter((r) =>
+    normalizeDateString(r.arrivalDate).startsWith(summaryMonthPrefix)
+  ).length;
   // 총 예약 = 당일 예약과 동일: 그달에 접수(createdAt, KST)된 건. 입고일과 별개.
   const totalReserved = activeReservations.filter((r) =>
     toKSTDateOnlyString(r.createdAt).startsWith(summaryMonthPrefix)
@@ -1096,7 +1071,7 @@ export default function StatisticsView({
             <p className="text-[11px] text-zinc-500 font-bold">
               {monthLabelFromPrefix(summaryMonthPrefix)}
               {summaryMonthPrefix === currentMonthPrefix
-                ? ' · 총 예약은 접수일, 입고·출고는 오늘까지'
+                ? ' · 총 예약은 접수일, 입고·출고는 예정일'
                 : ' · 총 예약은 그달 접수일'}
             </p>
           </div>
