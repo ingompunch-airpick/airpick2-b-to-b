@@ -205,11 +205,6 @@ export default function ReservationCard({
             )
           )}
 
-          {flightDelayBadge && (
-            <span className={cn(CARD_CHIP, 'bg-orange-500/16 text-orange-300 border-orange-400/35')}>
-              {flightDelayBadge.label}
-            </span>
-          )}
         </div>
 
         {/* 2nd Row: Plate + model (always together). Time on its own line to avoid wrap on narrow phones. */}
@@ -224,8 +219,19 @@ export default function ReservationCard({
               </span>
             )}
           </div>
-          <div className="text-toss-body leading-none tabular-nums text-[var(--color-toss-fg-muted)]">
-            {showAsExitSchedule ? res.arrivalTime : res.departureTime}
+          <div className="flex items-baseline gap-2 min-w-0">
+            <span className="text-toss-body leading-none tabular-nums text-[var(--color-toss-fg-muted)]">
+              {showAsExitSchedule ? res.arrivalTime : res.departureTime}
+            </span>
+            {flightDelayBadge && (
+              <span className="text-[13px] font-semibold leading-none text-orange-400 tabular-nums">
+                {flightDelayBadge.label === '결항'
+                  ? '결항'
+                  : flightDelayBadge.delayMinutes > 0
+                    ? `${flightDelayBadge.delayMinutes}분 연착`
+                    : '연착'}
+              </span>
+            )}
           </div>
           {operatorBrandLabel ? (
             <MetaField label="업체" value={operatorBrandLabel} className="text-[12px]" />
