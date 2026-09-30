@@ -4,6 +4,7 @@ import { SHEET_LAST_COLUMN } from './constants';
 const SCOPES = ['https://www.googleapis.com/auth/spreadsheets'];
 
 const ADMITTED = new Set(['입고', '출고요청', '출차']);
+const BOOKED = new Set(['예약', '입고요청']);
 const WAWA_IDS = new Set(['wawa', 'wawa_valet', '와와', '와와발렛']);
 
 export type HqLedgerCompany = {
@@ -39,12 +40,15 @@ export type HqMonthLedger = {
 type LedgerRow = {
   id: string;
   admitted: boolean;
+  /** 예약·입고요청. 아직 입고 전이다. */
+  booked: boolean;
   settled: boolean;
   source: 'airpick' | 'homepage' | 'onsite';
   companyId: string;
   customerKey: string;
   departureYmd: string;
   exitYmd: string;
+  scheduledExitYmd: string;
   price: number;
 };
 
@@ -131,12 +135,14 @@ export function ledgerRowsFromSheetValues(values: unknown[][], tabName = ''): Le
     rows.push({
       id,
       admitted: ADMITTED.has(status),
+      booked: BOOKED.has(status),
       settled: status === '출차',
       source: sourceFromCell(col(raw, '유입')),
       companyId: companyIdFromCell(col(raw, '업체ID'), tabName),
       customerKey: customerKey(phone, col(raw, '고객명'), id),
       departureYmd: ymdFromCell(col(raw, '입차예정')),
       exitYmd,
+      scheduledExitYmd: ymdFromCell(col(raw, '출차예정')),
       price: priceFromCell(col(raw, '금액')),
     });
   }
@@ -198,7 +204,7 @@ export function aggregateHqMonthLedger(rows: LedgerRow[], month: string): HqMont
   };
 
   for (const row of unique) {
-    if (row.admitted && row.departureYmd.startsWith(month)) {
+    if ((row.admitted || row.booked) && row.departureYmd.startsWith(month)) {
       result.admittedCount += 1;
       result.admittedRevenue += row.price;
       if (row.source === 'airpick') result.sources.airpick += 1;
@@ -221,7 +227,10 @@ export function aggregateHqMonthLedger(rows: LedgerRow[], month: string): HqMont
       }
     }
 
-    if (row.settled && row.exitYmd.startsWith(month)) {
+    const countsAsCheckout =
+      (row.settled && row.exitYmd.startsWith(month)) ||
+      (row.booked && row.scheduledExitYmd.startsWith(month));
+    if (countsAsCheckout) {
       result.settledCount += 1;
       result.settledRevenue += row.price;
       ensure(row.companyId).settled += 1;
@@ -245,7 +254,7 @@ function sheetsClient(serviceAccountJson?: string): sheets_v4.Sheets {
   return google.sheets({ version: 'v4', auth });
 }
 
-export type LedgerVisit = { k: string; d: string };
+export type LedgerVisit = { k: string; d: string; a?: boolean };
 
 const ROW_CACHE_MS = 10 * 60 * 1000;
 let rowCache: { key: string; at: number; rows: LedgerRow[] } | null = null;
@@ -281,8 +290,8 @@ export function admittedVisits(rows: LedgerRow[]): LedgerVisit[] {
   }
   const visits: LedgerVisit[] = [];
   for (const row of byId.values()) {
-    if (!row.admitted || !row.departureYmd) continue;
-    visits.push({ k: row.customerKey, d: row.departureYmd });
+    if (!(row.admitted || row.booked) || !row.departureYmd) continue;
+    visits.push({ k: row.customerKey, d: row.departureYmd, a: row.admitted });
   }
   return visits;
 }

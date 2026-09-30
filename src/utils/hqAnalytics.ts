@@ -1,7 +1,7 @@
 import type { Company, Reservation } from '../types';
 import { isAirpickHeadquarters } from '../constants/platform';
 import { normalizeDateString } from './reservationNormalize';
-import { isAdmitted, isParked } from './reservationStatus';
+import { isAdmitted, isNotYetAdmitted, isParked } from './reservationStatus';
 import { toKSTDateOnlyString } from './kstDate';
 import {
   resolveBookingSourceFromReservation,
@@ -18,6 +18,7 @@ export function monthLabelFromPrefix(prefix: string): string {
   return `${y}년 ${parseInt(m, 10)}월`;
 }
 
+/** 월 입고: 취소만 빼고 입차 예정일 기준. 아직 입고 전인 예약도 포함한다. */
 export function filterAdmittedInMonth(
   reservations: Reservation[],
   monthPrefix: string
@@ -25,20 +26,20 @@ export function filterAdmittedInMonth(
   return reservations.filter(
     (r) =>
       r.status !== 'cancelled' &&
-      normalizeDateString(r.departureDate).startsWith(monthPrefix) &&
-      isAdmitted(r.status)
+      normalizeDateString(r.departureDate).startsWith(monthPrefix)
   );
 }
 
-/** 정산건 = 출차 완료(`completed_out`), 실제 출차일(없으면 귀국일) 기준 월 */
+/** 월 출고: 출차 완료는 실제 출차일, 아직 입고 전인 예약은 출차 예정일 */
 export function filterSettledInMonth(
   reservations: Reservation[],
   monthPrefix: string
 ): Reservation[] {
-  return reservations.filter(
-    (r) =>
-      r.status === 'completed_out' && exitDateYmd(r).startsWith(monthPrefix)
-  );
+  return reservations.filter((r) => {
+    if (r.status === 'completed_out') return exitDateYmd(r).startsWith(monthPrefix);
+    if (isNotYetAdmitted(r.status)) return normalizeDateString(r.arrivalDate).startsWith(monthPrefix);
+    return false;
+  });
 }
 
 export type HqCompanyRow = {

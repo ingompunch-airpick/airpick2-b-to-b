@@ -41,7 +41,7 @@ type RawLedger = Omit<HqMonthLedger, 'companies'> & {
   companies: Omit<HqLedgerCompany, 'name' | 'airpickRevenue' | 'homepageRevenue'>[];
 };
 
-export type LedgerVisit = { k: string; d: string };
+export type LedgerVisit = { k: string; d: string; a?: boolean };
 
 export type HqLedgerBundle = {
   months: Record<string, RawLedger>;
@@ -154,7 +154,7 @@ export function mergeCustomerMix(
   const monthStart = `${month}-01`;
   const prior = new Set<string>();
   for (const visit of visits) {
-    if (visit.d && visit.d < monthStart) prior.add(visit.k);
+    if (visit.d && visit.d < monthStart && visit.a !== false) prior.add(visit.k);
   }
   for (const reservation of reservations) {
     if (reservation.status === 'cancelled' || !isAdmitted(reservation.status)) continue;

@@ -359,9 +359,7 @@ export default function StatisticsView({
 
     const hqMonthSourceMetrics = aggregateGroupedBookingSourceMetrics(hqMonthAdmitted);
     const hqMonthTotalAdmitted = hqMonthAdmitted.length;
-    const hqMonthTotalRevenue = hqMonthAdmitted.reduce((s, r) => s + (r.totalPrice || 0), 0);
     const hqMonthTotalSettled = hqMonthSettled.length;
-    const hqMonthSettledRevenue = hqMonthSettled.reduce((s, r) => s + (r.totalPrice || 0), 0);
 
     const hqCompanyRows = buildHqCompanyRows(hqMonthAdmitted, companies, hqMonthSettled);
     const hqTodayCompanyRows = buildHqTodayCompanyRows(masterActiveRes, todayStr, companies);
@@ -375,17 +373,7 @@ export default function StatisticsView({
         : null;
     const sheetFailed = hqLedger?.status === 'error';
     const shownAdmitted = sheetReady ? sheetReady.admittedCount : sheetFailed ? hqMonthTotalAdmitted : null;
-    const shownAdmittedRevenue = sheetReady
-      ? sheetReady.admittedRevenue
-      : sheetFailed
-        ? hqMonthTotalRevenue
-        : null;
     const shownSettled = sheetReady ? sheetReady.settledCount : sheetFailed ? hqMonthTotalSettled : null;
-    const shownSettledRevenue = sheetReady
-      ? sheetReady.settledRevenue
-      : sheetFailed
-        ? hqMonthSettledRevenue
-        : null;
     const shownSourceCounts = sheetReady
       ? { 'airpick-b2c': sheetReady.sources.airpick, other: sheetReady.sources.other }
       : {
@@ -546,19 +534,13 @@ export default function StatisticsView({
                     {shownAdmitted == null ? '…' : shownAdmitted}
                     <span className="text-lg ml-0.5">대</span>
                   </div>
-                  <span className="text-[11px] text-zinc-500 font-bold font-mono mt-1 block">
-                    {shownAdmittedRevenue == null ? '…' : `${shownAdmittedRevenue.toLocaleString()}원`}
-                  </span>
                 </div>
                 <div className="text-right">
-                  <span className="text-[11px] text-zinc-500 font-bold block">정산(출고)</span>
+                  <span className="text-[11px] text-zinc-500 font-bold block">출고</span>
                   <div className="text-3xl font-black text-emerald-400 font-mono tracking-tight mt-0.5">
                     {shownSettled == null ? '…' : shownSettled}
                     <span className="text-lg ml-0.5">건</span>
                   </div>
-                  <span className="text-[11px] text-zinc-500 font-bold font-mono mt-1 block">
-                    {shownSettledRevenue == null ? '…' : `${shownSettledRevenue.toLocaleString()}원`}
-                  </span>
                 </div>
               </div>
 
@@ -645,7 +627,7 @@ export default function StatisticsView({
                         </span>
                         <div className="text-right shrink-0">
                           <span className="text-[10px] text-emerald-500/80 font-bold block">
-                            정산
+                            출고
                           </span>
                           <span
                             className={`text-base font-black font-mono tracking-tight ${
@@ -655,11 +637,6 @@ export default function StatisticsView({
                             {row.settled}
                             <span className="text-[10px] font-bold ml-0.5">건</span>
                           </span>
-                          {row.settled > 0 ? (
-                            <span className="text-[10px] text-zinc-500 font-mono font-bold block">
-                              {row.settledRevenue.toLocaleString()}원
-                            </span>
-                          ) : null}
                         </div>
                       </div>
                       <div className="grid grid-cols-3 gap-2">
