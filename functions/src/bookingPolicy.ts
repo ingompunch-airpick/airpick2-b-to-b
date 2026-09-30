@@ -1,9 +1,12 @@
 import * as admin from 'firebase-admin';
+import { matchScheduleBlock, scheduleBlockNote, scheduleBlockOverrideHonored } from './scheduleBlock';
 
 type PolicyCompany = {
   isOpen?: boolean;
   blockedDates?: unknown;
   sameDayBookingBlocked?: boolean;
+  bookingLeadHours?: number;
+  scheduleBlocks?: unknown;
 };
 
 function statusIsCancelled(status: unknown): boolean {
@@ -29,6 +32,28 @@ function kstTodayYmd(now = new Date()): string {
   }).format(now);
 }
 
+function normalizeLeadHours(value: unknown): number {
+  const n = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(n)) return 0;
+  return Math.max(0, Math.min(24, Math.floor(n)));
+}
+
+function intakeLeadClosed(departureDate: string, departureTime: string, leadHours: number): boolean {
+  const dateM = departureDate.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  const timeM = departureTime.match(/^(\d{2}):(\d{2})$/);
+  if (!dateM || !timeM || leadHours <= 0) return false;
+  const intakeMs = Date.UTC(
+    Number(dateM[1]),
+    Number(dateM[2]) - 1,
+    Number(dateM[3]),
+    Number(timeM[1]) - 9,
+    Number(timeM[2]),
+    0,
+    0
+  );
+  return Date.now() >= intakeMs - leadHours * 60 * 60 * 1000;
+}
+
 function resolveDepartureDate(data: FirebaseFirestore.DocumentData): string {
   return normalizeYmd(data.departureDate) || normalizeYmd(data.entryDate) || '';
 }
@@ -51,7 +76,7 @@ async function cancelReservation(
 /**
  * 신규 예약이 업체 마감·입고일 blockedDates·당일차단에 걸리면 즉시 취소.
  * 홈페이지/B2C 클라이언트가 검사를 빼먹어도 서버 백스톱.
- * blockedDates는 입고일(departureDate)만 검사 — 출고일은 허용.
+ * blockedDates는 입고일 하루 전체. scheduleBlocks는 입고·출고, 터미널, 시간 구간.
  * @returns true면 거절(취소)됨 → 푸시·알림톡 등 스킵
  */
 export async function enforceBookingPolicyOnCreate(
@@ -92,22 +117,49 @@ export async function enforceBookingPolicyOnCreate(
     return true;
   }
 
+  const lead = normalizeLeadHours(company.bookingLeadHours);
+  if (lead > 0) {
+    const departureTime = String(data.departureTime || '').trim().slice(0, 5);
+    if (intakeLeadClosed(departureDate, departureTime, lead)) {
+      await cancelReservation(
+        reservationId,
+        'booking_lead',
+        `입고 ${lead}시간 전 마감(자동취소)`
+      );
+      console.warn(
+        `[bookingPolicy] lead ${reservationId} company=${companyId} dep=${departureDate} ${departureTime} lead=${lead}`
+      );
+      return true;
+    }
+  }
+
   const blockedSet = new Set(
     (Array.isArray(company.blockedDates) ? company.blockedDates : [])
       .map((d) => normalizeYmd(d))
       .filter(Boolean)
   );
-  if (blockedSet.size === 0) return false;
 
-  if (!blockedSet.has(departureDate)) return false;
+  if (blockedSet.has(departureDate)) {
+    await cancelReservation(
+      reservationId,
+      'blocked_dates',
+      `입고일 마감(자동취소): ${departureDate}`
+    );
+    console.warn(
+      `[bookingPolicy] blocked ${reservationId} company=${companyId} dep=${departureDate}`
+    );
+    return true;
+  }
 
-  await cancelReservation(
-    reservationId,
-    'blocked_dates',
-    `입고일 마감(자동취소): ${departureDate}`
-  );
+  if (scheduleBlockOverrideHonored(data)) return false;
+
+  const hit = matchScheduleBlock(company.scheduleBlocks, data);
+  if (!hit) return false;
+
+  const note = scheduleBlockNote(hit);
+  await cancelReservation(reservationId, 'schedule_block', `${note}(자동취소)`);
   console.warn(
-    `[bookingPolicy] blocked ${reservationId} company=${companyId} dep=${departureDate}`
+    `[bookingPolicy] schedule ${reservationId} company=${companyId} ${hit.leg} ${hit.date} ${hit.terminal}`
   );
   return true;
 }

@@ -91,13 +91,28 @@ service cloud.firestore {
         'blockedDates',
         'cancelCutoffHours',
         'sameDayBookingBlocked',
+        'bookingLeadHours',
         'hourlyCapEnabled',
         'maxCarsPerHour',
         'parkingCapEnabled',
         'maxParkedCars',
+        'dailyIntakeCapEnabled',
+        'maxCarsPerDay',
+        'scheduleBlocks',
         'phone',
         'updatedAt'
       ]);
+    }
+
+    function bookingSettingsShapeValid() {
+      let data = request.resource.data;
+      return (!('bookingLeadHours' in data)
+          || (data.bookingLeadHours is int && data.bookingLeadHours >= 0 && data.bookingLeadHours <= 24))
+        && (!('dailyIntakeCapEnabled' in data) || data.dailyIntakeCapEnabled is bool)
+        && (!('maxCarsPerDay' in data)
+          || (data.maxCarsPerDay is int && data.maxCarsPerDay >= 0 && data.maxCarsPerDay <= 999))
+        && (!('scheduleBlocks' in data)
+          || (data.scheduleBlocks is list && data.scheduleBlocks.size() <= 200));
     }
 
     function isValidReservationId(reservationId) {
@@ -333,6 +348,7 @@ service cloud.firestore {
       // 본사 전체 · 파트너는 자기 업체 운영 필드만
       allow update: if isValidCompanyId(companyId)
         && onlyPartnerOperationalFieldsChanged()
+        && bookingSettingsShapeValid()
         && (
           isPlatformAdmin()
           || partnerCanAccessCompany(companyId)
@@ -369,7 +385,11 @@ service cloud.firestore {
       allow read: if isPlatformAdmin();
       allow create, update: if isValidCompanyId(companyId)
         && dayId.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
-        && request.resource.data.keys().hasOnly(['pageViews', 'updatedAt'])
+        && request.resource.data.keys().hasOnly(['pageViews', 'updatedAt', 'sources'])
+        && (
+          !('sources' in request.resource.data)
+          || (request.resource.data.sources is map && request.resource.data.sources.size() <= 40)
+        )
         && request.resource.data.pageViews is int
         && request.resource.data.pageViews > 0
         && request.resource.data.pageViews < 100000000

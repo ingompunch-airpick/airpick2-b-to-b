@@ -714,7 +714,7 @@ export default function App() {
 
       {/* 3. Core Workspace Content Switcher - Dynamically widened for Timeline & Dashboards */}
       {(() => {
-        const isWideView = ['timeline', 'statistics', 'cancelled_list', 'master_settings', 'dispatch_board', 'service_history', 'parking_departure', 'payment_change', 'acquisition_funnel', 'affiliate_admin', 'hq_partner_board', 'hq_reviews', 'hq_customers'].includes(currentView);
+        const isWideView = ['timeline', 'statistics', 'cancelled_list', 'master_settings', 'dispatch_board', 'reservation_ledger', 'service_history', 'parking_departure', 'payment_change', 'acquisition_funnel', 'affiliate_admin', 'hq_partner_board', 'hq_reviews', 'hq_customers'].includes(currentView);
         return (
           <main className={cn("mx-auto p-4 mt-2 transition-all duration-200", isWideView ? "max-w-4xl" : "max-w-md")}>
             <AnimatePresence mode="wait">
@@ -835,12 +835,18 @@ export default function App() {
                             ? matched.cancelCutoffHours
                             : 3,
                         sameDayBookingBlocked: matched?.sameDayBookingBlocked === true,
+                        bookingLeadHours:
+                          typeof matched?.bookingLeadHours === 'number' ? matched.bookingLeadHours : 0,
                         hourlyCapEnabled: matched?.hourlyCapEnabled === true,
                         maxCarsPerHour:
                           typeof matched?.maxCarsPerHour === 'number' ? matched.maxCarsPerHour : 0,
                         parkingCapEnabled: matched?.parkingCapEnabled === true,
                         maxParkedCars:
                           typeof matched?.maxParkedCars === 'number' ? matched.maxParkedCars : 0,
+                        dailyIntakeCapEnabled: matched?.dailyIntakeCapEnabled === true,
+                        maxCarsPerDay:
+                          typeof matched?.maxCarsPerDay === 'number' ? matched.maxCarsPerDay : 0,
+                        scheduleBlocks: matched?.scheduleBlocks ?? [],
                       });
                     }}
                     onToggleCompanyOpen={handleToggleCompanyOpen}
@@ -1113,6 +1119,10 @@ export default function App() {
           const matched = companies.find(c => c.id === currentCompanyId);
           return matched?.sameDayBookingBlocked === true;
         })()}
+        bookingLeadHours={(() => {
+          const matched = companies.find(c => c.id === currentCompanyId);
+          return typeof matched?.bookingLeadHours === 'number' ? matched.bookingLeadHours : 0;
+        })()}
         hourlyCapEnabled={(() => {
           const matched = companies.find(c => c.id === currentCompanyId);
           return matched?.hourlyCapEnabled === true;
@@ -1131,6 +1141,20 @@ export default function App() {
           const n = matched?.maxParkedCars;
           return typeof n === 'number' && n > 0 ? n : 50;
         })()}
+        dailyIntakeCapEnabled={(() => {
+          const matched = companies.find(c => c.id === currentCompanyId);
+          return matched?.dailyIntakeCapEnabled === true;
+        })()}
+        maxCarsPerDay={(() => {
+          const matched = companies.find(c => c.id === currentCompanyId);
+          const n = matched?.maxCarsPerDay;
+          return typeof n === 'number' && n > 0 ? n : 20;
+        })()}
+        scheduleBlocks={(() => {
+          const matched = companies.find(c => c.id === currentCompanyId);
+          return matched?.scheduleBlocks ?? [];
+        })()}
+        company={companies.find(c => c.id === currentCompanyId) ?? null}
         onSave={handleSaveBookingSettings}
         companyIsOpen={(() => {
           const matched = companies.find(c => c.id === currentCompanyId);

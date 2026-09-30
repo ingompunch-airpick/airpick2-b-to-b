@@ -4,6 +4,7 @@ import StatisticsView from './StatisticsView';
 import CancelledListView from './CancelledListView';
 import MasterSettingsView from './MasterSettingsView';
 import DispatchBoardView from './DispatchBoardView';
+import ReservationLedgerView from './ReservationLedgerView';
 import HqParkingPartnersView from './HqParkingPartnersView';
 import HqReviewsView from './HqReviewsView';
 import HqCustomersView from './HqCustomersView';
@@ -146,6 +147,16 @@ export default function AdminMode({
           reservations={reservations}
           companyName={companyInfo.name}
           companies={companies}
+        />
+      );
+
+    case 'reservation_ledger':
+      return (
+        <ReservationLedgerView
+          reservations={reservations}
+          companies={companies}
+          currentCompanyId={currentCompanyId}
+          onEditReservation={onEditReservation}
         />
       );
 

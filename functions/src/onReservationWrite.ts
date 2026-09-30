@@ -1,9 +1,16 @@
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
-import { defineSecret, defineString } from 'firebase-functions/params';
+import { defineString } from 'firebase-functions/params';
+import {
+  sheetsArchiveEnabled,
+  sheetsServiceAccountJson,
+  sheetsSpreadsheetId,
+  sheetsWawaSpreadsheetId,
+} from './sheets/params';
 import { buildNhnConfigFromEnv, processReservationAlimtalk } from './alimtalk/sendReservationAlimtalk';
 import { buildSheetsConfigFromEnv } from './sheets/syncReservation';
 import { processReservationSheetsArchive } from './sheets/processReservationSheets';
 import { enforceHourlyCapacityOnCreate } from './hourlyCapacity';
+import { enforceDailyIntakeOnCreate } from './dailyIntakeCapacity';
 import { enforceParkingCapacityOnCreate } from './parkingCapacity';
 import { enforceBookingPolicyOnCreate } from './bookingPolicy';
 import { bumpCustomerVisitOnCheckout } from './customerVisit';
@@ -29,15 +36,6 @@ const ncpPlusFriendId = defineString('NCP_ALIMTALK_PLUS_FRIEND_ID', { default: '
 const ncpTemplateReserve = defineString('NCP_ALIMTALK_TEMPLATE_RESERVE', { default: 'reservation2' });
 const ncpTemplateCheckin = defineString('NCP_ALIMTALK_TEMPLATE_CHECKIN', { default: '' });
 const ncpTemplateCheckout = defineString('NCP_ALIMTALK_TEMPLATE_CHECKOUT', { default: 'checkout1' });
-
-const sheetsArchiveEnabled = defineString('SHEETS_ARCHIVE_ENABLED', { default: 'false' });
-const sheetsSpreadsheetId = defineString('GOOGLE_SHEETS_SPREADSHEET_ID', {
-  default: '1zxxMHH7cJDz_nyCQbPOt2GCHdBtAVY9mzBDnUVV6lTs',
-});
-const sheetsWawaSpreadsheetId = defineString('GOOGLE_SHEETS_SPREADSHEET_ID_WAWA', {
-  default: '1QHg5Ta1XmAVdRHYeCCArhTVhK7ukn3nvxL2JyW4vC30',
-});
-const sheetsServiceAccountJson = defineSecret('GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON');
 
 function applyRuntimeEnv(): void {
   process.env.ALIMTALK_ENABLED = alimtalkEnabled.value();
@@ -120,6 +118,9 @@ export const onReservationSync = onDocumentWritten(
 
       const rejected = await enforceHourlyCapacityOnCreate(reservationId, afterData);
       if (rejected) return;
+
+      const dailyRejected = await enforceDailyIntakeOnCreate(reservationId, afterData);
+      if (dailyRejected) return;
       try {
         await notifyPartnersNewReservation(reservationId, afterData);
       } catch (err) {

@@ -13,6 +13,8 @@ import {
 import { airportRegionLabel } from '../utils/airport';
 import { AIRPICK_HQ_ID, isAirpickHeadquarters } from '../constants/platform';
 import { ensureFirestoreAuth, ensurePlatformAdminAuth } from '../lib/firebaseAuth';
+import { normalizeScheduleBlocks, type ScheduleBlockRule } from '../utils/scheduleBlock';
+import { normalizeBookingLeadHours } from '../utils/bookingLead';
 
 const DEFAULT_PARTNERS: PartnerCompany[] = [];
 
@@ -20,10 +22,14 @@ export interface BookingSettingsInput {
   blockedDates: string[];
   cancelCutoffHours: number;
   sameDayBookingBlocked: boolean;
+  bookingLeadHours: number;
   hourlyCapEnabled: boolean;
   maxCarsPerHour: number;
   parkingCapEnabled: boolean;
   maxParkedCars: number;
+  dailyIntakeCapEnabled: boolean;
+  maxCarsPerDay: number;
+  scheduleBlocks: ScheduleBlockRule[];
 }
 
 export interface UseCompaniesParams {
@@ -224,11 +230,17 @@ export function useCompanies({
         blockedDates: newBlockedDates,
         cancelCutoffHours,
         sameDayBookingBlocked,
+        bookingLeadHours,
         hourlyCapEnabled,
         maxCarsPerHour,
         parkingCapEnabled,
         maxParkedCars,
+        dailyIntakeCapEnabled,
+        maxCarsPerDay,
+        scheduleBlocks,
       } = settings;
+
+      const cleanBlocks = normalizeScheduleBlocks(scheduleBlocks);
 
       localStorage.setItem(`${targetId}_blockedDates`, JSON.stringify(newBlockedDates));
       setCompanies((prev) => {
@@ -237,10 +249,14 @@ export function useCompanies({
           blockedDates: newBlockedDates,
           cancelCutoffHours,
           sameDayBookingBlocked,
+          bookingLeadHours: normalizeBookingLeadHours(bookingLeadHours),
           hourlyCapEnabled,
           maxCarsPerHour,
           parkingCapEnabled,
           maxParkedCars,
+          dailyIntakeCapEnabled,
+          maxCarsPerDay,
+          scheduleBlocks: cleanBlocks,
         };
         if (idx >= 0) {
           return prev.map((c) => (c.id === targetId ? { ...c, ...patch } : c));
@@ -264,10 +280,14 @@ export function useCompanies({
             blockedDates: newBlockedDates,
             cancelCutoffHours,
             sameDayBookingBlocked,
+            bookingLeadHours: normalizeBookingLeadHours(bookingLeadHours),
             hourlyCapEnabled,
             maxCarsPerHour,
             parkingCapEnabled,
             maxParkedCars,
+            dailyIntakeCapEnabled,
+            maxCarsPerDay,
+            scheduleBlocks: cleanBlocks,
             updatedAt: new Date().toISOString(),
           },
           { merge: true }

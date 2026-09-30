@@ -67,10 +67,17 @@ export async function backfillUpcomingCapacity(): Promise<number> {
   const db = admin.firestore();
   const today = new Date(Date.now() + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
-  const companies = await db.collection('companies').where('hourlyCapEnabled', '==', true).get();
+  const [hourlyCompanies, dailyCompanies] = await Promise.all([
+    db.collection('companies').where('hourlyCapEnabled', '==', true).get(),
+    db.collection('companies').where('dailyIntakeCapEnabled', '==', true).get(),
+  ]);
+  const companies = new Map<string, FirebaseFirestore.QueryDocumentSnapshot>();
+  for (const doc of [...hourlyCompanies.docs, ...dailyCompanies.docs]) {
+    companies.set(doc.id, doc);
+  }
   let written = 0;
 
-  for (const company of companies.docs) {
+  for (const company of companies.values()) {
     const snap = await db
       .collection('reservations')
       .where('companyId', '==', company.id)

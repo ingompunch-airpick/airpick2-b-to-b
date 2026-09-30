@@ -24,6 +24,13 @@ import {
   checkParkingCapacityForBooking,
 } from '../lib/parkingCapacityFirestore';
 import type { ParkingCapacityResult } from '../utils/parkingCapacity';
+import { isDailyIntakeCapActive } from '../utils/dailyIntakeCapacity';
+import {
+  assertDailyIntakeAvailable,
+  checkDailyIntakeForBooking,
+} from '../lib/dailyIntakeCapacityFirestore';
+import type { DailyIntakeResult } from '../utils/dailyIntakeCapacity';
+import { findScheduleBlock, scheduleBlockMessage } from '../utils/scheduleBlock';
 import { getKSTDateOnlyString, getKSTDateTimeLocalString } from '../utils/kstDate';
 import { getCalculatePrice, mergePartnerPricing, companyRouteNeedsTerminalSurcharge } from '../utils/pricing';
 import {
@@ -94,6 +101,7 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
   const [formError, setFormError] = useState<string | null>(null);
   const [done, setDone] = useState<{ id: string; receiptUrl: string } | null>(null);
   const [hourlyHint, setHourlyHint] = useState<HourlyCapacityResult | null>(null);
+  const [dailyHint, setDailyHint] = useState<DailyIntakeResult | null>(null);
   const [parkingHint, setParkingHint] = useState<ParkingCapacityResult | null>(null);
   const [arrivalFlightHint, setArrivalFlightHint] = useState<string | null>(null);
   const [arrivalFlightLooking, setArrivalFlightLooking] = useState(false);
@@ -244,8 +252,30 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
 
   const policyError = useMemo(() => {
     if (!company) return null;
-    return checkHomepageBookingPolicy(company, dep.date, arr.date);
-  }, [company, dep.date, arr.date]);
+    return checkHomepageBookingPolicy(company, dep.date, arr.date, dep.time);
+  }, [company, dep.date, dep.time, arr.date]);
+
+  const scheduleBlock = useMemo(() => {
+    if (!company) return null;
+    return findScheduleBlock({
+      rules: company.scheduleBlocks,
+      airport: company.airport,
+      departureDate: dep.date,
+      departureTime: dep.time,
+      departureTerminal,
+      arrivalDate: arr.date,
+      arrivalTime: arr.time,
+      arrivalTerminal,
+    });
+  }, [
+    company,
+    dep.date,
+    dep.time,
+    departureTerminal,
+    arr.date,
+    arr.time,
+    arrivalTerminal,
+  ]);
 
   useEffect(() => {
     let cancelled = false;
@@ -270,6 +300,25 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
       cancelled = true;
     };
   }, [company, dep.date, dep.time]);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      if (!company || !isDailyIntakeCapActive(company) || !dep.date) {
+        setDailyHint(null);
+        return;
+      }
+      try {
+        const result = await checkDailyIntakeForBooking(company, company.id, dep.date);
+        if (!cancelled) setDailyHint(result);
+      } catch {
+        if (!cancelled) setDailyHint(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [company, dep.date]);
 
   useEffect(() => {
     let cancelled = false;
@@ -317,9 +366,11 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
     if (!departureFlight.trim()) return '출국 편명을 입력해 주세요.';
     if (!arrivalAirline.trim()) return '귀국 항공사를 선택해 주세요.';
     if (!arrivalFlight.trim()) return '귀국 편명을 입력해 주세요.';
-    if (policyError) return homepagePolicyMessage(policyError);
+    if (policyError) return homepagePolicyMessage(policyError, company?.bookingLeadHours);
+    if (scheduleBlock) return scheduleBlockMessage(scheduleBlock);
     if (parkingHint?.ok === false) return parkingHint.message;
     if (hourlyHint?.ok === false) return hourlyHint.message;
+    if (dailyHint?.ok === false) return dailyHint.message;
     return null;
   };
 
@@ -337,14 +388,29 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
     setSubmitting(true);
     try {
       await ensureFirestoreAuth();
-      const recheck = checkHomepageBookingPolicy(company, dep.date, arr.date);
+      const recheck = checkHomepageBookingPolicy(company, dep.date, arr.date, dep.time);
       if (recheck) {
-        setFormError(homepagePolicyMessage(recheck));
+        setFormError(homepagePolicyMessage(recheck, company.bookingLeadHours));
+        return;
+      }
+      const block = findScheduleBlock({
+        rules: company.scheduleBlocks,
+        airport: company.airport,
+        departureDate: dep.date,
+        departureTime: dep.time,
+        departureTerminal,
+        arrivalDate: arr.date,
+        arrivalTime: arr.time,
+        arrivalTerminal,
+      });
+      if (block) {
+        setFormError(scheduleBlockMessage(block));
         return;
       }
 
       await assertParkingCapacityAvailable(company, company.id, dep.date, arr.date);
       await assertHourlyCapacityAvailable(company, company.id, dep.date, dep.time);
+      await assertDailyIntakeAvailable(company, company.id, dep.date);
 
       const id = createReservationId();
       const receiptToken = createReceiptToken();
@@ -617,6 +683,17 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
                     : hourlyHint.message}
                 </p>
               ) : null}
+              {company && isDailyIntakeCapActive(company) && dailyHint ? (
+                <p
+                  className={`mt-1.5 text-[12px] font-semibold ${
+                    dailyHint.ok ? 'text-stone-500' : 'text-red-600'
+                  }`}
+                >
+                  {dailyHint.ok === true
+                    ? `이 입고일 남은 ${dailyHint.remaining}대 (하루 ${dailyHint.max}대)`
+                    : dailyHint.message}
+                </p>
+              ) : null}
             </FormRow>
             <FormRow label="출국 터미널" required>
               <TerminalPicker
@@ -748,7 +825,7 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
 
           {policyError ? (
             <p className="mx-5 mb-2 rounded-xl bg-red-50 px-3 py-2.5 text-xs font-semibold text-red-700 sm:mx-6">
-              {homepagePolicyMessage(policyError)}
+              {homepagePolicyMessage(policyError, company?.bookingLeadHours)}
             </p>
           ) : null}
 

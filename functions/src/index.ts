@@ -11,6 +11,7 @@ import { adminSetCompanyStatus } from './admin/setCompanyStatus';
 import { adminDeleteCompany } from './admin/deleteCompany';
 import { verifyPartnerLogin } from './admin/verifyPartnerLogin';
 import { upsertCompanyEmployees } from './admin/upsertCompanyEmployees';
+import { getHqMonthLedger } from './admin/getHqMonthLedger';
 
 /** 손님(B2C) HTTPS API — 리전 asia-northeast3 (이름·리전 유지) */
 import { getReceipt } from './api/getReceipt';
@@ -33,6 +34,7 @@ export {
   adminDeleteCompany,
   verifyPartnerLogin,
   upsertCompanyEmployees,
+  getHqMonthLedger,
   getReceipt,
   getAffiliateStats,
   affiliateLogin,

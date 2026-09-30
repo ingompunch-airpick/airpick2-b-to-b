@@ -11,6 +11,7 @@ import {
 import { createReservationId, persistReservation, patchReservation } from '../lib/reservationFirestore';
 import { assertHourlyCapacityAvailable } from '../lib/hourlyCapacityFirestore';
 import { assertParkingCapacityAvailable } from '../lib/parkingCapacityFirestore';
+import { assertDailyIntakeAvailable } from '../lib/dailyIntakeCapacityFirestore';
 import { User } from 'firebase/auth';
 import { Company, Reservation, AppView, CompanyInfo } from '../types';
 import ReservationCard from './ReservationCard';
@@ -26,8 +27,14 @@ import {
 } from '../utils/airport';
 import TerminalPicker from './TerminalPicker';
 import { getKSTDateOnlyString, getKSTDateTimeLocalString } from '../utils/kstDate';
+import { intakeLeadClosed, normalizeBookingLeadHours } from '../utils/bookingLead';
 import { reservationMatchesKeyword } from '../utils/reservationSearch';
 import { formatPartnerDisplayName, resolveRequiredCompanyId } from '../utils/companyDisplay';
+import {
+  canStaffOverrideScheduleBlock,
+  findScheduleBlock,
+  scheduleBlockMessage,
+} from '../utils/scheduleBlock';
 import { getOperatorIntakeCompanyOptions } from '../utils/operatorHierarchy';
 import { companyParkingTypeAvailability } from '../utils/companyProfile';
 function cn(...classes: (string | boolean | undefined)[]) {
@@ -374,6 +381,19 @@ export default function SearchReceptionView({
       setIsSubmittingBooking(false);
       return;
     }
+    if (
+      partnerObj?.sameDayBookingBlocked !== true &&
+      intakeLeadClosed({
+        leadHours: partnerObj?.bookingLeadHours ?? 0,
+        departureDate: depDateStr,
+        departureTime: depTimeStr,
+      })
+    ) {
+      const lead = normalizeBookingLeadHours(partnerObj?.bookingLeadHours);
+      alert(`입고 ${lead}시간 전까지만 받습니다.`);
+      setIsSubmittingBooking(false);
+      return;
+    }
 
     try {
       await assertParkingCapacityAvailable(
@@ -388,10 +408,42 @@ export default function SearchReceptionView({
         depDateStr,
         depTimeStr
       );
+      await assertDailyIntakeAvailable(partnerObj || partner, partner.id, depDateStr);
     } catch (capErr) {
       alert(capErr instanceof Error ? capErr.message : '해당 일정 예약이 마감되었습니다.');
       setIsSubmittingBooking(false);
       return;
+    }
+
+    const scheduleHit = findScheduleBlock({
+      rules: partnerObj?.scheduleBlocks,
+      airport: resolveCompanyAirportId(partnerObj),
+      departureDate: depDateStr,
+      departureTime: depTimeStr,
+      departureTerminal,
+      arrivalDate: arrDateStr,
+      arrivalTime: arrTimeStr,
+      arrivalTerminal,
+    });
+    let scheduleBlockOverride = false;
+    if (scheduleHit) {
+      const message = scheduleBlockMessage(scheduleHit);
+      const canOverride = canStaffOverrideScheduleBlock({
+        isSuperAdmin,
+        isEmployee,
+        employeeRole,
+      });
+      if (!canOverride) {
+        alert(message);
+        setIsSubmittingBooking(false);
+        return;
+      }
+      const ok = window.confirm(`${message}\n\n관리자 확인 후 이 예약만 넣을까요?`);
+      if (!ok) {
+        setIsSubmittingBooking(false);
+        return;
+      }
+      scheduleBlockOverride = true;
     }
 
     const isT2 = companyRouteNeedsTerminalSurcharge(partner, departureTerminal, arrivalTerminal);
@@ -424,6 +476,7 @@ export default function SearchReceptionView({
       status: 'pending' as const,
       createdAt: new Date().toISOString(),
       createdBy: isEmployee ? employeeName : (isSuperAdmin ? '본사 마스터(최고관리자)' : '업체 마스터'),
+      ...(scheduleBlockOverride ? { scheduleBlockOverride: true } : {}),
       paymentMethod: 'unpaid',
       receiptCode: randReceipt,
       scratchPhotos: { synced: false },

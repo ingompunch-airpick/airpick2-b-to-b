@@ -1,3 +1,15 @@
+/** 입고·출고 시각을 터미널·시간으로 막는 규칙 */
+export interface ScheduleBlockRule {
+  id: string;
+  leg: 'intake' | 'exit';
+  /** 'all' 또는 터미널 코드 */
+  terminal: string;
+  date: string;
+  startTime?: string;
+  endTime?: string;
+  memo?: string;
+}
+
 export interface Company {
   id: string;
   name: string;
@@ -29,8 +41,13 @@ export interface Company {
   blockedDates?: string[];
   /** B2C 고객 셀프취소 — 입고 N시간 전까지 허용 (미설정 시 B2C 기본값) */
   cancelCutoffHours?: number;
-  /** true면 당일(입고일=오늘) 예약 B2C에서 차단 */
+  /** true면 당일(입고일=오늘) 예약은 받지 않음. bookingLeadHours와 같이 켜지 않음 */
   sameDayBookingBlocked?: boolean;
+  /**
+   * 입고 시각 기준 N시간 전 마감 (0–24). 0이면 직전에도 받음.
+   * sameDayBookingBlocked가 켜져 있으면 이 값은 쓰지 않음.
+   */
+  bookingLeadHours?: number;
   /**
    * 시간당 입고 대수 한도 (기본 OFF).
    * 켜면 입고 시각(departureTime) 기준 같은 시간대에 maxCarsPerHour대까지만 접수.
@@ -47,6 +64,15 @@ export interface Company {
   parkingCapEnabled?: boolean;
   /** 동시 최대 주차 대수 (1–999). parkingCapEnabled일 때만 적용 */
   maxParkedCars?: number;
+  /**
+   * 입고일 하루 대수 한도 (기본 OFF).
+   * 시간당·동시 주차와 별개. 취소는 제외하고, 아직 들어오지 않은 예약도 센다.
+   */
+  dailyIntakeCapEnabled?: boolean;
+  /** 입고일 기준 하루 최대 대수 (1–999) */
+  maxCarsPerDay?: number;
+  /** 입고·출고, 터미널, 시간 구간별 예약 거절 */
+  scheduleBlocks?: ScheduleBlockRule[];
   // Matrix pricing settings
   outdoorBasePrice?: number;
   outdoorBaseDays?: number;
@@ -360,6 +386,12 @@ export interface Reservation {
   /** 예약 시점 스냅샷 — 이후 제휴 금액이 바뀌어도 이 건 할인·페이백은 유지 */
   affiliateCustomerDiscountWon?: number;
   affiliateReferrerCreditWon?: number;
+
+  /**
+   * 현장 관리자가 막힌 출고일·시간·터미널을 확인하고 넣은 건.
+   * 홈페이지·에어픽 예약에서는 서버가 무시한다.
+   */
+  scheduleBlockOverride?: boolean;
 }
 
 export type AppView = 
@@ -374,6 +406,8 @@ export type AppView =
   | 'master_settings'
   /** 관리자 · 입출차 배차표 (인쇄/CSV) */
   | 'dispatch_board'
+  /** 관리자 · 예약 목록 (필터 표) */
+  | 'reservation_ledger'
   /** @deprecated 「② 주차 업체」로 통합 — master_settings 로 리다이렉트 */
   | 'hq_partner_board'
   /** 본사 · 후기 숨김/삭제 */

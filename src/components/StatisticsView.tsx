@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo } from 'react';
+﻿import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { 
   Coins, 
   Power, 
@@ -47,7 +47,9 @@ import {
   monthLabelFromPrefix,
   shiftMonthPrefix,
 } from '../utils/hqAnalytics';
+import HqHomepageVisits from './HqHomepageVisits';
 import MetaField from './MetaField';
+import { fetchHqLedgerBundle, mergeCustomerMix, presentHqMonth, type HqLedgerBundle } from '../lib/hqMonthLedgerApi';
 import {
   isMultiOperatorScope,
   resolveOperatorBrandLabel,
@@ -176,7 +178,11 @@ export default function StatisticsView({
     getKSTDateOnlyString().substring(0, 7)
   );
   const [hqMonthPrefix, setHqMonthPrefix] = useState(() => getKSTDateOnlyString().substring(0, 7));
-  const [hqTab, setHqTab] = useState<'today' | 'month'>('today');
+  const [hqTab, setHqTab] = useState<'today' | 'month' | 'visits'>('today');
+  const [hqLedger, setHqLedger] = useState<{
+    status: 'loading' | 'ready' | 'error';
+    bundle: HqLedgerBundle | null;
+  } | null>(null);
   
   // Year/Month for the integrated Day Closing Calendar in Partner view
   const [currentYear, setCurrentYear] = useState<number>(() => {
@@ -243,6 +249,27 @@ export default function StatisticsView({
     const intervalId = setInterval(checkDateRollOver, 10000);
     return () => clearInterval(intervalId);
   }, []);
+
+  const hqDashboard =
+    isSuperAdmin && (!currentCompanyId || isAirpickHeadquarters(currentCompanyId));
+
+  const hqLedgerRequest = useRef<'idle' | 'loading' | 'ready'>('idle');
+
+  useEffect(() => {
+    if (!hqDashboard || hqTab !== 'month') return;
+    if (hqLedgerRequest.current === 'loading' || hqLedgerRequest.current === 'ready') return;
+    hqLedgerRequest.current = 'loading';
+    setHqLedger({ status: 'loading', bundle: null });
+    fetchHqLedgerBundle()
+      .then((bundle) => {
+        hqLedgerRequest.current = 'ready';
+        setHqLedger({ status: 'ready', bundle });
+      })
+      .catch(() => {
+        hqLedgerRequest.current = 'idle';
+        setHqLedger({ status: 'error', bundle: null });
+      });
+  }, [hqDashboard, hqTab]);
 
   // ── Partner-scope derived data ────────────────────────────
   // 훅은 반드시 조기 return 이전에 무조건 호출되어야 함(에어픽 본사 ↔ 입점 업체 전환 시 훅 순서 고정)
@@ -324,7 +351,6 @@ export default function StatisticsView({
 
     const masterParkedNow = masterActiveRes.filter((r) => isParked(r.status)).length;
 
-    const hqMonthLabel = monthLabelFromPrefix(hqMonthPrefix);
     const hqMonthMax = todayStr.substring(0, 7);
     const hqCanGoNext = hqMonthPrefix < hqMonthMax;
 
@@ -343,8 +369,34 @@ export default function StatisticsView({
     const masterTodayReservations = hqTodayCompanyRows.reduce((s, row) => s + row.received, 0);
     const hqCustomerMix = computeCustomerMix(masterActiveRes, hqMonthPrefix, hqMonthAdmitted);
 
-    const hqCustomerTotal =
-      hqCustomerMix.newCustomers + hqCustomerMix.returningCustomers;
+    const sheetReady =
+      hqLedger?.status === 'ready'
+        ? presentHqMonth(hqMonthPrefix, hqLedger.bundle, companies)
+        : null;
+    const sheetFailed = hqLedger?.status === 'error';
+    const shownAdmitted = sheetReady ? sheetReady.admittedCount : sheetFailed ? hqMonthTotalAdmitted : null;
+    const shownAdmittedRevenue = sheetReady
+      ? sheetReady.admittedRevenue
+      : sheetFailed
+        ? hqMonthTotalRevenue
+        : null;
+    const shownSettled = sheetReady ? sheetReady.settledCount : sheetFailed ? hqMonthTotalSettled : null;
+    const shownSettledRevenue = sheetReady
+      ? sheetReady.settledRevenue
+      : sheetFailed
+        ? hqMonthSettledRevenue
+        : null;
+    const shownSourceCounts = sheetReady
+      ? { 'airpick-b2c': sheetReady.sources.airpick, other: sheetReady.sources.other }
+      : {
+          'airpick-b2c': hqMonthSourceMetrics['airpick-b2c'].count,
+          other: hqMonthSourceMetrics.other.count,
+        };
+    const shownMix = sheetReady
+      ? mergeCustomerMix(hqLedger?.bundle?.visits || [], masterActiveRes, hqMonthPrefix)
+      : hqCustomerMix;
+    const shownCustomerTotal = shownMix.newCustomers + shownMix.returningCustomers;
+    const shownCompanyRows = sheetReady ? sheetReady.companies : sheetFailed ? hqCompanyRows : [];
 
     const hqMonthPicker = (
       <div className="flex items-center gap-1.5 bg-[#1C1C1E] border border-neutral-800/50 rounded-xl p-1">
@@ -381,6 +433,7 @@ export default function StatisticsView({
     const hqTabs = [
       { id: 'today' as const, label: '오늘' },
       { id: 'month' as const, label: '월간' },
+      { id: 'visits' as const, label: '홈 방문' },
     ];
 
     return (
@@ -481,44 +534,39 @@ export default function StatisticsView({
         {hqTab === 'month' && (
           <div className="space-y-4">
             <div className="flex items-center justify-between px-1 gap-2">
-              <h3 className="text-xs font-black text-zinc-400">입고 · 정산</h3>
+              <h3 className="text-xs font-black text-zinc-400">합계</h3>
               {hqMonthPicker}
             </div>
 
             <div className="bg-[#121214] rounded-[22px] border border-neutral-800/80 p-4 space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <span className="text-[11px] text-zinc-500 font-bold block">
-                    {hqMonthLabel} 입고
-                  </span>
+                  <span className="text-[11px] text-zinc-500 font-bold block">입고</span>
                   <div className="text-3xl font-black text-amber-400 font-mono tracking-tight mt-0.5">
-                    {hqMonthTotalAdmitted}
+                    {shownAdmitted == null ? '…' : shownAdmitted}
                     <span className="text-lg ml-0.5">대</span>
                   </div>
                   <span className="text-[11px] text-zinc-500 font-bold font-mono mt-1 block">
-                    {hqMonthTotalRevenue.toLocaleString()}원
+                    {shownAdmittedRevenue == null ? '…' : `${shownAdmittedRevenue.toLocaleString()}원`}
                   </span>
                 </div>
                 <div className="text-right">
                   <span className="text-[11px] text-zinc-500 font-bold block">정산(출고)</span>
                   <div className="text-3xl font-black text-emerald-400 font-mono tracking-tight mt-0.5">
-                    {hqMonthTotalSettled}
+                    {shownSettled == null ? '…' : shownSettled}
                     <span className="text-lg ml-0.5">건</span>
                   </div>
                   <span className="text-[11px] text-zinc-500 font-bold font-mono mt-1 block">
-                    {hqMonthSettledRevenue.toLocaleString()}원
+                    {shownSettledRevenue == null ? '…' : `${shownSettledRevenue.toLocaleString()}원`}
                   </span>
                 </div>
               </div>
-              <p className="text-[10px] text-zinc-600 font-semibold leading-relaxed">
-                정산은 출차 완료 기준 · 출차일. 출차 후 90일이 지난 건은 앱에서 빠질 수 있습니다.
-              </p>
 
               <div className="space-y-2">
                 {GROUPED_SOURCE_ROWS.map(({ key, label }) => {
-                  const { count, revenue } = hqMonthSourceMetrics[key];
-                  const pct = hqMonthTotalAdmitted > 0
-                    ? Math.round((count / hqMonthTotalAdmitted) * 100)
+                  const count = shownSourceCounts[key];
+                  const pct = (shownAdmitted || 0) > 0
+                    ? Math.round((count / (shownAdmitted || 0)) * 100)
                     : 0;
                   return (
                     <div key={key} className="flex items-center gap-2">
@@ -548,53 +596,39 @@ export default function StatisticsView({
             </div>
 
             <div className="bg-[#121214] border border-neutral-800/80 rounded-[22px] p-4">
-              <div className="flex items-center justify-between mb-3">
-                <span className="text-[11px] text-zinc-500 font-bold">신규 vs 재방문</span>
-                <span className="text-[10px] text-zinc-600">고객 기준 · 전화 우선</span>
-              </div>
               <div className="grid grid-cols-2 gap-2">
                 <div className="rounded-xl bg-sky-500/10 border border-sky-500/20 px-3 py-2.5">
                   <span className="text-[10px] text-sky-400 font-bold block">신규</span>
                   <span className="text-xl font-black text-sky-300 font-mono">
-                    {hqCustomerMix.newCustomers}
+                    {shownMix.newCustomers}
                     <span className="text-[11px] text-zinc-500 font-bold ml-1">
-                      {hqCustomerTotal > 0
-                        ? Math.round((hqCustomerMix.newCustomers / hqCustomerTotal) * 100)
+                      {shownCustomerTotal > 0
+                        ? Math.round((shownMix.newCustomers / shownCustomerTotal) * 100)
                         : 0}%
                     </span>
-                  </span>
-                  <span className="text-[10px] text-zinc-500 block mt-0.5">
-                    입고 {hqCustomerMix.newBookings}건
                   </span>
                 </div>
                 <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 px-3 py-2.5">
                   <span className="text-[10px] text-amber-400 font-bold block">재방문</span>
                   <span className="text-xl font-black text-amber-300 font-mono">
-                    {hqCustomerMix.returningCustomers}
+                    {shownMix.returningCustomers}
                     <span className="text-[11px] text-zinc-500 font-bold ml-1">
-                      {hqCustomerTotal > 0
-                        ? Math.round((hqCustomerMix.returningCustomers / hqCustomerTotal) * 100)
+                      {shownCustomerTotal > 0
+                        ? Math.round((shownMix.returningCustomers / shownCustomerTotal) * 100)
                         : 0}%
                     </span>
-                  </span>
-                  <span className="text-[10px] text-zinc-500 block mt-0.5">
-                    입고 {hqCustomerMix.returningBookings}건
                   </span>
                 </div>
               </div>
             </div>
 
             <div className="space-y-2.5">
-              <div className="flex items-center justify-between px-1">
-                <span className="text-[11px] text-zinc-500 font-bold">업체별 입고 · 정산</span>
-                <span className="text-[10px] text-zinc-600">에어픽 · 홈 · 출고</span>
-              </div>
-              {hqCompanyRows.length === 0 ? (
+              {shownCompanyRows.length === 0 ? (
                 <p className="px-4 py-6 text-center text-xs text-zinc-500 font-bold">
-                  등록된 입점업체가 없습니다.
+                  {sheetReady || sheetFailed ? '등록된 입점업체가 없습니다.' : '…'}
                 </p>
               ) : (
-                hqCompanyRows.map((row) => {
+                shownCompanyRows.map((row) => {
                   const metrics = [
                     { label: '에어픽', value: row.airpick, tone: 'text-fuchsia-300' },
                     { label: '홈', value: row.homepage, tone: 'text-sky-300' },
@@ -652,6 +686,8 @@ export default function StatisticsView({
             </div>
           </div>
         )}
+
+        {hqTab === 'visits' && <HqHomepageVisits companies={companies} />}
       </div>
     );
   }
@@ -807,7 +843,7 @@ export default function StatisticsView({
           <div className="flex justify-between items-center text-xs font-mono">
             <div>
               <span className="text-[12px] text-[#8E8E93] font-bold block mb-0.5">
-                {monthLabelFromPrefix(summaryMonthPrefix)} 누적 매출{salesMonthIsNow ? ' · 오늘까지 입고일' : ''}
+                {monthLabelFromPrefix(summaryMonthPrefix)} 누적 매출{salesMonthIsNow ? ' · 오늘까지' : ' · 입고일 기준'}
               </span>
               <span className={`${salesMonthIsNow ? 'text-base' : 'text-2xl text-amber-400'} font-black tracking-tight`}>
                 {monthSales.toLocaleString()}원
@@ -822,14 +858,16 @@ export default function StatisticsView({
             {(salesMonthIsNow ? ['today', 'month'] as const : ['month'] as const).map((period) => {
               const metrics = period === 'today' ? todaySourceMetrics : monthSourceMetrics;
               const totalRev = GROUPED_SOURCE_ROWS.reduce((s, row) => s + metrics[row.key].revenue, 0);
+              const monthNum = parseInt(summaryMonthPrefix.split('-')[1], 10);
               const title = period === 'today'
-                ? '오늘 (입고일 기준)'
-                : `${monthLabelFromPrefix(summaryMonthPrefix)}${salesMonthIsNow ? ' · 오늘까지 (입고일)' : ' 전체'}`;
+                ? '오늘'
+                : salesMonthIsNow
+                  ? `${monthNum}월 · 오늘까지`
+                  : `${monthNum}월 전체`;
               return (
                 <div key={period} className="space-y-2">
-                  <div className="flex items-center justify-between text-[11px]">
+                  <div className="text-[11px]">
                     <span className="text-zinc-500 font-bold">{title}</span>
-                    <span className="text-zinc-400 font-mono">{totalRev.toLocaleString()}원</span>
                   </div>
                   <div className="space-y-1.5">
                     {GROUPED_SOURCE_ROWS.map(({ key, label }) => {
@@ -909,15 +947,10 @@ export default function StatisticsView({
 
         return (
           <div className="space-y-3 pt-1 border-t border-neutral-800/60">
-            <div className="px-0.5">
-              <h3 className="text-[12.5px] text-zinc-400 font-black tracking-wider flex items-center gap-1.5">
-                <ClipboardList size={13} className="text-amber-500" />
-                주차접수 현황
-              </h3>
-              <p className="text-[10px] text-zinc-600 font-bold mt-1">
-                예약·주차·출차 조회용입니다. 매출 금액은 위 통계를 보세요.
-              </p>
-            </div>
+            <h3 className="px-0.5 text-[12.5px] text-zinc-400 font-black tracking-wider flex items-center gap-1.5">
+              <ClipboardList size={13} className="text-amber-500" />
+              주차접수 현황
+            </h3>
 
             {/* CRM 조회일 */}
             <DateNavBar
