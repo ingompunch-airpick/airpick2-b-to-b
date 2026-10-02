@@ -17,6 +17,7 @@ import {
 import { isAdmitted, isCompletedOut, isParked } from '../utils/reservationStatus';
 import { listCompanyParkingLots } from '../utils/companyProfile';
 import { findParkingLot } from '../utils/parkingLot';
+import { RESERVATION_DATA_RETENTION_DAYS } from '../constants/dataRetention';
 import { isReservationUnpaid } from '../utils/paymentStatus';
 import { recalculateReservationPrice } from '../utils/pricing';
 import {
@@ -298,7 +299,7 @@ export default function VehicleReceiptPage({ code }: VehicleReceiptPageProps) {
         if (cancelled) return;
         if (!res) {
           setError(
-            '접수증을 찾을 수 없습니다. 링크를 확인하거나, 출차 후 보관 기간(90일)이 지났는지 문의해 주세요.'
+            `접수증을 찾을 수 없습니다. 링크를 확인하거나, 출차 후 보관 기간(${RESERVATION_DATA_RETENTION_DAYS}일)이 지났는지 문의해 주세요.`
           );
           setReservation(null);
           return;

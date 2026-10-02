@@ -65,46 +65,103 @@ async function drainStorageRetentionQueue(): Promise<number> {
 }
 
 /**
- * 정책 변경(예: 7일→90일) 후에도 출차 기준 새 보관 기간 안이면
- * 문서에 박혀 있던 옛 dataPurgeAt을 연장하고 삭제하지 않는다.
+ * 정책 변경(예: 90일→40일) 후에도 출차 기준 새 보관 기간 안이면
+ * 문서에 박혀 있던 옛 dataPurgeAt을 맞추고 삭제하지 않는다.
  */
 function freshDataPurgeAt(scheduleCompletedOutAt: string): string {
   return addDaysToIso(scheduleCompletedOutAt, RESERVATION_DATA_RETENTION_DAYS);
 }
 
-async function purgeReservationsPastData(nowIso: string): Promise<number> {
-  const snap = await db()
-    .collection('reservations')
-    .where('dataPurgeAt', '<=', nowIso)
-    .limit(BATCH_LIMIT)
-    .get();
+function kstTodayMonth(): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Seoul',
+    year: 'numeric',
+    month: '2-digit',
+  }).format(new Date());
+}
 
+function ymd(value: unknown): string {
+  const match = String(value ?? '').trim().match(/(\d{4})-(\d{2})-(\d{2})/);
+  return match ? `${match[1]}-${match[2]}-${match[3]}` : '';
+}
+
+/** 입고월·출차월 합계 문서가 있을 때만 그 예약을 지울 수 있다. */
+async function checkoutMonthsSnapshotted(
+  data: FirebaseFirestore.DocumentData,
+  ready: Map<string, boolean>
+): Promise<boolean> {
+  const current = kstTodayMonth();
+  const months = new Set<string>();
+  const intake = ymd(data.departureDate || data.entryDate).slice(0, 7);
+  const exit = (ymd(data.actualExitTime) || ymd(data.arrivalDate) || ymd(data.exitDate)).slice(0, 7);
+  if (intake) months.add(intake);
+  if (exit) months.add(exit);
+  if (months.size === 0) return false;
+
+  for (const month of months) {
+    if (!/^\d{4}-\d{2}$/.test(month) || month >= current) return false;
+    if (ready.has(month)) {
+      if (!ready.get(month)) return false;
+      continue;
+    }
+    const snap = await db().collection('hqMonthSnapshots').doc(month).get();
+    const frozen = snap.exists;
+    ready.set(month, frozen);
+    if (!frozen) return false;
+  }
+  return true;
+}
+
+async function purgeReservationsPastData(
+  nowIso: string,
+  ready: Map<string, boolean>
+): Promise<number> {
+  const horizon = addDaysToIso(nowIso, 90 - RESERVATION_DATA_RETENTION_DAYS);
   let count = 0;
-  for (const docSnap of snap.docs) {
-    const data = docSnap.data();
-    const schedule = resolvePurgeSchedule(data);
-    if (!schedule) {
-      // 예약 문서만 삭제. Storage 사진은 절대 삭제하지 않음.
+  let cursor: FirebaseFirestore.QueryDocumentSnapshot | undefined;
+
+  for (let page = 0; page < 8; page += 1) {
+    let query = db()
+      .collection('reservations')
+      .where('dataPurgeAt', '<=', horizon)
+      .orderBy('dataPurgeAt')
+      .limit(BATCH_LIMIT);
+    if (cursor) query = query.startAfter(cursor);
+    const snap = await query.get();
+    if (snap.empty) break;
+
+    for (const docSnap of snap.docs) {
+      const data = docSnap.data();
+      if (String(data.status || '') !== 'completed_out') continue;
+
+      const schedule = resolvePurgeSchedule(data);
+      if (!schedule) continue;
+
+      const dueAt = freshDataPurgeAt(schedule.completedOutAt);
+      if (dueAt > nowIso) {
+        if (data.dataPurgeAt !== dueAt) {
+          await docSnap.ref.update({ dataPurgeAt: dueAt });
+        }
+        continue;
+      }
+
+      if (!(await checkoutMonthsSnapshotted(data, ready))) continue;
+
       await deleteReservationDocument(docSnap.id);
       count += 1;
-      continue;
     }
 
-    const extendedPurgeAt = freshDataPurgeAt(schedule.completedOutAt);
-    if (extendedPurgeAt > nowIso) {
-      await docSnap.ref.update({ dataPurgeAt: extendedPurgeAt });
-      continue;
-    }
-
-    // 예전엔 여기서 Storage도 지웠음 — 금지. Firestore 예약 문서만 제거.
-    await deleteReservationDocument(docSnap.id);
-    count += 1;
+    cursor = snap.docs[snap.docs.length - 1];
+    if (snap.size < BATCH_LIMIT) break;
   }
   return count;
 }
 
 /** purge 필드 없는 레거시 completed_out — actualExitTime 기준 */
-async function purgeLegacyCompletedOut(nowIso: string): Promise<number> {
+async function purgeLegacyCompletedOut(
+  nowIso: string,
+  ready: Map<string, boolean>
+): Promise<number> {
   const snap = await db()
     .collection('reservations')
     .where('status', '==', 'completed_out')
@@ -119,6 +176,7 @@ async function purgeLegacyCompletedOut(nowIso: string): Promise<number> {
     const schedule = resolvePurgeSchedule(data);
     if (!schedule) continue;
     if (schedule.dataPurgeAt > nowIso) continue;
+    if (!(await checkoutMonthsSnapshotted(data, ready))) continue;
 
     // Storage 삭제 금지. 예약 문서만 제거.
     await deleteReservationDocument(docSnap.id);
@@ -137,8 +195,9 @@ export async function runRetentionCleanup(): Promise<{
 
   const storageQueue = await drainStorageRetentionQueue();
   const storageDue = await clearDueStoragePurgeMarkers(nowIso);
-  const dataDue = await purgeReservationsPastData(nowIso);
-  const legacy = await purgeLegacyCompletedOut(nowIso);
+  const ready = new Map<string, boolean>();
+  const dataDue = await purgeReservationsPastData(nowIso, ready);
+  const legacy = await purgeLegacyCompletedOut(nowIso, ready);
 
   return { storageQueue, storageDue, dataDue, legacy };
 }

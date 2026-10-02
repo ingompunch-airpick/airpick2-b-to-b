@@ -133,6 +133,41 @@ export type FlightDelayCheckResult = {
   errors: number;
 };
 
+/** exitDate만 있는 예전 예약은 arrivalDate로 옮긴다. 끝나면 true. */
+async function copyExitDateIntoArrivalDate(): Promise<boolean> {
+  const flagRef = db().doc('appConfig/reservationFieldBackfill');
+  const flag = await flagRef.get();
+  if (flag.get('exitDateCopied') === true) return true;
+
+  const lastId = String(flag.get('exitDateCursor') || '');
+  let query = db()
+    .collection('reservations')
+    .orderBy(admin.firestore.FieldPath.documentId())
+    .limit(300);
+  if (lastId) query = query.startAfter(lastId);
+  const page = await query.get();
+
+  const batch = db().batch();
+  let writes = 0;
+  for (const doc of page.docs) {
+    const data = doc.data();
+    const arrival = String(data.arrivalDate || '').trim();
+    const exit = String(data.exitDate || '').trim().slice(0, 10);
+    if (arrival || !/^\d{4}-\d{2}-\d{2}$/.test(exit)) continue;
+    batch.update(doc.ref, { arrivalDate: exit });
+    writes += 1;
+  }
+  if (writes > 0) await batch.commit();
+
+  if (page.size < 300) {
+    await flagRef.set({ exitDateCopied: true, exitDateCopiedAt: new Date().toISOString() }, { merge: true });
+    return true;
+  }
+  const cursor = page.docs[page.docs.length - 1]?.id;
+  if (cursor) await flagRef.set({ exitDateCursor: cursor }, { merge: true });
+  return false;
+}
+
 /**
  * 오늘(KST) 출고 예정 + 입국 항공편이 있는 예약을
  * 인천공항 당일 도착 현황과 대조해
@@ -156,16 +191,21 @@ export async function runFlightDelayCheck(serviceKey: string): Promise<FlightDel
 
   const today = kstTodayYmd();
   const arrivals = await fetchIncheonArrivals({ serviceKey: key });
+  const exitDatesCopied = await copyExitDateIntoArrivalDate();
 
-  // arrivalDate == today (및 레거시 exitDate)
-  const [byArrival, byExit] = await Promise.all([
+  const queries = [
     db().collection('reservations').where('arrivalDate', '==', today).limit(500).get(),
-    db().collection('reservations').where('exitDate', '==', today).limit(500).get(),
-  ]);
+  ];
+  if (!exitDatesCopied) {
+    queries.push(db().collection('reservations').where('exitDate', '==', today).limit(500).get());
+  }
+  const listed = await Promise.all(queries);
+  const byArrival = listed[0];
+  const byExit = listed[1];
 
   const docs = new Map<string, FirebaseFirestore.QueryDocumentSnapshot>();
   for (const d of byArrival.docs) docs.set(d.id, d);
-  for (const d of byExit.docs) docs.set(d.id, d);
+  for (const d of byExit?.docs || []) docs.set(d.id, d);
 
   let candidates = 0;
   let matched = 0;

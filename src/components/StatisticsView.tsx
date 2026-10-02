@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo, useRef } from 'react';
+﻿import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Coins, 
   Power, 
@@ -28,7 +28,10 @@ import {
 } from '../utils/reservationStatus';
 import { normalizeDateString } from '../utils/reservationNormalize';
 import { getKSTDateOnlyString, toKSTDateOnlyString } from '../utils/kstDate';
-import { computeReservationVisitOrdinal, fetchCustomerVisitCount } from '../lib/customerVisit';
+import { fetchHqMonthSnapshot, monthStillInApp } from '../lib/hqMonthSnapshot';
+import type { HqMonthLedger } from '../lib/hqMonthLedgerApi';
+import { computeReservationVisitOrdinal, fetchCustomerVisitCount, fetchPhonesVisitedBefore } from '../lib/customerVisit';
+import { normalizePhoneDigits } from '../utils/phone';
 import DateNavBar from './DateNavBar';
 import {
   aggregateGroupedBookingSourceMetrics,
@@ -49,7 +52,6 @@ import {
 } from '../utils/hqAnalytics';
 import HqHomepageVisits from './HqHomepageVisits';
 import MetaField from './MetaField';
-import { fetchHqLedgerBundle, mergeCustomerMix, presentHqMonth, type HqLedgerBundle } from '../lib/hqMonthLedgerApi';
 import {
   isMultiOperatorScope,
   resolveOperatorBrandLabel,
@@ -179,10 +181,15 @@ export default function StatisticsView({
   );
   const [hqMonthPrefix, setHqMonthPrefix] = useState(() => getKSTDateOnlyString().substring(0, 7));
   const [hqTab, setHqTab] = useState<'today' | 'month' | 'visits'>('today');
-  const [hqLedger, setHqLedger] = useState<{
-    status: 'loading' | 'ready' | 'error';
-    bundle: HqLedgerBundle | null;
+  const [hqSnapshot, setHqSnapshot] = useState<{
+    month: string;
+    status: 'loading' | 'ready' | 'missing';
+    data: HqMonthLedger | null;
   } | null>(null);
+  const [priorVisitPhones, setPriorVisitPhones] = useState<{ month: string; phones: string[] }>({
+    month: '',
+    phones: [],
+  });
   
   // Year/Month for the integrated Day Closing Calendar in Partner view
   const [currentYear, setCurrentYear] = useState<number>(() => {
@@ -253,23 +260,51 @@ export default function StatisticsView({
   const hqDashboard =
     isSuperAdmin && (!currentCompanyId || isAirpickHeadquarters(currentCompanyId));
 
-  const hqLedgerRequest = useRef<'idle' | 'loading' | 'ready'>('idle');
-
   useEffect(() => {
-    if (!hqDashboard || hqTab !== 'month') return;
-    if (hqLedgerRequest.current === 'loading' || hqLedgerRequest.current === 'ready') return;
-    hqLedgerRequest.current = 'loading';
-    setHqLedger({ status: 'loading', bundle: null });
-    fetchHqLedgerBundle()
-      .then((bundle) => {
-        hqLedgerRequest.current = 'ready';
-        setHqLedger({ status: 'ready', bundle });
+    if (!hqDashboard || hqTab !== 'month' || monthStillInApp(hqMonthPrefix, todayStr)) return;
+    let cancelled = false;
+    setHqSnapshot({ month: hqMonthPrefix, status: 'loading', data: null });
+    fetchHqMonthSnapshot(hqMonthPrefix, companies)
+      .then((data) => {
+        if (cancelled) return;
+        setHqSnapshot({ month: hqMonthPrefix, status: data ? 'ready' : 'missing', data });
       })
       .catch(() => {
-        hqLedgerRequest.current = 'idle';
-        setHqLedger({ status: 'error', bundle: null });
+        if (!cancelled) setHqSnapshot({ month: hqMonthPrefix, status: 'missing', data: null });
       });
-  }, [hqDashboard, hqTab]);
+    return () => {
+      cancelled = true;
+    };
+  }, [hqDashboard, hqTab, hqMonthPrefix, todayStr, companies]);
+
+  const priorVisitKey = useMemo(() => {
+    if (!hqDashboard || hqTab !== 'month') return '';
+    const phones = new Set<string>();
+    for (const reservation of reservations) {
+      if (reservation.status === 'cancelled') continue;
+      if (!normalizeDateString(reservation.departureDate).startsWith(hqMonthPrefix)) continue;
+      const phone = normalizePhoneDigits(reservation.phone);
+      if (phone) phones.add(phone);
+    }
+    return `${hqMonthPrefix}|${[...phones].sort().join(',')}`;
+  }, [hqDashboard, hqTab, hqMonthPrefix, reservations]);
+
+  useEffect(() => {
+    if (!priorVisitKey) return;
+    const [month, phoneList] = priorVisitKey.split('|');
+    const phones = phoneList ? phoneList.split(',') : [];
+    let cancelled = false;
+    fetchPhonesVisitedBefore(phones, `${month}-01`)
+      .then((found) => {
+        if (!cancelled) setPriorVisitPhones({ month, phones: found });
+      })
+      .catch(() => {
+        if (!cancelled) setPriorVisitPhones({ month, phones: [] });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [priorVisitKey]);
 
   // ── Partner-scope derived data ────────────────────────────
   // 훅은 반드시 조기 return 이전에 무조건 호출되어야 함(에어픽 본사 ↔ 입점 업체 전환 시 훅 순서 고정)
@@ -365,26 +400,51 @@ export default function StatisticsView({
     const hqTodayCompanyRows = buildHqTodayCompanyRows(masterActiveRes, todayStr, companies);
     // 상단 접수 = 업체별 접수 합 (집계 기준 불일치로 4 vs 3 나는 것 방지)
     const masterTodayReservations = hqTodayCompanyRows.reduce((s, row) => s + row.received, 0);
-    const hqCustomerMix = computeCustomerMix(masterActiveRes, hqMonthPrefix, hqMonthAdmitted);
+    const hqCustomerMix = computeCustomerMix(
+      masterActiveRes,
+      hqMonthPrefix,
+      hqMonthAdmitted,
+      priorVisitPhones.month === hqMonthPrefix ? new Set(priorVisitPhones.phones) : undefined
+    );
 
-    const sheetReady =
-      hqLedger?.status === 'ready'
-        ? presentHqMonth(hqMonthPrefix, hqLedger.bundle, companies)
+    const keptLive = monthStillInApp(hqMonthPrefix, todayStr);
+    const pastReady =
+      !keptLive && hqSnapshot?.month === hqMonthPrefix && hqSnapshot.status === 'ready'
+        ? hqSnapshot.data
         : null;
-    const sheetFailed = hqLedger?.status === 'error';
-    const shownAdmitted = sheetReady ? sheetReady.admittedCount : sheetFailed ? hqMonthTotalAdmitted : null;
-    const shownSettled = sheetReady ? sheetReady.settledCount : sheetFailed ? hqMonthTotalSettled : null;
-    const shownSourceCounts = sheetReady
-      ? { 'airpick-b2c': sheetReady.sources.airpick, other: sheetReady.sources.other }
-      : {
+    const pastLoading =
+      !keptLive && (!hqSnapshot || hqSnapshot.month !== hqMonthPrefix || hqSnapshot.status === 'loading');
+    const useLiveTotals = keptLive || (!pastLoading && !pastReady);
+    const shownAdmitted = useLiveTotals
+      ? hqMonthTotalAdmitted
+      : pastReady
+        ? pastReady.admittedCount
+        : pastLoading
+          ? null
+          : 0;
+    const shownSettled = useLiveTotals
+      ? hqMonthTotalSettled
+      : pastReady
+        ? pastReady.settledCount
+        : pastLoading
+          ? null
+          : 0;
+    const shownSourceCounts = useLiveTotals
+      ? {
           'airpick-b2c': hqMonthSourceMetrics['airpick-b2c'].count,
           other: hqMonthSourceMetrics.other.count,
-        };
-    const shownMix = sheetReady
-      ? mergeCustomerMix(hqLedger?.bundle?.visits || [], masterActiveRes, hqMonthPrefix)
-      : hqCustomerMix;
+        }
+      : pastReady
+        ? { 'airpick-b2c': pastReady.sources.airpick, other: pastReady.sources.other }
+        : { 'airpick-b2c': 0, other: 0 };
+    const shownMix = useLiveTotals ? hqCustomerMix : pastReady ? pastReady.customerMix : {
+      newCustomers: 0,
+      returningCustomers: 0,
+      newBookings: 0,
+      returningBookings: 0,
+    };
     const shownCustomerTotal = shownMix.newCustomers + shownMix.returningCustomers;
-    const shownCompanyRows = sheetReady ? sheetReady.companies : sheetFailed ? hqCompanyRows : [];
+    const shownCompanyRows = useLiveTotals ? hqCompanyRows : pastReady ? pastReady.companies : [];
 
     const hqMonthPicker = (
       <div className="flex items-center gap-1.5 bg-[#1C1C1E] border border-neutral-800/50 rounded-xl p-1">
@@ -454,7 +514,7 @@ export default function StatisticsView({
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-2.5">
               {[
-                { label: '접수', value: `${masterTodayReservations}건` },
+                { label: '당일 예약', value: `${masterTodayReservations}건` },
                 { label: '입차', value: `${masterTodayAdmitted}대` },
                 { label: '출차', value: `${masterTodayExited}대` },
                 { label: '주차중', value: `${masterParkedNow}대` },
@@ -484,7 +544,7 @@ export default function StatisticsView({
               <div className="space-y-2.5">
                 {hqTodayCompanyRows.map((row) => {
                   const metrics = [
-                    { label: '접수', value: row.received },
+                    { label: '당일 예약', value: row.received },
                     { label: '입차', value: row.admitted },
                     { label: '주차중', value: row.parked },
                   ];
@@ -607,7 +667,7 @@ export default function StatisticsView({
             <div className="space-y-2.5">
               {shownCompanyRows.length === 0 ? (
                 <p className="px-4 py-6 text-center text-xs text-zinc-500 font-bold">
-                  {sheetReady || sheetFailed ? '등록된 입점업체가 없습니다.' : '…'}
+                  {pastLoading ? '…' : '등록된 입점업체가 없습니다.'}
                 </p>
               ) : (
                 shownCompanyRows.map((row) => {

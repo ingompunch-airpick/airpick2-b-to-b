@@ -306,7 +306,7 @@ export interface Reservation {
   actualExitTime?: string;
   /** 출차 확정 시각 (ISO) — 보관 기간 계산 기준 */
   completedOutAt?: string;
-  /** Firestore 문서 자동 삭제 예정 시각 (ISO) — 출차 후 90일 */
+  /** Firestore 문서 자동 삭제 예정 시각 (ISO) — 출차 후 40일, 해당 달 합계 스냅샷 이후 */
   dataPurgeAt?: string;
   /** Storage 사진 자동 삭제 예정 시각 (ISO) — 출차 후 30일 */
   storagePurgeAt?: string;

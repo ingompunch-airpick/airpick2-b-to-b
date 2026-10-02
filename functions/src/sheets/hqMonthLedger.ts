@@ -227,9 +227,9 @@ export function aggregateHqMonthLedger(rows: LedgerRow[], month: string): HqMont
       }
     }
 
-    const countsAsCheckout =
-      (row.settled && row.exitYmd.startsWith(month)) ||
-      (row.booked && row.scheduledExitYmd.startsWith(month));
+    const countsAsCheckout = row.settled
+      ? row.exitYmd.startsWith(month)
+      : (row.booked || row.admitted) && row.scheduledExitYmd.startsWith(month);
     if (countsAsCheckout) {
       result.settledCount += 1;
       result.settledRevenue += row.price;

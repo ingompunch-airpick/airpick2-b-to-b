@@ -401,6 +401,12 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ── hqMonthSnapshots (본사 월간 합계, 지난달만) ───────────────────────
+    match /hqMonthSnapshots/{monthId} {
+      allow read: if isPlatformAdmin() && monthId.matches('^[0-9]{4}-[0-9]{2}$');
+      allow create, update, delete: if false;
+    }
+
     // ── appConfig (본사 설정) ────────────────────────────────────────────
     match /appConfig/{configId} {
       allow get: if isSignedIn();

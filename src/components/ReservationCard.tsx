@@ -1,5 +1,6 @@
 ﻿import React, { useState } from 'react';
 import { Reservation, ReservationStatus, PaymentMethod, type Company } from '../types';
+import { RESERVATION_DATA_RETENTION_DAYS } from '../constants/dataRetention';
 import { isReservationUnpaid } from '../utils/paymentStatus';
 import { isNotYetAdmitted, isPending, statusBadgeColorClass, statusToLabel } from '../utils/reservationStatus';
 import {
@@ -298,7 +299,7 @@ export default function ReservationCard({
                 onClick={() => {
                   if (
                     !window.confirm(
-                      '반납완료 처리할까요?\n출차 후 앱 보관 기간(90일)이 시작됩니다.'
+                      `반납완료 처리할까요?\n출차 후 앱 보관 기간(${RESERVATION_DATA_RETENTION_DAYS}일)이 시작됩니다.`
                     )
                   ) {
                     return;

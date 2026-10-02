@@ -1,6 +1,7 @@
 import * as admin from 'firebase-admin';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { defineSecret, defineString } from 'firebase-functions/params';
+import { sheetsServiceAccountJson } from './sheets/params';
 import { onReservationSync } from './onReservationWrite';
 import { runRetentionCleanup } from './retentionCleanup';
 import { sweepReservationPasswords } from './reservations/reservationSecrets';
@@ -12,6 +13,7 @@ import { adminDeleteCompany } from './admin/deleteCompany';
 import { verifyPartnerLogin } from './admin/verifyPartnerLogin';
 import { upsertCompanyEmployees } from './admin/upsertCompanyEmployees';
 import { getHqMonthLedger } from './admin/getHqMonthLedger';
+import { freezePastHqMonths } from './hqMonthSnapshot';
 
 /** 손님(B2C) HTTPS API — 리전 asia-northeast3 (이름·리전 유지) */
 import { getReceipt } from './api/getReceipt';
@@ -59,7 +61,23 @@ const flightDelayEnabled = defineString('FLIGHT_DELAY_ENABLED', { default: 'fals
 /** ICN 손님 API와 동일 — Secret Manager. .env에 평문으로 넣지 말 것(겹침 오류). */
 const dataGoKrServiceKey = defineSecret('DATA_GO_KR_SERVICE_KEY');
 
-/** 매일 04:00 KST — 출차 90일 후 예약 삭제, 30일 후 Storage 사진 삭제 */
+/** 매일 00:20 KST — 지난달 합계를 hqMonthSnapshots 에 남긴다. 이번달은 적지 않는다. */
+export const freezeHqMonthSnapshots = onSchedule(
+  {
+    schedule: '20 0 * * *',
+    timeZone: 'Asia/Seoul',
+    region: 'us-central1',
+    memory: '512MiB',
+    timeoutSeconds: 540,
+    secrets: [sheetsServiceAccountJson],
+  },
+  async () => {
+    const result = await freezePastHqMonths();
+    console.log('[freezeHqMonthSnapshots]', JSON.stringify(result));
+  }
+);
+
+/** 매일 04:00 KST — 출차 40일·월 합계 스냅샷 후 예약 삭제. 사진은 삭제하지 않음 */
 export const purgeExpiredReservationData = onSchedule(
   {
     schedule: '0 4 * * *',

@@ -116,18 +116,54 @@ export async function backfillUpcomingCapacity(): Promise<number> {
   return written;
 }
 
-/** 예약 변경으로 영향받은 (업체, 입고일) 조합을 다시 센다 */
+type CapacityInput = {
+  companyId: string;
+  date: string;
+  hour: string;
+  status: string;
+};
+
+function capacityInput(data: FirebaseFirestore.DocumentData | undefined): CapacityInput | null {
+  if (!data) return null;
+  const companyId = String(data.companyId || '').trim();
+  const date = String(data.departureDate || data.entryDate || '').trim().slice(0, 10);
+  const hour = String(data.departureTime || data.entryTime || '').trim();
+  const status = String(data.status || '').trim();
+  if (!companyId || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+  return { companyId, date, hour, status };
+}
+
+function capacityInputChanged(
+  before: FirebaseFirestore.DocumentData | undefined,
+  after: FirebaseFirestore.DocumentData | undefined
+): boolean {
+  const left = capacityInput(before);
+  const right = capacityInput(after);
+  if (!left && !right) return false;
+  if (!left || !right) return true;
+  return (
+    left.companyId !== right.companyId ||
+    left.date !== right.date ||
+    left.hour !== right.hour ||
+    left.status !== right.status
+  );
+}
+
+/** 입고일·입고시간·상태가 바뀔 때만 그날 대수를 다시 센다. */
 export async function syncCapacityAggregate(
   before: FirebaseFirestore.DocumentData | undefined,
   after: FirebaseFirestore.DocumentData | undefined
 ): Promise<void> {
-  const pairs = new Map<string, { companyId: string; date: string }>();
+  if (!capacityInputChanged(before, after)) return;
 
+  const pairs = new Map<string, { companyId: string; date: string }>();
   for (const data of [before, after]) {
-    const companyId = String(data?.companyId || '').trim();
-    const date = String(data?.departureDate || '').trim();
-    if (!companyId || !/^\d{4}-\d{2}-\d{2}$/.test(date)) continue;
-    pairs.set(capacityDocId(companyId, date), { companyId, date });
+    const input = capacityInput(data);
+    if (!input) continue;
+    pairs.set(capacityDocId(input.companyId, input.date), {
+      companyId: input.companyId,
+      date: input.date,
+    });
   }
 
   for (const { companyId, date } of pairs.values()) {

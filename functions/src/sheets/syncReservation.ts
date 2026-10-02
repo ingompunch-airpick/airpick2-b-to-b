@@ -256,6 +256,9 @@ const SYNC_SKIP_FIELDS = new Set([
   'updatedAt',
   'updatedBy',
   'flightTracking',
+  'dataPurgeAt',
+  'storagePurgeAt',
+  'completedOutAt',
 ]);
 
 export function shouldSyncReservationToSheets(
@@ -344,13 +347,8 @@ export async function syncReservationToSheets(
       await updateReservationRow(sheets, spreadsheetId, tabName, rowNumber, rowValues);
     }
   } else if (sameSpreadsheet) {
-    // 메타는 있는데 A열에 없음 → 해당 행에 다시 쓰거나 append
     rowNumber = existing!.row;
-    try {
-      await updateReservationRow(sheets, spreadsheetId, tabName, rowNumber, rowValues);
-    } catch {
-      rowNumber = await appendReservationRow(sheets, spreadsheetId, tabName, rowValues);
-    }
+    await updateReservationRow(sheets, spreadsheetId, tabName, rowNumber, rowValues);
   } else {
     rowNumber = await appendReservationRow(sheets, spreadsheetId, tabName, rowValues);
 

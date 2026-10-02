@@ -1,6 +1,7 @@
 import type { Company, Reservation } from '../types';
 import { isAirpickHeadquarters } from '../constants/platform';
 import { normalizeDateString } from './reservationNormalize';
+import { normalizePhoneDigits } from './phone';
 import { isAdmitted, isNotYetAdmitted, isParked } from './reservationStatus';
 import { toKSTDateOnlyString } from './kstDate';
 import {
@@ -30,14 +31,16 @@ export function filterAdmittedInMonth(
   );
 }
 
-/** 월 출고: 출차 완료는 실제 출차일, 아직 입고 전인 예약은 출차 예정일 */
+/** 월 출고: 출차 완료는 실제 출차일, 예약·입고 중이면 출차 예정일 */
 export function filterSettledInMonth(
   reservations: Reservation[],
   monthPrefix: string
 ): Reservation[] {
   return reservations.filter((r) => {
     if (r.status === 'completed_out') return exitDateYmd(r).startsWith(monthPrefix);
-    if (isNotYetAdmitted(r.status)) return normalizeDateString(r.arrivalDate).startsWith(monthPrefix);
+    if (isNotYetAdmitted(r.status) || isParked(r.status)) {
+      return normalizeDateString(r.arrivalDate).startsWith(monthPrefix);
+    }
     return false;
   });
 }
@@ -245,11 +248,12 @@ export type HqCustomerMix = {
   returningBookings: number;
 };
 
-/** 신규·재방문 — 고객(전화/이름) 기준, 해당 월 이전 입고 이력 있으면 재방문 */
+/** 신규·재방문 — 전화번호 방문 기록 또는 앱에 남은 이전 입고 */
 export function computeCustomerMix(
   allReservations: Reservation[],
   monthPrefix: string,
-  monthAdmitted: Reservation[]
+  monthAdmitted: Reservation[],
+  priorPhones?: ReadonlySet<string>
 ): HqCustomerMix {
   const monthStart = `${monthPrefix}-01`;
 
@@ -270,7 +274,9 @@ export function computeCustomerMix(
 
   for (const r of monthAdmitted) {
     const key = customerKey(r);
-    const isReturning = customersBeforeMonth.has(key);
+    const phone = normalizePhoneDigits(r.phone);
+    const isReturning =
+      customersBeforeMonth.has(key) || Boolean(phone && priorPhones?.has(phone));
     if (isReturning) returningBookings += 1;
     else newBookings += 1;
 

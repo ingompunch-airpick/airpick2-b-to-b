@@ -1,5 +1,5 @@
 /** 출차(completed_out) 후 Firestore 예약 문서 보관 일수 */
-export const RESERVATION_DATA_RETENTION_DAYS = 90;
+export const RESERVATION_DATA_RETENTION_DAYS = 40;
 
 /**
  * 출차 후 Storage 차량 사진 — 운영 지시로 자동 삭제 금지.
