@@ -138,11 +138,7 @@ function countsAsCheckout(row: ResDoc, month: string): boolean {
   return false;
 }
 
-export function aggregateReservationMonth(
-  rows: ResDoc[],
-  month: string,
-  priorPhones: ReadonlySet<string> = new Set()
-): HqMonthLedger {
+export function aggregateReservationMonth(rows: ResDoc[], month: string): HqMonthLedger {
   const monthStart = `${month}-01`;
   const prior = new Set<string>();
   for (const row of rows) {
@@ -184,8 +180,7 @@ export function aggregateReservationMonth(
       if (row.source === 'airpick') company.airpick += 1;
       else if (row.source === 'homepage') company.homepage += 1;
       else company.onsite += 1;
-      const phone = row.customerKey.startsWith('p:') ? row.customerKey.slice(2) : '';
-      const returning = (phone && priorPhones.has(phone)) || (!phone && prior.has(row.customerKey));
+      const returning = prior.has(row.customerKey);
       if (returning) result.customerMix.returningBookings += 1;
       else result.customerMix.newBookings += 1;
       if (!seen.has(row.customerKey)) {
@@ -235,29 +230,6 @@ async function reservationsForMonth(month: string): Promise<ResDoc[]> {
     for (const [id, row] of group) byId.set(id, row);
   }
   return [...byId.values()];
-}
-
-async function phonesVisitedBefore(rows: ResDoc[], month: string): Promise<Set<string>> {
-  const monthStart = `${month}-01`;
-  const phones = new Set<string>();
-  for (const row of rows) {
-    if (!row.customerKey.startsWith('p:')) continue;
-    if (!row.departureYmd.startsWith(month)) continue;
-    phones.add(row.customerKey.slice(2));
-  }
-  const found = new Set<string>();
-  const list = [...phones];
-  for (let i = 0; i < list.length; i += 100) {
-    const refs = list.slice(i, i + 100).map((phone) => admin.firestore().doc(`customers/${phone}`));
-    if (!refs.length) continue;
-    const snaps = await admin.firestore().getAll(...refs);
-    for (const snap of snaps) {
-      if (!snap.exists) continue;
-      const firstAt = String(snap.get('firstAt') || '').slice(0, 10);
-      if (firstAt && firstAt < monthStart) found.add(snap.id);
-    }
-  }
-  return found;
 }
 
 async function writeSnapshot(month: string, ledger: HqMonthLedger, source: 'firestore' | 'sheet'): Promise<void> {
@@ -316,8 +288,7 @@ export async function freezePastHqMonths(): Promise<{ wrote: string[] }> {
     if (!/^\d{4}-\d{2}$/.test(month) || month >= current || have.has(month)) continue;
     if (monthStillInFirestore(month, today)) {
       const rows = await reservationsForMonth(month);
-      const priorPhones = await phonesVisitedBefore(rows, month);
-      await writeSnapshot(month, aggregateReservationMonth(rows, month, priorPhones), 'firestore');
+      await writeSnapshot(month, aggregateReservationMonth(rows, month), 'firestore');
     } else {
       const months = await ensureSheet();
       const ledger = months[month];

@@ -30,8 +30,7 @@ import { normalizeDateString } from '../utils/reservationNormalize';
 import { getKSTDateOnlyString, toKSTDateOnlyString } from '../utils/kstDate';
 import { fetchHqMonthSnapshot, monthStillInApp } from '../lib/hqMonthSnapshot';
 import type { HqMonthLedger } from '../lib/hqMonthLedgerApi';
-import { computeReservationVisitOrdinal, fetchCustomerVisitCount, fetchPhonesVisitedBefore } from '../lib/customerVisit';
-import { normalizePhoneDigits } from '../utils/phone';
+import { computeReservationVisitOrdinal, fetchCustomerVisitCount } from '../lib/customerVisit';
 import DateNavBar from './DateNavBar';
 import {
   aggregateGroupedBookingSourceMetrics,
@@ -186,11 +185,6 @@ export default function StatisticsView({
     status: 'loading' | 'ready' | 'missing';
     data: HqMonthLedger | null;
   } | null>(null);
-  const [priorVisitPhones, setPriorVisitPhones] = useState<{ month: string; phones: string[] }>({
-    month: '',
-    phones: [],
-  });
-  
   // Year/Month for the integrated Day Closing Calendar in Partner view
   const [currentYear, setCurrentYear] = useState<number>(() => {
     const kstDate = new Date(Date.now() + 9 * 60 * 60 * 1000);
@@ -276,35 +270,6 @@ export default function StatisticsView({
       cancelled = true;
     };
   }, [hqDashboard, hqTab, hqMonthPrefix, todayStr, companies]);
-
-  const priorVisitKey = useMemo(() => {
-    if (!hqDashboard || hqTab !== 'month') return '';
-    const phones = new Set<string>();
-    for (const reservation of reservations) {
-      if (reservation.status === 'cancelled') continue;
-      if (!normalizeDateString(reservation.departureDate).startsWith(hqMonthPrefix)) continue;
-      const phone = normalizePhoneDigits(reservation.phone);
-      if (phone) phones.add(phone);
-    }
-    return `${hqMonthPrefix}|${[...phones].sort().join(',')}`;
-  }, [hqDashboard, hqTab, hqMonthPrefix, reservations]);
-
-  useEffect(() => {
-    if (!priorVisitKey) return;
-    const [month, phoneList] = priorVisitKey.split('|');
-    const phones = phoneList ? phoneList.split(',') : [];
-    let cancelled = false;
-    fetchPhonesVisitedBefore(phones, `${month}-01`)
-      .then((found) => {
-        if (!cancelled) setPriorVisitPhones({ month, phones: found });
-      })
-      .catch(() => {
-        if (!cancelled) setPriorVisitPhones({ month, phones: [] });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [priorVisitKey]);
 
   // ── Partner-scope derived data ────────────────────────────
   // 훅은 반드시 조기 return 이전에 무조건 호출되어야 함(에어픽 본사 ↔ 입점 업체 전환 시 훅 순서 고정)
@@ -400,12 +365,7 @@ export default function StatisticsView({
     const hqTodayCompanyRows = buildHqTodayCompanyRows(masterActiveRes, todayStr, companies);
     // 상단 접수 = 업체별 접수 합 (집계 기준 불일치로 4 vs 3 나는 것 방지)
     const masterTodayReservations = hqTodayCompanyRows.reduce((s, row) => s + row.received, 0);
-    const hqCustomerMix = computeCustomerMix(
-      masterActiveRes,
-      hqMonthPrefix,
-      hqMonthAdmitted,
-      priorVisitPhones.month === hqMonthPrefix ? new Set(priorVisitPhones.phones) : undefined
-    );
+    const hqCustomerMix = computeCustomerMix(masterActiveRes, hqMonthPrefix, hqMonthAdmitted);
 
     const keptLive = monthStillInApp(hqMonthPrefix, todayStr);
     const pastReady =
@@ -674,6 +634,7 @@ export default function StatisticsView({
                   const metrics = [
                     { label: '에어픽', value: row.airpick, tone: 'text-fuchsia-300' },
                     { label: '홈', value: row.homepage, tone: 'text-sky-300' },
+                    { label: '현장', value: row.onsite, tone: 'text-zinc-200' },
                     { label: '입고', value: row.total, tone: 'text-white' },
                   ];
                   return (
@@ -699,7 +660,7 @@ export default function StatisticsView({
                           </span>
                         </div>
                       </div>
-                      <div className="grid grid-cols-3 gap-2">
+                      <div className="grid grid-cols-4 gap-1.5">
                         {metrics.map((m) => (
                           <div
                             key={m.label}

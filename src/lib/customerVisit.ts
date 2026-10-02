@@ -58,28 +58,6 @@ export function computeReservationVisitOrdinal(
   return idx >= 0 ? idx + 1 : 1;
 }
 
-/** 이번달보다 먼저 출차한 적 있는 전화번호 */
-export async function fetchPhonesVisitedBefore(
-  phones: string[],
-  monthStart: string
-): Promise<string[]> {
-  const ids = [...new Set(phones.map((phone) => customerDocId(phone)).filter((id): id is string => Boolean(id)))];
-  if (!ids.length) return [];
-  await ensureFirestoreAuth();
-  const found: string[] = [];
-  for (let i = 0; i < ids.length; i += 10) {
-    const snaps = await Promise.all(
-      ids.slice(i, i + 10).map((id) => getDoc(doc(db, 'customers', id)))
-    );
-    for (const snap of snaps) {
-      if (!snap.exists()) continue;
-      const firstAt = String(snap.data()?.firstAt || '').slice(0, 10);
-      if (firstAt && firstAt < monthStart) found.push(snap.id);
-    }
-  }
-  return found;
-}
-
 export async function fetchCustomerVisitCount(
   phone: string | undefined | null
 ): Promise<number | null> {

@@ -1,7 +1,6 @@
 import type { Company, Reservation } from '../types';
 import { isAirpickHeadquarters } from '../constants/platform';
 import { normalizeDateString } from './reservationNormalize';
-import { normalizePhoneDigits } from './phone';
 import { isAdmitted, isNotYetAdmitted, isParked } from './reservationStatus';
 import { toKSTDateOnlyString } from './kstDate';
 import {
@@ -248,12 +247,11 @@ export type HqCustomerMix = {
   returningBookings: number;
 };
 
-/** 신규·재방문 — 전화번호 방문 기록 또는 앱에 남은 이전 입고 */
+/** 신규·재방문 — 이번달보다 먼저 입고된 예약이 앱에 있으면 재방문 */
 export function computeCustomerMix(
   allReservations: Reservation[],
   monthPrefix: string,
-  monthAdmitted: Reservation[],
-  priorPhones?: ReadonlySet<string>
+  monthAdmitted: Reservation[]
 ): HqCustomerMix {
   const monthStart = `${monthPrefix}-01`;
 
@@ -274,9 +272,7 @@ export function computeCustomerMix(
 
   for (const r of monthAdmitted) {
     const key = customerKey(r);
-    const phone = normalizePhoneDigits(r.phone);
-    const isReturning =
-      customersBeforeMonth.has(key) || Boolean(phone && priorPhones?.has(phone));
+    const isReturning = customersBeforeMonth.has(key);
     if (isReturning) returningBookings += 1;
     else newBookings += 1;
 
