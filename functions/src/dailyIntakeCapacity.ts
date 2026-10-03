@@ -1,4 +1,5 @@
 import * as admin from 'firebase-admin';
+import { rejectNewReservation } from './rejectNewReservation';
 
 const WAWA_ALIASES = ['wawa', 'wawa_valet', '와와', '와와발렛'];
 
@@ -72,16 +73,10 @@ export async function enforceDailyIntakeOnCreate(
 
   if (used <= max) return false;
 
-  const now = new Date().toISOString();
-  await db.collection('reservations').doc(reservationId).update({
-    status: 'cancelled',
-    cancelledAt: now,
-    cancelReason: 'daily_intake_capacity',
-    cancelNote: `입고일 하루 ${max}대 한도 초과(자동취소)`,
-    updatedAt: now,
-  });
-  console.warn(
-    `[dailyIntake] rejected ${reservationId} company=${companyId} ${departureDate} used=${used} max=${max}`
+  await rejectNewReservation(
+    reservationId,
+    'dailyIntake',
+    `company=${companyId} ${departureDate} used=${used} max=${max}`
   );
   return true;
 }

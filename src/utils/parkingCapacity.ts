@@ -1,3 +1,4 @@
+import { BOOKING_CLOSED_MESSAGE } from './bookingClosedMessage';
 import { shiftYmd } from './kstDate';
 import { normalizeDateString } from './reservationNormalize';
 import { normalizeReservationStatus } from './reservationStatus';
@@ -85,8 +86,8 @@ export type ParkingCapacityResult =
       message: string;
     };
 
-export function parkingCapacityFullMessage(max: number, fullDate: string): string {
-  return `${fullDate} 기준 주차 가능 대수가 가득 찼습니다. (최대 ${max}대 · 만차)`;
+export function parkingCapacityFullMessage(_max: number, _fullDate: string): string {
+  return BOOKING_CLOSED_MESSAGE;
 }
 
 /**

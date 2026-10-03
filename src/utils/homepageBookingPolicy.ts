@@ -4,6 +4,7 @@ import {
   normalizeBookingLeadHours,
   sameDayClosed,
 } from './bookingLead';
+import { BOOKING_CLOSED_MESSAGE } from './bookingClosedMessage';
 import { normalizeDateString } from './reservationNormalize';
 
 export type HomepageBookingPolicyError =
@@ -45,18 +46,8 @@ export function checkHomepageBookingPolicy(
 
 export function homepagePolicyMessage(
   error: HomepageBookingPolicyError,
-  leadHours = 0
+  _leadHours = 0
 ): string {
-  switch (error) {
-    case 'closed':
-      return '현재 예약 접수가 마감된 상태입니다. 업체로 문의해 주세요.';
-    case 'same_day':
-      return '당일 입고 예약은 받지 않습니다. 입고일을 다른 날로 선택해 주세요.';
-    case 'lead':
-      return `입고 ${normalizeBookingLeadHours(leadHours) || 1}시간 전까지만 받습니다.`;
-    case 'blocked':
-      return '선택하신 입고일은 예약이 마감된 날짜입니다.';
-    default:
-      return '';
-  }
+  if (!error) return '';
+  return BOOKING_CLOSED_MESSAGE;
 }

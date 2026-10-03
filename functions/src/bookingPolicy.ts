@@ -1,5 +1,6 @@
 import * as admin from 'firebase-admin';
-import { matchScheduleBlock, scheduleBlockNote, scheduleBlockOverrideHonored } from './scheduleBlock';
+import { rejectNewReservation } from './rejectNewReservation';
+import { matchScheduleBlock, scheduleBlockOverrideHonored } from './scheduleBlock';
 
 type PolicyCompany = {
   isOpen?: boolean;
@@ -58,26 +59,11 @@ function resolveDepartureDate(data: FirebaseFirestore.DocumentData): string {
   return normalizeYmd(data.departureDate) || normalizeYmd(data.entryDate) || '';
 }
 
-async function cancelReservation(
-  reservationId: string,
-  reason: string,
-  note: string
-): Promise<void> {
-  const now = new Date().toISOString();
-  await admin.firestore().collection('reservations').doc(reservationId).update({
-    status: 'cancelled',
-    cancelledAt: now,
-    cancelReason: reason,
-    cancelNote: note,
-    updatedAt: now,
-  });
-}
-
 /**
- * 신규 예약이 업체 마감·입고일 blockedDates·당일차단에 걸리면 즉시 취소.
+ * 신규 예약이 업체 마감·입고일 blockedDates·당일차단에 걸리면 문서를 지운다.
  * 홈페이지/B2C 클라이언트가 검사를 빼먹어도 서버 백스톱.
  * blockedDates는 입고일 하루 전체. scheduleBlocks는 입고·출고, 터미널, 시간 구간.
- * @returns true면 거절(취소)됨 → 푸시·알림톡 등 스킵
+ * @returns true면 거절됨 → 푸시·알림톡·시트 스킵
  */
 export async function enforceBookingPolicyOnCreate(
   reservationId: string,
@@ -96,23 +82,15 @@ export async function enforceBookingPolicyOnCreate(
   const company = (companySnap.data() || {}) as PolicyCompany;
 
   if (company.isOpen === false) {
-    await cancelReservation(
-      reservationId,
-      'company_closed',
-      '전체 예약 마감(자동취소)'
-    );
-    console.warn(`[bookingPolicy] closed ${reservationId} company=${companyId}`);
+    await rejectNewReservation(reservationId, 'bookingPolicy', `closed company=${companyId}`);
     return true;
   }
 
   if (company.sameDayBookingBlocked === true && departureDate === kstTodayYmd()) {
-    await cancelReservation(
+    await rejectNewReservation(
       reservationId,
-      'same_day_blocked',
-      '당일 입고 예약 차단(자동취소)'
-    );
-    console.warn(
-      `[bookingPolicy] same-day ${reservationId} company=${companyId} dep=${departureDate}`
+      'bookingPolicy',
+      `same-day company=${companyId} dep=${departureDate}`
     );
     return true;
   }
@@ -121,13 +99,10 @@ export async function enforceBookingPolicyOnCreate(
   if (lead > 0) {
     const departureTime = String(data.departureTime || '').trim().slice(0, 5);
     if (intakeLeadClosed(departureDate, departureTime, lead)) {
-      await cancelReservation(
+      await rejectNewReservation(
         reservationId,
-        'booking_lead',
-        `입고 ${lead}시간 전 마감(자동취소)`
-      );
-      console.warn(
-        `[bookingPolicy] lead ${reservationId} company=${companyId} dep=${departureDate} ${departureTime} lead=${lead}`
+        'bookingPolicy',
+        `lead company=${companyId} dep=${departureDate} ${departureTime} lead=${lead}`
       );
       return true;
     }
@@ -140,13 +115,10 @@ export async function enforceBookingPolicyOnCreate(
   );
 
   if (blockedSet.has(departureDate)) {
-    await cancelReservation(
+    await rejectNewReservation(
       reservationId,
-      'blocked_dates',
-      `입고일 마감(자동취소): ${departureDate}`
-    );
-    console.warn(
-      `[bookingPolicy] blocked ${reservationId} company=${companyId} dep=${departureDate}`
+      'bookingPolicy',
+      `blocked company=${companyId} dep=${departureDate}`
     );
     return true;
   }
@@ -156,10 +128,10 @@ export async function enforceBookingPolicyOnCreate(
   const hit = matchScheduleBlock(company.scheduleBlocks, data);
   if (!hit) return false;
 
-  const note = scheduleBlockNote(hit);
-  await cancelReservation(reservationId, 'schedule_block', `${note}(자동취소)`);
-  console.warn(
-    `[bookingPolicy] schedule ${reservationId} company=${companyId} ${hit.leg} ${hit.date} ${hit.terminal}`
+  await rejectNewReservation(
+    reservationId,
+    'bookingPolicy',
+    `schedule company=${companyId} ${hit.leg} ${hit.date} ${hit.terminal}`
   );
   return true;
 }

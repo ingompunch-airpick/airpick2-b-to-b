@@ -2,16 +2,16 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { auth } from '../firebase';
 import type { Company, Reservation } from '../types';
 import { fetchCompanyById } from '../lib/receiptFirestore';
+import { doc, getDoc } from 'firebase/firestore';
+import { db } from '../firebase';
 import { createReservationId, persistReservation } from '../lib/reservationFirestore';
 import { ensureFirestoreAuth } from '../lib/firebaseAuth';
 import { RESERVATION_CREATED_BY } from '../utils/bookingSource';
 import { formatPartnerDisplayName } from '../utils/companyDisplay';
 import { companyParkingTypeAvailability } from '../utils/companyProfile';
 import AirlinePicker from '../components/AirlinePicker';
-import {
-  checkHomepageBookingPolicy,
-  homepagePolicyMessage,
-} from '../utils/homepageBookingPolicy';
+import { BOOKING_CLOSED_MESSAGE } from '../utils/bookingClosedMessage';
+import { checkHomepageBookingPolicy } from '../utils/homepageBookingPolicy';
 import {
   formatHourLabel,
   isHourlyCapActive,
@@ -30,7 +30,7 @@ import {
   checkDailyIntakeForBooking,
 } from '../lib/dailyIntakeCapacityFirestore';
 import type { DailyIntakeResult } from '../utils/dailyIntakeCapacity';
-import { findScheduleBlock, scheduleBlockMessage } from '../utils/scheduleBlock';
+import { findScheduleBlock } from '../utils/scheduleBlock';
 import { getKSTDateOnlyString, getKSTDateTimeLocalString } from '../utils/kstDate';
 import { getCalculatePrice, mergePartnerPricing, companyRouteNeedsTerminalSurcharge } from '../utils/pricing';
 import {
@@ -366,11 +366,11 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
     if (!departureFlight.trim()) return '출국 편명을 입력해 주세요.';
     if (!arrivalAirline.trim()) return '귀국 항공사를 선택해 주세요.';
     if (!arrivalFlight.trim()) return '귀국 편명을 입력해 주세요.';
-    if (policyError) return homepagePolicyMessage(policyError, company?.bookingLeadHours);
-    if (scheduleBlock) return scheduleBlockMessage(scheduleBlock);
-    if (parkingHint?.ok === false) return parkingHint.message;
-    if (hourlyHint?.ok === false) return hourlyHint.message;
-    if (dailyHint?.ok === false) return dailyHint.message;
+    if (policyError) return BOOKING_CLOSED_MESSAGE;
+    if (scheduleBlock) return BOOKING_CLOSED_MESSAGE;
+    if (parkingHint?.ok === false) return BOOKING_CLOSED_MESSAGE;
+    if (hourlyHint?.ok === false) return BOOKING_CLOSED_MESSAGE;
+    if (dailyHint?.ok === false) return BOOKING_CLOSED_MESSAGE;
     return null;
   };
 
@@ -390,7 +390,7 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
       await ensureFirestoreAuth();
       const recheck = checkHomepageBookingPolicy(company, dep.date, arr.date, dep.time);
       if (recheck) {
-        setFormError(homepagePolicyMessage(recheck, company.bookingLeadHours));
+        setFormError(BOOKING_CLOSED_MESSAGE);
         return;
       }
       const block = findScheduleBlock({
@@ -404,7 +404,7 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
         arrivalTerminal,
       });
       if (block) {
-        setFormError(scheduleBlockMessage(block));
+        setFormError(BOOKING_CLOSED_MESSAGE);
         return;
       }
 
@@ -474,6 +474,28 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
       };
 
       await persistReservation(id, payload);
+
+      // 서버가 마감·한도로 거절하면 문서를 지우므로, 잠깐 확인 후 성공 화면을 띄운다.
+      let rejected = false;
+      for (let i = 0; i < 8; i += 1) {
+        await new Promise((resolve) => window.setTimeout(resolve, 350));
+        const snap = await getDoc(doc(db, 'reservations', id));
+        if (!snap.exists()) {
+          rejected = true;
+          break;
+        }
+        const status = String(snap.data()?.status || '');
+        if (status === 'cancelled' || status === '취소') {
+          rejected = true;
+          break;
+        }
+        if (i >= 3) break;
+      }
+      if (rejected) {
+        setFormError(BOOKING_CLOSED_MESSAGE);
+        return;
+      }
+
       if (acquisitionFields.acquisitionClickId) {
         try {
           await markAcquisitionConverted(acquisitionFields.acquisitionClickId, id);
@@ -825,7 +847,7 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
 
           {policyError ? (
             <p className="mx-5 mb-2 rounded-xl bg-red-50 px-3 py-2.5 text-xs font-semibold text-red-700 sm:mx-6">
-              {homepagePolicyMessage(policyError, company?.bookingLeadHours)}
+              {BOOKING_CLOSED_MESSAGE}
             </p>
           ) : null}
 

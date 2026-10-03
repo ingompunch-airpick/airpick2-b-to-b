@@ -1,3 +1,5 @@
+import { BOOKING_CLOSED_MESSAGE } from './bookingClosedMessage';
+
 export type DailyIntakeCompany = {
   dailyIntakeCapEnabled?: boolean;
   maxCarsPerDay?: number;
@@ -20,8 +22,8 @@ export type DailyIntakeResult =
   | { ok: true; max: number; used: number; remaining: number }
   | { ok: false; max: number; used: number; remaining: 0; message: string };
 
-export function dailyIntakeBlockedMessage(max: number): string {
-  return `이 입고일은 접수 마감되었습니다. (하루 ${max}대)`;
+export function dailyIntakeBlockedMessage(_max: number): string {
+  return BOOKING_CLOSED_MESSAGE;
 }
 
 /** existingCount = 이번 예약 제외, 취소 제외, 입고일 기준 */

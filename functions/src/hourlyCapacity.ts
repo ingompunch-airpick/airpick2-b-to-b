@@ -1,4 +1,5 @@
 import * as admin from 'firebase-admin';
+import { rejectNewReservation } from './rejectNewReservation';
 
 const WAWA_ALIASES = ['wawa', 'wawa_valet', '와와', '와와발렛'];
 
@@ -41,15 +42,10 @@ function statusIsCancelled(status: unknown): boolean {
   return s === 'cancelled' || s === '취소';
 }
 
-function formatHourLabel(hour: number): string {
-  const hh = String(hour).padStart(2, '0');
-  return `${hh}:00–${hh}:59`;
-}
-
 /**
- * 신규 예약이 시간당 한도를 넘으면 즉시 취소 처리.
+ * 신규 예약이 시간당 한도를 넘으면 문서를 지운다.
  * 클라이언트 선검사가 주력이고, 동시 예약 레이스 백스톱용.
- * @returns true면 한도 초과로 취소됨 → 알림톡 등 스킵
+ * @returns true면 한도 초과로 거절됨 → 알림톡 등 스킵
  */
 export async function enforceHourlyCapacityOnCreate(
   reservationId: string,
@@ -99,17 +95,10 @@ export async function enforceHourlyCapacityOnCreate(
   // 이번 예약 포함 used — 한도 이하면 OK
   if (used <= max) return false;
 
-  const now = new Date().toISOString();
-  await db.collection('reservations').doc(reservationId).update({
-    status: 'cancelled',
-    cancelledAt: now,
-    cancelReason: 'hourly_capacity',
-    cancelNote: `${formatHourLabel(hour)} 시간당 ${max}대 한도 초과(자동취소)`,
-    updatedAt: now,
-  });
-
-  console.warn(
-    `[hourlyCapacity] rejected ${reservationId} company=${companyId} ${departureDate} h=${hour} used=${used} max=${max}`
+  await rejectNewReservation(
+    reservationId,
+    'hourlyCapacity',
+    `company=${companyId} ${departureDate} h=${hour} used=${used} max=${max}`
   );
   return true;
 }

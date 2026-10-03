@@ -1,4 +1,5 @@
 import * as admin from 'firebase-admin';
+import { rejectNewReservation } from './rejectNewReservation';
 
 const WAWA_ALIASES = ['wawa', 'wawa_valet', '와와', '와와발렛'];
 
@@ -148,17 +149,10 @@ export async function enforceParkingCapacityOnCreate(
 
   if (!fullDate) return false;
 
-  const now = new Date().toISOString();
-  await db.collection('reservations').doc(reservationId).update({
-    status: 'cancelled',
-    cancelledAt: now,
-    cancelReason: 'parking_capacity',
-    cancelNote: `${fullDate} 동시 주차 ${max}대 한도 초과(만차·자동취소)`,
-    updatedAt: now,
-  });
-
-  console.warn(
-    `[parkingCapacity] rejected ${reservationId} company=${companyId} full=${fullDate} max=${max}`
+  await rejectNewReservation(
+    reservationId,
+    'parkingCapacity',
+    `company=${companyId} full=${fullDate} max=${max}`
   );
   return true;
 }

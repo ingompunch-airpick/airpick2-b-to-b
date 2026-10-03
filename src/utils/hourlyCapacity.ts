@@ -1,3 +1,4 @@
+import { BOOKING_CLOSED_MESSAGE } from './bookingClosedMessage';
 import { normalizeDateString } from './reservationNormalize';
 import { normalizeReservationStatus } from './reservationStatus';
 
@@ -103,13 +104,13 @@ export function evaluateHourlyCapacity(args: {
       max,
       hour,
       used,
-      message: `${formatHourLabel(hour)} 시간대 예약이 마감되었습니다. (시간당 ${max}대)`,
+      message: BOOKING_CLOSED_MESSAGE,
     };
   }
 
   return { ok: true, remaining, max, hour, used };
 }
 
-export function hourlyCapacityBlockedMessage(max: number, hour: number): string {
-  return `${formatHourLabel(hour)} 시간대 예약이 마감되었습니다. (시간당 ${max}대)`;
+export function hourlyCapacityBlockedMessage(_max: number, _hour: number): string {
+  return BOOKING_CLOSED_MESSAGE;
 }
