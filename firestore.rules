@@ -407,6 +407,13 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    // 업체별 지난달 매출. 다른 업체 숫자는 보이지 않는다.
+    match /companyMonthSnapshots/{companyId}/months/{monthId} {
+      allow read: if monthId.matches('^[0-9]{4}-[0-9]{2}$')
+        && (isPlatformAdmin() || partnerCanAccessCompany(companyId));
+      allow create, update, delete: if false;
+    }
+
     // ── appConfig (본사 설정) ────────────────────────────────────────────
     match /appConfig/{configId} {
       allow get: if isSignedIn();

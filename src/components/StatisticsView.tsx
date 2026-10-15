@@ -29,6 +29,10 @@ import {
 import { normalizeDateString } from '../utils/reservationNormalize';
 import { getKSTDateOnlyString, toKSTDateOnlyString } from '../utils/kstDate';
 import { fetchHqMonthSnapshot, monthStillInApp } from '../lib/hqMonthSnapshot';
+import {
+  companyMonthSnapshotId,
+  fetchCompanyMonthSnapshot,
+} from '../lib/companyMonthSnapshot';
 import type { HqMonthLedger } from '../lib/hqMonthLedgerApi';
 import { computeReservationVisitOrdinal, fetchCustomerVisitCount } from '../lib/customerVisit';
 import DateNavBar from './DateNavBar';
@@ -178,6 +182,17 @@ export default function StatisticsView({
   const [summaryMonthPrefix, setSummaryMonthPrefix] = useState(() =>
     getKSTDateOnlyString().substring(0, 7)
   );
+  const [companyMonthSnap, setCompanyMonthSnap] = useState<{
+    month: string;
+    companyId: string;
+    status: 'loading' | 'ready' | 'missing';
+    revenue: number;
+    admitted: number;
+    settled: number;
+    airpick: number;
+    homepage: number;
+    onsite: number;
+  } | null>(null);
   const [hqMonthPrefix, setHqMonthPrefix] = useState(() => getKSTDateOnlyString().substring(0, 7));
   const [hqTab, setHqTab] = useState<'today' | 'month' | 'visits'>('today');
   const [hqSnapshot, setHqSnapshot] = useState<{
@@ -270,6 +285,59 @@ export default function StatisticsView({
       cancelled = true;
     };
   }, [hqDashboard, hqTab, hqMonthPrefix, todayStr, companies]);
+
+  useEffect(() => {
+    if (hqDashboard) return;
+    const companyId = companyMonthSnapshotId(currentCompanyId);
+    if (!companyId || companyId === 'airpick' || summaryMonthPrefix >= todayStr.slice(0, 7)) {
+      return;
+    }
+    let cancelled = false;
+    setCompanyMonthSnap({
+      month: summaryMonthPrefix,
+      companyId,
+      status: 'loading',
+      revenue: 0,
+      admitted: 0,
+      settled: 0,
+      airpick: 0,
+      homepage: 0,
+      onsite: 0,
+    });
+    fetchCompanyMonthSnapshot(companyId, summaryMonthPrefix)
+      .then((row) => {
+        if (cancelled) return;
+        setCompanyMonthSnap({
+          month: summaryMonthPrefix,
+          companyId,
+          status: row ? 'ready' : 'missing',
+          revenue: row?.revenue || 0,
+          admitted: row?.admitted || 0,
+          settled: row?.settled || 0,
+          airpick: row?.airpick || 0,
+          homepage: row?.homepage || 0,
+          onsite: row?.onsite || 0,
+        });
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCompanyMonthSnap({
+            month: summaryMonthPrefix,
+            companyId,
+            status: 'missing',
+            revenue: 0,
+            admitted: 0,
+            settled: 0,
+            airpick: 0,
+            homepage: 0,
+            onsite: 0,
+          });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [hqDashboard, currentCompanyId, summaryMonthPrefix, todayStr]);
 
   // ── Partner-scope derived data ────────────────────────────
   // 훅은 반드시 조기 return 이전에 무조건 호출되어야 함(에어픽 본사 ↔ 입점 업체 전환 시 훅 순서 고정)
@@ -701,7 +769,18 @@ export default function StatisticsView({
     .reduce((sum, r) => sum + (r.totalPrice || 0), 0);
 
   const todaySales = realTodaySales;
-  const monthSales = realMonthSales;
+  const pastCompanySnap =
+    !salesMonthIsNow &&
+    companyMonthSnap?.month === summaryMonthPrefix &&
+    companyMonthSnap.companyId === companyMonthSnapshotId(currentCompanyId)
+      ? companyMonthSnap
+      : null;
+  const monthSales =
+    pastCompanySnap?.status === 'ready'
+      ? pastCompanySnap.revenue
+      : pastCompanySnap?.status === 'loading'
+        ? null
+        : realMonthSales;
 
   // 총 입고·총 출고 = 그달 예정 입고일·출고일. 이번 달도 오늘 이후 예정을 포함한다.
   const totalAdmitted = activeReservations.filter((r) =>
@@ -717,6 +796,10 @@ export default function StatisticsView({
   const totalCancelled = reservations.filter(
     (r) => r.status === 'cancelled' && reservationCancelledOnMonth(r, summaryMonthPrefix, salesMonthThrough)
   ).length;
+  const shownMonthAdmitted =
+    pastCompanySnap?.status === 'ready' ? pastCompanySnap.admitted : totalAdmitted;
+  const shownMonthExited =
+    pastCompanySnap?.status === 'ready' ? pastCompanySnap.settled : totalExited;
   const summaryMonthMax = todayStr.substring(0, 7);
   const canGoNextSummary = summaryMonthPrefix < summaryMonthMax;
 
@@ -844,7 +927,7 @@ export default function StatisticsView({
                 {monthLabelFromPrefix(summaryMonthPrefix)} 누적 매출{salesMonthIsNow ? ' · 오늘까지' : ' · 입고일 기준'}
               </span>
               <span className={`${salesMonthIsNow ? 'text-base' : 'text-2xl text-amber-400'} font-black tracking-tight`}>
-                {monthSales.toLocaleString()}원
+                {monthSales == null ? '…' : `${monthSales.toLocaleString()}원`}
               </span>
             </div>
           </div>
@@ -854,8 +937,28 @@ export default function StatisticsView({
           <div className="space-y-3">
             <span className="text-[12px] text-[#8E8E93] font-bold block">유입별 매출 비교</span>
             {(salesMonthIsNow ? ['today', 'month'] as const : ['month'] as const).map((period) => {
-              const metrics = period === 'today' ? todaySourceMetrics : monthSourceMetrics;
-              const totalRev = GROUPED_SOURCE_ROWS.reduce((s, row) => s + metrics[row.key].revenue, 0);
+              const snapReady = period === 'month' && pastCompanySnap?.status === 'ready';
+              const otherCount = snapReady
+                ? pastCompanySnap.homepage + pastCompanySnap.onsite
+                : 0;
+              const mixedSources = snapReady && pastCompanySnap.airpick > 0 && otherCount > 0;
+              const metrics = snapReady
+                ? {
+                    'airpick-b2c': {
+                      count: pastCompanySnap.airpick,
+                      revenue: otherCount === 0 ? pastCompanySnap.revenue : 0,
+                    },
+                    other: {
+                      count: otherCount,
+                      revenue: pastCompanySnap.airpick === 0 ? pastCompanySnap.revenue : 0,
+                    },
+                  }
+                : period === 'today'
+                  ? todaySourceMetrics
+                  : monthSourceMetrics;
+              const totalRev = mixedSources
+                ? metrics['airpick-b2c'].count + metrics.other.count
+                : GROUPED_SOURCE_ROWS.reduce((s, row) => s + metrics[row.key].revenue, 0);
               const monthNum = parseInt(summaryMonthPrefix.split('-')[1], 10);
               const title = period === 'today'
                 ? '오늘'
@@ -870,7 +973,9 @@ export default function StatisticsView({
                   <div className="space-y-1.5">
                     {GROUPED_SOURCE_ROWS.map(({ key, label }) => {
                       const { count, revenue } = metrics[key];
-                      const pct = totalRev > 0 ? Math.round((revenue / totalRev) * 100) : 0;
+                      const pct = totalRev > 0
+                        ? Math.round(((mixedSources ? count : revenue) / totalRev) * 100)
+                        : 0;
                       return (
                         <div key={`${period}-${key}`} className="flex items-center gap-2">
                           <span
@@ -892,7 +997,7 @@ export default function StatisticsView({
                             {count}건
                           </span>
                           <span className="text-[11px] text-zinc-200 font-bold font-mono shrink-0 w-20 text-right">
-                            {revenue.toLocaleString()}원
+                            {mixedSources ? '' : `${revenue.toLocaleString()}원`}
                           </span>
                         </div>
                       );
@@ -1122,11 +1227,11 @@ export default function StatisticsView({
               </div>
               <div className="text-center border-l border-neutral-800/60">
                 <span className="text-[10px] text-zinc-500 font-bold block tracking-wider leading-tight">총 입고</span>
-                <span className="text-sm font-black text-white font-mono">{totalAdmitted}</span>
+                <span className="text-sm font-black text-white font-mono">{shownMonthAdmitted}</span>
               </div>
               <div className="text-center border-l border-neutral-800/60">
                 <span className="text-[10px] text-zinc-500 font-bold block tracking-wider leading-tight">총 출고</span>
-                <span className="text-sm font-black text-white font-mono">{totalExited}</span>
+                <span className="text-sm font-black text-white font-mono">{shownMonthExited}</span>
               </div>
               <div className="text-center border-l border-neutral-800/60">
                 <span className="text-[10px] text-zinc-500 font-bold block tracking-wider leading-tight">취소</span>

@@ -75,6 +75,17 @@ function priceFromCell(value: unknown): number {
   return Number.isFinite(n) ? n : 0;
 }
 
+/** 예전 행은 금액이 입국 터미널 칸에 들어가 있다. 그 숫자만 금액으로 본다. */
+function priceFromLedgerCells(amount: unknown, arrivalTerminal: unknown): number {
+  const direct = priceFromCell(amount);
+  if (direct > 0) return direct;
+  const terminal = String(arrivalTerminal ?? '').trim();
+  if (!/^\d{5,6}$/.test(terminal)) return direct;
+  const n = Number(terminal);
+  if (n >= 10000 && n <= 500000) return n;
+  return direct;
+}
+
 /** 엑셀이 010 앞자리를 지우면 10자리 10… 이 된다. 앱의 010… 과 같은 번호로 맞춘다. */
 function phoneKey(value: unknown): string {
   let digits = String(value ?? '').replace(/\D/g, '');
@@ -143,7 +154,7 @@ export function ledgerRowsFromSheetValues(values: unknown[][], tabName = ''): Le
       departureYmd: ymdFromCell(col(raw, '입차예정')),
       exitYmd,
       scheduledExitYmd: ymdFromCell(col(raw, '출차예정')),
-      price: priceFromCell(col(raw, '금액')),
+      price: priceFromLedgerCells(col(raw, '금액'), col(raw, '입국T')),
     });
   }
   return rows;
