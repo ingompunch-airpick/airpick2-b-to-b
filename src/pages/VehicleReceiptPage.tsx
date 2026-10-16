@@ -423,6 +423,7 @@ export default function VehicleReceiptPage({ code }: VehicleReceiptPageProps) {
       airlineLabel,
       parkingTypeLabel,
       totalPrice: `${priceWon.toLocaleString()}원`,
+      pointSpentWon: Math.max(0, Math.floor(Number(reservation.pointSpentWon) || 0)),
       paymentLabel: unpaid ? '미납' : '완납',
       paymentPaid: !unpaid,
       customerPhone: maskPhoneForDisplay(reservation.phone),
@@ -517,7 +518,7 @@ export default function VehicleReceiptPage({ code }: VehicleReceiptPageProps) {
         <div className="bg-[#f4efe6] px-4 pb-2.5 pt-3 print:bg-white">
           <div className="flex items-center justify-between gap-2 rounded-xl bg-[#1c2233] px-4 py-2.5 ring-1 ring-[#d4a853]/25 print:bg-neutral-200 print:ring-neutral-400">
             <span className="min-w-0 text-[12px] font-bold text-[#e8dcc8] print:text-neutral-700">
-              총 주차 금액
+              {view.pointSpentWon > 0 ? '현장 받을 금액' : '총 주차 금액'}
               <span className="text-[#d4a853]/90 print:text-neutral-500"> · {view.parkingTypeLabel}</span>
               <span
                 className={`ml-1.5 inline-flex rounded px-1.5 py-0.5 text-[10px] font-black align-middle ${
@@ -533,6 +534,11 @@ export default function VehicleReceiptPage({ code }: VehicleReceiptPageProps) {
               {view.totalPrice}
             </span>
           </div>
+          {view.pointSpentWon > 0 ? (
+            <p className="mt-1.5 text-right text-[12px] font-bold tabular-nums text-[#1c2233]">
+              포인트 사용 −{view.pointSpentWon.toLocaleString()}원
+            </p>
+          ) : null}
 
           <div className="mt-2.5 grid grid-cols-2 divide-x divide-y divide-[#e8e0d4] overflow-hidden rounded-xl border border-[#e8e0d4] bg-white/50 print:divide-neutral-200 print:border-neutral-200 print:bg-white">
             <GridCell label="입고예정" value={view.intakeAt} />

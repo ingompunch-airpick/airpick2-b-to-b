@@ -142,6 +142,8 @@ export interface Company {
     updatedBy?: string;
     config: Record<string, unknown>;
   };
+  /** 홈 방문 측정. 업체마다 쓰는 광고·플레이스만 둔다. */
+  homepageVisitChannels?: { key: string; label: string }[];
   /**
    * 업체 알림톡 (NCP). 홈페이지·현장 예약용.
    * 에어픽 B2C 공용 템플릿과 별개 — channel·templates.reserve.code 필요.
@@ -259,6 +261,10 @@ export interface ScratchPhotoSet {
 export interface Reservation {
   id?: string;
   userId: string;
+  /** 카카오 회원 예약. 포인트는 이 값이 kakao일 때만 쌓인다 */
+  memberProvider?: 'kakao';
+  /** 한번 붙인 주인은 전화번호가 바뀌어도 옮기지 않는다 */
+  userIdLocked?: boolean;
   companyId: string;
   companyName: string;
   userName: string;
@@ -275,6 +281,8 @@ export interface Reservation {
   /** 예약 시점 공항 (업체 airport 스탬프). 미설정 시 ICN */
   airport?: 'ICN' | 'GMP';
   totalPrice: number;
+  /** 접수 때 사용한 포인트. totalPrice 는 이 금액이 빠진 현장 받을 돈 */
+  pointSpentWon?: number;
   /**
    * true면 업체가 최종 금액을 수동 확정한 상태.
    * 일정·실내외 변경 시 자동 요금 재계산으로 덮어쓰지 않음.

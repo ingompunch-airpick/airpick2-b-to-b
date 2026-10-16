@@ -1,4 +1,4 @@
-﻿import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo } from 'react';
 import { Search, X, RefreshCw, Car, FileText } from 'lucide-react';
 import { Reservation, ReservationStatus, AppView, Company, PaymentMethod } from '../types';
 import ReservationCard from './ReservationCard';
@@ -237,6 +237,7 @@ export default function TimelineView({
                 getKSTDateTimeString={getKSTDateTimeString}
                 setScratchModalTargetId={setScratchModalTargetId}
                 setSelectedParkingSpace={setSelectedParkingSpace}
+                visitPool={reservations}
                 showCompanyLabel={showCompanyLabel}
                 companies={companies}
                 onUpdatePayment={onUpdatePayment}

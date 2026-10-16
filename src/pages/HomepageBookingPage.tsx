@@ -10,10 +10,10 @@ import { RESERVATION_CREATED_BY } from '../utils/bookingSource';
 import { formatPartnerDisplayName } from '../utils/companyDisplay';
 import { companyParkingTypeAvailability } from '../utils/companyProfile';
 import AirlinePicker from '../components/AirlinePicker';
+import HomepageDateTimeField from '../components/HomepageDateTimeField';
 import { BOOKING_CLOSED_MESSAGE } from '../utils/bookingClosedMessage';
 import { checkHomepageBookingPolicy } from '../utils/homepageBookingPolicy';
 import {
-  formatHourLabel,
   isHourlyCapActive,
 } from '../utils/hourlyCapacity';
 import { assertHourlyCapacityAvailable, checkHourlyCapacityForBooking } from '../lib/hourlyCapacityFirestore';
@@ -55,6 +55,30 @@ import {
 } from '../lib/acquisitionFirestore';
 
 type Terminal = string;
+
+/** 남은 자리가 3대 이하면 그 숫자만. 더 남으면 적지 않는다. */
+function scarceRemainingLabel(remaining: number): string | null {
+  if (!Number.isFinite(remaining) || remaining > 3) return null;
+  return `남은 ${Math.max(0, Math.floor(remaining))}대`;
+}
+
+function capacityNote(
+  hints: Array<{ ok?: boolean; remaining?: number; message?: string } | null | undefined>
+): { text: string; error: boolean } | null {
+  const present = hints.filter((hint): hint is NonNullable<typeof hint> => Boolean(hint));
+  if (!present.length) return null;
+  const failed = present.find((hint) => hint.ok === false);
+  if (failed) {
+    const text = (failed.message || '').trim();
+    return text ? { text, error: true } : null;
+  }
+  const remainings = present
+    .filter((hint) => hint.ok === true && typeof hint.remaining === 'number')
+    .map((hint) => hint.remaining as number);
+  if (!remainings.length) return null;
+  const text = scarceRemainingLabel(Math.min(...remainings));
+  return text ? { text, error: false } : null;
+}
 
 function formatPhoneInput(raw: string): string {
   const d = raw.replace(/\D/g, '').slice(0, 11);
@@ -347,6 +371,13 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
   const parkingTypes = companyParkingTypeAvailability(company);
   const showIndoor = parkingTypes.indoor;
   const showOutdoor = parkingTypes.outdoor;
+  const departureCapacity = capacityNote([
+    company && isHourlyCapActive(company) ? hourlyHint : null,
+    company && isDailyIntakeCapActive(company) ? dailyHint : null,
+  ]);
+  const parkingCapacity = capacityNote([
+    company && isParkingCapActive(company) ? parkingHint : null,
+  ]);
 
   const validate = (): string | null => {
     if (!userName.trim()) return '예약자 이름을 입력해 주세요.';
@@ -586,9 +617,9 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
       <div className="mx-auto max-w-lg px-4 pb-8 pt-8 sm:px-5 sm:pt-10">
         <form
           onSubmit={handleSubmit}
-          className="overflow-hidden rounded-[1.75rem] bg-white shadow-[0_20px_50px_-28px_rgba(28,25,23,0.35)]"
+          className="rounded-[1.75rem] bg-white shadow-[0_20px_50px_-28px_rgba(28,25,23,0.35)]"
         >
-          <header className="bg-gradient-to-br from-stone-900 via-stone-800 to-stone-700 px-6 pb-7 pt-8 text-white">
+          <header className="rounded-t-[1.75rem] bg-gradient-to-br from-stone-900 via-stone-800 to-stone-700 px-6 pb-7 pt-8 text-white">
             <p className="text-xs font-semibold tracking-[0.18em] text-stone-300">
               주차 예약
             </p>
@@ -674,49 +705,8 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
               </FormRow>
             )}
 
-            {/* 2. 출국 묶음 */}
-            <FormRow
-              label={
-                <>
-                  출국
-                  <span className="mt-0.5 block text-xs font-medium text-stone-400">
-                    공항도착예정
-                  </span>
-                </>
-              }
-              required
-            >
-              <input
-                type="datetime-local"
-                value={depLocal}
-                min={minDep}
-                onChange={(e) => setDepLocal(e.target.value)}
-                className={inputClass}
-                required
-              />
-              {company && isHourlyCapActive(company) && hourlyHint ? (
-                <p
-                  className={`mt-1.5 text-[12px] font-semibold ${
-                    hourlyHint.ok ? 'text-stone-500' : 'text-red-600'
-                  }`}
-                >
-                  {hourlyHint.ok === true
-                    ? `${formatHourLabel(hourlyHint.hour)} · 남은 ${hourlyHint.remaining}대 (시간당 ${hourlyHint.max}대)`
-                    : hourlyHint.message}
-                </p>
-              ) : null}
-              {company && isDailyIntakeCapActive(company) && dailyHint ? (
-                <p
-                  className={`mt-1.5 text-[12px] font-semibold ${
-                    dailyHint.ok ? 'text-stone-500' : 'text-red-600'
-                  }`}
-                >
-                  {dailyHint.ok === true
-                    ? `이 입고일 남은 ${dailyHint.remaining}대 (하루 ${dailyHint.max}대)`
-                    : dailyHint.message}
-                </p>
-              ) : null}
-            </FormRow>
+            {/* 2. 출국 묶음 — 편명 먼저, 연동되는 시간은 맨 아래 */}
+            <SectionMark>출국</SectionMark>
             <FormRow label="출국 터미널" required>
               <TerminalPicker
                 airportId={resolveCompanyAirportId(company)}
@@ -743,39 +733,31 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
                 required
               />
             </FormRow>
-
-            {/* 3. 입국 묶음 */}
             <FormRow
               label={
                 <>
-                  입국
+                  출국
                   <span className="mt-0.5 block text-xs font-medium text-stone-400">
-                    비행기도착
+                    공항도착예정
                   </span>
                 </>
               }
               required
             >
-              <input
-                type="datetime-local"
-                value={arrLocal}
-                min={depLocal || minDep}
-                onChange={(e) => setArrLocal(e.target.value)}
-                className={inputClass}
-                required
-              />
-              {company && isParkingCapActive(company) && parkingHint ? (
+              <HomepageDateTimeField value={depLocal} min={minDep} onChange={setDepLocal} />
+              {departureCapacity ? (
                 <p
                   className={`mt-1.5 text-[12px] font-semibold ${
-                    parkingHint.ok ? 'text-stone-500' : 'text-red-600'
+                    departureCapacity.error ? 'text-red-600' : 'text-stone-500'
                   }`}
                 >
-                  {parkingHint.ok === true
-                    ? `동시 주차 · 남은 ${parkingHint.remaining}대 (최대 ${parkingHint.max}대)`
-                    : parkingHint.message}
+                  {departureCapacity.text}
                 </p>
               ) : null}
             </FormRow>
+
+            {/* 3. 입국 묶음 */}
+            <SectionMark>입국</SectionMark>
             <FormRow label="입국 터미널" required>
               <TerminalPicker
                 airportId={resolveCompanyAirportId(company)}
@@ -808,6 +790,32 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
               ) : arrivalFlightHint ? (
                 <p className="mt-1.5 text-[12px] font-semibold text-stone-500">
                   {arrivalFlightHint}
+                </p>
+              ) : null}
+            </FormRow>
+            <FormRow
+              label={
+                <>
+                  입국
+                  <span className="mt-0.5 block text-xs font-medium text-stone-400">
+                    비행기도착
+                  </span>
+                </>
+              }
+              required
+            >
+              <HomepageDateTimeField
+                value={arrLocal}
+                min={depLocal || minDep}
+                onChange={setArrLocal}
+              />
+              {parkingCapacity ? (
+                <p
+                  className={`mt-1.5 text-[12px] font-semibold ${
+                    parkingCapacity.error ? 'text-red-600' : 'text-stone-500'
+                  }`}
+                >
+                  {parkingCapacity.text}
                 </p>
               ) : null}
             </FormRow>
@@ -851,7 +859,7 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
             </p>
           ) : null}
 
-          <div className="sticky bottom-0 border-t border-stone-200 bg-white/95 px-5 py-4 backdrop-blur sm:px-6">
+          <div className="sticky bottom-0 rounded-b-[1.75rem] border-t border-stone-200 bg-white/95 px-5 py-4 backdrop-blur sm:px-6">
             {formError ? (
               <p className="mb-3 rounded-xl bg-red-50 px-3 py-2.5 text-base font-semibold text-red-700">
                 {formError}
@@ -875,6 +883,15 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
           </div>
         </form>
       </div>
+    </div>
+  );
+}
+
+function SectionMark({ children }: { children: string }) {
+  return (
+    <div className="flex items-center gap-3 border-y border-stone-300 bg-stone-100 px-4 py-2.5">
+      <span className="text-[12px] font-black tracking-[0.14em] text-stone-600">{children}</span>
+      <span className="h-px flex-1 bg-stone-300" />
     </div>
   );
 }

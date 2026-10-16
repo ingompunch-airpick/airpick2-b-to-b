@@ -50,6 +50,47 @@ function extractPassword(fields: Record<string, unknown>): string | null {
   return trimmed || null;
 }
 
+const HOMEPAGE_CHANNEL_KEY_RE = /^[a-z0-9_-]{1,40}$/;
+const RESERVED_HOMEPAGE_CHANNEL_KEYS = new Set([
+  'admin',
+  'intro',
+  'guide',
+  'fees',
+  'faq',
+  'assets',
+  'brand',
+  'images',
+  'videos',
+]);
+
+function sanitizeHomepageVisitChannels(value: unknown): { key: string; label: string }[] {
+  if (!Array.isArray(value) || value.length > 8) {
+    throw new HttpsError('invalid-argument', '측정 항목은 8개까지입니다.');
+  }
+  const seen = new Set<string>();
+  const out: { key: string; label: string }[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== 'object') {
+      throw new HttpsError('invalid-argument', '측정 항목 형식이 올바르지 않습니다.');
+    }
+    const raw = item as { key?: unknown; label?: unknown };
+    const key = String(raw.key || '').trim().toLowerCase();
+    const label = String(raw.label || '').trim();
+    if (!HOMEPAGE_CHANNEL_KEY_RE.test(key) || RESERVED_HOMEPAGE_CHANNEL_KEYS.has(key)) {
+      throw new HttpsError('invalid-argument', '측정 주소는 영문과 숫자만 쓸 수 있습니다.');
+    }
+    if (!label || label.length > 24) {
+      throw new HttpsError('invalid-argument', '측정 이름을 확인해 주세요.');
+    }
+    if (seen.has(key)) {
+      throw new HttpsError('invalid-argument', '같은 측정 주소가 이미 있습니다.');
+    }
+    seen.add(key);
+    out.push({ key, label });
+  }
+  return out;
+}
+
 /**
  * 본사 companies 생성·수정.
  * password 는 companies/{id}/secrets/login 에만 저장 (공개 문서 비노출).
@@ -83,6 +124,9 @@ export const adminUpsertCompany = onCall(
 
     if (mode === 'update') {
       const patch = pickAllowedFields(data.patch, ALLOWED_COMPANY_PATCH_KEYS, 'patch');
+      if ('homepageVisitChannels' in patch) {
+        patch.homepageVisitChannels = sanitizeHomepageVisitChannels(patch.homepageVisitChannels);
+      }
       const password = extractPassword(patch);
       const snap = await ref.get();
       if (!snap.exists) {

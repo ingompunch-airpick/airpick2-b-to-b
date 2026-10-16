@@ -1,4 +1,4 @@
-﻿import React, { useState } from 'react';
+import React, { useState } from 'react';
 import { Reservation, ReservationStatus, PaymentMethod, type Company } from '../types';
 import { RESERVATION_DATA_RETENTION_DAYS } from '../constants/dataRetention';
 import { isReservationUnpaid } from '../utils/paymentStatus';
@@ -22,6 +22,7 @@ import {
   parkingFacilityBadgeLabel,
   resolveCompanyLotsForReservation,
 } from '../utils/parkingLot';
+import CustomerVisitBadge from './CustomerVisitBadge';
 import MetaField from './MetaField';
 import {
   resolveOperatorBrandLabel,
@@ -59,6 +60,8 @@ interface ReservationCardProps {
   companies?: Company[];
   /** 미납↔완납 토글 (타임라인에서 바로 수정) */
   onUpdatePayment?: (id: string, method: PaymentMethod) => void | Promise<void>;
+  /** 같은 번호의 남은 예약. 지워진 방문은 출고 기록으로 센다. */
+  visitPool?: Reservation[];
 }
 
 export default function ReservationCard({
@@ -75,6 +78,7 @@ export default function ReservationCard({
   setSelectedParkingSpace,
   companies = [],
   onUpdatePayment,
+  visitPool = [],
 }: ReservationCardProps) {
   const [actionBusy, setActionBusy] = useState(false);
 
@@ -205,7 +209,11 @@ export default function ReservationCard({
               </span>
             )
           )}
-
+          <CustomerVisitBadge
+            reservation={res}
+            pool={visitPool}
+            className={cn(CARD_CHIP, 'bg-emerald-500/14 text-emerald-400 border-emerald-500/30')}
+          />
         </div>
 
         {/* 2nd Row: Plate + model (always together). Time on its own line to avoid wrap on narrow phones. */}
@@ -325,8 +333,13 @@ export default function ReservationCard({
           'flex items-baseline justify-end gap-1.5 min-w-0',
           isExitScheduleNotAdmitted && 'opacity-40'
         )}>
-          <span className="text-[11px] sm:text-toss-label tabular-nums text-[var(--color-toss-fg-muted)] shrink-0">
+          <span className="text-[11px] sm:text-toss-label tabular-nums text-[var(--color-toss-fg-muted)] shrink-0 text-right">
             {res.totalPrice?.toLocaleString()}원
+            {(res.pointSpentWon ?? 0) > 0 ? (
+              <span className="mt-0.5 block text-[10px] font-bold text-amber-700">
+                포인트 {res.pointSpentWon?.toLocaleString()}원 차감
+              </span>
+            ) : null}
           </span>
         </div>
       </div>

@@ -11,6 +11,32 @@ import { maskCarNumber } from '../utils/carNumber';
 const REVIEWABLE_STATUSES = new Set(['checked_out', 'completed_out']);
 const BODY_MAX = 200;
 
+function readBearer(req: { get?: (name: string) => string | undefined; headers?: Record<string, string | string[] | undefined> }): string {
+  const fromGet = typeof req.get === 'function' ? req.get('authorization') : undefined;
+  if (fromGet) return fromGet;
+  const raw = req.headers?.authorization ?? req.headers?.Authorization;
+  if (Array.isArray(raw)) return String(raw[0] || '');
+  return String(raw || '');
+}
+
+/** 카카오 로그인 계정이 예약한 건이면 비밀번호 없이 후기를 받는다. */
+async function kakaoOwnerUid(
+  req: { get?: (name: string) => string | undefined; headers?: Record<string, string | string[] | undefined> },
+  reservationUserId: string
+): Promise<boolean> {
+  const owner = reservationUserId.trim();
+  if (!owner || owner === 'guest') return false;
+  const match = readBearer(req).match(/^Bearer\s+(\S+)$/i);
+  if (!match) return false;
+  try {
+    const decoded = await admin.auth().verifyIdToken(match[1]);
+    return decoded.firebase?.sign_in_provider === 'oidc.kakao' && decoded.uid === owner;
+  } catch (err) {
+    logger.warn('submitReview_token_rejected', { err });
+    return false;
+  }
+}
+
 function maskAuthorName(name: string): string {
   const t = name.trim();
   if (!t) return '익명';
@@ -52,10 +78,6 @@ export const submitReview = onRequest(
       res.status(400).json({ error: 'missing_id' });
       return;
     }
-    if (!/^\d{4}$/.test(password)) {
-      res.status(400).json({ error: 'invalid_password' });
-      return;
-    }
     if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
       res.status(400).json({ error: 'invalid_rating' });
       return;
@@ -73,10 +95,17 @@ export const submitReview = onRequest(
       }
 
       const data = reservationSnap.data() as Record<string, unknown>;
-      const storedPassword = await resolveReservationPassword(id, data);
-      if (!reservationPasswordMatches(storedPassword, password)) {
-        res.status(403).json({ error: 'invalid_password' });
-        return;
+      const ownedByKakao = await kakaoOwnerUid(req, String(data.userId ?? ''));
+      if (!ownedByKakao) {
+        if (!/^\d{4}$/.test(password)) {
+          res.status(400).json({ error: 'invalid_password' });
+          return;
+        }
+        const storedPassword = await resolveReservationPassword(id, data);
+        if (!reservationPasswordMatches(storedPassword, password)) {
+          res.status(403).json({ error: 'invalid_password' });
+          return;
+        }
       }
 
       const status = String(data.status ?? '');

@@ -20,6 +20,7 @@ export interface ReceiptPublicDto {
   arrivalAirline?: string;
   arrivalFlight?: string;
   totalPrice: number;
+  pointSpentWon?: number;
   isIndoor: boolean;
   createdAt: string;
   status: string;
@@ -61,6 +62,7 @@ export function toReceiptPublic(
     arrivalAirline: record.arrivalAirline?.trim() || undefined,
     arrivalFlight: record.arrivalFlight?.trim() || undefined,
     totalPrice: Number(record.totalPrice) || 0,
+    pointSpentWon: Math.max(0, Math.floor(Number(raw.pointSpentWon) || 0)) || undefined,
     isIndoor: record.isIndoor !== false,
     createdAt: str(raw, 'createdAt'),
     status: str(raw, 'status', 'pending'),

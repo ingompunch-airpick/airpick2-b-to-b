@@ -14,6 +14,8 @@ import { enforceDailyIntakeOnCreate } from './dailyIntakeCapacity';
 import { enforceParkingCapacityOnCreate } from './parkingCapacity';
 import { enforceBookingPolicyOnCreate } from './bookingPolicy';
 import { bumpCustomerVisitOnCheckout } from './customerVisit';
+import { settlePointSpendOnCreate, syncPointsOnReservationUpdate } from './points/ledger';
+import { isUnownedUserId, mergeMemberReservationId, stampKakaoOwner } from './members/reservationIds';
 import {
   notifyPartnersNewReservation,
   notifyPartnersValetStatusChange,
@@ -80,7 +82,7 @@ export const onReservationSync = onDocumentWritten(
   async (event) => {
     const reservationId = event.params.reservationId;
     const beforeData = event.data?.before.data();
-    const afterData = event.data?.after.data();
+    let afterData = event.data?.after.data();
 
     if (isPasswordStripOnlyChange(beforeData, afterData)) return;
 
@@ -122,6 +124,23 @@ export const onReservationSync = onDocumentWritten(
       const dailyRejected = await enforceDailyIntakeOnCreate(reservationId, afterData);
       if (dailyRejected) return;
       try {
+        const stamped = await stampKakaoOwner(reservationId, afterData);
+        if (stamped) afterData = stamped;
+      } catch (err) {
+        console.error('[members] owner stamp failed', {
+          reservationId,
+          err: err instanceof Error ? err.message : String(err),
+        });
+      }
+      try {
+        afterData = await settlePointSpendOnCreate(reservationId, afterData);
+      } catch (err) {
+        console.error('[points] spend settle failed', {
+          reservationId,
+          err: err instanceof Error ? err.message : String(err),
+        });
+      }
+      try {
         await notifyPartnersNewReservation(reservationId, afterData);
       } catch (err) {
         console.error('[partnerPush] failed', {
@@ -129,7 +148,43 @@ export const onReservationSync = onDocumentWritten(
           err: err instanceof Error ? err.message : String(err),
         });
       }
+      if (!isUnownedUserId(afterData.userId) && afterData.memberProvider === 'kakao') {
+        try {
+          await mergeMemberReservationId(
+            String(afterData.userId),
+            reservationId,
+            String(afterData.createdAt || '')
+          );
+        } catch (err) {
+          console.error('[members] reservation id merge failed', {
+            reservationId,
+            err: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
     } else {
+      if (isUnownedUserId(beforeData.userId) && !isUnownedUserId(afterData.userId)) {
+        try {
+          await mergeMemberReservationId(
+            String(afterData.userId),
+            reservationId,
+            String(afterData.createdAt || '')
+          );
+        } catch (err) {
+          console.error('[members] reservation id merge failed', {
+            reservationId,
+            err: err instanceof Error ? err.message : String(err),
+          });
+        }
+      }
+      try {
+        await syncPointsOnReservationUpdate(reservationId, beforeData, afterData);
+      } catch (err) {
+        console.error('[points] sync failed', {
+          reservationId,
+          err: err instanceof Error ? err.message : String(err),
+        });
+      }
       try {
         await bumpCustomerVisitOnCheckout(reservationId, beforeData, afterData);
       } catch (err) {

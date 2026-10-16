@@ -48,6 +48,8 @@ export const ALLOWED_COMPANY_PATCH_KEYS = [
   'pickupLocation',
   /** 입점업체 마케팅 홈 설정 (airpick-partner-homepage) */
   'partnerHomepage',
+  /** 홈 방문 측정 항목. 업체마다 다르게 둔다. */
+  'homepageVisitChannels',
   /** 업체별 알림톡 채널·템플릿 */
   'alimtalk',
 ] as const;

@@ -28,6 +28,7 @@ import { getIcnFlight, getIcnFlightSearch } from './api/icnFlight';
 import { getIcnArrival } from './api/icnArrival';
 import { getIcnAirportLive } from './api/icnAirportLive';
 import { getDriveEta } from './api/driveEta';
+import { claimGuestReservations } from './members/claimGuestReservations';
 
 export {
   onReservationSync,
@@ -51,6 +52,7 @@ export {
   getIcnArrival,
   getIcnAirportLive,
   getDriveEta,
+  claimGuestReservations,
 };
 
 if (!admin.apps.length) {

@@ -58,16 +58,83 @@ export function computeReservationVisitOrdinal(
   return idx >= 0 ? idx + 1 : 1;
 }
 
+function sortByCreatedAt(list: VisitOrdinalReservation[]): VisitOrdinalReservation[] {
+  return [...list].sort((a, b) => {
+    const ta = Date.parse(a.createdAt || '') || 0;
+    const tb = Date.parse(b.createdAt || '') || 0;
+    if (ta !== tb) return ta - tb;
+    return String(a.id || '').localeCompare(String(b.id || ''));
+  });
+}
+
+/**
+ * 화면에 보일 방문 순번.
+ * 출고로 이미 센 횟수(지워진 예약 포함)에, 아직 출고 전인 이번 예약을 더한다.
+ */
+export function displayedVisitCount(
+  target: VisitOrdinalReservation,
+  pool: VisitOrdinalReservation[],
+  storedVisitCount: number | null
+): number | null {
+  const phone = normalizePhoneDigits(target.phone);
+  if (!phone || !target.id) return null;
+  if (normalizeReservationStatus(target.status) === 'cancelled') return null;
+
+  const byId = new Map<string, VisitOrdinalReservation>();
+  for (const reservation of pool) {
+    if (!reservation?.id) continue;
+    if (normalizePhoneDigits(reservation.phone) !== phone) continue;
+    if (normalizeReservationStatus(reservation.status) === 'cancelled') continue;
+    byId.set(String(reservation.id), reservation);
+  }
+  byId.set(String(target.id), target);
+
+  const same = [...byId.values()];
+  const completed = same.filter(
+    (reservation) => normalizeReservationStatus(reservation.status) === 'completed_out'
+  );
+  const open = same.filter(
+    (reservation) => normalizeReservationStatus(reservation.status) !== 'completed_out'
+  );
+  const lifetime =
+    storedVisitCount == null
+      ? completed.length
+      : Math.max(storedVisitCount, completed.length);
+  const purged = lifetime - completed.length;
+  const rankIn = (list: VisitOrdinalReservation[]) => {
+    const index = sortByCreatedAt(list).findIndex(
+      (reservation) => String(reservation.id) === String(target.id)
+    );
+    return index >= 0 ? index + 1 : 1;
+  };
+
+  if (normalizeReservationStatus(target.status) === 'completed_out') {
+    return purged + rankIn(completed);
+  }
+  return lifetime + rankIn(open);
+}
+
+const visitCountCache = new Map<string, Promise<number | null>>();
+
 export async function fetchCustomerVisitCount(
   phone: string | undefined | null
 ): Promise<number | null> {
   const id = customerDocId(phone);
   if (!id) return null;
-  await ensureFirestoreAuth();
-  const snap = await getDoc(doc(db, 'customers', id));
-  if (!snap.exists()) return null;
-  const n = snap.data()?.visitCount;
-  return typeof n === 'number' && n >= 0 ? n : null;
+  const cached = visitCountCache.get(id);
+  if (cached) return cached;
+  const pending = (async () => {
+    await ensureFirestoreAuth();
+    const snap = await getDoc(doc(db, 'customers', id));
+    if (!snap.exists()) return null;
+    const n = snap.data()?.visitCount;
+    return typeof n === 'number' && n >= 0 ? n : null;
+  })();
+  visitCountCache.set(id, pending);
+  pending.catch(() => {
+    visitCountCache.delete(id);
+  });
+  return pending;
 }
 
 export function displayPhoneFromAny(phone: string | undefined | null): string {

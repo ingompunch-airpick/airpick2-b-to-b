@@ -159,6 +159,8 @@ service cloud.firestore {
           'createdBy',
           'createdAt',
           'userId',
+          'memberProvider',
+          'userIdLocked',
           'acquisitionSource',
           'acquisitionMedium',
           'acquisitionCampaign',
@@ -166,6 +168,11 @@ service cloud.firestore {
           'affiliateCode',
           'affiliateCustomerDiscountWon',
           'affiliateReferrerCreditWon',
+          'pointSpendWon',
+          'pointSpentWon',
+          'pointsEarnedWon',
+          'pointRefunded',
+          'pointSpendSettled',
         ]);
     }
 
@@ -451,6 +458,76 @@ service cloud.firestore {
             && partnerCanAccessCompany(resource.data.companyId)
           )
         );
+    }
+
+    // ── members (카카오 로그인 회원. 문서 ID = Firebase uid) ─────────────
+    // B2C 내 예약 저장. 배포는 이 저장소에서만 한다.
+
+    function kakaoMemberWriteValid(uid) {
+      let data = request.resource.data;
+      return isSignedIn()
+        && request.auth.uid == uid
+        && request.auth.token.firebase.sign_in_provider == 'oidc.kakao'
+        && data.uid == uid
+        && data.provider == 'kakao'
+        && data.name is string
+        && data.name.size() > 0
+        && data.name.size() <= 40
+        && data.phone is string
+        && data.phone.size() >= 10
+        && data.phone.size() <= 20
+        && data.carNumber is string
+        && data.carNumber.size() <= 20
+        && (!('carModel' in data) || (data.carModel is string && data.carModel.size() <= 40))
+        && data.reservationIds is list
+        && data.reservationIds.size() <= 20
+        && (!('guestPhoneClaimed' in data) || (data.guestPhoneClaimed is string && data.guestPhoneClaimed.size() <= 11))
+        && (!('guestPhoneClaimedAt' in data) || (data.guestPhoneClaimedAt is string && data.guestPhoneClaimedAt.size() <= 40))
+        && (!('marketingOptIn' in data) || data.marketingOptIn is bool)
+        && data.createdAt is string
+        && data.createdAt.size() > 0
+        && data.createdAt.size() <= 40
+        && data.updatedAt is string
+        && data.updatedAt.size() > 0
+        && data.updatedAt.size() <= 40;
+    }
+
+    function memberClaimFieldsUnchanged() {
+      return request.resource.data.reservationIds == resource.data.reservationIds
+        && (
+          !('guestPhoneClaimed' in resource.data)
+            ? !('guestPhoneClaimed' in request.resource.data)
+            : request.resource.data.guestPhoneClaimed == resource.data.guestPhoneClaimed
+        )
+        && (
+          !('guestPhoneClaimedAt' in resource.data)
+            ? !('guestPhoneClaimedAt' in request.resource.data)
+            : request.resource.data.guestPhoneClaimedAt == resource.data.guestPhoneClaimedAt
+        );
+    }
+
+    match /members/{uid} {
+      allow read: if (isSignedIn() && request.auth.uid == uid) || isPlatformAdmin();
+      // 예약 번호와 전화번호 결합 잠금은 Functions만 쓴다. 가입 때는 빈 목록으로 만든다.
+      allow create: if kakaoMemberWriteValid(uid)
+        && request.resource.data.reservationIds.size() == 0
+        && !('guestPhoneClaimed' in request.resource.data)
+        && !('guestPhoneClaimedAt' in request.resource.data);
+      allow update: if kakaoMemberWriteValid(uid)
+        && request.resource.data.createdAt == resource.data.createdAt
+        && memberClaimFieldsUnchanged();
+      allow delete: if isSignedIn() && request.auth.uid == uid;
+    }
+
+    // 포인트 잔액 — 손님은 자기 잔액만 읽고, 적립·사용은 Functions만 쓴다.
+    match /pointAccounts/{uid} {
+      allow read: if (isSignedIn() && request.auth.uid == uid) || isPlatformAdmin();
+      allow write: if false;
+
+      match /entries/{entryId} {
+        allow read: if (isSignedIn() && request.auth.uid == uid) || isPlatformAdmin();
+        allow write: if false;
+      }
     }
   }
 }

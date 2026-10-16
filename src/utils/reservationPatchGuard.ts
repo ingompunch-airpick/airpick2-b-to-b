@@ -108,7 +108,10 @@ export function enrichReservationWritePatch(
      * 이미 받아둔 금액을 0으로 덮으면 확인증·알림톡·정산이 전부 0원이 되므로 유지한다.
      * 금액을 0으로 만들어야 하면 patch.totalPrice 로 명시한다.
      */
-    if (price > 0) out.totalPrice = price;
+    if (price > 0) {
+      const spent = Math.max(0, Math.floor(Number(current.pointSpentWon) || 0));
+      out.totalPrice = Math.max(0, price - spent);
+    }
   }
 
   return out;

@@ -119,9 +119,108 @@ export function sumHomepageVisits(
   }, emptyHomepageVisitTotals());
 }
 
-export const HOMEPAGE_SOURCE_LABELS: { key: keyof Omit<HomepageVisitTotals, 'pageViews'>; label: string }[] = [
+export type HomepageVisitChannel = { key: string; label: string };
+
+/** 아직 업체 설정이 없을 때. 저장한 뒤에는 그 목록만 보여 준다. */
+export const DEFAULT_HOMEPAGE_VISIT_CHANNELS: HomepageVisitChannel[] = [
   { key: 'googleads', label: '구글 광고' },
   { key: 'place', label: '플레이스' },
   { key: 'naverplace', label: '네이버 플레이스' },
-  { key: 'other', label: '그 외' },
 ];
+
+export const HOMEPAGE_CHANNEL_PRESETS: HomepageVisitChannel[] = [
+  ...DEFAULT_HOMEPAGE_VISIT_CHANNELS,
+  { key: 'place2', label: '플레이스 2' },
+  { key: 'powerlink', label: '파워링크' },
+];
+
+const CHANNEL_KEY_RE = /^[a-z0-9_-]{1,40}$/;
+const RESERVED_CHANNEL_KEYS = new Set([
+  'admin',
+  'intro',
+  'guide',
+  'fees',
+  'faq',
+  'assets',
+  'brand',
+  'images',
+  'videos',
+]);
+
+export const HOMEPAGE_PUBLIC_ORIGINS: Record<string, string> = {
+  gayu: 'https://gayouparking.com',
+  hi: 'https://hiairparking.com',
+  season: 'https://www.valetseason.com',
+  wawa: 'https://www.wawavalet.com',
+};
+
+export function homepageChannelUrl(companyId: string, key: string): string {
+  const origin = HOMEPAGE_PUBLIC_ORIGINS[companyId.trim().toLowerCase()];
+  const base = origin || 'https://airpick-partner-homepage.web.app';
+  return `${base}/${key}`;
+}
+
+export function sanitizeHomepageVisitChannels(value: unknown): HomepageVisitChannel[] | null {
+  if (!Array.isArray(value)) return null;
+  const seen = new Set<string>();
+  const out: HomepageVisitChannel[] = [];
+  for (const item of value) {
+    if (!item || typeof item !== 'object') return null;
+    const raw = item as { key?: unknown; label?: unknown };
+    const key = String(raw.key || '').trim().toLowerCase();
+    const label = String(raw.label || '').trim();
+    if (!CHANNEL_KEY_RE.test(key) || RESERVED_CHANNEL_KEYS.has(key)) return null;
+    if (!label || label.length > 24) return null;
+    if (seen.has(key)) return null;
+    seen.add(key);
+    if (out.length >= 8) return null;
+    out.push({ key, label });
+  }
+  return out;
+}
+
+export function channelsFromCounts(counts: Record<string, number>): HomepageVisitChannel[] {
+  const labels = new Map(HOMEPAGE_CHANNEL_PRESETS.map((channel) => [channel.key, channel.label]));
+  const presetOrder = HOMEPAGE_CHANNEL_PRESETS.map((channel) => channel.key);
+  return Object.keys(counts)
+    .filter((key) => (counts[key] || 0) > 0)
+    .sort((a, b) => {
+      const ia = presetOrder.indexOf(a);
+      const ib = presetOrder.indexOf(b);
+      if (ia === -1 && ib === -1) return a < b ? -1 : 1;
+      if (ia === -1) return 1;
+      if (ib === -1) return -1;
+      return ia - ib;
+    })
+    .map((key) => ({ key, label: labels.get(key) || key }));
+}
+
+export function sumHomepageSourceCounts(
+  days: HomepageDayStat[],
+  companyId: string,
+  start: string,
+  end: string
+): { pageViews: number; counts: Record<string, number> } {
+  const counts: Record<string, number> = {};
+  let pageViews = 0;
+  for (const day of days) {
+    if (day.companyId !== companyId) continue;
+    if (day.date < start || day.date > end) continue;
+    pageViews += countFromUnknown(day.pageViews);
+    for (const [key, raw] of Object.entries(day.sources)) {
+      counts[key] = (counts[key] || 0) + countFromUnknown(raw);
+    }
+  }
+  return { pageViews, counts };
+}
+
+/** 만든 항목에 안 들어간 방문. */
+export function homepageOtherCount(
+  pageViews: number,
+  counts: Record<string, number>,
+  channels: HomepageVisitChannel[]
+): number {
+  let named = 0;
+  for (const channel of channels) named += counts[channel.key] || 0;
+  return Math.max(0, pageViews - named);
+}

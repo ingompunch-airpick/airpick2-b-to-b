@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   Coins, 
   Power, 
@@ -34,7 +34,7 @@ import {
   fetchCompanyMonthSnapshot,
 } from '../lib/companyMonthSnapshot';
 import type { HqMonthLedger } from '../lib/hqMonthLedgerApi';
-import { computeReservationVisitOrdinal, fetchCustomerVisitCount } from '../lib/customerVisit';
+import CustomerVisitBadge from './CustomerVisitBadge';
 import DateNavBar from './DateNavBar';
 import {
   aggregateGroupedBookingSourceMetrics,
@@ -60,47 +60,6 @@ import {
   resolveOperatorBrandLabel,
 } from '../utils/operatorBrandLabel';
 
-function CustomerVisitBadge({
-  reservation,
-  pool,
-}: {
-  reservation: Reservation;
-  pool: Reservation[];
-}) {
-  const ordinal = useMemo(
-    () => computeReservationVisitOrdinal(reservation, pool),
-    [reservation, pool]
-  );
-  const [fallbackCount, setFallbackCount] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (ordinal != null) {
-      setFallbackCount(null);
-      return;
-    }
-    let cancelled = false;
-    setFallbackCount(null);
-    void fetchCustomerVisitCount(reservation.phone)
-      .then((count) => {
-        if (!cancelled) setFallbackCount(count);
-      })
-      .catch(() => {
-        if (!cancelled) setFallbackCount(null);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [ordinal, reservation.phone]);
-
-  const visitCount = ordinal ?? fallbackCount;
-  if (visitCount == null || visitCount < 1) return null;
-
-  return (
-    <span className="inline-flex shrink-0 rounded-md border border-emerald-500/20 bg-emerald-500/10 px-1.5 py-0.5 align-middle text-[10px] font-black text-emerald-400">
-      방문 {visitCount}회
-    </span>
-  );
-}
 import CustomDatePickerModal from './CustomDatePickerModal';
 
 function reservationDepartureOn(r: Reservation, ymd: string): boolean {

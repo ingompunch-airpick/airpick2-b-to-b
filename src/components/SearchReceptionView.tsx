@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
   ArrowLeft,
   Search, 
@@ -774,6 +774,7 @@ export default function SearchReceptionView({
                       setSelectedParkingSpace={setSelectedParkingSpace}
                       showCompanyLabel={showCompanyLabel}
                       companies={companies}
+                      visitPool={reservations}
                     />
                   ))}
                 </div>
