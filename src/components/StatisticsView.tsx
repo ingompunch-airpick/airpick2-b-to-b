@@ -146,8 +146,10 @@ export default function StatisticsView({
     companyId: string;
     status: 'loading' | 'ready' | 'missing';
     revenue: number;
+    reserved: number;
     admitted: number;
     settled: number;
+    cancelled: number;
     airpick: number;
     homepage: number;
     onsite: number;
@@ -257,8 +259,10 @@ export default function StatisticsView({
       companyId,
       status: 'loading',
       revenue: 0,
+      reserved: 0,
       admitted: 0,
       settled: 0,
+      cancelled: 0,
       airpick: 0,
       homepage: 0,
       onsite: 0,
@@ -271,8 +275,10 @@ export default function StatisticsView({
           companyId,
           status: row ? 'ready' : 'missing',
           revenue: row?.revenue || 0,
+          reserved: row?.reserved || 0,
           admitted: row?.admitted || 0,
           settled: row?.settled || 0,
+          cancelled: row?.cancelled || 0,
           airpick: row?.airpick || 0,
           homepage: row?.homepage || 0,
           onsite: row?.onsite || 0,
@@ -285,8 +291,10 @@ export default function StatisticsView({
             companyId,
             status: 'missing',
             revenue: 0,
+            reserved: 0,
             admitted: 0,
             settled: 0,
+            cancelled: 0,
             airpick: 0,
             homepage: 0,
             onsite: 0,
@@ -755,10 +763,14 @@ export default function StatisticsView({
   const totalCancelled = reservations.filter(
     (r) => r.status === 'cancelled' && reservationCancelledOnMonth(r, summaryMonthPrefix, salesMonthThrough)
   ).length;
+  const shownMonthReserved =
+    pastCompanySnap?.status === 'ready' ? pastCompanySnap.reserved : totalReserved;
   const shownMonthAdmitted =
     pastCompanySnap?.status === 'ready' ? pastCompanySnap.admitted : totalAdmitted;
   const shownMonthExited =
     pastCompanySnap?.status === 'ready' ? pastCompanySnap.settled : totalExited;
+  const shownMonthCancelled =
+    pastCompanySnap?.status === 'ready' ? pastCompanySnap.cancelled : totalCancelled;
   const summaryMonthMax = todayStr.substring(0, 7);
   const canGoNextSummary = summaryMonthPrefix < summaryMonthMax;
 
@@ -1167,7 +1179,7 @@ export default function StatisticsView({
               {monthLabelFromPrefix(summaryMonthPrefix)}
               {summaryMonthPrefix === currentMonthPrefix
                 ? ' · 총 예약은 접수일, 입고·출고는 예정일'
-                : ' · 총 예약은 그달 접수일'}
+                : ' · 시트에 적어 둔 합계'}
             </p>
           </div>
 
@@ -1182,7 +1194,7 @@ export default function StatisticsView({
             <div className="col-span-3 bg-[#1C1C1E] border border-neutral-800/40 rounded-2xl p-3 grid grid-cols-4 gap-1 items-center">
               <div className="text-center">
                 <span className="text-[10px] text-zinc-500 font-bold block tracking-wider leading-tight">총 예약</span>
-                <span className="text-sm font-black text-white font-mono">{totalReserved}</span>
+                <span className="text-sm font-black text-white font-mono">{shownMonthReserved}</span>
               </div>
               <div className="text-center border-l border-neutral-800/60">
                 <span className="text-[10px] text-zinc-500 font-bold block tracking-wider leading-tight">총 입고</span>
@@ -1194,7 +1206,7 @@ export default function StatisticsView({
               </div>
               <div className="text-center border-l border-neutral-800/60">
                 <span className="text-[10px] text-zinc-500 font-bold block tracking-wider leading-tight">취소</span>
-                <span className="text-sm font-black text-rose-400 font-mono">{totalCancelled}</span>
+                <span className="text-sm font-black text-rose-400 font-mono">{shownMonthCancelled}</span>
               </div>
             </div>
           </div>

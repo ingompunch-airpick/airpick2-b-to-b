@@ -132,6 +132,8 @@ export interface Company {
   parentCompanyId?: string;
   /** 본사 계정 가동 상태 (정지 시 파트너 로그인 차단) */
   status?: 'active' | 'suspended';
+  /** 본사 업체 선택·가맹 목록 표시 순서 (작을수록 위) */
+  hqListOrder?: number;
   /**
    * 입점업체 마케팅 홈 (airpick-partner-homepage).
    * 요금·예약제한은 companies 루트 필드가 정본 — 여기는 소개/FAQ 등.

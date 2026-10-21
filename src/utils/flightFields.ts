@@ -23,14 +23,65 @@ function asRecord(value: unknown): Record<string, unknown> | undefined {
     : undefined;
 }
 
-export const DEFAULT_AIRLINES = [
-  '대한항공',
-  '아시아나항공',
-  '진에어',
-  '제주항공',
-  '티웨이항공',
-  '에어부산',
-] as const;
+/** B2C 예약과 같은 인천 취항 목록. 홈 예약·접수 셀렉트가 같이 쓴다. */
+export const AIRLINE_GROUPS: { label: string; names: readonly string[] }[] = [
+  {
+    label: '국내 항공사',
+    names: [
+      '대한항공',
+      '아시아나항공',
+      '진에어',
+      '제주항공',
+      '티웨이항공',
+      '에어부산',
+      '에어서울',
+      '이스타항공',
+      '에어프레미아',
+    ],
+  },
+  {
+    label: '국제선',
+    names: [
+      '베트남항공',
+      '싱가포르항공',
+      '일본항공',
+      '전일본항공',
+      '중국국제항공',
+      '중국동방항공',
+      '중국남방항공',
+      '태국항공',
+      '캐세이퍼시픽',
+      '홍콩항공',
+      '에바항공',
+      '중화항공',
+      '필리핀항공',
+      '세부퍼시픽',
+      '말레이시아항공',
+      '가루다인도네시아',
+      '카타르항공',
+      '에미레이트항공',
+      '에티하드항공',
+      '터키항공',
+      '델타항공',
+      '유나이티드항공',
+      '아메리칸항공',
+      '에어캐나다',
+      '에어프랑스',
+      '루프트한자',
+      '영국항공',
+    ],
+  },
+];
+
+export const DEFAULT_AIRLINES = AIRLINE_GROUPS.flatMap((group) => group.names);
+
+/** 공항 조회 항공사명을 목록 이름에 맞춘다. 없으면 조회값을 그대로 둔다. */
+export function matchAirlineName(raw: string): string {
+  const cleaned = normalizeAirlineName(raw).replace(/\s+/g, '');
+  if (!cleaned) return '';
+  const exact = DEFAULT_AIRLINES.find((name) => name.replace(/\s+/g, '') === cleaned);
+  return exact || normalizeAirlineName(raw);
+}
 
 /** 셀렉트에서 「기타」 선택 시 내부 값 */
 export const OTHER_AIRLINE_VALUE = '__other__';

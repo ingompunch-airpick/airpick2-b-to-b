@@ -1,6 +1,19 @@
 import { buildReceiptUrl } from '../alimtalk/receiptUrl';
 import { bookingSourceLabel, resolveBookingSource } from './bookingSource';
+import { normalizePhoneDigits } from '../customerVisit';
 import { SHEET_HEADERS } from './constants';
+
+/** 시트 연락처 — 하이픈을 붙여 숫자로 읽히며 앞 0이 빠지지 않게 한다. */
+function formatSheetPhone(phone: unknown): string {
+  const digits = normalizePhoneDigits(phone);
+  if (digits.length === 11) {
+    return `${digits.slice(0, 3)}-${digits.slice(3, 7)}-${digits.slice(7)}`;
+  }
+  if (digits.length === 10) {
+    return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
+  }
+  return typeof phone === 'string' ? phone.trim() : '';
+}
 
 export type SheetRowExtras = {
   visitCount?: number | null;
@@ -98,7 +111,7 @@ export function buildReservationSheetRow(
     유입: bookingSourceLabel(source),
     업체ID: str(data.companyId, ''),
     고객명: str(data.userName, ''),
-    연락처: str(data.phone, ''),
+    연락처: formatSheetPhone(data.phone) || str(data.phone, ''),
     차량번호: str(data.carNumber, ''),
     차종: str(data.carModel, ''),
     입차예정: formatSchedule(data.departureDate, data.departureTime),

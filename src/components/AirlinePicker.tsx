@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import {
-  DEFAULT_AIRLINES,
+  AIRLINE_GROUPS,
   OTHER_AIRLINE_VALUE,
   isListedAirline,
 } from '../utils/flightFields';
@@ -77,10 +77,14 @@ export default function AirlinePicker({
         className={selectClass}
       >
         {allowEmpty ? <option value="">{emptyLabel}</option> : null}
-        {DEFAULT_AIRLINES.map((name) => (
-          <option key={name} value={name}>
-            {name}
-          </option>
+        {AIRLINE_GROUPS.map((group) => (
+          <optgroup key={group.label} label={group.label}>
+            {group.names.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </optgroup>
         ))}
         <option value={OTHER_AIRLINE_VALUE}>기타 (직접 입력)</option>
       </select>

@@ -15,6 +15,7 @@ import { AIRPICK_HQ_ID, isAirpickHeadquarters } from '../constants/platform';
 import { ensureFirestoreAuth, ensurePlatformAdminAuth } from '../lib/firebaseAuth';
 import { normalizeScheduleBlocks, type ScheduleBlockRule } from '../utils/scheduleBlock';
 import { normalizeBookingLeadHours } from '../utils/bookingLead';
+import { sortCompaniesByHqListOrder } from '../utils/hqCompanyOrder';
 
 const DEFAULT_PARTNERS: PartnerCompany[] = [];
 
@@ -105,7 +106,7 @@ export function useCompanies({
 
   const getDropdownOptions = useCallback(() => {
     const options = [{ id: AIRPICK_HQ_ID, name: '에어픽' }];
-    (companies || []).forEach((c) => {
+    sortCompaniesByHqListOrder(companies || []).forEach((c) => {
       if (c.id && !isAirpickHeadquarters(c.id)) {
         options.push({
           id: c.id,

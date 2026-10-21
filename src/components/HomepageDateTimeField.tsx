@@ -65,7 +65,15 @@ function optionsFor(part: Part, current: Parts, minValue?: string): { value: num
   if (part === 'hour') {
     return Array.from({ length: 24 }, (_, value) => ({ value, label: hourText(value) }));
   }
-  return Array.from({ length: 60 }, (_, value) => ({ value, label: pad(value) }));
+  return Array.from({ length: 12 }, (_, i) => {
+    const value = i * 5;
+    return { value, label: pad(value) };
+  });
+}
+
+function nearestMinute(minute: number): number {
+  const rounded = Math.round(minute / 5) * 5;
+  return rounded >= 60 ? 0 : rounded;
 }
 
 export default function HomepageDateTimeField({
@@ -78,6 +86,7 @@ export default function HomepageDateTimeField({
   onChange: (value: string) => void;
 }) {
   const [open, setOpen] = useState<Part | null>(null);
+  const [openUp, setOpenUp] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const parsed = parseLocal(value);
@@ -92,9 +101,16 @@ export default function HomepageDateTimeField({
   }, [open]);
 
   useEffect(() => {
+    if (!open || !rootRef.current) return;
+    const rect = rootRef.current.getBoundingClientRect();
+    const menuHeight = open === 'hour' ? 250 : open === 'minute' ? 150 : 220;
+    setOpenUp(window.innerHeight - rect.bottom < menuHeight + 24);
+  }, [open]);
+
+  useEffect(() => {
     const list = listRef.current;
     const selected = list?.querySelector('[data-selected="true"]') as HTMLElement | null;
-    if (!list || !selected) return;
+    if (!list || !selected || open === 'hour' || open === 'minute') return;
     list.scrollTop = selected.offsetTop - list.clientHeight / 2 + selected.clientHeight / 2;
   }, [open]);
 
@@ -111,7 +127,7 @@ export default function HomepageDateTimeField({
     if (part === 'month') return parsed.m;
     if (part === 'day') return parsed.d;
     if (part === 'hour') return parsed.h;
-    return parsed.min;
+    return nearestMinute(parsed.min);
   };
 
   const buttonLabel = (part: Part) => {
@@ -145,19 +161,28 @@ export default function HomepageDateTimeField({
       {open ? (
         <div
           ref={listRef}
-          className="absolute left-0 z-50 mt-1 max-h-52 w-28 overflow-y-auto rounded-xl border border-stone-200 bg-white py-1 shadow-lg"
+          className={`absolute z-50 rounded-xl border border-stone-200 bg-white shadow-lg ${
+            openUp ? 'bottom-full mb-1' : 'top-full mt-1'
+          } ${
+            open === 'hour' || open === 'minute'
+              ? 'left-0 right-0 grid grid-cols-4 gap-1 p-1.5'
+              : 'left-0 max-h-52 w-28 overflow-y-auto py-1'
+          }`}
         >
           {optionsFor(open, parsed, min).map((option) => {
             const selected = option.value === currentNumber(open);
+            const timePart = open === 'hour' || open === 'minute';
             return (
               <button
                 key={option.value}
                 type="button"
                 data-selected={selected ? 'true' : 'false'}
                 onClick={() => choose(open, option.value)}
-                className={`block w-full px-3 py-1.5 text-left text-sm font-semibold tabular-nums ${
-                  selected ? 'bg-stone-900 text-white' : 'text-stone-800 hover:bg-stone-100'
-                }`}
+                className={`font-semibold tabular-nums ${
+                  timePart
+                    ? 'rounded-lg px-1 py-2 text-center text-[13px]'
+                    : 'block w-full px-3 py-1.5 text-left text-sm'
+                } ${selected ? 'bg-stone-900 text-white' : 'text-stone-800 hover:bg-stone-100'}`}
               >
                 {option.label}
               </button>

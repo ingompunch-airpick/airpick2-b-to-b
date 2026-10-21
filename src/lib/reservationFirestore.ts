@@ -2,7 +2,7 @@ import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import type { Company, Reservation } from '../types';
 import { ensureFirestoreAuth } from './firebaseAuth';
-import { normalizePhoneDigits } from '../utils/phone';
+import { formatPhoneDisplay } from '../utils/phone';
 import { enrichReservationWritePatch } from '../utils/reservationPatchGuard';
 
 export { ensureFirestoreAuth, ensurePlatformAdminAuth } from './firebaseAuth';
@@ -23,11 +23,12 @@ export function stripUndefinedFields<T extends Record<string, unknown>>(obj: T):
   return out;
 }
 
+/** 시트·화면 모두 010-1234-1234. 숫자만 넣어도 하이픈을 붙인다. */
 function withNormalizedPhone<T extends Record<string, unknown>>(payload: T): T {
   if (typeof payload.phone !== 'string') return payload;
-  const digits = normalizePhoneDigits(payload.phone);
-  if (!digits) return payload;
-  return { ...payload, phone: digits };
+  const formatted = formatPhoneDisplay(payload.phone);
+  if (!formatted || formatted === '-') return payload;
+  return { ...payload, phone: formatted };
 }
 
 export async function persistReservation(

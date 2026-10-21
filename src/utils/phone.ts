@@ -13,7 +13,15 @@ export function normalizePhoneDigits(phone: string | undefined | null): string {
   return digits;
 }
 
-/** 화면 표시용 010-1234-5678 */
+/** 입력 중 하이픈 — 01012341234 → 010-1234-1234 */
+export function formatPhoneInput(raw: string): string {
+  const d = raw.replace(/\D/g, '').slice(0, 11);
+  if (d.length <= 3) return d;
+  if (d.length <= 7) return `${d.slice(0, 3)}-${d.slice(3)}`;
+  return `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`;
+}
+
+/** 화면·시트·저장용 010-1234-5678. 숫자만 쳐도 하이픈을 붙인다. */
 export function formatPhoneDisplay(phone: string | undefined | null): string {
   const digits = normalizePhoneDigits(phone);
   if (digits.length === 11) {
@@ -25,7 +33,8 @@ export function formatPhoneDisplay(phone: string | undefined | null): string {
   return (phone || '').trim() || '-';
 }
 
+/** 휴대전화만 — 010 뒤 8자리(합 11자리). 7자리만 적은 번호는 막는다. */
 export function isValidMobilePhone(phone: string | undefined | null): boolean {
   const d = normalizePhoneDigits(phone);
-  return d.length >= 10 && d.length <= 11 && d.startsWith('01');
+  return d.length === 11 && d.startsWith('01');
 }

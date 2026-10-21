@@ -3,10 +3,10 @@ import * as admin from 'firebase-admin';
 /** 사용 단위. 클라이언트 접수 화면과 같아야 한다. */
 export const POINT_STEP_WON = 5000;
 
-/** 출고 완료 금액의 3%. 원 단위 미만은 버린다. */
+/** 출고 완료 금액의 5%. 원 단위 미만은 버린다. */
 export function pointsEarnedWon(totalPrice: number): number {
   const total = Math.max(0, Math.floor(Number(totalPrice) || 0));
-  return Math.floor((total * 3) / 100);
+  return Math.floor((total * 5) / 100);
 }
 
 function kakaoUid(data: FirebaseFirestore.DocumentData): string | null {

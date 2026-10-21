@@ -127,6 +127,13 @@ export const adminUpsertCompany = onCall(
       if ('homepageVisitChannels' in patch) {
         patch.homepageVisitChannels = sanitizeHomepageVisitChannels(patch.homepageVisitChannels);
       }
+      if ('hqListOrder' in patch) {
+        const order = Math.floor(Number(patch.hqListOrder));
+        if (!Number.isFinite(order) || order < 0 || order > 99999) {
+          throw new HttpsError('invalid-argument', 'hqListOrder는 0–99999 숫자여야 합니다.');
+        }
+        patch.hqListOrder = order;
+      }
       const password = extractPassword(patch);
       const snap = await ref.get();
       if (!snap.exists) {

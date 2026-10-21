@@ -43,13 +43,27 @@ type LedgerRow = {
   /** 예약·입고요청. 아직 입고 전이다. */
   booked: boolean;
   settled: boolean;
+  cancelled: boolean;
   source: 'airpick' | 'homepage' | 'onsite';
   companyId: string;
   customerKey: string;
+  /** 예약일시. ISO는 한국 날짜로 자른다. */
+  createdYmd: string;
   departureYmd: string;
   exitYmd: string;
   scheduledExitYmd: string;
   price: number;
+};
+
+export type CompanyMonthStat = {
+  reserved: number;
+  admitted: number;
+  exited: number;
+  cancelled: number;
+  revenue: number;
+  airpick: number;
+  homepage: number;
+  onsite: number;
 };
 
 function quoteTab(tabName: string): string {
@@ -68,6 +82,39 @@ function ymdFromCell(value: unknown): string {
     return `${monthFirst[3]}-${monthFirst[1].padStart(2, '0')}-${monthFirst[2].padStart(2, '0')}`;
   }
   return '';
+}
+
+/**
+ * 예전 와와 행은 출차예정 칸에 T1·T2가 있고, 출차 시각은 여행지 칸에 있다.
+ * 입차예정일보다 앞선 시각은 출고로 세지 않는다.
+ */
+function shiftedExitYmd(scheduledRaw: unknown, destinationRaw: unknown, departureYmd: string): string {
+  const scheduled = String(scheduledRaw ?? '').trim();
+  if (!/^T\d$/i.test(scheduled)) return '';
+  if (ymdFromCell(scheduledRaw)) return '';
+  const exit = ymdFromCell(destinationRaw);
+  if (!exit) return '';
+  if (departureYmd && exit < departureYmd) return '';
+  return exit;
+}
+
+/**
+ * 예전 와와 행은 출차예정 칸에 T1·T2가 있고, 예약 시각은 출국항공사 칸에 있다.
+ */
+function shiftedCreatedYmd(scheduledRaw: unknown, createdRaw: unknown): string {
+  const scheduled = String(scheduledRaw ?? '').trim();
+  if (!/^T\d$/i.test(scheduled) || ymdFromCell(scheduledRaw)) return '';
+  return createdYmdFromCell(createdRaw);
+}
+function createdYmdFromCell(value: unknown): string {
+  const text = String(value ?? '').trim();
+  if (/^\d{4}-\d{2}-\d{2}T/.test(text)) {
+    const parsed = Date.parse(text);
+    if (!Number.isNaN(parsed)) {
+      return new Date(parsed + 9 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    }
+  }
+  return ymdFromCell(text);
 }
 
 function priceFromCell(value: unknown): number {
@@ -140,20 +187,27 @@ export function ledgerRowsFromSheetValues(values: unknown[][], tabName = ''): Le
     const id = String(col(raw, '예약ID') ?? '').trim();
     if (!id || id === '예약ID') continue;
     const status = String(col(raw, '상태') ?? '').trim();
-    if (status === '취소') continue;
+    const cancelled = status === '취소';
     const phone = phoneKey(col(raw, '연락처'));
-    const exitYmd = ymdFromCell(col(raw, '출차일시')) || ymdFromCell(col(raw, '출차예정'));
+    const departureYmd = ymdFromCell(col(raw, '입차예정'));
+    const scheduledRaw = col(raw, '출차예정');
+    const scheduledExitYmd =
+      ymdFromCell(scheduledRaw) || shiftedExitYmd(scheduledRaw, col(raw, '여행지'), departureYmd);
+    const exitYmd = ymdFromCell(col(raw, '출차일시')) || scheduledExitYmd;
     rows.push({
       id,
-      admitted: ADMITTED.has(status),
-      booked: BOOKED.has(status),
-      settled: status === '출차',
+      admitted: !cancelled && ADMITTED.has(status),
+      booked: !cancelled && BOOKED.has(status),
+      settled: !cancelled && status === '출차',
+      cancelled,
       source: sourceFromCell(col(raw, '유입')),
       companyId: companyIdFromCell(col(raw, '업체ID'), tabName),
       customerKey: customerKey(phone, col(raw, '고객명'), id),
-      departureYmd: ymdFromCell(col(raw, '입차예정')),
+      createdYmd:
+        createdYmdFromCell(col(raw, '예약일시')) || shiftedCreatedYmd(scheduledRaw, col(raw, '출국항공사')),
+      departureYmd,
       exitYmd,
-      scheduledExitYmd: ymdFromCell(col(raw, '출차예정')),
+      scheduledExitYmd,
       price: priceFromLedgerCells(col(raw, '금액'), col(raw, '입국T')),
     });
   }
@@ -173,12 +227,82 @@ function emptyCompany(id: string): HqLedgerCompany {
   };
 }
 
-export function aggregateHqMonthLedger(rows: LedgerRow[], month: string): HqMonthLedger {
+function uniqueLedgerRows(rows: LedgerRow[]): LedgerRow[] {
   const byId = new Map<string, LedgerRow>();
   for (const row of rows) {
-    if (!byId.has(row.id)) byId.set(row.id, row);
+    const prev = byId.get(row.id);
+    if (!prev || (prev.cancelled && !row.cancelled)) byId.set(row.id, row);
   }
-  const unique = [...byId.values()];
+  return [...byId.values()];
+}
+
+function emptyMonthStat(): CompanyMonthStat {
+  return {
+    reserved: 0,
+    admitted: 0,
+    exited: 0,
+    cancelled: 0,
+    revenue: 0,
+    airpick: 0,
+    homepage: 0,
+    onsite: 0,
+  };
+}
+
+/**
+ * 업체 월 실적. 취소가 아닌 행만 예약일시·입차예정·출차예정으로 센다.
+ * 취소는 입차예정이 있으면 그달, 없으면 예약일시의 달.
+ */
+export function companyMonthStats(rows: LedgerRow[]): Record<string, Record<string, CompanyMonthStat>> {
+  const byMonth = new Map<string, Map<string, CompanyMonthStat>>();
+  const bump = (month: string, companyId: string): CompanyMonthStat | null => {
+    if (!/^\d{4}-\d{2}$/.test(month) || !companyId || companyId === 'unknown') return null;
+    let companies = byMonth.get(month);
+    if (!companies) {
+      companies = new Map();
+      byMonth.set(month, companies);
+    }
+    let stat = companies.get(companyId);
+    if (!stat) {
+      stat = emptyMonthStat();
+      companies.set(companyId, stat);
+    }
+    return stat;
+  };
+
+  for (const row of uniqueLedgerRows(rows)) {
+    if (row.cancelled) {
+      const when = row.departureYmd || row.createdYmd;
+      const stat = bump(when.slice(0, 7), row.companyId);
+      if (stat) stat.cancelled += 1;
+      continue;
+    }
+    const reserved = bump(row.createdYmd.slice(0, 7), row.companyId);
+    if (reserved) reserved.reserved += 1;
+    const admitted = bump(row.departureYmd.slice(0, 7), row.companyId);
+    if (admitted) {
+      admitted.admitted += 1;
+      admitted.revenue += row.price;
+      if (row.source === 'airpick') admitted.airpick += 1;
+      else if (row.source === 'homepage') admitted.homepage += 1;
+      else admitted.onsite += 1;
+    }
+    const exited =
+      row.admitted || row.booked
+        ? bump(row.scheduledExitYmd.slice(0, 7), row.companyId)
+        : null;
+    if (exited) exited.exited += 1;
+  }
+
+  const result: Record<string, Record<string, CompanyMonthStat>> = {};
+  for (const [month, companies] of byMonth) {
+    result[month] = Object.fromEntries(companies);
+  }
+  return result;
+}
+
+export function aggregateHqMonthLedger(rows: LedgerRow[], month: string): HqMonthLedger {
+  const unique = uniqueLedgerRows(rows).filter((row) => !row.cancelled);
   const monthStart = `${month}-01`;
 
   const before = new Set<string>();
@@ -295,13 +419,9 @@ async function readSpreadsheetRows(
 }
 
 export function admittedVisits(rows: LedgerRow[]): LedgerVisit[] {
-  const byId = new Map<string, LedgerRow>();
-  for (const row of rows) {
-    if (!byId.has(row.id)) byId.set(row.id, row);
-  }
   const visits: LedgerVisit[] = [];
-  for (const row of byId.values()) {
-    if (!(row.admitted || row.booked) || !row.departureYmd) continue;
+  for (const row of uniqueLedgerRows(rows)) {
+    if (row.cancelled || !(row.admitted || row.booked) || !row.departureYmd) continue;
     visits.push({ k: row.customerKey, d: row.departureYmd, a: row.admitted });
   }
   return visits;
@@ -319,6 +439,7 @@ function monthsInRows(rows: LedgerRow[]): string[] {
 export type HqLedgerBundle = {
   months: Record<string, HqMonthLedger>;
   visits: LedgerVisit[];
+  companyMonths: Record<string, Record<string, CompanyMonthStat>>;
 };
 
 export async function loadHqLedgerBundle(config: {
@@ -343,5 +464,5 @@ export async function loadHqLedgerBundle(config: {
   for (const month of monthsInRows(rows)) {
     months[month] = aggregateHqMonthLedger(rows, month);
   }
-  return { months, visits: admittedVisits(rows) };
+  return { months, visits: admittedVisits(rows), companyMonths: companyMonthStats(rows) };
 }

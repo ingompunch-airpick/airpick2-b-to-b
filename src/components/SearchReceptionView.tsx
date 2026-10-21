@@ -42,6 +42,7 @@ function cn(...classes: (string | boolean | undefined)[]) {
 }
 
 import AirlinePicker from './AirlinePicker';
+import { formatPhoneInput, isValidMobilePhone } from '../utils/phone';
 
 import {
   bookingSourceBadgeClass,
@@ -305,6 +306,11 @@ export default function SearchReceptionView({
       setIsSubmittingBooking(false);
       return;
     }
+    if (!isValidMobilePhone(phone)) {
+      alert('휴대폰 번호 11자리를 입력해 주세요. (예: 010-1234-5678)');
+      setIsSubmittingBooking(false);
+      return;
+    }
     let partnerObj = companies.find(c => c.id === activeCompId);
     if (!partnerObj) {
       try {
@@ -564,6 +570,11 @@ export default function SearchReceptionView({
     const totalPrice = editSearchedPriceManual
       ? Math.max(0, Math.round(Number(editSearchedTotalPrice) || 0))
       : computedPrice;
+
+    if (!isValidMobilePhone(editSearchedPhone)) {
+      alert('휴대폰 번호 11자리를 입력해 주세요. (예: 010-1234-5678)');
+      return;
+    }
 
     const updatePayload: Partial<Reservation> = {
       userName: editSearchedUserName.trim(),
@@ -853,8 +864,9 @@ export default function SearchReceptionView({
                 required
                 type="text"
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                onChange={(e) => setPhone(formatPhoneInput(e.target.value))}
                 placeholder="010-1234-5678"
+                inputMode="tel"
                 className="w-full px-3 py-2 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-100 outline-none focus:border-amber-500 font-mono"
               />
             </div>
@@ -1316,7 +1328,8 @@ export default function SearchReceptionView({
                   <input 
                     type="text" 
                     value={editSearchedPhone}
-                    onChange={e => setEditSearchedPhone(e.target.value)}
+                    onChange={(e) => setEditSearchedPhone(formatPhoneInput(e.target.value))}
+                    inputMode="tel"
                     className="w-full px-3 py-2 bg-neutral-955 border border-neutral-800 rounded-xl text-zinc-200 font-bold focus:border-amber-500 outline-none"
                   />
                 </div>

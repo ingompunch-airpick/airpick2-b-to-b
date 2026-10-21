@@ -10,6 +10,7 @@ import { RESERVATION_CREATED_BY } from '../utils/bookingSource';
 import { formatPartnerDisplayName } from '../utils/companyDisplay';
 import { companyParkingTypeAvailability } from '../utils/companyProfile';
 import AirlinePicker from '../components/AirlinePicker';
+import { matchAirlineName } from '../utils/flightFields';
 import HomepageDateTimeField from '../components/HomepageDateTimeField';
 import { BOOKING_CLOSED_MESSAGE } from '../utils/bookingClosedMessage';
 import { checkHomepageBookingPolicy } from '../utils/homepageBookingPolicy';
@@ -53,6 +54,7 @@ import {
   markAcquisitionLanded,
   validateAcquisitionForBooking,
 } from '../lib/acquisitionFirestore';
+import { formatPhoneInput, isValidMobilePhone } from '../utils/phone';
 
 type Terminal = string;
 
@@ -80,12 +82,6 @@ function capacityNote(
   return text ? { text, error: false } : null;
 }
 
-function formatPhoneInput(raw: string): string {
-  const d = raw.replace(/\D/g, '').slice(0, 11);
-  if (d.length <= 3) return d;
-  if (d.length <= 7) return `${d.slice(0, 3)}-${d.slice(3)}`;
-  return `${d.slice(0, 3)}-${d.slice(3, 7)}-${d.slice(7)}`;
-}
 
 function splitLocal(value: string): { date: string; time: string } {
   const [date = '', time = ''] = value.split('T');
@@ -119,7 +115,6 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
   const [arrivalFlight, setArrivalFlight] = useState('');
   const [destination, setDestination] = useState('');
   const [customerNotes, setCustomerNotes] = useState('');
-  const [reservationPassword, setReservationPassword] = useState('');
 
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
@@ -240,6 +235,10 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
 
         setArrLocal((prev) => applyTimeToDateTimeLocal(prev, time));
         if (res.data.terminal) setArrivalTerminal(res.data.terminal);
+        if (res.data.airline) {
+          const airline = matchAirlineName(res.data.airline);
+          if (airline) setArrivalAirline(airline);
+        }
         const origin = res.data.origin ? ` · ${res.data.origin}` : '';
         setArrivalFlightHint(
           `공항 예정 도착 ${time}${origin} 반영 · 필요하면 직접 수정하세요`
@@ -381,14 +380,11 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
 
   const validate = (): string | null => {
     if (!userName.trim()) return '예약자 이름을 입력해 주세요.';
-    if (!phone.trim() || phone.replace(/\D/g, '').length < 10) {
-      return '연락처를 올바르게 입력해 주세요.';
+    if (!isValidMobilePhone(phone)) {
+      return '휴대폰 번호 11자리를 입력해 주세요. (예: 010-1234-5678)';
     }
     if (!carModel.trim()) return '차량 모델을 입력해 주세요.';
     if (!carNumber.trim()) return '차량번호를 입력해 주세요.';
-    if (!/^\d{4}$/.test(reservationPassword.trim())) {
-      return '예약 비밀번호는 숫자 4자리입니다.';
-    }
     if (!dep.date || !arr.date || !dep.time || !arr.time) {
       return '입고·출고 일정을 선택해 주세요.';
     }
@@ -496,7 +492,6 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
         departureFlight: departureFlight.trim().toUpperCase(),
         arrivalAirline: arrivalAirline.trim(),
         arrivalFlight: arrivalFlight.trim().toUpperCase(),
-        reservationPassword: reservationPassword.trim(),
         ...(destination.trim() ? { destination: destination.trim() } : {}),
         ...(customerNotes.trim()
           ? { customerNotes: customerNotes.trim(), userRequest: customerNotes.trim() }
@@ -820,26 +815,11 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
               ) : null}
             </FormRow>
 
-            {/* 부가 */}
-            <FormRow label="예약비번" required>
-              <div className="space-y-1.5">
-                <input
-                  value={reservationPassword}
-                  onChange={(e) =>
-                    setReservationPassword(e.target.value.replace(/\D/g, '').slice(0, 4))
-                  }
-                  placeholder="취소용 숫자 4자리"
-                  inputMode="numeric"
-                  className={inputClass}
-                  required
-                />
-              </div>
-            </FormRow>
             <FormRow label="여행지">
               <input
                 value={destination}
                 onChange={(e) => setDestination(e.target.value)}
-                placeholder="예: 오사카 (선택)"
+                placeholder="예: 오사카"
                 className={inputClass}
               />
             </FormRow>

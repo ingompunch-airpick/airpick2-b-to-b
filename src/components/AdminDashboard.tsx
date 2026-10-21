@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { 
   Edit, 
@@ -6,6 +6,8 @@ import {
   PlusCircle, 
   X,
   Globe,
+  ChevronUp,
+  ChevronDown,
 } from 'lucide-react';
 import { auth } from '../firebase';
 import { Company, Reservation, PartnerCompany } from '../types';
@@ -44,6 +46,7 @@ import {
   isSubOperatorLoginBlocked,
   resolveOperatorCompanyIds,
 } from '../utils/operatorHierarchy';
+import { sortByCompanyHqListOrder } from '../utils/hqCompanyOrder';
 import PartnerProfileFormFields from './PartnerProfileFormFields';
 import {
   applyPartnerProfileToCompany,
@@ -208,15 +211,64 @@ export default function AdminDashboard({
     kind: 'partner' | 'sub';
   } | null>(null);
   const [deletingPartner, setDeletingPartner] = useState(false);
+  const [reorderingId, setReorderingId] = useState<string | null>(null);
 
-  const primaryPartners = (partners || []).filter((p) => {
-    if (!p?.companyId) return false;
-    const company = companies.find((c) => c.id === p.companyId);
-    return !isSubOperatorCompany(company);
-  });
+  const primaryPartners = useMemo(() => {
+    const list = (partners || []).filter((p) => {
+      if (!p?.companyId) return false;
+      const company = companies.find((c) => c.id === p.companyId);
+      return !isSubOperatorCompany(company);
+    });
+    return sortByCompanyHqListOrder(list, companies || [], (p) => p.companyId);
+  }, [partners, companies]);
   const primaryCandidates = getPrimaryOperatorCandidates(companies || [], primaryPartners);
-  const subCompanies = (companies || []).filter((c) => isSubOperatorCompany(c));
+  const subCompanies = useMemo(
+    () =>
+      sortByCompanyHqListOrder(
+        (companies || []).filter((c) => isSubOperatorCompany(c)),
+        companies || [],
+        (c) => c.id
+      ),
+    [companies]
+  );
   const canRegisterSub = primaryCandidates.length > 0;
+
+  const movePrimaryPartner = async (companyId: string, direction: -1 | 1) => {
+    const index = primaryPartners.findIndex((p) => p.companyId === companyId);
+    const nextIndex = index + direction;
+    if (index < 0 || nextIndex < 0 || nextIndex >= primaryPartners.length) return;
+
+    const reordered = [...primaryPartners];
+    const [moved] = reordered.splice(index, 1);
+    reordered.splice(nextIndex, 0, moved);
+
+    const orderById = new Map(reordered.map((p, i) => [p.companyId, (i + 1) * 10]));
+    const prevCompanies = companies;
+    onUpdateCompanies(
+      companies.map((company) => {
+        const order = orderById.get(company.id);
+        return order == null ? company : { ...company, hqListOrder: order };
+      })
+    );
+
+    setReorderingId(companyId);
+    try {
+      await Promise.all(
+        reordered.map((p, i) =>
+          adminUpsertCompany({
+            companyId: p.companyId,
+            patch: { hqListOrder: (i + 1) * 10 },
+          })
+        )
+      );
+    } catch (err) {
+      console.warn('hqListOrder save failed:', err);
+      onUpdateCompanies(prevCompanies);
+      window.alert(err instanceof Error ? err.message : '업체 순서 저장에 실패했습니다.');
+    } finally {
+      setReorderingId(null);
+    }
+  };
 
   const handleStartEditSub = (c: Company) => {
     setEditingSubCompany(c);
@@ -811,7 +863,7 @@ export default function AdminDashboard({
             <div>
               <h4 className="text-xs font-black text-zinc-100">주차 대행 업체 수정·삭제</h4>
               <p className="text-[12px] text-zinc-500 mt-0.5">
-            예약·입출고를 다루는 업체만 관리합니다. 마케팅 제휴는 「⑥ 마케팅 제휴」에서 등록하세요.
+                예약·입출고를 다루는 업체만 관리합니다. ↑↓로 순서를 바꾸면 위쪽 업체 선택에도 반영됩니다.
               </p>
             </div>
             <span className="text-[12px] bg-rose-500/15 text-rose-300 px-2.5 py-1 rounded-xl font-bold font-mono shrink-0 border border-rose-500/20">
@@ -824,6 +876,7 @@ export default function AdminDashboard({
               <table className="w-full text-left border-collapse">
                 <thead>
                   <tr className="bg-neutral-900/80 border-b border-neutral-800 text-[11px] text-zinc-500 font-extrabold tracking-wider">
+                    <th className="py-2.5 px-2 text-center w-12">순서</th>
                     <th className="py-2.5 px-3">가맹 대행사 정보</th>
                     <th className="py-2.5 px-2 text-center">상태</th>
                     <th className="py-2.5 px-2 text-center">통계</th>
@@ -831,13 +884,40 @@ export default function AdminDashboard({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-neutral-800">
-                  {primaryPartners.map((p) => {
+                  {primaryPartners.map((p, partnerIndex) => {
                     const stats = computeStats(p.companyId);
                     const isSuspended = p.status === 'suspended';
                     const company = companies.find((c) => c.id === p.companyId);
                     const isPrimary = company?.isOperatorPrimary || !company?.parentCompanyId;
+                    const orderBusy = reorderingId === p.companyId;
                     return (
                       <tr key={p.companyId} className={`hover:bg-neutral-900/70 transition-all text-xs ${isSuspended ? 'bg-neutral-950/50 text-zinc-500' : 'text-zinc-300'}`}>
+                        <td className="py-3 px-2 align-middle text-center">
+                          <div className="inline-flex flex-col gap-0.5">
+                            <button
+                              type="button"
+                              disabled={orderBusy || partnerIndex === 0 || Boolean(reorderingId)}
+                              onClick={() => void movePrimaryPartner(p.companyId, -1)}
+                              className="rounded-md border border-neutral-700 bg-neutral-900 p-1 text-zinc-300 hover:border-amber-500/40 hover:text-amber-300 disabled:opacity-30"
+                              title="위로"
+                            >
+                              <ChevronUp size={12} />
+                            </button>
+                            <button
+                              type="button"
+                              disabled={
+                                orderBusy ||
+                                partnerIndex === primaryPartners.length - 1 ||
+                                Boolean(reorderingId)
+                              }
+                              onClick={() => void movePrimaryPartner(p.companyId, 1)}
+                              className="rounded-md border border-neutral-700 bg-neutral-900 p-1 text-zinc-300 hover:border-amber-500/40 hover:text-amber-300 disabled:opacity-30"
+                              title="아래로"
+                            >
+                              <ChevronDown size={12} />
+                            </button>
+                          </div>
+                        </td>
                         <td className="py-3 px-3 text-left">
                           <div className="font-bold text-zinc-100 flex items-center gap-1.5 flex-wrap">
                             <span>{p.name}</span>
@@ -910,6 +990,9 @@ export default function AdminDashboard({
                     const parent = companies.find((x) => x.id === c.parentCompanyId);
                     return (
                       <tr key={`sub-${c.id}`} className="hover:bg-neutral-900/70 transition-all text-xs text-zinc-400 bg-neutral-950/40">
+                        <td className="py-3 px-2 align-middle text-center text-[10px] text-zinc-600 font-bold">
+                          —
+                        </td>
                         <td className="py-3 px-3 text-left">
                           <div className="font-bold text-zinc-200 flex items-center gap-1.5 flex-wrap">
                             <span>{c.name}</span>

@@ -52,8 +52,8 @@ export function createPartnerCompanySkeleton(input: CreatePartnerCompanyInput): 
     base_price: 15000,
     extra_day_price: 5000,
     base_days: 1,
-    rating: 4.8,
-    reviews_count: 12,
+    rating: 0,
+    reviews_count: 0,
     features: ['기본 자율 요금 설정 상태'],
     image_url:
       'https://images.unsplash.com/photo-1542282088-fe8426682b8f?auto=format&fit=crop&q=80',
