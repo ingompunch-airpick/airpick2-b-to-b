@@ -19,6 +19,8 @@ import {
 } from '../utils/bookingLead';
 import { getAirportTerminals, resolveCompanyAirportId, type AirportTerminalDef } from '../utils/airport';
 import type { Company } from '../types';
+import { companyParkingTypeAvailability } from '../utils/companyProfile';
+import type { ParkingSide } from '../utils/parkingSide';
 
 type Scene = 'usual' | 'date';
 type BlockLeg = ScheduleBlockRule['leg'];
@@ -27,6 +29,8 @@ interface BlockoutCalendarModalProps {
   isOpen: boolean;
   onClose: () => void;
   blockedDates: string[];
+  blockedDatesIndoor?: string[];
+  blockedDatesOutdoor?: string[];
   cancelCutoffHours?: number;
   sameDayBookingBlocked?: boolean;
   bookingLeadHours?: number;
@@ -34,12 +38,16 @@ interface BlockoutCalendarModalProps {
   maxCarsPerHour?: number;
   parkingCapEnabled?: boolean;
   maxParkedCars?: number;
+  maxParkedCarsIndoor?: number;
+  maxParkedCarsOutdoor?: number;
   dailyIntakeCapEnabled?: boolean;
   maxCarsPerDay?: number;
   scheduleBlocks?: ScheduleBlockRule[];
-  company?: Pick<Company, 'airport'> | null;
+  company?: Company | null;
   onSave: (settings: {
     blockedDates: string[];
+    blockedDatesIndoor: string[];
+    blockedDatesOutdoor: string[];
     cancelCutoffHours: number;
     sameDayBookingBlocked: boolean;
     bookingLeadHours: number;
@@ -47,6 +55,8 @@ interface BlockoutCalendarModalProps {
     maxCarsPerHour: number;
     parkingCapEnabled: boolean;
     maxParkedCars: number;
+    maxParkedCarsIndoor: number;
+    maxParkedCarsOutdoor: number;
     dailyIntakeCapEnabled: boolean;
     maxCarsPerDay: number;
     scheduleBlocks: ScheduleBlockRule[];
@@ -83,20 +93,25 @@ function hoursForSelection(
   return [...hours].sort((a, b) => a - b);
 }
 
-function dayHasClose(date: string, blocked: string[], rules: ScheduleBlockRule[]): boolean {
-  return blocked.includes(date) || rules.some((rule) => rule.date === date);
-}
-
-function blockedDateLine(date: string): string {
+function blockedDateLine(date: string, side: 'indoor' | 'outdoor' | 'both'): string {
   const month = Number(date.slice(5, 7));
   const day = Number(date.slice(8, 10));
+  if (side === 'indoor') return `${month}월 ${day}일 실내 입고는 받지 않습니다.`;
+  if (side === 'outdoor') return `${month}월 ${day}일 야외 입고는 받지 않습니다.`;
   return `${month}월 ${day}일 입고는 받지 않습니다.`;
+}
+
+function withDate(dates: string[], date: string, on: boolean): string[] {
+  const without = dates.filter((item) => item !== date);
+  return on ? [...without, date] : without;
 }
 
 export default function BlockoutCalendarModal({
   isOpen,
   onClose,
   blockedDates,
+  blockedDatesIndoor,
+  blockedDatesOutdoor,
   cancelCutoffHours = 3,
   sameDayBookingBlocked = false,
   bookingLeadHours = 0,
@@ -104,6 +119,8 @@ export default function BlockoutCalendarModal({
   maxCarsPerHour = 5,
   parkingCapEnabled = false,
   maxParkedCars = 50,
+  maxParkedCarsIndoor = 0,
+  maxParkedCarsOutdoor = 0,
   dailyIntakeCapEnabled = false,
   maxCarsPerDay = 20,
   scheduleBlocks = [],
@@ -114,10 +131,13 @@ export default function BlockoutCalendarModal({
   companyName,
 }: BlockoutCalendarModalProps) {
   const terminals = getAirportTerminals(resolveCompanyAirportId(company));
+  const parkingSides = companyParkingTypeAvailability(company);
+  const offersBoth = parkingSides.indoor && parkingSides.outdoor;
   const [scene, setScene] = useState<Scene>('usual');
   const [picked, setPicked] = useState<string | null>(null);
   const [leg, setLeg] = useState<BlockLeg>('exit');
   const [terminal, setTerminal] = useState('all');
+  const [parkSide, setParkSide] = useState<ParkingSide | 'both'>('both');
 
   const [currentYear, setCurrentYear] = useState(() => {
     const kstDate = new Date(Date.now() + 9 * 60 * 60 * 1000);
@@ -129,6 +149,8 @@ export default function BlockoutCalendarModal({
   });
 
   const [localBlocked, setLocalBlocked] = useState<string[]>(() => [...blockedDates]);
+  const [localIndoor, setLocalIndoor] = useState<string[]>(() => [...blockedDates]);
+  const [localOutdoor, setLocalOutdoor] = useState<string[]>(() => [...blockedDates]);
   const [localSameDay, setLocalSameDay] = useState<SameDaySetting>(() =>
     sameDaySettingFromCompany({ sameDayBookingBlocked, bookingLeadHours })
   );
@@ -139,6 +161,12 @@ export default function BlockoutCalendarModal({
   const [localParkingCapEnabled, setLocalParkingCapEnabled] = useState(parkingCapEnabled);
   const [localMaxParkedCars, setLocalMaxParkedCars] = useState(
     normalizeMaxParkedCars(maxParkedCars) || 50
+  );
+  const [localMaxIndoor, setLocalMaxIndoor] = useState(
+    normalizeMaxParkedCars(maxParkedCarsIndoor) || normalizeMaxParkedCars(maxParkedCars) || 50
+  );
+  const [localMaxOutdoor, setLocalMaxOutdoor] = useState(
+    normalizeMaxParkedCars(maxParkedCarsOutdoor) || normalizeMaxParkedCars(maxParkedCars) || 50
   );
   const [localDailyEnabled, setLocalDailyEnabled] = useState(dailyIntakeCapEnabled);
   const [localMaxCarsPerDay, setLocalMaxCarsPerDay] = useState(
@@ -161,38 +189,61 @@ export default function BlockoutCalendarModal({
     setPicked(null);
     setLeg('exit');
     setTerminal('all');
-    setLocalBlocked([...blockedDates]);
+    const split = Array.isArray(blockedDatesIndoor) || Array.isArray(blockedDatesOutdoor);
+    const indoor = split ? [...(blockedDatesIndoor ?? [])] : [...blockedDates];
+    const outdoor = split ? [...(blockedDatesOutdoor ?? [])] : [...blockedDates];
+    setLocalIndoor(indoor);
+    setLocalOutdoor(outdoor);
+    setLocalBlocked(indoor.filter((day) => outdoor.includes(day)));
+    setParkSide('both');
     setLocalSameDay(sameDaySettingFromCompany({ sameDayBookingBlocked, bookingLeadHours }));
     setLocalHourlyCapEnabled(hourlyCapEnabled === true);
     setLocalMaxCarsPerHour(normalizeMaxCarsPerHour(maxCarsPerHour) || 5);
     setLocalParkingCapEnabled(parkingCapEnabled === true);
     setLocalMaxParkedCars(normalizeMaxParkedCars(maxParkedCars) || 50);
+    const splitCap =
+      normalizeMaxParkedCars(maxParkedCarsIndoor) > 0 || normalizeMaxParkedCars(maxParkedCarsOutdoor) > 0;
+    const combined = normalizeMaxParkedCars(maxParkedCars) || 50;
+    setLocalMaxIndoor(splitCap ? normalizeMaxParkedCars(maxParkedCarsIndoor) : combined);
+    setLocalMaxOutdoor(splitCap ? normalizeMaxParkedCars(maxParkedCarsOutdoor) : combined);
     setLocalDailyEnabled(dailyIntakeCapEnabled === true);
     setLocalMaxCarsPerDay(normalizeMaxCarsPerDay(maxCarsPerDay) || 20);
     setLocalBlocks(normalizeScheduleBlocks(scheduleBlocks));
   }, [
     isOpen,
     blockedDates,
+    blockedDatesIndoor,
+    blockedDatesOutdoor,
     sameDayBookingBlocked,
     bookingLeadHours,
     hourlyCapEnabled,
     maxCarsPerHour,
     parkingCapEnabled,
     maxParkedCars,
+    maxParkedCarsIndoor,
+    maxParkedCarsOutdoor,
     dailyIntakeCapEnabled,
     maxCarsPerDay,
     scheduleBlocks,
   ]);
 
   const closeLines = useMemo(() => {
-    const blocked = new Set(localBlocked);
-    const lines = localBlocked.map((date) => ({ date, text: blockedDateLine(date) }));
+    const indoor = new Set(localIndoor);
+    const outdoor = new Set(localOutdoor);
+    const days = new Set([...indoor, ...outdoor]);
+    const lines = [...days].map((date) => {
+      const both = indoor.has(date) && outdoor.has(date);
+      const side = both ? 'both' : indoor.has(date) ? 'indoor' : 'outdoor';
+      return { date, text: blockedDateLine(date, side) };
+    });
     for (const rule of localBlocks) {
-      if (rule.leg === 'intake' && rule.terminal === 'all' && blocked.has(rule.date)) continue;
+      if (rule.leg === 'intake' && rule.terminal === 'all' && indoor.has(rule.date) && outdoor.has(rule.date)) {
+        continue;
+      }
       lines.push({ date: rule.date, text: scheduleBlockMessage(rule) });
     }
     return lines.sort((a, b) => a.date.localeCompare(b.date) || a.text.localeCompare(b.text));
-  }, [localBlocked, localBlocks]);
+  }, [localIndoor, localOutdoor, localBlocks]);
 
   if (!isOpen) return null;
 
@@ -200,15 +251,22 @@ export default function BlockoutCalendarModal({
     setIsSaving(true);
     try {
       const closed = localSameDay === 'closed';
+      const indoorCap = normalizeMaxParkedCars(localMaxIndoor);
+      const outdoorCap = normalizeMaxParkedCars(localMaxOutdoor);
+      const singleCap = Math.max(1, normalizeMaxParkedCars(localMaxParkedCars) || 1);
       await onSave({
-        blockedDates: localBlocked,
+        blockedDates: localIndoor.filter((day) => localOutdoor.includes(day)),
+        blockedDatesIndoor: localIndoor,
+        blockedDatesOutdoor: localOutdoor,
         cancelCutoffHours: Math.max(0, Math.min(72, cancelCutoffHours || 0)),
         sameDayBookingBlocked: closed,
         bookingLeadHours: closed ? 0 : normalizeBookingLeadHours(localSameDay),
         hourlyCapEnabled: localHourlyCapEnabled,
         maxCarsPerHour: Math.max(1, normalizeMaxCarsPerHour(localMaxCarsPerHour) || 1),
         parkingCapEnabled: localParkingCapEnabled,
-        maxParkedCars: Math.max(1, normalizeMaxParkedCars(localMaxParkedCars) || 1),
+        maxParkedCars: offersBoth ? Math.max(indoorCap, outdoorCap) : singleCap,
+        maxParkedCarsIndoor: offersBoth ? indoorCap : parkingSides.indoor ? singleCap : 0,
+        maxParkedCarsOutdoor: offersBoth ? outdoorCap : parkingSides.outdoor ? singleCap : 0,
         dailyIntakeCapEnabled: localDailyEnabled,
         maxCarsPerDay: Math.max(1, normalizeMaxCarsPerDay(localMaxCarsPerDay) || 1),
         scheduleBlocks: localBlocks,
@@ -253,10 +311,14 @@ export default function BlockoutCalendarModal({
       ]);
     });
     if (nextLeg === 'intake' && nextTerminal === 'all') {
-      setLocalBlocked((prev) => {
-        const without = prev.filter((item) => item !== date);
-        return wholeIntake ? [...without, date] : without;
-      });
+      const sides: Array<ParkingSide | 'both'> = offersBoth ? [parkSide] : ['both'];
+      const touchIndoor = sides.includes('both') || sides.includes('indoor');
+      const touchOutdoor = sides.includes('both') || sides.includes('outdoor');
+      const nextIndoor = touchIndoor ? withDate(localIndoor, date, wholeIntake) : localIndoor;
+      const nextOutdoor = touchOutdoor ? withDate(localOutdoor, date, wholeIntake) : localOutdoor;
+      setLocalIndoor(nextIndoor);
+      setLocalOutdoor(nextOutdoor);
+      setLocalBlocked(nextIndoor.filter((day) => nextOutdoor.includes(day)));
     }
     setPicked(null);
   };
@@ -401,30 +463,89 @@ export default function BlockoutCalendarModal({
                 unit="대 / 시간"
                 max={99}
               />
-              <CountRow
-                label="주차 대수"
-                on={localParkingCapEnabled}
-                onToggle={() => setLocalParkingCapEnabled((v) => !v)}
-                value={localMaxParkedCars}
-                onValue={(n) => setLocalMaxParkedCars(normalizeMaxParkedCars(n) || 1)}
-                onText={
-                  localParkingCapEnabled
-                    ? `겹치는 날 ${localMaxParkedCars}대까지`
-                    : '대수 제한 없음'
-                }
-                unit="대"
-              />
+              {offersBoth ? (
+                <div className="rounded-xl border border-neutral-800 bg-neutral-900/40 p-3 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <p className="text-[12px] font-black text-white">주차 대수</p>
+                    <button
+                      type="button"
+                      onClick={() => setLocalParkingCapEnabled((v) => !v)}
+                      className={`text-[11px] font-black px-2 py-1 rounded-lg ${
+                        localParkingCapEnabled ? 'bg-amber-500 text-neutral-950' : 'bg-neutral-800 text-zinc-400'
+                      }`}
+                    >
+                      {localParkingCapEnabled ? '켜짐' : '꺼짐'}
+                    </button>
+                  </div>
+                  {localParkingCapEnabled ? (
+                    <div className="grid grid-cols-2 gap-2">
+                      <label className="text-[11px] font-bold text-zinc-400">
+                        실내
+                        <input
+                          type="number"
+                          min={1}
+                          value={localMaxIndoor}
+                          onChange={(e) => setLocalMaxIndoor(normalizeMaxParkedCars(Number(e.target.value)) || 1)}
+                          className="mt-1 w-full bg-neutral-950 border border-neutral-800 rounded-lg px-2 py-1.5 text-white font-black"
+                        />
+                      </label>
+                      <label className="text-[11px] font-bold text-zinc-400">
+                        야외
+                        <input
+                          type="number"
+                          min={1}
+                          value={localMaxOutdoor}
+                          onChange={(e) => setLocalMaxOutdoor(normalizeMaxParkedCars(Number(e.target.value)) || 1)}
+                          className="mt-1 w-full bg-neutral-950 border border-neutral-800 rounded-lg px-2 py-1.5 text-white font-black"
+                        />
+                      </label>
+                    </div>
+                  ) : (
+                    <p className="text-[11px] text-zinc-500">대수 제한 없음</p>
+                  )}
+                  <p className="text-[10px] text-zinc-500">실내와 야외를 따로 셉니다. 예전 합계를 그대로 넣으면 자리가 두 배가 됩니다. 0이면 그 쪽은 제한이 없습니다.</p>
+                </div>
+              ) : (
+                <CountRow
+                  label="주차 대수"
+                  on={localParkingCapEnabled}
+                  onToggle={() => setLocalParkingCapEnabled((v) => !v)}
+                  value={localMaxParkedCars}
+                  onValue={(n) => setLocalMaxParkedCars(normalizeMaxParkedCars(n) || 1)}
+                  onText={
+                    localParkingCapEnabled
+                      ? `겹치는 날 ${localMaxParkedCars}대까지`
+                      : '대수 제한 없음'
+                  }
+                  unit="대"
+                />
+              )}
             </>
           ) : picked ? (
             <DayEditor
-              key={`${picked}-${leg}-${terminal}`}
+              key={`${picked}-${leg}-${terminal}-${parkSide}`}
               date={picked}
               leg={leg}
               terminal={terminal}
               terminals={terminals}
-              initialHours={hoursForSelection(picked, leg, terminal, localBlocked, localBlocks)}
+              showSides={offersBoth && leg === 'intake'}
+              parkSide={parkSide}
+              onParkSide={setParkSide}
+              initialHours={hoursForSelection(
+                picked,
+                leg,
+                terminal,
+                parkSide === 'indoor' ? localIndoor : parkSide === 'outdoor' ? localOutdoor : localBlocked,
+                localBlocks
+              )}
               saved={
-                (leg === 'intake' && terminal === 'all' && localBlocked.includes(picked)) ||
+                (leg === 'intake' &&
+                  terminal === 'all' &&
+                  (parkSide === 'indoor'
+                    ? localIndoor.includes(picked)
+                    : parkSide === 'outdoor'
+                      ? localOutdoor.includes(picked)
+                      : localIndoor.includes(picked) && localOutdoor.includes(picked))) ||
                 localBlocks.some(
                   (rule) => rule.date === picked && rule.leg === leg && rule.terminal === terminal
                 )
@@ -463,21 +584,26 @@ export default function BlockoutCalendarModal({
                 {Array.from({ length: totalDays }, (_, i) => {
                   const day = i + 1;
                   const date = `${currentYear}-${String(currentMonth + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                  const marked = dayHasClose(date, localBlocked, localBlocks);
+                  const indoorOn = localIndoor.includes(date);
+                  const outdoorOn = localOutdoor.includes(date);
+                  const marked = indoorOn || outdoorOn || localBlocks.some((rule) => rule.date === date);
+                  const sideMark = indoorOn && outdoorOn ? '' : indoorOn ? '실' : outdoorOn ? '야' : '';
                   return (
                     <button
                       key={date}
                       type="button"
                       onClick={() => {
-                        if (localBlocked.includes(date)) {
+                        if (indoorOn || outdoorOn) {
                           setLeg('intake');
                           setTerminal('all');
+                          setParkSide(indoorOn && outdoorOn ? 'both' : indoorOn ? 'indoor' : 'outdoor');
                         } else {
                           const rule = localBlocks.find((item) => item.date === date);
                           if (rule) {
                             setLeg(rule.leg);
                             setTerminal(rule.terminal || 'all');
                           }
+                          setParkSide('both');
                         }
                         setPicked(date);
                       }}
@@ -488,6 +614,7 @@ export default function BlockoutCalendarModal({
                       }`}
                     >
                       {day}
+                      {sideMark ? <span className="ml-0.5 text-[9px]">{sideMark}</span> : null}
                     </button>
                   );
                 })}
@@ -617,6 +744,9 @@ function DayEditor({
   leg,
   terminal,
   terminals,
+  showSides,
+  parkSide,
+  onParkSide,
   initialHours,
   saved,
   onLeg,
@@ -629,6 +759,9 @@ function DayEditor({
   leg: BlockLeg;
   terminal: string;
   terminals: AirportTerminalDef[];
+  showSides: boolean;
+  parkSide: ParkingSide | 'both';
+  onParkSide: (side: ParkingSide | 'both') => void;
   initialHours: number[];
   saved: boolean;
   onLeg: (leg: BlockLeg) => void;
@@ -679,6 +812,19 @@ function DayEditor({
           </button>
         ))}
       </div>
+      {showSides ? (
+        <div className="flex flex-wrap gap-1.5">
+          <button type="button" className={chip(parkSide === 'indoor')} onClick={() => onParkSide('indoor')}>
+            실내
+          </button>
+          <button type="button" className={chip(parkSide === 'outdoor')} onClick={() => onParkSide('outdoor')}>
+            야외
+          </button>
+          <button type="button" className={chip(parkSide === 'both')} onClick={() => onParkSide('both')}>
+            둘 다
+          </button>
+        </div>
+      ) : null}
       <p className="text-[11px] text-zinc-500">닫을 시간을 누릅니다. 이어진 시간은 한 구간이 됩니다.</p>
       <div className="grid grid-cols-2 gap-1.5">
         <button

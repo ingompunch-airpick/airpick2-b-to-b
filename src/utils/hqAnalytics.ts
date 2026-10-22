@@ -247,21 +247,17 @@ export type HqCustomerMix = {
   returningBookings: number;
 };
 
-/** 신규·재방문 — 이번달보다 먼저 입고된 예약이 앱에 있으면 재방문 */
+/** 신규·재방문 — 취소 제외 예약이 두 건 이상이면 재방문. 이번달 예약도 센다. */
 export function computeCustomerMix(
   allReservations: Reservation[],
-  monthPrefix: string,
+  _monthPrefix: string,
   monthAdmitted: Reservation[]
 ): HqCustomerMix {
-  const monthStart = `${monthPrefix}-01`;
-
-  const customersBeforeMonth = new Set<string>();
+  const reservationCounts = new Map<string, number>();
   for (const r of allReservations) {
-    if (r.status === 'cancelled' || !isAdmitted(r.status)) continue;
-    const dep = normalizeDateString(r.departureDate);
-    if (dep < monthStart) {
-      customersBeforeMonth.add(customerKey(r));
-    }
+    if (r.status === 'cancelled') continue;
+    const key = customerKey(r);
+    reservationCounts.set(key, (reservationCounts.get(key) || 0) + 1);
   }
 
   const seenCustomers = new Set<string>();
@@ -272,7 +268,7 @@ export function computeCustomerMix(
 
   for (const r of monthAdmitted) {
     const key = customerKey(r);
-    const isReturning = customersBeforeMonth.has(key);
+    const isReturning = (reservationCounts.get(key) || 0) >= 2;
     if (isReturning) returningBookings += 1;
     else newBookings += 1;
 

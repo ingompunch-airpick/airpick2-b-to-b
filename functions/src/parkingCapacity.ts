@@ -6,6 +6,8 @@ const WAWA_ALIASES = ['wawa', 'wawa_valet', '와와', '와와발렛'];
 type CapCompany = {
   parkingCapEnabled?: boolean;
   maxParkedCars?: number;
+  maxParkedCarsIndoor?: number;
+  maxParkedCarsOutdoor?: number;
 };
 
 function normalizeMaxParkedCars(value: unknown): number {
@@ -16,7 +18,25 @@ function normalizeMaxParkedCars(value: unknown): number {
 
 function isParkingCapActive(company: CapCompany | undefined): boolean {
   if (!company || company.parkingCapEnabled !== true) return false;
-  return normalizeMaxParkedCars(company.maxParkedCars) > 0;
+  return (
+    normalizeMaxParkedCars(company.maxParkedCars) > 0 ||
+    normalizeMaxParkedCars(company.maxParkedCarsIndoor) > 0 ||
+    normalizeMaxParkedCars(company.maxParkedCarsOutdoor) > 0
+  );
+}
+
+function usesSplitCap(company: CapCompany): boolean {
+  return (
+    normalizeMaxParkedCars(company.maxParkedCarsIndoor) > 0 ||
+    normalizeMaxParkedCars(company.maxParkedCarsOutdoor) > 0
+  );
+}
+
+function capForIndoor(company: CapCompany, indoor: boolean): number {
+  if (usesSplitCap(company)) {
+    return normalizeMaxParkedCars(indoor ? company.maxParkedCarsIndoor : company.maxParkedCarsOutdoor);
+  }
+  return normalizeMaxParkedCars(company.maxParkedCars);
 }
 
 function expandCompanyIds(companyId: string): string[] {
@@ -108,7 +128,9 @@ export async function enforceParkingCapacityOnCreate(
   const company = (companySnap.data() || {}) as CapCompany;
   if (!isParkingCapActive(company)) return false;
 
-  const max = normalizeMaxParkedCars(company.maxParkedCars);
+  const indoor = data.isIndoor !== false;
+  const split = usesSplitCap(company);
+  const max = capForIndoor(company, indoor);
   if (max <= 0) return false;
 
   const rangeEnd = arrivalDate && arrivalDate >= departureDate ? arrivalDate : departureDate;
@@ -139,6 +161,7 @@ export async function enforceParkingCapacityOnCreate(
   for (const day of days) {
     let used = 0;
     for (const row of byId.values()) {
+      if (split && (row.isIndoor !== false) !== indoor) continue;
       if (occupiesDay(row, day)) used += 1;
     }
     if (used > max) {

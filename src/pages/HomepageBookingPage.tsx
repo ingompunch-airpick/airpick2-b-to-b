@@ -9,6 +9,7 @@ import { ensureFirestoreAuth } from '../lib/firebaseAuth';
 import { RESERVATION_CREATED_BY } from '../utils/bookingSource';
 import { formatPartnerDisplayName } from '../utils/companyDisplay';
 import { companyParkingTypeAvailability } from '../utils/companyProfile';
+import { isParkingSideClosed, parkingSideClosedLabel } from '../utils/parkingSide';
 import AirlinePicker from '../components/AirlinePicker';
 import { matchAirlineName } from '../utils/flightFields';
 import HomepageDateTimeField from '../components/HomepageDateTimeField';
@@ -275,8 +276,8 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
 
   const policyError = useMemo(() => {
     if (!company) return null;
-    return checkHomepageBookingPolicy(company, dep.date, arr.date, dep.time);
-  }, [company, dep.date, dep.time, arr.date]);
+    return checkHomepageBookingPolicy(company, dep.date, arr.date, dep.time, isIndoor);
+  }, [company, dep.date, dep.time, arr.date, isIndoor]);
 
   const scheduleBlock = useMemo(() => {
     if (!company) return null;
@@ -355,7 +356,9 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
           company,
           company.id,
           dep.date,
-          arr.date
+          arr.date,
+          undefined,
+          isIndoor
         );
         if (!cancelled) setParkingHint(result);
       } catch {
@@ -365,11 +368,18 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
     return () => {
       cancelled = true;
     };
-  }, [company, dep.date, arr.date]);
+  }, [company, dep.date, arr.date, isIndoor]);
 
   const parkingTypes = companyParkingTypeAvailability(company);
   const showIndoor = parkingTypes.indoor;
   const showOutdoor = parkingTypes.outdoor;
+  const indoorClosed = Boolean(company && dep.date && isParkingSideClosed(company, 'indoor', dep.date));
+  const outdoorClosed = Boolean(company && dep.date && isParkingSideClosed(company, 'outdoor', dep.date));
+
+  useEffect(() => {
+    if (isIndoor && indoorClosed && showOutdoor && !outdoorClosed) setIsIndoor(false);
+    if (!isIndoor && outdoorClosed && showIndoor && !indoorClosed) setIsIndoor(true);
+  }, [isIndoor, indoorClosed, outdoorClosed, showIndoor, showOutdoor]);
   const departureCapacity = capacityNote([
     company && isHourlyCapActive(company) ? hourlyHint : null,
     company && isDailyIntakeCapActive(company) ? dailyHint : null,
@@ -393,7 +403,11 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
     if (!departureFlight.trim()) return '출국 편명을 입력해 주세요.';
     if (!arrivalAirline.trim()) return '귀국 항공사를 선택해 주세요.';
     if (!arrivalFlight.trim()) return '귀국 편명을 입력해 주세요.';
-    if (policyError) return BOOKING_CLOSED_MESSAGE;
+    if (policyError && policyError !== 'blocked') return BOOKING_CLOSED_MESSAGE;
+    if (policyError === 'blocked') {
+      const otherOpen = isIndoor ? showOutdoor && !outdoorClosed : showIndoor && !indoorClosed;
+      if (!otherOpen) return BOOKING_CLOSED_MESSAGE;
+    }
     if (scheduleBlock) return BOOKING_CLOSED_MESSAGE;
     if (parkingHint?.ok === false) return BOOKING_CLOSED_MESSAGE;
     if (hourlyHint?.ok === false) return BOOKING_CLOSED_MESSAGE;
@@ -415,9 +429,12 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
     setSubmitting(true);
     try {
       await ensureFirestoreAuth();
-      const recheck = checkHomepageBookingPolicy(company, dep.date, arr.date, dep.time);
+      const recheck = checkHomepageBookingPolicy(company, dep.date, arr.date, dep.time, isIndoor);
       if (recheck) {
-        setFormError(BOOKING_CLOSED_MESSAGE);
+        const otherOpen =
+          recheck === 'blocked' &&
+          (isIndoor ? showOutdoor && !outdoorClosed : showIndoor && !indoorClosed);
+        setFormError(otherOpen ? parkingSideClosedLabel(isIndoor ? 'indoor' : 'outdoor') : BOOKING_CLOSED_MESSAGE);
         return;
       }
       const block = findScheduleBlock({
@@ -435,7 +452,7 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
         return;
       }
 
-      await assertParkingCapacityAvailable(company, company.id, dep.date, arr.date);
+      await assertParkingCapacityAvailable(company, company.id, dep.date, arr.date, undefined, isIndoor);
       await assertHourlyCapacityAvailable(company, company.id, dep.date, dep.time);
       await assertDailyIntakeAvailable(company, company.id, dep.date);
 
@@ -677,26 +694,33 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
                   {showIndoor && (
                     <button
                       type="button"
+                      disabled={indoorClosed}
                       onClick={() => setIsIndoor(true)}
-                      className={`flex-1 rounded-md py-3 text-base font-bold transition ${
+                      className={`flex-1 rounded-md py-3 text-base font-bold transition disabled:cursor-not-allowed disabled:opacity-40 ${
                         isIndoor ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-500'
                       }`}
                     >
-                      실내
+                      실내{indoorClosed ? ' 마감' : ''}
                     </button>
                   )}
                   {showOutdoor && (
                     <button
                       type="button"
+                      disabled={outdoorClosed}
                       onClick={() => setIsIndoor(false)}
-                      className={`flex-1 rounded-md py-3 text-base font-bold transition ${
+                      className={`flex-1 rounded-md py-3 text-base font-bold transition disabled:cursor-not-allowed disabled:opacity-40 ${
                         !isIndoor ? 'bg-white text-stone-900 shadow-sm' : 'text-stone-500'
                       }`}
                     >
-                      야외
+                      야외{outdoorClosed ? ' 마감' : ''}
                     </button>
                   )}
                 </div>
+                {showIndoor && showOutdoor && indoorClosed !== outdoorClosed ? (
+                  <p className="mt-2 text-[13px] font-medium text-stone-500">
+                    {parkingSideClosedLabel(indoorClosed ? 'indoor' : 'outdoor')}
+                  </p>
+                ) : null}
               </FormRow>
             )}
 
@@ -833,7 +857,11 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
             </FormRow>
           </div>
 
-          {policyError ? (
+          {policyError &&
+          !(
+            policyError === 'blocked' &&
+            (isIndoor ? showOutdoor && !outdoorClosed : showIndoor && !indoorClosed)
+          ) ? (
             <p className="mx-5 mb-2 rounded-xl bg-red-50 px-3 py-2.5 text-xs font-semibold text-red-700 sm:mx-6">
               {BOOKING_CLOSED_MESSAGE}
             </p>
@@ -854,7 +882,16 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
               </div>
               <button
                 type="submit"
-                disabled={submitting || Boolean(policyError)}
+                disabled={
+                  submitting ||
+                  Boolean(
+                    policyError &&
+                      !(
+                        policyError === 'blocked' &&
+                        (isIndoor ? showOutdoor && !outdoorClosed : showIndoor && !indoorClosed)
+                      )
+                  )
+                }
                 className="min-h-13 shrink-0 rounded-2xl bg-stone-900 px-6 py-3.5 text-base font-bold text-white transition hover:bg-stone-800 disabled:opacity-45"
               >
                 {submitting ? '예약 중…' : '예약하기'}

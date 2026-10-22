@@ -5,10 +5,25 @@ import { matchScheduleBlock, scheduleBlockOverrideHonored } from './scheduleBloc
 type PolicyCompany = {
   isOpen?: boolean;
   blockedDates?: unknown;
+  blockedDatesIndoor?: unknown;
+  blockedDatesOutdoor?: unknown;
   sameDayBookingBlocked?: boolean;
   bookingLeadHours?: number;
   scheduleBlocks?: unknown;
 };
+
+function closedDates(value: unknown): string[] {
+  if (!Array.isArray(value)) return [];
+  return value.map((item) => normalizeYmd(item)).filter(Boolean);
+}
+
+function sideClosed(company: PolicyCompany, indoor: boolean, day: string): boolean {
+  const split = Array.isArray(company.blockedDatesIndoor) || Array.isArray(company.blockedDatesOutdoor);
+  const dates = split
+    ? closedDates(indoor ? company.blockedDatesIndoor : company.blockedDatesOutdoor)
+    : closedDates(company.blockedDates);
+  return dates.includes(day);
+}
 
 function statusIsCancelled(status: unknown): boolean {
   const s = String(status || '')
@@ -108,13 +123,7 @@ export async function enforceBookingPolicyOnCreate(
     }
   }
 
-  const blockedSet = new Set(
-    (Array.isArray(company.blockedDates) ? company.blockedDates : [])
-      .map((d) => normalizeYmd(d))
-      .filter(Boolean)
-  );
-
-  if (blockedSet.has(departureDate)) {
+  if (sideClosed(company, data.isIndoor !== false, departureDate)) {
     await rejectNewReservation(
       reservationId,
       'bookingPolicy',

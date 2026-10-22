@@ -11,6 +11,13 @@ import {
 import { createReservationId, persistReservation, patchReservation } from '../lib/reservationFirestore';
 import { assertHourlyCapacityAvailable } from '../lib/hourlyCapacityFirestore';
 import { assertParkingCapacityAvailable } from '../lib/parkingCapacityFirestore';
+import { companyParkingTypeAvailability } from '../utils/companyProfile';
+import {
+  isParkingSideClosed,
+  parkingSideClosedLabel,
+  reservationParkingSide,
+} from '../utils/parkingSide';
+import { BOOKING_CLOSED_MESSAGE } from '../utils/bookingClosedMessage';
 import { assertDailyIntakeAvailable } from '../lib/dailyIntakeCapacityFirestore';
 import { User } from 'firebase/auth';
 import { Company, Reservation, AppView, CompanyInfo } from '../types';
@@ -36,7 +43,6 @@ import {
   scheduleBlockMessage,
 } from '../utils/scheduleBlock';
 import { getOperatorIntakeCompanyOptions } from '../utils/operatorHierarchy';
-import { companyParkingTypeAvailability } from '../utils/companyProfile';
 function cn(...classes: (string | boolean | undefined)[]) {
   return classes.filter(Boolean).join(' ');
 }
@@ -366,9 +372,13 @@ export default function SearchReceptionView({
     const arrDateStr = intakeEndDate.substring(0, 10);
     const arrTimeStr = intakeEndDate.substring(11, 16);
 
-    const activeBlocked = getActiveBlockedDates();
-    if (activeBlocked.includes(depDateStr)) {
-      alert(`선택하신 입고일(${depDateStr})은 예약이 마감되어 현장 접수가 불가능합니다.`);
+    if (partnerObj && isParkingSideClosed(partnerObj, reservationParkingSide(isIndoor), depDateStr)) {
+      const side = reservationParkingSide(isIndoor);
+      const other = side === 'indoor' ? 'outdoor' : 'indoor';
+      const otherClosed = isParkingSideClosed(partnerObj, other, depDateStr);
+      const availability = companyParkingTypeAvailability(partnerObj);
+      const otherOffered = other === 'indoor' ? availability.indoor : availability.outdoor;
+      alert(!otherOffered || otherClosed ? BOOKING_CLOSED_MESSAGE : parkingSideClosedLabel(side));
       setIsSubmittingBooking(false);
       return;
     }
@@ -406,7 +416,9 @@ export default function SearchReceptionView({
         partnerObj || partner,
         partner.id,
         depDateStr,
-        arrDateStr
+        arrDateStr,
+        undefined,
+        isIndoor
       );
       await assertHourlyCapacityAvailable(
         partnerObj || partner,

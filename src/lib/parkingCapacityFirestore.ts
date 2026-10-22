@@ -69,7 +69,8 @@ export async function checkParkingCapacityForBooking(
   companyId: string,
   departureDate: string,
   arrivalDate: string,
-  firestore: Firestore = db
+  firestore: Firestore = db,
+  isIndoor = true
 ): Promise<ParkingCapacityResult> {
   if (!isParkingCapActive(company)) {
     return evaluateParkingCapacity({
@@ -77,6 +78,7 @@ export async function checkParkingCapacityForBooking(
       departureDate,
       arrivalDate,
       existingReservations: [],
+      isIndoor,
     });
   }
 
@@ -98,6 +100,7 @@ export async function checkParkingCapacityForBooking(
         departureDate,
         arrivalDate,
         existingReservations: [],
+        isIndoor,
         countingIncludesCandidate: false,
       });
     }
@@ -109,6 +112,7 @@ export async function checkParkingCapacityForBooking(
     departureDate,
     arrivalDate,
     existingReservations: existing,
+    isIndoor,
     countingIncludesCandidate: false,
   });
 }
@@ -118,14 +122,16 @@ export async function assertParkingCapacityAvailable(
   companyId: string,
   departureDate: string,
   arrivalDate: string,
-  firestore: Firestore = db
+  firestore: Firestore = db,
+  isIndoor = true
 ): Promise<ParkingCapacityResult> {
   const result = await checkParkingCapacityForBooking(
     company,
     companyId,
     departureDate,
     arrivalDate,
-    firestore
+    firestore,
+    isIndoor
   );
   if (result.ok === false) {
     throw new Error(result.message);

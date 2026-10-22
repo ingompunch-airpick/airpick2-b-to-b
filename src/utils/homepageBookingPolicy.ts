@@ -5,6 +5,7 @@ import {
   sameDayClosed,
 } from './bookingLead';
 import { BOOKING_CLOSED_MESSAGE } from './bookingClosedMessage';
+import { isParkingSideClosed, reservationParkingSide } from './parkingSide';
 import { normalizeDateString } from './reservationNormalize';
 
 export type HomepageBookingPolicyError =
@@ -16,10 +17,19 @@ export type HomepageBookingPolicyError =
 
 /** 홈페이지 예약 — 업체 마감·당일·입고 N시간 전·입고일 blockedDates */
 export function checkHomepageBookingPolicy(
-  company: Pick<Company, 'isOpen' | 'blockedDates' | 'sameDayBookingBlocked' | 'bookingLeadHours'>,
+  company: Pick<
+    Company,
+    | 'isOpen'
+    | 'blockedDates'
+    | 'blockedDatesIndoor'
+    | 'blockedDatesOutdoor'
+    | 'sameDayBookingBlocked'
+    | 'bookingLeadHours'
+  >,
   departureDate: string,
   _arrivalDate: string,
-  departureTime = ''
+  departureTime = '',
+  isIndoor = true
 ): HomepageBookingPolicyError {
   if (company.isOpen === false) return 'closed';
 
@@ -36,11 +46,7 @@ export function checkHomepageBookingPolicy(
     return 'lead';
   }
 
-  const blocked = new Set(
-    (company.blockedDates || []).map((d) => normalizeDateString(d)).filter(Boolean)
-  );
-  if (blocked.size === 0) return null;
-  if (blocked.has(dep)) return 'blocked';
+  if (isParkingSideClosed(company, reservationParkingSide(isIndoor), dep)) return 'blocked';
   return null;
 }
 

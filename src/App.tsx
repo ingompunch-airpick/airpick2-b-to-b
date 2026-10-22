@@ -1111,6 +1111,14 @@ export default function App() {
         isOpen={showBlockoutModal}
         onClose={() => setShowBlockoutModal(false)}
         blockedDates={activeBlockedDates}
+        blockedDatesIndoor={(() => {
+          const matched = companies.find(c => c.id === currentCompanyId);
+          return matched?.blockedDatesIndoor;
+        })()}
+        blockedDatesOutdoor={(() => {
+          const matched = companies.find(c => c.id === currentCompanyId);
+          return matched?.blockedDatesOutdoor;
+        })()}
         cancelCutoffHours={(() => {
           const matched = companies.find(c => c.id === currentCompanyId);
           return typeof matched?.cancelCutoffHours === 'number' ? matched.cancelCutoffHours : 3;
@@ -1140,6 +1148,16 @@ export default function App() {
           const matched = companies.find(c => c.id === currentCompanyId);
           const n = matched?.maxParkedCars;
           return typeof n === 'number' && n > 0 ? n : 50;
+        })()}
+        maxParkedCarsIndoor={(() => {
+          const matched = companies.find(c => c.id === currentCompanyId);
+          const n = matched?.maxParkedCarsIndoor;
+          return typeof n === 'number' && n > 0 ? n : 0;
+        })()}
+        maxParkedCarsOutdoor={(() => {
+          const matched = companies.find(c => c.id === currentCompanyId);
+          const n = matched?.maxParkedCarsOutdoor;
+          return typeof n === 'number' && n > 0 ? n : 0;
         })()}
         dailyIntakeCapEnabled={(() => {
           const matched = companies.find(c => c.id === currentCompanyId);

@@ -142,10 +142,6 @@ function toRes(id: string, data: Record<string, unknown>): ResDoc {
   };
 }
 
-function isAdmitted(status: string): boolean {
-  return status === 'completed_in' || status === 'request_out' || status === 'completed_out';
-}
-
 function countsAsIntake(row: ResDoc, month: string): boolean {
   return row.status !== 'cancelled' && row.departureYmd.startsWith(month);
 }
@@ -160,11 +156,10 @@ function countsAsCheckout(row: ResDoc, month: string): boolean {
 }
 
 export function aggregateReservationMonth(rows: ResDoc[], month: string): HqMonthLedger {
-  const monthStart = `${month}-01`;
-  const prior = new Set<string>();
+  const reservationCounts = new Map<string, number>();
   for (const row of rows) {
-    if (!isAdmitted(row.status) || !row.departureYmd || row.departureYmd >= monthStart) continue;
-    prior.add(row.customerKey);
+    if (row.status === 'cancelled' || !row.customerKey) continue;
+    reservationCounts.set(row.customerKey, (reservationCounts.get(row.customerKey) || 0) + 1);
   }
 
   const companies = new Map<string, HqMonthLedger['companies'][number]>();
@@ -201,7 +196,7 @@ export function aggregateReservationMonth(rows: ResDoc[], month: string): HqMont
       if (row.source === 'airpick') company.airpick += 1;
       else if (row.source === 'homepage') company.homepage += 1;
       else company.onsite += 1;
-      const returning = prior.has(row.customerKey);
+      const returning = (reservationCounts.get(row.customerKey) || 0) >= 2;
       if (returning) result.customerMix.returningBookings += 1;
       else result.customerMix.newBookings += 1;
       if (!seen.has(row.customerKey)) {

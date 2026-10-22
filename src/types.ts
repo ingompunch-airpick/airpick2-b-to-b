@@ -38,7 +38,12 @@ export interface Company {
   phone?: string;
   representative?: string;
   isOpen?: boolean;
+  /** 하루 전체 마감. 실내·야외를 나눈 뒤에는 양쪽이 모두 막힌 날만 남긴다. */
   blockedDates?: string[];
+  /** 실내만 마감인 날. 없으면 blockedDates가 양쪽 마감이다. */
+  blockedDatesIndoor?: string[];
+  /** 야외만 마감인 날. 없으면 blockedDates가 양쪽 마감이다. */
+  blockedDatesOutdoor?: string[];
   /** B2C 고객 셀프취소 — 입고 N시간 전까지 허용 (미설정 시 B2C 기본값) */
   cancelCutoffHours?: number;
   /** true면 당일(입고일=오늘) 예약은 받지 않음. bookingLeadHours와 같이 켜지 않음 */
@@ -62,8 +67,12 @@ export interface Company {
    * 출고완료·취소는 점유에서 제외 → 출고 후 자동으로 슬롯 회복.
    */
   parkingCapEnabled?: boolean;
-  /** 동시 최대 주차 대수 (1–999). parkingCapEnabled일 때만 적용 */
+  /** 동시 최대 주차 대수 (1–999). 실내·야외를 나누기 전에는 합산 한도다. */
   maxParkedCars?: number;
+  /** 실내 동시 주차 대수. 0이면 이 칸은 한도 없음. */
+  maxParkedCarsIndoor?: number;
+  /** 야외 동시 주차 대수. 0이면 이 칸은 한도 없음. */
+  maxParkedCarsOutdoor?: number;
   /**
    * 입고일 하루 대수 한도 (기본 OFF).
    * 시간당·동시 주차와 별개. 취소는 제외하고, 아직 들어오지 않은 예약도 센다.

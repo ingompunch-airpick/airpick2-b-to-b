@@ -4,7 +4,6 @@ import { ensurePlatformAdminAuth } from './firebaseAuth';
 import type { Company, Reservation } from '../types';
 import { formatPartnerDisplayName } from '../utils/companyDisplay';
 import { normalizeDateString } from '../utils/reservationNormalize';
-import { isAdmitted } from '../utils/reservationStatus';
 
 export type HqLedgerCompany = {
   id: string;
@@ -145,21 +144,26 @@ function reservationCustomerKey(reservation: Reservation): string {
   return name ? `n:${name}` : `id:${reservation.id}`;
 }
 
-/** 장부의 이전 입고 + 앱에 아직 있는 입고. 장부가 짧으면 앱 이력이 재방문을 채운다. */
+/** 취소 제외 예약이 두 건 이상이면 재방문. 이번달 예약도 센다. */
 export function mergeCustomerMix(
   visits: LedgerVisit[],
   reservations: Reservation[],
   month: string
 ): HqMonthLedger['customerMix'] {
-  const monthStart = `${month}-01`;
-  const prior = new Set<string>();
+  const datesByCustomer = new Map<string, Set<string>>();
+  const addDate = (key: string, day: string) => {
+    if (!key || !day) return;
+    const dates = datesByCustomer.get(key) || new Set<string>();
+    dates.add(day);
+    datesByCustomer.set(key, dates);
+  };
   for (const visit of visits) {
-    if (visit.d && visit.d < monthStart && visit.a !== false) prior.add(visit.k);
+    if (visit.a === false) continue;
+    addDate(visit.k, visit.d);
   }
   for (const reservation of reservations) {
-    if (reservation.status === 'cancelled' || !isAdmitted(reservation.status)) continue;
-    const departure = normalizeDateString(reservation.departureDate);
-    if (departure && departure < monthStart) prior.add(reservationCustomerKey(reservation));
+    if (reservation.status === 'cancelled') continue;
+    addDate(reservationCustomerKey(reservation), normalizeDateString(reservation.departureDate));
   }
 
   const seen = new Set<string>();
@@ -170,8 +174,8 @@ export function mergeCustomerMix(
     returningBookings: 0,
   };
   for (const visit of visits) {
-    if (!visit.d.startsWith(month)) continue;
-    const returning = prior.has(visit.k);
+    if (!visit.d.startsWith(month) || visit.a === false) continue;
+    const returning = (datesByCustomer.get(visit.k)?.size || 0) >= 2;
     if (returning) mix.returningBookings += 1;
     else mix.newBookings += 1;
     if (seen.has(visit.k)) continue;

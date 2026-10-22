@@ -1,17 +1,21 @@
 import { BOOKING_CLOSED_MESSAGE } from './bookingClosedMessage';
 import { shiftYmd } from './kstDate';
+import { reservationParkingSide, type ParkingSide } from './parkingSide';
 import { normalizeDateString } from './reservationNormalize';
 import { normalizeReservationStatus } from './reservationStatus';
 
 export type ParkingCapCompany = {
   parkingCapEnabled?: boolean;
   maxParkedCars?: number;
+  maxParkedCarsIndoor?: number;
+  maxParkedCarsOutdoor?: number;
 };
 
 export type ParkingCapReservation = {
   departureDate?: string;
   arrivalDate?: string;
   status?: string;
+  isIndoor?: boolean;
 };
 
 export function normalizeMaxParkedCars(value: unknown): number {
@@ -20,9 +24,34 @@ export function normalizeMaxParkedCars(value: unknown): number {
   return Math.max(0, Math.min(999, Math.floor(n)));
 }
 
+export function usesSplitParkingCap(company: ParkingCapCompany | null | undefined): boolean {
+  if (!company) return false;
+  return (
+    normalizeMaxParkedCars(company.maxParkedCarsIndoor) > 0 ||
+    normalizeMaxParkedCars(company.maxParkedCarsOutdoor) > 0
+  );
+}
+
+export function parkingCapMaxForSide(
+  company: ParkingCapCompany | null | undefined,
+  side: ParkingSide
+): number {
+  if (!company || company.parkingCapEnabled !== true) return 0;
+  if (usesSplitParkingCap(company)) {
+    return normalizeMaxParkedCars(
+      side === 'indoor' ? company.maxParkedCarsIndoor : company.maxParkedCarsOutdoor
+    );
+  }
+  return normalizeMaxParkedCars(company.maxParkedCars);
+}
+
 export function isParkingCapActive(company: ParkingCapCompany | null | undefined): boolean {
   if (!company || company.parkingCapEnabled !== true) return false;
-  return normalizeMaxParkedCars(company.maxParkedCars) > 0;
+  return (
+    normalizeMaxParkedCars(company.maxParkedCars) > 0 ||
+    normalizeMaxParkedCars(company.maxParkedCarsIndoor) > 0 ||
+    normalizeMaxParkedCars(company.maxParkedCarsOutdoor) > 0
+  );
 }
 
 /** 동시 주차 점유에 포함 (취소·출고완료 제외) */
@@ -100,6 +129,8 @@ export function evaluateParkingCapacity(args: {
   departureDate: string;
   arrivalDate: string;
   existingReservations: ParkingCapReservation[];
+  /** 이번 예약이 실내인지. 나누기 전에는 합산만 본다. */
+  isIndoor?: boolean;
   /** false(기본)=클라: used >= max 이면 만차 / true=서버: used > max 이면 만차 */
   countingIncludesCandidate?: boolean;
 }): ParkingCapacityResult {
@@ -107,7 +138,15 @@ export function evaluateParkingCapacity(args: {
     return { ok: true, max: 0, peakUsed: 0, remaining: 0 };
   }
 
-  const max = normalizeMaxParkedCars(args.company.maxParkedCars);
+  const side = reservationParkingSide(args.isIndoor);
+  const split = usesSplitParkingCap(args.company);
+  const max = parkingCapMaxForSide(args.company, side);
+  if (max <= 0) {
+    return { ok: true, max: 0, peakUsed: 0, remaining: 0 };
+  }
+  const pool = split
+    ? args.existingReservations.filter((row) => reservationParkingSide(row.isIndoor) === side)
+    : args.existingReservations;
   const days = eachYmdInclusive(args.departureDate, args.arrivalDate);
   if (!days.length) {
     return {
@@ -123,7 +162,7 @@ export function evaluateParkingCapacity(args: {
   let peakUsed = 0;
   let fullDate = '';
   for (const day of days) {
-    const used = countOccupancyOnDay(args.existingReservations, day);
+    const used = countOccupancyOnDay(pool, day);
     if (used > peakUsed) peakUsed = used;
     const over = args.countingIncludesCandidate ? used > max : used >= max;
     if (over && !fullDate) fullDate = day;

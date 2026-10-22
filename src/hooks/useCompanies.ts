@@ -21,6 +21,8 @@ const DEFAULT_PARTNERS: PartnerCompany[] = [];
 
 export interface BookingSettingsInput {
   blockedDates: string[];
+  blockedDatesIndoor?: string[];
+  blockedDatesOutdoor?: string[];
   cancelCutoffHours: number;
   sameDayBookingBlocked: boolean;
   bookingLeadHours: number;
@@ -28,6 +30,8 @@ export interface BookingSettingsInput {
   maxCarsPerHour: number;
   parkingCapEnabled: boolean;
   maxParkedCars: number;
+  maxParkedCarsIndoor?: number;
+  maxParkedCarsOutdoor?: number;
   dailyIntakeCapEnabled: boolean;
   maxCarsPerDay: number;
   scheduleBlocks: ScheduleBlockRule[];
@@ -229,6 +233,8 @@ export function useCompanies({
 
       const {
         blockedDates: newBlockedDates,
+        blockedDatesIndoor,
+        blockedDatesOutdoor,
         cancelCutoffHours,
         sameDayBookingBlocked,
         bookingLeadHours,
@@ -236,18 +242,25 @@ export function useCompanies({
         maxCarsPerHour,
         parkingCapEnabled,
         maxParkedCars,
+        maxParkedCarsIndoor,
+        maxParkedCarsOutdoor,
         dailyIntakeCapEnabled,
         maxCarsPerDay,
         scheduleBlocks,
       } = settings;
 
+      const indoorDates = blockedDatesIndoor ?? newBlockedDates;
+      const outdoorDates = blockedDatesOutdoor ?? newBlockedDates;
+      const bothDates = indoorDates.filter((day) => outdoorDates.includes(day));
       const cleanBlocks = normalizeScheduleBlocks(scheduleBlocks);
 
-      localStorage.setItem(`${targetId}_blockedDates`, JSON.stringify(newBlockedDates));
+      localStorage.setItem(`${targetId}_blockedDates`, JSON.stringify(bothDates));
       setCompanies((prev) => {
         const idx = prev.findIndex((c) => c.id === targetId);
         const patch = {
-          blockedDates: newBlockedDates,
+          blockedDates: bothDates,
+          blockedDatesIndoor: indoorDates,
+          blockedDatesOutdoor: outdoorDates,
           cancelCutoffHours,
           sameDayBookingBlocked,
           bookingLeadHours: normalizeBookingLeadHours(bookingLeadHours),
@@ -255,6 +268,8 @@ export function useCompanies({
           maxCarsPerHour,
           parkingCapEnabled,
           maxParkedCars,
+          ...(maxParkedCarsIndoor != null ? { maxParkedCarsIndoor } : {}),
+          ...(maxParkedCarsOutdoor != null ? { maxParkedCarsOutdoor } : {}),
           dailyIntakeCapEnabled,
           maxCarsPerDay,
           scheduleBlocks: cleanBlocks,
@@ -278,7 +293,9 @@ export function useCompanies({
           doc(db, 'companies', targetId),
           {
             id: targetId,
-            blockedDates: newBlockedDates,
+            blockedDates: bothDates,
+            blockedDatesIndoor: indoorDates,
+            blockedDatesOutdoor: outdoorDates,
             cancelCutoffHours,
             sameDayBookingBlocked,
             bookingLeadHours: normalizeBookingLeadHours(bookingLeadHours),
@@ -286,6 +303,8 @@ export function useCompanies({
             maxCarsPerHour,
             parkingCapEnabled,
             maxParkedCars,
+            ...(maxParkedCarsIndoor != null ? { maxParkedCarsIndoor } : {}),
+            ...(maxParkedCarsOutdoor != null ? { maxParkedCarsOutdoor } : {}),
             dailyIntakeCapEnabled,
             maxCarsPerDay,
             scheduleBlocks: cleanBlocks,

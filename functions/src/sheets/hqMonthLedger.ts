@@ -303,12 +303,9 @@ export function companyMonthStats(rows: LedgerRow[]): Record<string, Record<stri
 
 export function aggregateHqMonthLedger(rows: LedgerRow[], month: string): HqMonthLedger {
   const unique = uniqueLedgerRows(rows).filter((row) => !row.cancelled);
-  const monthStart = `${month}-01`;
-
-  const before = new Set<string>();
+  const reservationCounts = new Map<string, number>();
   for (const row of unique) {
-    if (!row.admitted || !row.departureYmd || row.departureYmd >= monthStart) continue;
-    before.add(row.customerKey);
+    reservationCounts.set(row.customerKey, (reservationCounts.get(row.customerKey) || 0) + 1);
   }
 
   const result: HqMonthLedger = {
@@ -352,7 +349,7 @@ export function aggregateHqMonthLedger(rows: LedgerRow[], month: string): HqMont
       else if (row.source === 'homepage') company.homepage += 1;
       else company.onsite += 1;
 
-      const returning = before.has(row.customerKey);
+      const returning = (reservationCounts.get(row.customerKey) || 0) >= 2;
       if (returning) result.customerMix.returningBookings += 1;
       else result.customerMix.newBookings += 1;
       if (!seenCustomers.has(row.customerKey)) {
