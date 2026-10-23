@@ -4,20 +4,25 @@ import {
   addDaysToIso,
   resolvePurgeSchedule,
 } from './retention';
+import { recordPurgedVisit } from './customerHistory';
+import { purgeCheckoutPhotos } from './reservationPhotoPurge';
 import { deleteReservationSecrets } from './reservations/reservationSecrets';
 
 const BATCH_LIMIT = 200;
 
-/** 예약 문서 + 하위 secrets. Storage 사진은 건드리지 않음. */
-async function deleteReservationDocument(reservationId: string): Promise<void> {
+/**
+ * 예약 문서 + 하위 secrets. 사진은 출차 30일에 따로 지운다.
+ * 지우기 전에 그 손님의 출차 1회를 본사 재방문 기록에 남긴다.
+ */
+async function deleteReservationDocument(
+  reservationId: string,
+  data: FirebaseFirestore.DocumentData
+): Promise<void> {
+  await recordPurgedVisit(data);
   await deleteReservationSecrets(reservationId);
   await admin.firestore().collection('reservations').doc(reservationId).delete();
 }
 
-/**
- * 차량 사진 Storage는 절대 삭제하지 않는다.
- * (운영 지시: 사진 저장소는 무슨 일이 있어도 건드리지 않음)
- */
 function db() {
   return admin.firestore();
 }
@@ -147,7 +152,7 @@ async function purgeReservationsPastData(
 
       if (!(await checkoutMonthsSnapshotted(data, ready))) continue;
 
-      await deleteReservationDocument(docSnap.id);
+      await deleteReservationDocument(docSnap.id, data);
       count += 1;
     }
 
@@ -178,26 +183,29 @@ async function purgeLegacyCompletedOut(
     if (schedule.dataPurgeAt > nowIso) continue;
     if (!(await checkoutMonthsSnapshotted(data, ready))) continue;
 
-    // Storage 삭제 금지. 예약 문서만 제거.
-    await deleteReservationDocument(docSnap.id);
+    // 사진은 출차 30일에 이미 지웠다. 여기서는 예약 문서만 제거.
+    await deleteReservationDocument(docSnap.id, data);
     count += 1;
   }
   return count;
 }
 
 export async function runRetentionCleanup(): Promise<{
+  photos: { files: number; docs: number; orphans: number };
   storageQueue: number;
   storageDue: number;
   dataDue: number;
   legacy: number;
 }> {
-  const nowIso = new Date().toISOString();
+  const now = new Date();
+  const nowIso = now.toISOString();
 
+  const photos = await purgeCheckoutPhotos(now.getTime());
   const storageQueue = await drainStorageRetentionQueue();
   const storageDue = await clearDueStoragePurgeMarkers(nowIso);
   const ready = new Map<string, boolean>();
   const dataDue = await purgeReservationsPastData(nowIso, ready);
   const legacy = await purgeLegacyCompletedOut(nowIso, ready);
 
-  return { storageQueue, storageDue, dataDue, legacy };
+  return { photos, storageQueue, storageDue, dataDue, legacy };
 }

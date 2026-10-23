@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type Dispatch, type SetStateAction } from 'react';
-import { collection, doc, getDoc, onSnapshot, setDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, onSnapshot, query, setDoc, where } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import type { AppView, Company, CompanyInfo, PartnerCompany } from '../types';
 import { formatPartnerDisplayName } from '../utils/companyDisplay';
@@ -344,12 +344,16 @@ export function useCompanies({
     [companyInfo]
   );
 
-  useEffect(() => {
-    const unsub = onSnapshot(
-      collection(db, 'companies'),
-      (snap) => {
-        const data = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Company));
+  const scopedRootId = useMemo(() => {
+    const current = (currentCompanyId || '').trim();
+    if (!isLoggedIn || isSuperAdmin || !current || isAirpickHeadquarters(current)) return '';
+    const row = companies.find((c) => c.id === current);
+    const parent = String(row?.parentCompanyId || '').trim();
+    return parent || current;
+  }, [isLoggedIn, isSuperAdmin, currentCompanyId, companies]);
 
+  useEffect(() => {
+    const applyCompanies = (data: Company[]) => {
         if (data.length > 0) {
           setCompanies(data);
           localStorage.setItem('companies', JSON.stringify(data));
@@ -375,26 +379,59 @@ export function useCompanies({
           writePartnersToStorage(mergedList);
           return sanitizePartnersForStorage(mergedList);
         });
-      },
-      (error) => {
-        handleFirestoreError(error, OperationType.LIST, 'companies');
-        const saved = localStorage.getItem('companies');
-        if (saved) {
-          try {
-            const parsed = JSON.parse(saved);
-            if (parsed && Array.isArray(parsed)) {
-              setCompanies(parsed);
-              return;
-            }
-          } catch {
-            /* ignore */
+    };
+
+    const onError = (error: unknown) => {
+      handleFirestoreError(error, OperationType.LIST, 'companies');
+      const saved = localStorage.getItem('companies');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (parsed && Array.isArray(parsed)) {
+            setCompanies(parsed);
+            return;
           }
+        } catch {
+          /* ignore */
         }
-        setCompanies([]);
       }
+      setCompanies([]);
+    };
+
+    if (!scopedRootId) {
+      const unsub = onSnapshot(
+        collection(db, 'companies'),
+        (snap) => applyCompanies(snap.docs.map((d) => ({ id: d.id, ...d.data() } as Company))),
+        onError
+      );
+      return () => unsub();
+    }
+
+    // 파트너는 자기 업체와 하위 브랜드만 듣는다. 업체가 늘어도 처음 읽는 양이 같다.
+    let root: Company | null = null;
+    let children: Company[] = [];
+    const emit = () => applyCompanies(root ? [root, ...children] : children);
+    const unsubRoot = onSnapshot(
+      doc(db, 'companies', scopedRootId),
+      (snap) => {
+        root = snap.exists() ? ({ id: snap.id, ...snap.data() } as Company) : null;
+        emit();
+      },
+      onError
     );
-    return () => unsub();
-  }, []);
+    const unsubChildren = onSnapshot(
+      query(collection(db, 'companies'), where('parentCompanyId', '==', scopedRootId)),
+      (snap) => {
+        children = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Company));
+        emit();
+      },
+      onError
+    );
+    return () => {
+      unsubRoot();
+      unsubChildren();
+    };
+  }, [scopedRootId]);
 
   return {
     companies,

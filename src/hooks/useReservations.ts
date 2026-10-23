@@ -10,10 +10,7 @@ import {
 import { formatPartnerDisplayName } from '../utils/companyDisplay';
 import { clearLegacyReservationLocalCaches } from '../utils/reservationScope';
 import { normalizeDateString, normalizeDocsArray } from '../utils/reservationNormalize';
-import {
-  fetchScopedReservations,
-  subscribeScopedReservations,
-} from '../utils/reservationQuery';
+import { subscribeScopedReservations } from '../utils/reservationQuery';
 import { buildCheckoutRetentionFields } from '../lib/reservationRetention';
 import { mergeReservationImageUrls } from '../lib/reservationPhotos';
 import { buildScratchPhotoSet } from '../lib/scratchPhotos';
@@ -269,16 +266,6 @@ export function useReservations({
       }
 
       if (cancelled) return;
-
-      try {
-        const rows = await fetchScopedReservations(db, syncScope);
-        if (!cancelled) {
-          applySnapshot(rows);
-        }
-      } catch (err) {
-        failSync('예약 목록을 불러오지 못했습니다. 다시 시도해 주세요.', err);
-        return;
-      }
 
       return subscribeScopedReservations(
         db,

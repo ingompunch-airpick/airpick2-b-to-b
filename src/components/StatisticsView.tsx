@@ -28,7 +28,11 @@ import {
 } from '../utils/reservationStatus';
 import { normalizeDateString } from '../utils/reservationNormalize';
 import { getKSTDateOnlyString, toKSTDateOnlyString } from '../utils/kstDate';
-import { fetchHqMonthSnapshot, monthStillInApp } from '../lib/hqMonthSnapshot';
+import {
+  fetchHqMonthSnapshot,
+  fetchPurgedVisitCounts,
+  monthStillInApp,
+} from '../lib/hqMonthSnapshot';
 import {
   companyMonthSnapshotId,
   fetchCompanyMonthSnapshot,
@@ -230,6 +234,22 @@ export default function StatisticsView({
   const hqDashboard =
     isSuperAdmin && (!currentCompanyId || isAirpickHeadquarters(currentCompanyId));
 
+  const [purgedVisits, setPurgedVisits] = useState<Record<string, number>>({});
+  useEffect(() => {
+    if (!hqDashboard) return;
+    let cancelled = false;
+    fetchPurgedVisitCounts()
+      .then((counts) => {
+        if (!cancelled) setPurgedVisits(counts);
+      })
+      .catch(() => {
+        /* 기록을 못 읽으면 앱에 남은 예약만으로 센다 */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [hqDashboard]);
+
   useEffect(() => {
     if (!hqDashboard || hqTab !== 'month' || monthStillInApp(hqMonthPrefix, todayStr)) return;
     let cancelled = false;
@@ -400,7 +420,12 @@ export default function StatisticsView({
     const hqTodayCompanyRows = buildHqTodayCompanyRows(masterActiveRes, todayStr, companies);
     // 상단 접수 = 업체별 접수 합 (집계 기준 불일치로 4 vs 3 나는 것 방지)
     const masterTodayReservations = hqTodayCompanyRows.reduce((s, row) => s + row.received, 0);
-    const hqCustomerMix = computeCustomerMix(masterActiveRes, hqMonthPrefix, hqMonthAdmitted);
+    const hqCustomerMix = computeCustomerMix(
+      masterActiveRes,
+      hqMonthPrefix,
+      hqMonthAdmitted,
+      purgedVisits
+    );
 
     const keptLive = monthStillInApp(hqMonthPrefix, todayStr);
     const pastReady =

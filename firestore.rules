@@ -242,6 +242,18 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // 날짜별 실내/야외 주차 대수. 손님·직원이 예약 목록 대신 읽는다.
+    match /parkingOccupancy/{companyId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
+    // 홈에 보여줄 후기 건수·평균·최근 6건. 개인 연락처는 넣지 않는다.
+    match /reviewSummaries/{companyId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     // ── acquisitionClicks (명함 QR 등 영업 유입) ───────────────────────────
     // 목록(성과)은 본사만. get/create/update 는 손님 /h/ 추적에 필요.
 
@@ -410,6 +422,12 @@ service cloud.firestore {
           || request.resource.data.pageViews >= resource.data.pageViews
         );
       allow delete: if false;
+    }
+
+    // ── hqCustomerHistory (앱에서 지운 출차 완료 수, 전화번호별) ──────────
+    match /hqCustomerHistory/{docId} {
+      allow read: if isPlatformAdmin();
+      allow write: if false;
     }
 
     // ── hqMonthSnapshots (본사 월간 합계, 지난달만) ───────────────────────

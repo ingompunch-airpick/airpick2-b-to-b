@@ -10,6 +10,7 @@ import {
   sheetsWawaSpreadsheetId,
 } from './sheets/params';
 import { normalizePhoneDigits } from './customerVisit';
+import { loadPurgedVisitCounts } from './customerHistory';
 
 /** 스냅샷 전에는 지우지 않으므로, 예전 90일 안이면 그달 예약이 아직 온전하다. */
 const DATA_STILL_COMPLETE_DAYS = 90;
@@ -155,11 +156,21 @@ function countsAsCheckout(row: ResDoc, month: string): boolean {
   return false;
 }
 
-export function aggregateReservationMonth(rows: ResDoc[], month: string): HqMonthLedger {
+/** @param purgedVisits 전화번호(숫자만) → 앱에서 지운 출차 완료 수. 재방문 판단에 더한다. */
+export function aggregateReservationMonth(
+  rows: ResDoc[],
+  month: string,
+  purgedVisits: Map<string, number> = new Map()
+): HqMonthLedger {
   const reservationCounts = new Map<string, number>();
   for (const row of rows) {
     if (row.status === 'cancelled' || !row.customerKey) continue;
     reservationCounts.set(row.customerKey, (reservationCounts.get(row.customerKey) || 0) + 1);
+  }
+  for (const [key, count] of reservationCounts) {
+    if (!key.startsWith('p:')) continue;
+    const prior = purgedVisits.get(key.slice(2)) || 0;
+    if (prior > 0) reservationCounts.set(key, count + prior);
   }
 
   const companies = new Map<string, HqMonthLedger['companies'][number]>();
@@ -368,11 +379,13 @@ export async function freezePastHqMonths(): Promise<{ wrote: string[] }> {
     }
   }
 
+  let purgedVisits: Map<string, number> | null = null;
   for (const month of [...candidates].sort()) {
     if (!/^\d{4}-\d{2}$/.test(month) || month >= current || have.has(month)) continue;
     if (monthStillInFirestore(month, today)) {
       const rows = await reservationsForMonth(month);
-      await writeSnapshot(month, aggregateReservationMonth(rows, month), 'firestore');
+      purgedVisits = purgedVisits || (await loadPurgedVisitCounts());
+      await writeSnapshot(month, aggregateReservationMonth(rows, month, purgedVisits), 'firestore');
       await writeCompanyMonthDocs(month, companyStatsFromReservations(rows, month), 'firestore');
     } else {
       const months = await ensureSheet();

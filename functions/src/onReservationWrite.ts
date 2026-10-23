@@ -25,6 +25,7 @@ import {
   stashReservationPassword,
 } from './reservations/reservationSecrets';
 import { syncCapacityAggregate } from './capacityAggregate';
+import { syncParkingOccupancy } from './parkingOccupancy';
 
 const alimtalkEnabled = defineString('ALIMTALK_ENABLED', { default: 'false' });
 const alimtalkProvider = defineString('ALIMTALK_PROVIDER', { default: 'nhn' });
@@ -89,6 +90,7 @@ export const onReservationSync = onDocumentWritten(
     // 손님 화면이 예약 목록 대신 읽는 시간당 집계 — 삭제·자동취소도 반영되도록 먼저 갱신
     try {
       await syncCapacityAggregate(beforeData, afterData);
+      await syncParkingOccupancy(beforeData, afterData);
     } catch (err) {
       console.error('[capacityAggregate] sync failed', {
         reservationId,

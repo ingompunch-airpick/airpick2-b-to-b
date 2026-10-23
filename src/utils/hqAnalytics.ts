@@ -233,8 +233,16 @@ export function buildCompanyRankChanges(
   });
 }
 
+/** 서버 customers·재방문 기록과 같은 전화번호 키 (82 → 0, 앞 0 빠진 10자리 보정) */
+export function customerPhoneDigits(phone: unknown): string {
+  let digits = String(phone ?? '').replace(/\D/g, '');
+  if (digits.startsWith('82') && digits.length >= 11) digits = `0${digits.slice(2)}`;
+  if (digits.length === 10 && digits.startsWith('10')) digits = `0${digits}`;
+  return digits;
+}
+
 function customerKey(r: Reservation): string {
-  const phone = (r.phone || '').replace(/\D/g, '');
+  const phone = customerPhoneDigits(r.phone);
   if (phone.length >= 10) return `p:${phone}`;
   const name = (r.userName || '').trim().toLowerCase();
   return name ? `n:${name}` : `id:${r.id}`;
@@ -247,17 +255,26 @@ export type HqCustomerMix = {
   returningBookings: number;
 };
 
-/** 신규·재방문 — 취소 제외 예약이 두 건 이상이면 재방문. 이번달 예약도 센다. */
+/**
+ * 신규·재방문 — 취소 제외 예약이 두 건 이상이면 재방문. 이번달 예약도 센다.
+ * purgedVisits: 앱에서 지운 출차 완료 수(전화번호별). 앱에 남은 예약 수에 더한다.
+ */
 export function computeCustomerMix(
   allReservations: Reservation[],
   _monthPrefix: string,
-  monthAdmitted: Reservation[]
+  monthAdmitted: Reservation[],
+  purgedVisits: Record<string, number> = {}
 ): HqCustomerMix {
   const reservationCounts = new Map<string, number>();
   for (const r of allReservations) {
     if (r.status === 'cancelled') continue;
     const key = customerKey(r);
     reservationCounts.set(key, (reservationCounts.get(key) || 0) + 1);
+  }
+  for (const [key, count] of reservationCounts) {
+    if (!key.startsWith('p:')) continue;
+    const prior = Number(purgedVisits[key.slice(2)] || 0);
+    if (prior > 0) reservationCounts.set(key, count + prior);
   }
 
   const seenCustomers = new Set<string>();

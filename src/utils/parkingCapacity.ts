@@ -186,3 +186,59 @@ export function evaluateParkingCapacity(args: {
     remaining: Math.max(0, max - peakUsed),
   };
 }
+
+/** 날짜별 주차 대수(집계 문서)로 만차를 판단한다. 없는 날은 0대. */
+export function evaluateParkingCapacityFromDailyCounts(args: {
+  company: ParkingCapCompany;
+  departureDate: string;
+  arrivalDate: string;
+  isIndoor?: boolean;
+  usedByDay: Record<string, number>;
+  countingIncludesCandidate?: boolean;
+}): ParkingCapacityResult {
+  if (!isParkingCapActive(args.company)) {
+    return { ok: true, max: 0, peakUsed: 0, remaining: 0 };
+  }
+  const max = parkingCapMaxForSide(args.company, reservationParkingSide(args.isIndoor));
+  if (max <= 0) {
+    return { ok: true, max: 0, peakUsed: 0, remaining: 0 };
+  }
+  const days = eachYmdInclusive(args.departureDate, args.arrivalDate);
+  if (!days.length) {
+    return {
+      ok: false,
+      max,
+      peakUsed: 0,
+      remaining: 0,
+      fullDate: '',
+      message: '입고·출고 날짜를 확인해 주세요.',
+    };
+  }
+
+  let peakUsed = 0;
+  let fullDate = '';
+  for (const day of days) {
+    const used = args.usedByDay[day] ?? 0;
+    if (used > peakUsed) peakUsed = used;
+    const over = args.countingIncludesCandidate ? used > max : used >= max;
+    if (over && !fullDate) fullDate = day;
+  }
+
+  if (fullDate) {
+    return {
+      ok: false,
+      max,
+      peakUsed,
+      remaining: 0,
+      fullDate,
+      message: parkingCapacityFullMessage(max, fullDate),
+    };
+  }
+
+  return {
+    ok: true,
+    max,
+    peakUsed,
+    remaining: Math.max(0, max - peakUsed),
+  };
+}

@@ -13,6 +13,19 @@ export function monthStillInApp(month: string, today: string): boolean {
   return shiftYmd(`${month}-01`, RESERVATION_DATA_RETENTION_DAYS) > today;
 }
 
+/** 앱에서 지운 출차 완료 수(전화번호별). 본사 재방문 판단에 더한다. */
+export async function fetchPurgedVisitCounts(): Promise<Record<string, number>> {
+  await ensurePlatformAdminAuth();
+  const snap = await getDoc(doc(db, 'hqCustomerHistory', 'purgedVisits'));
+  const raw = (snap.exists() ? snap.data().counts : null) as Record<string, unknown> | null;
+  const out: Record<string, number> = {};
+  for (const [key, value] of Object.entries(raw || {})) {
+    const n = Number(value);
+    if (Number.isFinite(n) && n > 0) out[key] = n;
+  }
+  return out;
+}
+
 export async function fetchHqMonthSnapshot(
   month: string,
   companies: Company[]

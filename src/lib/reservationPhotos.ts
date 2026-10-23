@@ -44,7 +44,7 @@ function withTimeout<T>(promise: Promise<T>, label: string): Promise<T> {
 }
 
 /** 큰 base64 사진을 JPEG로 줄여 Storage 업로드 실패·지연을 줄임 */
-function dataUrlToCompressedBlob(dataUrl: string, maxWidth = 1600): Promise<Blob> {
+function dataUrlToCompressedBlob(dataUrl: string, maxWidth = 1280): Promise<Blob> {
   return new Promise((resolve, reject) => {
     const img = new Image();
     img.onload = () => {

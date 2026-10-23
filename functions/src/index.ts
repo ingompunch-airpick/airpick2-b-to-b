@@ -6,6 +6,7 @@ import { onReservationSync } from './onReservationWrite';
 import { runRetentionCleanup } from './retentionCleanup';
 import { sweepReservationPasswords } from './reservations/reservationSecrets';
 import { backfillUpcomingCapacity } from './capacityAggregate';
+import { refreshAllParkingOccupancy } from './parkingOccupancy';
 import { runFlightDelayCheck } from './flightDelay/checkFlightDelays';
 import { adminUpsertCompany } from './admin/upsertCompany';
 import { adminSetCompanyStatus } from './admin/setCompanyStatus';
@@ -79,7 +80,7 @@ export const freezeHqMonthSnapshots = onSchedule(
   }
 );
 
-/** 매일 04:00 KST — 출차 40일·월 합계 스냅샷 후 예약 삭제. 사진은 삭제하지 않음 */
+/** 매일 04:00 KST — 출차 30일 사진 삭제, 40일·월 합계 스냅샷 후 예약 문서 삭제 */
 export const purgeExpiredReservationData = onSchedule(
   {
     schedule: '0 4 * * *',
@@ -97,6 +98,9 @@ export const purgeExpiredReservationData = onSchedule(
 
     const capacityDocs = await backfillUpcomingCapacity();
     console.log('[purgeExpiredReservationData] capacity docs refreshed', capacityDocs);
+
+    const parkingDocs = await refreshAllParkingOccupancy();
+    console.log('[purgeExpiredReservationData] parking occupancy refreshed', parkingDocs);
   }
 );
 
