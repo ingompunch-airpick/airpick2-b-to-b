@@ -10,6 +10,7 @@ import AffiliateStatsPage from './pages/AffiliateStatsPage.tsx';
 import { parseHomepageCompanyIdFromPath } from './utils/homepageBookingPath.ts';
 import { parseReceiptCodeFromPath } from './utils/receipt.ts';
 import { parseAffiliateStatsPortal } from './utils/affiliate.ts';
+import { installGlobalErrorReporting, reportError } from './lib/errorReport.ts';
 import './index.css';
 
 async function dismissNativeSplash(): Promise<void> {
@@ -66,6 +67,8 @@ function resolveRootElement(): HTMLElement {
   return created;
 }
 
+installGlobalErrorReporting();
+
 try {
   createRoot(resolveRootElement()).render(
     <StrictMode>
@@ -74,6 +77,7 @@ try {
   );
 } catch (err) {
   console.error('[boot] render failed', err);
+  reportError('crash', err, 'boot');
 }
 
 // 렌더가 실패해도 네이티브 스플래시(아이콘 화면)에 고착되지 않게 항상 해제한다.

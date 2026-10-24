@@ -30,8 +30,10 @@ import { getIcnArrival } from './api/icnArrival';
 import { getIcnAirportLive } from './api/icnAirportLive';
 import { getDriveEta } from './api/driveEta';
 import { claimGuestReservations } from './members/claimGuestReservations';
+import { dispatchErrorReports, reportClientError } from './ops/errorReports';
 
 export {
+  reportClientError,
   onReservationSync,
   adminUpsertCompany,
   adminSetCompanyStatus,
@@ -101,6 +103,21 @@ export const purgeExpiredReservationData = onSchedule(
 
     const parkingDocs = await refreshAllParkingOccupancy();
     console.log('[purgeExpiredReservationData] parking occupancy refreshed', parkingDocs);
+  }
+);
+
+/** 평일 09:00 KST — 보낼 오류 보고가 있을 때만 본사에 메일을 보낸다. */
+export const dispatchErrorReportsDaily = onSchedule(
+  {
+    schedule: '0 9 * * 1-5',
+    timeZone: 'Asia/Seoul',
+    region: 'us-central1',
+    memory: '256MiB',
+    timeoutSeconds: 60,
+  },
+  async () => {
+    const result = await dispatchErrorReports();
+    console.log('[dispatchErrorReports]', JSON.stringify(result));
   }
 );
 

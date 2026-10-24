@@ -29,6 +29,32 @@ export function isWawaCompany(companyId?: string, companyName?: string): boolean
   );
 }
 
+export function isGayuCompany(companyId?: string, companyName?: string): boolean {
+  const id = (companyId || '').trim().toLowerCase();
+  const name = (companyName || '').trim().toLowerCase();
+  return (
+    id === 'gayu' ||
+    id === 'gayu_valet' ||
+    id === 'gy' ||
+    name.includes('gayu') ||
+    companyName?.includes('가유') === true
+  );
+}
+
+/**
+ * 가유 요금표 — B2C 예약 금액과 같아야 한다(airpick-b2c pricingProfiles).
+ * 1터미널: 3일 40,000 + 4일째부터 5,000/일 · 2터미널: 4일까지 50,000, 5일 60,000 + 6일째부터 5,000/일
+ */
+export function gayuBasePrice(totalDays: number, isT2: boolean): number {
+  if (totalDays <= 0) return 0;
+  if (isT2) {
+    if (totalDays <= 4) return 50000;
+    return 60000 + (totalDays - 5) * 5000;
+  }
+  if (totalDays <= 3) return 40000;
+  return 40000 + (totalDays - 3) * 5000;
+}
+
 /** Firestore·로컬에 값이 없을 때 와와 기본 요금 채움 */
 export function mergePartnerPricing<T extends object>(
   partner: T,
@@ -139,6 +165,16 @@ export function getCalculatePrice(
   if (!company) return 0;
   const priced = mergePartnerPricing(company, company.id);
   const diffDays = getParkingDayCount(start, end);
+
+  if (isGayuCompany(company.id, company.name)) {
+    const nightStart = priced.surchargeStartTime || '19:00';
+    const nightEnd = priced.surchargeEndTime || '05:00';
+    const nightFee = Number(priced.surchargePrice) || 10000;
+    let total = gayuBasePrice(diffDays, isT2);
+    if (checkIsNightSurcharge(start, nightStart, nightEnd)) total += nightFee;
+    if (checkIsNightSurcharge(end, nightStart, nightEnd)) total += nightFee;
+    return total;
+  }
 
   let basePrice = 0;
   let extraPrice = 0;

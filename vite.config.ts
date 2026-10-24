@@ -1,9 +1,20 @@
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
+import {execSync} from 'child_process';
 import path from 'path';
 import {defineConfig} from 'vite';
 
+/** 오류 보고에 붙는 빌드 표시 — 어느 커밋에서 났는지 알 수 있게 */
+function appBuildId(): string {
+  try {
+    return execSync('git rev-parse --short HEAD', {stdio: ['ignore', 'pipe', 'ignore']}).toString().trim();
+  } catch {
+    return new Date().toISOString().slice(0, 16);
+  }
+}
+
 export default defineConfig(() => {
+  process.env.VITE_APP_BUILD ||= appBuildId();
   // GitHub Pages 프로젝트 경로 (/airpick2-b-to-b/). 로컬·Firebase Hosting은 '/'
   const base =
     process.env.GITHUB_PAGES === 'true' ? '/airpick2-b-to-b/' : '/';

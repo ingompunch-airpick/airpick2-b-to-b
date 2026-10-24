@@ -25,6 +25,7 @@ import {
   resolveCompanyLotsForReservation,
 } from './utils/parkingLot';
 import { cn } from './lib/utils';
+import { setErrorReportContext } from './lib/errorReport';
 import { useReservations } from './hooks/useReservations';
 import { useSession } from './hooks/useSession';
 import { useCompanies } from './hooks/useCompanies';
@@ -219,6 +220,10 @@ export default function App() {
     setIsAdminModeActive,
   });
   setCurrentViewRef.current = setCurrentView;
+
+  useEffect(() => {
+    setErrorReportContext({ companyId: currentCompanyId || '', screen: currentView });
+  }, [currentCompanyId, currentView]);
 
   // Custom Date Picker State
   const [datePickerTarget, setDatePickerTarget] = useState<'selectedDate' | null>(null);

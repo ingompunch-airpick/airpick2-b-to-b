@@ -57,6 +57,7 @@ import {
   type PartnerProfileInput,
 } from '../utils/companyProfile';
 import { uploadCompanyInsuranceCertificate, uploadCompanyParkingImages, uploadCompanyVerificationDocument } from '../lib/companyPhotos';
+import { reportError } from '../lib/errorReport';
 
 const getKSTMonthOnlyString = () => {
   const kstDate = new Date(Date.now() + 9 * 60 * 60 * 1000);
@@ -521,6 +522,7 @@ export default function AdminDashboard({
       alert(`[${editName}] 업체 정보가 성공적으로 수정되었습니다.`);
     } catch (err) {
       console.error('handleSaveEdit unexpected error:', err);
+      reportError('error', err, '본사 업체 정보 저장');
       const detail = err instanceof Error ? err.message : String(err);
       setSaveEditError(`저장 중 오류: ${detail}`);
       savingEditRef.current = false;

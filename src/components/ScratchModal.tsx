@@ -14,6 +14,7 @@ import { ensureFirestoreAuth } from '../lib/reservationFirestore';
 import { resolveRequiredCompanyId } from '../utils/companyDisplay';
 import { readImageFilesAsDataUrls, safePersistPhotoDraft } from '../utils/imageFile';
 import { buildScratchPhotoSet } from '../lib/scratchPhotos';
+import { reportError } from '../lib/errorReport';
 import InlineVehicleCamera from './InlineVehicleCamera';
 import {
   buildParkingAssignmentFields,
@@ -591,6 +592,7 @@ export default function ScratchModal({
                     setParkingZone('');
                   } catch (err) {
                     console.error('Photo upload failed:', err);
+                    reportError('error', err, '차량 사진 업로드');
                     const msg = err instanceof Error ? err.message : String(err);
                     alert(`사진 업로드 실패\n\n${msg}`);
                   } finally {

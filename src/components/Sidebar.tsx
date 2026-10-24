@@ -30,6 +30,7 @@ import {
 } from '../utils/reservationNotifications';
 import { registerPartnerPushDevice } from '../lib/partnerPush';
 import ReservationAlertSettingsModal from './ReservationAlertSettingsModal';
+import ProblemReportModal from './ProblemReportModal';
 import { fetchReservationAlertCopy } from '../lib/reservationAlertCopyFirestore';
 
 interface SidebarProps {
@@ -81,6 +82,7 @@ export default function Sidebar({
 }: SidebarProps) {
   const [alertsEnabled, setAlertsEnabled] = React.useState(() => areReservationAlertsEnabled());
   const [alertSettingsOpen, setAlertSettingsOpen] = React.useState(false);
+  const [problemReportOpen, setProblemReportOpen] = React.useState(false);
 
   React.useEffect(() => {
     if (!isOpen) return;
@@ -312,6 +314,14 @@ export default function Sidebar({
           >
             알림 문구 미리듣기 · 조정
           </button>
+          <button
+            type="button"
+            onClick={() => setProblemReportOpen(true)}
+            className="w-full mb-3 -mt-1 py-2 px-3 rounded-xl border border-neutral-800 bg-neutral-950 text-left text-[11px] font-bold text-zinc-400 hover:text-zinc-200 hover:border-neutral-700 transition-all flex items-center gap-2"
+          >
+            <MessageSquareWarning size={14} />
+            문제 보내기
+          </button>
 
           <div className="flex gap-2">
             <button
@@ -352,6 +362,7 @@ export default function Sidebar({
       currentCompanyId={currentCompanyId || ''}
       canEdit={isSuperAdmin || isAirpickHeadquarters(currentCompanyId)}
     />
+    <ProblemReportModal open={problemReportOpen} onClose={() => setProblemReportOpen(false)} />
     </>
   );
 }

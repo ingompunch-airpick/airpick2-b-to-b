@@ -16,6 +16,7 @@ import PartnerParkingProfileReadonly from './PartnerParkingProfileReadonly';
 import { isAirpickHeadquarters } from '../constants/platform';
 import { ensureFirestoreAuth } from '../lib/firebaseAuth';
 import { upsertCompanyEmployees } from '../lib/partnerLoginApi';
+import { reportError } from '../lib/errorReport';
 import { writePartnersToStorage } from '../utils/partnerSync';
 import { inferFacilityType } from '../utils/companyProfile';
 import {
@@ -693,6 +694,7 @@ export default function MasterSettingsView({
       }
     } catch (unexpectedErr: any) {
       console.error("Error in handleSavePartnerSelf:", unexpectedErr);
+      reportError('error', unexpectedErr, '업체 설정 저장');
       alert(`저장 도중 오류가 발생했습니다: ${unexpectedErr?.message || unexpectedErr}`);
     }
   };

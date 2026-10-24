@@ -377,7 +377,6 @@ export function useSession({ companiesRef, setCurrentView }: UseSessionParams) {
       } catch (anonErr) {
         console.warn('Silent ignore: signInAnonymously restricted during logout', anonErr);
       }
-      alert('안전하게 로그아웃되었습니다. 통합 로그인 화면(Gate)으로 이동합니다.');
     } catch (err) {
       resetSessionState();
       clearSessionLocalStorage();
