@@ -70,6 +70,16 @@ function str(value: unknown, fallback = '-'): string {
   return s || fallback;
 }
 
+/** 시트에 보이는 시각. ISO(세계 시간)는 한국 시간으로 바꾸고, 이미 한국 시각이면 그대로 둔다. */
+function formatKstDateTime(value: unknown): string {
+  const text = String(value ?? '').trim();
+  if (!text || text === '-') return '-';
+  if (/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/.test(text)) return text.slice(0, 19);
+  const ms = Date.parse(text);
+  if (Number.isNaN(ms)) return text;
+  return new Date(ms + 9 * 60 * 60 * 1000).toISOString().replace('T', ' ').slice(0, 19);
+}
+
 function firstStr(...values: unknown[]): string {
   for (const value of values) {
     const s = String(value ?? '').trim();
@@ -129,13 +139,13 @@ export function buildReservationSheetRow(
     ),
     결제: paymentLabel(data.paymentMethod),
     '실내/실외': data.isIndoor === false ? '실외' : '실내',
-    예약일시: str(data.createdAt, '-'),
-    입고일시: str(data.actualParkingTime, '-'),
-    출차일시: str(data.actualExitTime, '-'),
+    예약일시: formatKstDateTime(data.createdAt),
+    입고일시: formatKstDateTime(data.actualParkingTime),
+    출차일시: formatKstDateTime(data.actualExitTime),
     고객요청: resolveCustomerRequest(data),
     관리자메모: str(data.adminMemo, '-'),
     접수증링크: receiptUrl || '-',
-    최종동기화: new Date().toISOString(),
+    최종동기화: formatKstDateTime(new Date().toISOString()),
   };
 
   return SHEET_HEADERS.map((header) => row[header]);

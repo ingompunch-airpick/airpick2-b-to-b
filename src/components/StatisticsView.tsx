@@ -464,6 +464,7 @@ export default function StatisticsView({
       returningBookings: 0,
     };
     const shownCustomerTotal = shownMix.newCustomers + shownMix.returningCustomers;
+    const shownBookingTotal = shownMix.newBookings + shownMix.returningBookings;
     const shownCompanyRows = useLiveTotals ? hqCompanyRows : pastReady ? pastReady.companies : [];
 
     const hqMonthPicker = (
@@ -663,25 +664,36 @@ export default function StatisticsView({
                   <span className="text-[10px] text-sky-400 font-bold block">신규</span>
                   <span className="text-xl font-black text-sky-300 font-mono">
                     {shownMix.newCustomers}
+                    <span className="text-lg ml-0.5">명</span>
                     <span className="text-[11px] text-zinc-500 font-bold ml-1">
                       {shownCustomerTotal > 0
                         ? Math.round((shownMix.newCustomers / shownCustomerTotal) * 100)
                         : 0}%
                     </span>
                   </span>
+                  <span className="text-[11px] text-zinc-500 font-bold font-mono block mt-0.5">
+                    {shownMix.newBookings}대
+                  </span>
                 </div>
                 <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 px-3 py-2.5">
                   <span className="text-[10px] text-amber-400 font-bold block">재방문</span>
                   <span className="text-xl font-black text-amber-300 font-mono">
                     {shownMix.returningCustomers}
+                    <span className="text-lg ml-0.5">명</span>
                     <span className="text-[11px] text-zinc-500 font-bold ml-1">
                       {shownCustomerTotal > 0
                         ? Math.round((shownMix.returningCustomers / shownCustomerTotal) * 100)
                         : 0}%
                     </span>
                   </span>
+                  <span className="text-[11px] text-zinc-500 font-bold font-mono block mt-0.5">
+                    {shownMix.returningBookings}대
+                  </span>
                 </div>
               </div>
+              <p className="text-[11px] text-zinc-500 font-bold mt-2 px-0.5">
+                {shownMix.newBookings}대 + {shownMix.returningBookings}대 = 입고 {shownBookingTotal}대
+              </p>
             </div>
 
             <div className="space-y-2.5">
