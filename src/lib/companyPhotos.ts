@@ -1,6 +1,7 @@
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { storage } from '../firebase';
-import { ensureAdminCallableAuth } from './adminCompanyApi';
+import { ensureFirestoreAuth } from './firebaseAuth';
+import type { PartnerProfileInput } from '../utils/companyProfile';
 
 const UPLOAD_TIMEOUT_MS = 90_000;
 const MAX_PARKING_PHOTOS = 5;
@@ -102,7 +103,7 @@ export async function uploadCompanyParkingImages(
 ): Promise<string[]> {
   if (!companyId || sources.length === 0) return [];
 
-  await ensureAdminCallableAuth();
+  await ensureFirestoreAuth();
   const safeCompany = companyId.replace(/[^\w-]/g, '_').toLowerCase();
   const urls: string[] = [];
 
@@ -191,7 +192,7 @@ async function uploadCompanyDocumentImage(
     throw new Error(`${label}은 JPG/PNG 이미지로 올려 주세요.`);
   }
 
-  await ensureAdminCallableAuth();
+  await ensureFirestoreAuth();
   const safeCompany = companyId.replace(/[^\w-]/g, '_').toLowerCase();
 
   try {
@@ -206,6 +207,61 @@ async function uploadCompanyDocumentImage(
   } catch (err) {
     throw new Error(formatUploadError(err));
   }
+}
+
+/** data URL 사진을 Storage에 올리고, 이미 http 주소면 그대로 둔다 */
+export async function preparePartnerProfileUploads(
+  companyId: string,
+  profile: PartnerProfileInput
+): Promise<PartnerProfileInput> {
+  const sources =
+    profile.imageUrls.length > 0
+      ? profile.imageUrls
+      : profile.imageUrl.trim()
+        ? [profile.imageUrl.trim()]
+        : [];
+
+  let next: PartnerProfileInput = profile;
+  if (sources.length) {
+    const urls = await uploadCompanyParkingImages(companyId, sources);
+    next = { ...next, imageUrls: urls, imageUrl: urls[0] || '' };
+  } else {
+    next = { ...next, imageUrl: '', imageUrls: [] };
+  }
+
+  if (next.insuranceCertificateUrl.trim()) {
+    const certificateUrl = await uploadCompanyInsuranceCertificate(
+      companyId,
+      next.insuranceCertificateUrl
+    );
+    next = { ...next, insuranceCertificateUrl: certificateUrl || '' };
+  } else {
+    next = { ...next, insuranceCertificateUrl: '' };
+  }
+
+  if (next.businessRegistrationUrl.trim()) {
+    const businessRegistrationUrl = await uploadCompanyVerificationDocument(
+      companyId,
+      next.businessRegistrationUrl,
+      'business-registration'
+    );
+    next = { ...next, businessRegistrationUrl: businessRegistrationUrl || '' };
+  } else {
+    next = { ...next, businessRegistrationUrl: '' };
+  }
+
+  if (next.parkingContractUrl.trim()) {
+    const parkingContractUrl = await uploadCompanyVerificationDocument(
+      companyId,
+      next.parkingContractUrl,
+      'parking-contract'
+    );
+    next = { ...next, parkingContractUrl: parkingContractUrl || '' };
+  } else {
+    next = { ...next, parkingContractUrl: '' };
+  }
+
+  return next;
 }
 
 export { MAX_PARKING_PHOTOS };

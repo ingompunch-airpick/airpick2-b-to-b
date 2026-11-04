@@ -334,6 +334,24 @@ export function normalizeParkingLotsForFacility(
     .filter((l) => l.name || l.parkingAddress || l.lat || l.lng);
 }
 
+/** 입점 정보 저장 전 — 빈칸이면 손님 앱에 안 나가게 하려고 막는다 */
+export function partnerOnboardingError(
+  input: PartnerProfileInput,
+  basics?: { name?: string; phone?: string }
+): string | null {
+  if (basics) {
+    if (!String(basics.name || '').trim()) return '상호를 입력해 주세요.';
+    if (!String(basics.phone || '').trim()) return '전화를 입력해 주세요.';
+  }
+  if (!input.businessRegistrationUrl.trim()) return '사업자등록증을 올려 주세요.';
+  if (!input.insuranceProvider.trim()) return '보험사를 입력해 주세요.';
+  if (!input.insuranceProductName.trim()) return '보험 종류를 입력해 주세요.';
+  if (!input.insuranceCertificateUrl.trim()) return '보험 증권을 올려 주세요.';
+  const photos = input.imageUrls.length > 0 ? input.imageUrls : input.imageUrl ? [input.imageUrl] : [];
+  if (photos.length === 0) return '주차장 사진을 1장 이상 올려 주세요.';
+  return validatePartnerParkingLots({ ...input, insuranceEnrolled: true });
+}
+
 export function validatePartnerParkingLots(input: PartnerProfileInput): string | null {
   const lots = normalizeParkingLotsForFacility(input.parkingLots, input.facilityType);
   const needIndoor = input.facilityType === 'indoor' || input.facilityType === 'mixed';

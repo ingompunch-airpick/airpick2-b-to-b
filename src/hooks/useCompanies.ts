@@ -344,6 +344,22 @@ export function useCompanies({
     [companyInfo]
   );
 
+  const handleSetListingApproved = useCallback(
+    async (companyId: string, listingApproved: boolean) => {
+      setCompanies((prev) =>
+        prev.map((c) => (c.id === companyId ? { ...c, listingApproved } : c))
+      );
+      try {
+        await ensureFirestoreAuth();
+        await setDoc(doc(db, 'companies', companyId), { listingApproved }, { merge: true });
+      } catch (err: unknown) {
+        console.warn(`Firestore listingApproved for companies/${companyId} failed:`, err);
+        throw err;
+      }
+    },
+    []
+  );
+
   const scopedRootId = useMemo(() => {
     const current = (currentCompanyId || '').trim();
     if (!isLoggedIn || isSuperAdmin || !current || isAirpickHeadquarters(current)) return '';
@@ -443,5 +459,6 @@ export function useCompanies({
     handleCompanySwitch,
     handleSaveBookingSettings,
     handleToggleCompanyOpen,
+    handleSetListingApproved,
   };
 }

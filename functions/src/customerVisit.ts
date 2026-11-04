@@ -29,7 +29,8 @@ function isCompletedOut(status: unknown): boolean {
 }
 
 /**
- * 출고 완료(completed_out)로 바뀌는 순간 customers/{phoneKey}.visitCount +1
+ * 출고 완료(completed_out)로 바뀌는 순간 그 업체의 방문만 +1.
+ * customers/{phone}.visits.{companyId}
  * 예약만 잡고 취소·재예약한 경우는 방문으로 치지 않음.
  */
 export async function bumpCustomerVisitOnCheckout(
@@ -50,7 +51,7 @@ export async function bumpCustomerVisitOnCheckout(
   }
 
   const nameLast = String(after.userName || after.name || '').trim();
-  const companyId = String(after.companyId || '').trim();
+  const companyId = String(after.companyId || '').trim().toLowerCase();
   const now = new Date().toISOString();
   const ref = admin.firestore().collection('customers').doc(phoneKey);
 
@@ -61,6 +62,7 @@ export async function bumpCustomerVisitOnCheckout(
         phoneKey,
         phoneDisplay: formatPhoneDisplay(phoneKey),
         visitCount: 1,
+        ...(companyId ? { visits: { [companyId]: 1 } } : {}),
         firstAt: now,
         lastAt: now,
         lastReservationId: reservationId,
@@ -77,6 +79,9 @@ export async function bumpCustomerVisitOnCheckout(
 
     tx.update(ref, {
       visitCount: admin.firestore.FieldValue.increment(1),
+      ...(companyId
+        ? { [`visits.${companyId}`]: admin.firestore.FieldValue.increment(1) }
+        : {}),
       lastAt: now,
       lastReservationId: reservationId,
       phoneDisplay: formatPhoneDisplay(phoneKey),

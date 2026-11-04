@@ -1,5 +1,6 @@
 import { onCall } from 'firebase-functions/v2/https';
 import { assertPlatformAdmin } from './assertPlatformAdmin';
+import { listCompanyLedgerSpreadsheetIds } from '../sheets/companyLedger';
 import { loadHqLedgerBundle } from '../sheets/hqMonthLedger';
 import {
   sheetsServiceAccountJson,
@@ -28,6 +29,7 @@ export const getHqMonthLedger = onCall(
     return loadHqLedgerBundle({
       spreadsheetId: sheetsSpreadsheetId.value(),
       wawaSpreadsheetId: sheetsWawaSpreadsheetId.value(),
+      extraSpreadsheetIds: await listCompanyLedgerSpreadsheetIds(),
       ...(serviceAccountJson ? { serviceAccountJson } : {}),
     });
   }

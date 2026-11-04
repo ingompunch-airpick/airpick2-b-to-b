@@ -81,3 +81,10 @@ export async function adminDeleteCompany(input: {
 }): Promise<{ ok: true; companyId: string }> {
   return callAdmin('adminDeleteCompany', input);
 }
+
+export async function adminRenameCompany(input: {
+  fromId: string;
+  toId: string;
+}): Promise<{ ok: true; companyId: string }> {
+  return callAdmin('adminRenameCompany', input);
+}

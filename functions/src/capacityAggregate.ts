@@ -116,6 +116,25 @@ export async function backfillUpcomingCapacity(): Promise<number> {
   return written;
 }
 
+/** 한 업체의 입고일별 대수 문서를 예약 기준으로 다시 쓴다. */
+export async function rebuildCapacityForCompany(companyId: string): Promise<number> {
+  const id = companyId.trim();
+  if (!id) return 0;
+  const db = admin.firestore();
+  const snap = await db.collection('reservations').where('companyId', '==', id).get();
+  const dates = new Set<string>();
+  for (const docSnap of snap.docs) {
+    const date = String(docSnap.data().departureDate || docSnap.data().entryDate || '')
+      .trim()
+      .slice(0, 10);
+    if (/^\d{4}-\d{2}-\d{2}$/.test(date)) dates.add(date);
+  }
+  for (const date of dates) {
+    await recomputeOne(id, date);
+  }
+  return dates.size;
+}
+
 type CapacityInput = {
   companyId: string;
   date: string;

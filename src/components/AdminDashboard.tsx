@@ -12,12 +12,11 @@ import {
 import { auth } from '../firebase';
 import { Company, Reservation, PartnerCompany } from '../types';
 import PartnerOnboardingChecklist from './PartnerOnboardingChecklist';
-import HomepageCreateModal from './HomepageCreateModal';
-import { partnerMarketingHomeUrl } from '../utils/partnerHomepageDefaults';
+import { partnerHomepageAdminUrl } from '../utils/partnerHomepageDefaults';
 import {
   isPlatformAdminUser,
 } from '../lib/firebaseAuth';
-import { adminUpsertCompany, adminSetCompanyStatus } from '../lib/adminCompanyApi';
+import { adminRenameCompany, adminUpsertCompany, adminSetCompanyStatus } from '../lib/adminCompanyApi';
 import { getKSTDateOnlyString } from '../utils/kstDate';
 import {
   appendPartnerToList,
@@ -56,7 +55,7 @@ import {
   validatePartnerParkingLots,
   type PartnerProfileInput,
 } from '../utils/companyProfile';
-import { uploadCompanyInsuranceCertificate, uploadCompanyParkingImages, uploadCompanyVerificationDocument } from '../lib/companyPhotos';
+import { preparePartnerProfileUploads } from '../lib/companyPhotos';
 import { reportError } from '../lib/errorReport';
 
 const getKSTMonthOnlyString = () => {
@@ -68,58 +67,7 @@ async function resolveProfileParkingPhotos(
   companyId: string,
   profile: PartnerProfileInput
 ): Promise<PartnerProfileInput> {
-  const sources =
-    profile.imageUrls.length > 0
-      ? profile.imageUrls
-      : profile.imageUrl.trim()
-        ? [profile.imageUrl.trim()]
-        : [];
-
-  let next: PartnerProfileInput = profile;
-  if (sources.length) {
-    const urls = await uploadCompanyParkingImages(companyId, sources);
-    next = {
-      ...next,
-      imageUrls: urls,
-      imageUrl: urls[0] || '',
-    };
-  } else {
-    next = { ...next, imageUrl: '', imageUrls: [] };
-  }
-
-  if (next.insuranceEnrolled && next.insuranceCertificateUrl.trim()) {
-    const certificateUrl = await uploadCompanyInsuranceCertificate(
-      companyId,
-      next.insuranceCertificateUrl
-    );
-    next = { ...next, insuranceCertificateUrl: certificateUrl || '' };
-  } else if (!next.insuranceEnrolled) {
-    next = { ...next, insuranceCertificateUrl: '' };
-  }
-
-  if (next.businessRegistrationUrl.trim()) {
-    const businessRegistrationUrl = await uploadCompanyVerificationDocument(
-      companyId,
-      next.businessRegistrationUrl,
-      'business-registration'
-    );
-    next = { ...next, businessRegistrationUrl: businessRegistrationUrl || '' };
-  } else {
-    next = { ...next, businessRegistrationUrl: '' };
-  }
-
-  if (next.parkingContractUrl.trim()) {
-    const parkingContractUrl = await uploadCompanyVerificationDocument(
-      companyId,
-      next.parkingContractUrl,
-      'parking-contract'
-    );
-    next = { ...next, parkingContractUrl: parkingContractUrl || '' };
-  } else {
-    next = { ...next, parkingContractUrl: '' };
-  }
-
-  return next;
+  return preparePartnerProfileUploads(companyId, profile);
 }
 
 // Safe LocalStorage wrapper for sandboxed environments
@@ -152,18 +100,8 @@ const safeStorage = (() => {
   };
 })();
 
-/** 하위업체도 대표업체와 같은 홈페이지 생성 모달을 사용할 수 있게 변환 */
-function subCompanyToHomepagePartner(company: Company): PartnerCompany {
-  return {
-    companyId: company.id,
-    password: '',
-    name: company.name,
-    representative: company.representative || '',
-    phone: company.phone || '',
-    settlementMemo: '',
-    status: company.status || 'active',
-  };
-}
+const homepageAdminLinkCls =
+  'px-2 py-1.5 bg-neutral-900 border border-neutral-700 text-zinc-300 hover:bg-sky-500/10 hover:text-sky-300 hover:border-sky-500/40 rounded-lg text-[12px] font-black tracking-tight inline-flex items-center gap-1 transition-all mr-1.5';
 
 export default function AdminDashboard({ 
   onClose, 
@@ -193,8 +131,8 @@ export default function AdminDashboard({
   
   // State for editing a partner company
   const [editingPartner, setEditingPartner] = useState<PartnerCompany | null>(null);
-  const [homepagePartner, setHomepagePartner] = useState<PartnerCompany | null>(null);
   const [editName, setEditName] = useState('');
+  const [editId, setEditId] = useState('');
   const [editRep, setEditRep] = useState('');
   const [editPhone, setEditPhone] = useState('');
   const [editPassword, setEditPassword] = useState('');
@@ -377,6 +315,7 @@ export default function AdminDashboard({
     setSaveEditError('');
     setEditingPartner(p);
     setEditName(p.name);
+    setEditId(p.companyId);
     setEditRep(p.representative);
     setEditPhone(p.phone);
     setEditPassword(p.password || '');
@@ -422,9 +361,31 @@ export default function AdminDashboard({
         return;
       }
 
+      const nextId = sanitizePartnerCompanyId(editId);
+      if (!nextId) {
+        setSaveEditError('아이디는 영문 소문자, 숫자, 밑줄만 쓸 수 있습니다.');
+        return;
+      }
+      if (nextId !== editingPartner.companyId && companies.some((c) => c.id === nextId)) {
+        setSaveEditError('이미 사용 중인 아이디입니다.');
+        return;
+      }
+
       savingEditRef.current = true;
       setSavingEdit(true);
-      const targetId = editingPartner.companyId;
+      let targetId = editingPartner.companyId;
+      if (nextId !== targetId) {
+        try {
+          await adminRenameCompany({ fromId: targetId, toId: nextId });
+          targetId = nextId;
+        } catch (err) {
+          const detail = err instanceof Error ? err.message : String(err);
+          setSaveEditError(`아이디 변경 실패: ${detail}`);
+          savingEditRef.current = false;
+          setSavingEdit(false);
+          return;
+        }
+      }
 
       let profileToSave = editProfile;
       try {
@@ -438,7 +399,7 @@ export default function AdminDashboard({
         return;
       }
 
-      const existingCompany = companies.find((c) => c.id === targetId);
+      const existingCompany = companies.find((c) => c.id === editingPartner.companyId);
       const alimtalkPatch = buildAlimtalkSettingsPatch(
         editAlimtalk,
         existingCompany?.alimtalk
@@ -460,10 +421,12 @@ export default function AdminDashboard({
         }
       }
 
+      const previousId = editingPartner.companyId;
       const updatedPartners = partners.map((p) => {
-        if (p.companyId === targetId) {
+        if (p.companyId === previousId) {
           return {
             ...p,
+            companyId: targetId,
             name: editName.trim(),
             representative: editRep.trim(),
             phone: editPhone.trim(),
@@ -477,9 +440,10 @@ export default function AdminDashboard({
       writePartnersToStorage(updatedPartners, (k, v) => safeStorage.setItem(k, v));
 
       const updatedCompanies = companies.map((c) => {
-        if (c.id === targetId) {
+        if (c.id === previousId) {
           const withBasics = {
             ...c,
+            id: targetId,
             name: editName.trim(),
             phone: editPhone.trim(),
             representative: editRep.trim(),
@@ -487,6 +451,7 @@ export default function AdminDashboard({
           };
           return applyPartnerProfileToCompany(withBasics, profileToSave);
         }
+        if (c.parentCompanyId === previousId) return { ...c, parentCompanyId: targetId };
         return c;
       });
       onUpdateCompanies(updatedCompanies);
@@ -519,7 +484,11 @@ export default function AdminDashboard({
       savingEditRef.current = false;
       setSavingEdit(false);
       setEditingPartner(null);
-      alert(`[${editName}] 업체 정보가 성공적으로 수정되었습니다.`);
+      alert(
+        previousId === targetId
+          ? `[${editName}] 업체 정보가 수정되었습니다.`
+          : `[${editName}] 아이디가 ${targetId} 로 바뀌었습니다. 다음 로그인부터 새 아이디를 씁니다.`
+      );
     } catch (err) {
       console.error('handleSaveEdit unexpected error:', err);
       reportError('error', err, '본사 업체 정보 저장');
@@ -958,15 +927,16 @@ export default function AdminDashboard({
                           <div className="text-[11px] text-zinc-500 font-bold mt-0.5">월간 {stats.monthlyCompleted}건</div>
                         </td>
                         <td className="py-3 px-3 align-middle text-right whitespace-nowrap">
-                          <button
-                            type="button"
-                            onClick={() => setHomepagePartner(p)}
-                            className="px-2 py-1.5 bg-neutral-900 border border-neutral-700 text-zinc-300 hover:bg-sky-500/10 hover:text-sky-300 hover:border-sky-500/40 rounded-lg text-[12px] font-black tracking-tight inline-flex items-center gap-1 transition-all mr-1.5"
-                            title={company?.partnerHomepage?.config ? '홈 연동·공개' : '홈 연동'}
+                          <a
+                            href={partnerHomepageAdminUrl(p.companyId)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={homepageAdminLinkCls}
+                            title="홈페이지 문구·영상 관리 (새 탭)"
                           >
                             <Globe size={11} />
-                            {company?.partnerHomepage?.config ? '홈연동' : '홈연동'}
-                          </button>
+                            홈 관리
+                          </a>
                           <button
                             type="button"
                             onClick={() => handleStartEdit(p)}
@@ -1030,15 +1000,16 @@ export default function AdminDashboard({
                           <div className="text-[11px] text-zinc-500 font-bold mt-0.5">월간 {stats.monthlyCompleted}건</div>
                         </td>
                         <td className="py-3 px-3 align-middle text-right whitespace-nowrap">
-                          <button
-                            type="button"
-                            onClick={() => setHomepagePartner(subCompanyToHomepagePartner(c))}
-                            className="px-2 py-1.5 bg-neutral-900 border border-neutral-700 text-zinc-300 hover:bg-sky-500/10 hover:text-sky-300 hover:border-sky-500/40 rounded-lg text-[12px] font-black tracking-tight inline-flex items-center gap-1 transition-all mr-1.5"
-                            title={c.partnerHomepage?.config ? '홈 연동·공개' : '홈 연동'}
+                          <a
+                            href={partnerHomepageAdminUrl(c.id)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className={homepageAdminLinkCls}
+                            title="홈페이지 문구·영상 관리 (새 탭)"
                           >
                             <Globe size={11} />
-                            {c.partnerHomepage?.config ? '홈연동' : '홈연동'}
-                          </button>
+                            홈 관리
+                          </a>
                           <button
                             type="button"
                             onClick={() => handleStartEditSub(c)}
@@ -1063,21 +1034,6 @@ export default function AdminDashboard({
               </table>
             </div>
           </div>
-
-          {homepagePartner && (
-            <HomepageCreateModal
-              partner={homepagePartner}
-              company={companies.find((c) => c.id === homepagePartner.companyId)}
-              onClose={() => setHomepagePartner(null)}
-              onSaved={(next) => {
-                onUpdateCompanies(mergeCompanyIntoList(companies, next));
-                setHomepagePartner(null);
-                alert(
-                  `[${next.name}] 홈페이지가 저장되었습니다.\n공개: ${next.partnerHomepage?.enabled ? 'ON' : 'OFF'}\n${partnerMarketingHomeUrl(next.id)}`
-                );
-              }}
-            />
-          )}
 
           {pendingDelete &&
             createPortal(
@@ -1146,10 +1102,7 @@ export default function AdminDashboard({
                       <div>
                         <h4 className="text-sm font-black text-zinc-100">제휴 가맹점 정보 수정</h4>
                         <p className="text-[12px] text-zinc-500 mt-0.5">
-                          고유 ID:{' '}
-                          <span className="font-mono font-bold text-amber-400 bg-amber-500/10 px-1 py-0.2 rounded">
-                            {editingPartner.companyId}
-                          </span>
+                          이름, 로그인 아이디, 비밀번호를 바꿀 수 있습니다.
                         </p>
                       </div>
                       <button
@@ -1162,6 +1115,21 @@ export default function AdminDashboard({
                     </div>
 
                     <div className="px-5 py-3 space-y-3 overflow-y-auto flex-1 min-h-0 overscroll-contain">
+                      <div>
+                        <label className="text-[12px] text-zinc-400 block mb-1 font-bold">로그인 아이디</label>
+                        <input
+                          type="text"
+                          value={editId}
+                          onChange={(e) => setEditId(sanitizePartnerCompanyId(e.target.value).slice(0, 64))}
+                          className="w-full px-3 py-2 border border-neutral-700 bg-[#1C1C1E] text-zinc-100 rounded-xl focus:outline-none focus:ring-1 focus:ring-amber-500/40 font-mono font-semibold"
+                          autoCapitalize="none"
+                          autoCorrect="off"
+                          spellCheck={false}
+                        />
+                        <p className="mt-1 text-[10px] text-zinc-500 font-semibold">
+                          영문 소문자, 숫자, 밑줄. 바꾸면 예약과 로그인 주소가 새 아이디를 따릅니다.
+                        </p>
+                      </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
                           <label className="text-[12px] text-zinc-400 block mb-1 font-bold">가맹사 법인명 (상호명) *</label>
@@ -1200,8 +1168,9 @@ export default function AdminDashboard({
                             value={editPassword}
                             onChange={(e) => setEditPassword(e.target.value)}
                             className="w-full px-3 py-2 border border-neutral-700 bg-[#1C1C1E] text-zinc-100 rounded-xl focus:outline-none focus:ring-1 focus:ring-amber-500/40 font-mono font-semibold"
-                            placeholder="로그인 비밀번호 재설정"
+                            placeholder="새 비밀번호"
                           />
+                          <p className="mt-1 text-[10px] text-zinc-500 font-semibold">비워 두면 지금 비밀번호를 유지합니다.</p>
                         </div>
                       </div>
 

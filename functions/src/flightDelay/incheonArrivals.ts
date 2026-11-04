@@ -86,7 +86,10 @@ export async function fetchIncheonArrivals(params: {
   if (flightId) query.flight_id = flightId;
 
   const url = buildServiceUrl(serviceKey.trim(), query);
-  const res = await fetch(url, { method: 'GET' });
+  const res = await fetch(url, {
+    method: 'GET',
+    signal: AbortSignal.timeout(8_000),
+  });
   if (!res.ok) {
     throw new Error(`Incheon arrivals HTTP ${res.status}`);
   }

@@ -85,6 +85,9 @@ service cloud.firestore {
         'peakSurcharge',
         'valetFeeT1',
         'valetFeeT2',
+        'dropFeeT1',
+        'dropFeeT2',
+        'parkingProducts',
         // employees 는 upsertCompanyEmployees (Admin SDK) 만
         'pickupLocation',
         'isOpen',
@@ -104,8 +107,40 @@ service cloud.firestore {
         'maxCarsPerDay',
         'scheduleBlocks',
         'phone',
+        'name',
+        'representative',
+        'airport',
+        'terminals',
+        'facilityType',
+        'is_indoor',
+        'supports_indoor',
+        'supports_outdoor',
+        'features',
+        'indoorParkingAddress',
+        'outdoorParkingAddress',
+        'indoorParkingLat',
+        'indoorParkingLng',
+        'outdoorParkingLat',
+        'outdoorParkingLng',
+        'parkingLots',
+        'image_url',
+        'image_urls',
+        'sharesParkingLocation',
+        'sharesPhotos',
+        'sharesInsurance',
+        'insurance',
+        'hasInsurance',
+        'insuranceProvider',
+        'insuranceLimit',
+        'verificationDocuments',
+        'listingApproved',
         'updatedAt'
       ]);
+    }
+
+    function listingApprovalOnlyHq() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['listingApproved'])
+        || isPlatformAdmin();
     }
 
     function bookingSettingsShapeValid() {
@@ -116,7 +151,9 @@ service cloud.firestore {
         && (!('maxCarsPerDay' in data)
           || (data.maxCarsPerDay is int && data.maxCarsPerDay >= 0 && data.maxCarsPerDay <= 999))
         && (!('scheduleBlocks' in data)
-          || (data.scheduleBlocks is list && data.scheduleBlocks.size() <= 200));
+          || (data.scheduleBlocks is list && data.scheduleBlocks.size() <= 200))
+        && (!('parkingProducts' in data)
+          || (data.parkingProducts is list && data.parkingProducts.size() <= 12));
     }
 
     function isValidReservationId(reservationId) {
@@ -372,6 +409,7 @@ service cloud.firestore {
       allow update: if isValidCompanyId(companyId)
         && onlyPartnerOperationalFieldsChanged()
         && bookingSettingsShapeValid()
+        && listingApprovalOnlyHq()
         && (
           isPlatformAdmin()
           || partnerCanAccessCompany(companyId)
@@ -398,7 +436,7 @@ service cloud.firestore {
     // ── reviews (후기 — 쓰기는 Cloud Functions만) ─────────────────────────
 
     match /reviews/{reviewId} {
-      allow read: if isSignedIn() && resource.data.status == 'published';
+      allow read: if resource.data.status == 'published' || isPlatformAdmin();
       allow create, update, delete: if false;
     }
 

@@ -64,6 +64,8 @@ interface BlockoutCalendarModalProps {
   companyIsOpen: boolean;
   onToggleCompanyOpen: (isOpen: boolean) => Promise<void>;
   companyName: string;
+  /** 업체 설정 「운영」 탭 — 팝업 없이 바로 보여 준다 */
+  embedded?: boolean;
 }
 
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토'];
@@ -129,6 +131,7 @@ export default function BlockoutCalendarModal({
   companyIsOpen,
   onToggleCompanyOpen,
   companyName,
+  embedded = false,
 }: BlockoutCalendarModalProps) {
   const terminals = getAirportTerminals(resolveCompanyAirportId(company));
   const parkingSides = companyParkingTypeAvailability(company);
@@ -245,7 +248,7 @@ export default function BlockoutCalendarModal({
     return lines.sort((a, b) => a.date.localeCompare(b.date) || a.text.localeCompare(b.text));
   }, [localIndoor, localOutdoor, localBlocks]);
 
-  if (!isOpen) return null;
+  if (!isOpen && !embedded) return null;
 
   const handleSaveClick = async () => {
     setIsSaving(true);
@@ -347,24 +350,40 @@ export default function BlockoutCalendarModal({
   const stepBtn =
     'px-3 py-1.5 rounded-xl text-[13px] font-black border border-neutral-700 bg-neutral-900 text-zinc-200 disabled:opacity-40';
 
+  if (!isOpen && !embedded) return null;
+
   return (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center p-4 bg-neutral-950/80 backdrop-blur-sm animate-fade-in">
-      <div className="w-full max-w-lg bg-[#121212] rounded-2xl border border-neutral-800/80 overflow-hidden shadow-2xl flex flex-col relative max-h-[90vh]">
+    <div
+      className={
+        embedded
+          ? 'w-full'
+          : 'fixed inset-0 z-[120] flex items-center justify-center p-4 bg-neutral-950/80 backdrop-blur-sm animate-fade-in'
+      }
+    >
+      <div
+        className={
+          embedded
+            ? 'w-full bg-[#121212] rounded-2xl border border-neutral-800/80 overflow-hidden flex flex-col relative'
+            : 'w-full max-w-lg bg-[#121212] rounded-2xl border border-neutral-800/80 overflow-hidden shadow-2xl flex flex-col relative max-h-[90vh]'
+        }
+      >
         <div className="p-4.5 border-b border-neutral-800/50 flex items-center justify-between bg-[#121212]">
           <div className="flex items-center gap-2 min-w-0">
             <CalendarRange size={16} className="text-amber-500 shrink-0" />
             <div className="min-w-0">
-              <h3 className="text-sm font-black text-white truncate">예약 관리</h3>
+              <h3 className="text-sm font-black text-white truncate">{embedded ? '운영' : '예약 관리'}</h3>
               <p className="text-[11px] text-zinc-400 font-bold tracking-tight truncate">{companyName}</p>
             </div>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="p-1.5 hover:bg-neutral-800 rounded-xl text-zinc-300 hover:text-white transition-all border border-neutral-800/40 shrink-0"
-          >
-            <X size={14} />
-          </button>
+          {embedded ? null : (
+            <button
+              type="button"
+              onClick={onClose}
+              className="p-1.5 hover:bg-neutral-800 rounded-xl text-zinc-300 hover:text-white transition-all border border-neutral-800/40 shrink-0"
+            >
+              <X size={14} />
+            </button>
+          )}
         </div>
 
         <div className="px-4.5 pt-3">

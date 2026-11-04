@@ -9,6 +9,14 @@
         android:supportsRtl="true"
         android:theme="@style/AppTheme">
 
+        <!-- 앱이 꺼져 있을 때 오는 푸시: 상단 바 흰 실루엣 아이콘 · 강조색 -->
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_icon"
+            android:resource="@drawable/ic_stat_airpick" />
+        <meta-data
+            android:name="com.google.firebase.messaging.default_notification_color"
+            android:resource="@color/notification_accent" />
+
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
             android:name=".MainActivity"

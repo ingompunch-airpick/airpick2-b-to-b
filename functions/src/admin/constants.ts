@@ -54,6 +54,8 @@ export const ALLOWED_COMPANY_PATCH_KEYS = [
   'hqListOrder',
   /** 업체별 알림톡 채널·템플릿 */
   'alimtalk',
+  /** 손님 앱 노출 승인. 본사만 */
+  'listingApproved',
 ] as const;
 
 /** 신규 생성 시 추가로 허용 (요금·운영 기본값 등) */

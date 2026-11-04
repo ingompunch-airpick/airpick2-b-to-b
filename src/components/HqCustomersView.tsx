@@ -29,6 +29,15 @@ function money(n: number): string {
   return `${Math.max(0, Math.trunc(n || 0)).toLocaleString('ko-KR')}원`;
 }
 
+function companyVisitEntries(
+  customer: { visits?: Record<string, number>; companyIds?: string[] } | null
+): Array<[string, number]> {
+  if (!customer?.visits) return [];
+  return Object.entries(customer.visits)
+    .filter(([, count]) => Number(count) > 0)
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'ko'));
+}
+
 interface HqCustomersViewProps {
   companies: Company[];
   onOpenReservation?: (res: Reservation) => void;
@@ -143,7 +152,7 @@ export default function HqCustomersView({
               </div>
               {result.customer ? (
                 <span className="text-[11px] font-black px-2 py-1 rounded-lg bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
-                  방문 {result.customer.visitCount}회
+                  업체별 방문
                 </span>
               ) : (
                 <span className="text-[11px] font-black px-2 py-1 rounded-lg bg-zinc-500/15 text-zinc-400 border border-zinc-500/25">
@@ -163,17 +172,17 @@ export default function HqCustomersView({
                   <p className="font-bold text-zinc-200">{formatWhen(result.customer.lastAt)}</p>
                 </div>
                 <div className="col-span-2 rounded-xl border border-neutral-800/80 bg-neutral-950/40 px-2.5 py-2">
-                  <p className="text-zinc-500 font-bold mb-1">이용한 업체</p>
+                  <p className="text-zinc-500 font-bold mb-1">업체별 방문</p>
                   <div className="flex flex-wrap gap-1.5">
-                    {(result.customer.companyIds || []).length === 0 ? (
+                    {companyVisitEntries(result.customer).length === 0 ? (
                       <span className="text-zinc-500">기록 없음</span>
                     ) : (
-                      (result.customer.companyIds || []).map((id) => (
+                      companyVisitEntries(result.customer).map(([id, count]) => (
                         <span
                           key={id}
                           className="px-2 py-0.5 rounded-md bg-neutral-900 border border-neutral-700 text-zinc-300 font-bold"
                         >
-                          {companyNameById.get(id) || id}
+                          {companyNameById.get(id) || id} {count}회
                         </span>
                       ))
                     )}

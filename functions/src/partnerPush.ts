@@ -4,6 +4,9 @@ function db() {
   return admin.firestore();
 }
 
+/** 파트너 앱 src/lib/partnerPush.ts 가 만드는 채널 (시스템 기본 알림음) */
+const PARTNER_PUSH_CHANNEL_ID = 'reservation_alerts';
+
 const DEFAULT_TITLE_RESERVE = '예약';
 const DEFAULT_TITLE_CHECKOUT = '출고요청';
 
@@ -107,6 +110,8 @@ async function sendPartnerMulticast(params: {
       notification: {
         channelId,
         sound: 'default',
+        // 앱이 출고요청(out-) 알림만 골라 지울 때 쓴다
+        tag: `${type === 'request_out' ? 'out' : 'res'}-${reservationId}`,
       },
     },
   });
@@ -154,7 +159,7 @@ export async function notifyPartnersNewReservation(
     title: await newReservationPushTitle(data),
     body: formatPushBody(data),
     type: 'new_reservation',
-    channelId: 'new_reservations',
+    channelId: PARTNER_PUSH_CHANNEL_ID,
   });
 }
 
@@ -203,7 +208,7 @@ async function notifyRequestOutPush(
     title: copy.titleCheckout,
     body: '',
     type: 'request_out',
-    channelId: 'new_reservations',
+    channelId: PARTNER_PUSH_CHANNEL_ID,
   });
 }
 

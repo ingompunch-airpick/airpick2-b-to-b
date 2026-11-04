@@ -7,8 +7,10 @@ import {
   SHEET_LAST_COLUMN,
   WAWA_SPREADSHEET_ID,
 } from './constants';
+import { resolveBookingSource } from './bookingSource';
+import { ledgerTargetForReservation } from './companyLedger';
 import { buildReservationSheetRow } from './reservationRow';
-import { isWawaSheetCompany, resolveSheetTabName, shouldCopyAirpickRowToWawa } from './tabName';
+import { isWawaSheetCompany, resolveSheetTabName } from './tabName';
 
 export interface SheetsArchiveConfig {
   spreadsheetId: string;
@@ -122,6 +124,45 @@ async function ensureTabWithHeaders(
   return sheetId;
 }
 
+export async function ensureLedgerTab(
+  spreadsheetId: string,
+  tabName: string,
+  serviceAccountJson?: string
+): Promise<void> {
+  if (!spreadsheetId || !tabName) return;
+  const sheets = createSheetsClient(serviceAccountJson);
+  await ensureTabWithHeaders(sheets, spreadsheetId, tabName);
+}
+
+export async function renameLedgerTab(
+  spreadsheetId: string,
+  fromTab: string,
+  toTab: string,
+  serviceAccountJson?: string
+): Promise<void> {
+  if (!spreadsheetId || !fromTab || !toTab || fromTab === toTab) return;
+  const sheets = createSheetsClient(serviceAccountJson);
+  const tabs = await listTabTitles(sheets, spreadsheetId);
+  const fromId = tabs.get(fromTab);
+  if (fromId == null || tabs.has(toTab)) {
+    await ensureTabWithHeaders(sheets, spreadsheetId, toTab);
+    return;
+  }
+  await sheets.spreadsheets.batchUpdate({
+    spreadsheetId,
+    requestBody: {
+      requests: [
+        {
+          updateSheetProperties: {
+            properties: { sheetId: fromId, title: toTab },
+            fields: 'title',
+          },
+        },
+      ],
+    },
+  });
+}
+
 function quoteTab(tabName: string): string {
   return `'${tabName.replace(/'/g, "''")}'`;
 }
@@ -174,13 +215,16 @@ async function deleteSheetRows(
   });
 }
 
-async function fetchCustomerVisitCount(phone: unknown): Promise<number | null> {
+async function fetchCustomerVisitCount(phone: unknown, companyId: unknown): Promise<number | null> {
   const phoneKey = normalizePhoneDigits(phone);
-  if (!phoneKey || phoneKey.length < 10) return null;
+  const company = String(companyId || '').trim().toLowerCase();
+  if (!phoneKey || phoneKey.length < 10 || !company) return null;
   try {
     const snap = await admin.firestore().doc(`customers/${phoneKey}`).get();
-    const n = snap.data()?.visitCount;
-    return typeof n === 'number' && Number.isFinite(n) ? n : null;
+    const visits = snap.data()?.visits;
+    if (!visits || typeof visits !== 'object') return null;
+    const n = (visits as Record<string, unknown>)[company];
+    return typeof n === 'number' && Number.isFinite(n) ? n : 0;
   } catch {
     return null;
   }
@@ -306,9 +350,17 @@ export async function syncReservationToSheets(
   config: SheetsArchiveConfig
 ): Promise<SheetsArchiveMeta | null> {
   const sheets = createSheetsClient(config.serviceAccountJson || undefined);
-  const spreadsheetId = resolveArchiveSpreadsheetId(data);
-  const tabName = resolveSheetTabName(data);
-  const visitCount = await fetchCustomerVisitCount(data.phone);
+  const sharedId =
+    process.env.GOOGLE_SHEETS_SPREADSHEET_ID?.trim() || DEFAULT_SPREADSHEET_ID;
+  const owned = await ledgerTargetForReservation(data);
+  const source = resolveBookingSource(
+    typeof data.createdBy === 'string' ? data.createdBy : null,
+    data
+  );
+  const spreadsheetId = owned && source !== 'airpick-b2c' ? owned.spreadsheetId : sharedId;
+  const tabName =
+    owned && source !== 'airpick-b2c' ? owned.tab : resolveSheetTabName(data);
+  const visitCount = await fetchCustomerVisitCount(data.phone, data.companyId);
   const rowValues = buildReservationSheetRow(reservationId, data, { visitCount });
   const sheetId = await ensureTabWithHeaders(sheets, spreadsheetId, tabName);
 
@@ -438,10 +490,8 @@ export async function syncReservationToSheets(
     }
   }
 
-  if (shouldCopyAirpickRowToWawa(data)) {
-    const wawaSpreadsheetId =
-      process.env.GOOGLE_SHEETS_SPREADSHEET_ID_WAWA?.trim() || WAWA_SPREADSHEET_ID;
-    await upsertReservationRow(sheets, wawaSpreadsheetId, '와와', reservationId, rowValues);
+  if (owned && (spreadsheetId !== owned.spreadsheetId || tabName !== owned.tab)) {
+    await upsertReservationRow(sheets, owned.spreadsheetId, owned.tab, reservationId, rowValues);
   }
 
   return {

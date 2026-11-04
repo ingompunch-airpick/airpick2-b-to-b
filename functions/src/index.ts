@@ -3,6 +3,7 @@ import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { defineSecret, defineString } from 'firebase-functions/params';
 import { sheetsServiceAccountJson } from './sheets/params';
 import { onReservationSync } from './onReservationWrite';
+import { onCompanySheet } from './onCompanySheet';
 import { runRetentionCleanup } from './retentionCleanup';
 import { sweepReservationPasswords } from './reservations/reservationSecrets';
 import { backfillUpcomingCapacity } from './capacityAggregate';
@@ -11,6 +12,7 @@ import { runFlightDelayCheck } from './flightDelay/checkFlightDelays';
 import { adminUpsertCompany } from './admin/upsertCompany';
 import { adminSetCompanyStatus } from './admin/setCompanyStatus';
 import { adminDeleteCompany } from './admin/deleteCompany';
+import { adminRenameCompany } from './admin/renameCompany';
 import { verifyPartnerLogin } from './admin/verifyPartnerLogin';
 import { upsertCompanyEmployees } from './admin/upsertCompanyEmployees';
 import { getHqMonthLedger } from './admin/getHqMonthLedger';
@@ -35,9 +37,11 @@ import { dispatchErrorReports, reportClientError } from './ops/errorReports';
 export {
   reportClientError,
   onReservationSync,
+  onCompanySheet,
   adminUpsertCompany,
   adminSetCompanyStatus,
   adminDeleteCompany,
+  adminRenameCompany,
   verifyPartnerLogin,
   upsertCompanyEmployees,
   getHqMonthLedger,
@@ -123,15 +127,17 @@ export const dispatchErrorReportsDaily = onSchedule(
 
 /**
  * 2분마다 — 인천공항 당일 도착편 도착·연착/결항 → 상태 자동전환·파트너 FCM
- * 공공데이터포털 서비스키(DATA_GO_KR_SERVICE_KEY Secret) + FLIGHT_DELAY_ENABLED=true 필요
+ * 오늘 입국편이 있는 예약이 없으면 공항 API를 부르지 않는다.
+ * 공항 호출이 3번 연속 실패하면 15분 쉰다.
  */
 export const checkIncheonFlightDelays = onSchedule(
   {
     schedule: 'every 2 minutes',
     timeZone: 'Asia/Seoul',
-    region: 'us-central1',
-    memory: '512MiB',
-    timeoutSeconds: 120,
+    region: 'asia-northeast3',
+    memory: '256MiB',
+    cpu: 0.08,
+    timeoutSeconds: 30,
     secrets: [dataGoKrServiceKey],
   },
   async () => {

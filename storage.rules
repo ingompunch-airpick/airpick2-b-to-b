@@ -34,14 +34,38 @@ service firebase.storage {
         && request.resource.size < 15 * 1024 * 1024;
     }
 
-    // 가맹점 주차장 사진: companies/{companyId}/parking/…
-    // 쓰기는 본사만 (AdminDashboard). 읽기는 공개(B2C MY 등).
+    function partnerCompanyId() {
+      return isSignedIn()
+        && request.auth.token.partnerCompanyId is string
+        && request.auth.token.partnerCompanyId.size() > 0
+        ? request.auth.token.partnerCompanyId
+        : '';
+    }
+
+    function isWawaCompanyId(cid) {
+      return cid in ['wawa', 'wawa_valet'];
+    }
+
+    function partnerCanWriteCompanyFiles(companyId) {
+      return partnerCompanyId().size() > 0
+        && (
+          partnerCompanyId() == companyId
+          || (isWawaCompanyId(partnerCompanyId()) && isWawaCompanyId(companyId))
+          || (
+            firestore.exists(/databases/(default)/documents/companies/$(companyId))
+            && firestore.get(/databases/(default)/documents/companies/$(companyId)).data.parentCompanyId
+              == partnerCompanyId()
+          )
+        );
+    }
+
+    // 가맹점 주차장·보험·서류 사진. 본사 또는 해당 업체가 올린다. 읽기는 공개.
     match /companies/{companyId}/{allPaths=**} {
       allow read: if true;
-      allow write: if isPlatformAdmin()
-        && isValidCompanyId(companyId)
+      allow write: if isValidCompanyId(companyId)
         && request.resource.size < 15 * 1024 * 1024
-        && request.resource.contentType.matches('image/.*');
+        && request.resource.contentType.matches('image/.*')
+        && (isPlatformAdmin() || partnerCanWriteCompanyFiles(companyId));
     }
 
     // 후기 사진: reviews/{reservationId}/… — 공개 읽기(B2C), 쓰기는 Admin SDK만

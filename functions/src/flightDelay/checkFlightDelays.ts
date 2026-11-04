@@ -9,6 +9,9 @@ import {
 import { notifyPartnersFlightArrival, notifyPartnersFlightDelay } from '../partnerPush';
 
 const MIN_DELAY_MINUTES = 15;
+const HEALTH_DOC = 'appConfig/flightDelayHealth';
+const FAIL_BACKOFF_AFTER = 3;
+const FAIL_BACKOFF_MS = 15 * 60 * 1000;
 const ACTIVE_STATUSES = new Set([
   'pending',
   'pending_in',
@@ -133,6 +136,62 @@ export type FlightDelayCheckResult = {
   errors: number;
 };
 
+type FlightDelayHealth = {
+  consecutiveFailures?: number;
+  lastFailedAt?: string;
+  lastSuccessAt?: string;
+  lastError?: string;
+};
+
+function emptyResult(skipped: string): FlightDelayCheckResult {
+  return {
+    skipped,
+    arrivalsFetched: 0,
+    candidates: 0,
+    matched: 0,
+    notified: 0,
+    promotedToRequestOut: 0,
+    errors: 0,
+  };
+}
+
+async function readHealth(): Promise<FlightDelayHealth> {
+  const snap = await db().doc(HEALTH_DOC).get();
+  return (snap.data() || {}) as FlightDelayHealth;
+}
+
+function isInBackoff(health: FlightDelayHealth, now = Date.now()): boolean {
+  const n = Number(health.consecutiveFailures) || 0;
+  if (n < FAIL_BACKOFF_AFTER) return false;
+  const t = Date.parse(String(health.lastFailedAt || ''));
+  if (!Number.isFinite(t)) return false;
+  return now - t < FAIL_BACKOFF_MS;
+}
+
+async function markAirportSuccess(): Promise<void> {
+  await db()
+    .doc(HEALTH_DOC)
+    .set(
+      { consecutiveFailures: 0, lastSuccessAt: new Date().toISOString() },
+      { merge: true }
+    );
+}
+
+async function markAirportFailure(err: unknown): Promise<void> {
+  const prev = await readHealth();
+  const n = (Number(prev.consecutiveFailures) || 0) + 1;
+  await db()
+    .doc(HEALTH_DOC)
+    .set(
+      {
+        consecutiveFailures: n,
+        lastFailedAt: new Date().toISOString(),
+        lastError: (err instanceof Error ? err.message : String(err)).slice(0, 200),
+      },
+      { merge: true }
+    );
+}
+
 /** exitDate만 있는 예전 예약은 arrivalDate로 옮긴다. 끝나면 true. */
 async function copyExitDateIntoArrivalDate(): Promise<boolean> {
   const flagRef = db().doc('appConfig/reservationFieldBackfill');
@@ -168,6 +227,41 @@ async function copyExitDateIntoArrivalDate(): Promise<boolean> {
   return false;
 }
 
+type TodayCandidate = {
+  doc: FirebaseFirestore.QueryDocumentSnapshot;
+  data: FirebaseFirestore.DocumentData;
+  flightRaw: string;
+};
+
+/** 오늘 출고 + 인천 입국편이 있는 예약만. 공항 API 전에 걸러 호출을 아낀다. */
+async function loadTodayCandidates(): Promise<TodayCandidate[]> {
+  const today = kstTodayYmd();
+  const exitDatesCopied = await copyExitDateIntoArrivalDate();
+  const queries = [
+    db().collection('reservations').where('arrivalDate', '==', today).limit(500).get(),
+  ];
+  if (!exitDatesCopied) {
+    queries.push(db().collection('reservations').where('exitDate', '==', today).limit(500).get());
+  }
+  const listed = await Promise.all(queries);
+  const docs = new Map<string, FirebaseFirestore.QueryDocumentSnapshot>();
+  for (const d of listed[0].docs) docs.set(d.id, d);
+  for (const d of listed[1]?.docs || []) docs.set(d.id, d);
+
+  const out: TodayCandidate[] = [];
+  for (const doc of docs.values()) {
+    const data = doc.data();
+    if (!ACTIVE_STATUSES.has(String(data.status || ''))) continue;
+    const airport = resolveAirport(data);
+    if (airport && airport !== 'ICN') continue;
+    const flightRaw = resolveArrivalFlight(data);
+    if (!normalizeFlightId(flightRaw)) continue;
+    if (resolveArrivalDate(data) !== today) continue;
+    out.push({ doc, data, flightRaw });
+  }
+  return out;
+}
+
 /**
  * 오늘(KST) 출고 예정 + 입국 항공편이 있는 예약을
  * 인천공항 당일 도착 현황과 대조해
@@ -177,56 +271,44 @@ async function copyExitDateIntoArrivalDate(): Promise<boolean> {
  */
 export async function runFlightDelayCheck(serviceKey: string): Promise<FlightDelayCheckResult> {
   const key = serviceKey.trim();
-  if (!key) {
+  if (!key) return emptyResult('DATA_GO_KR_SERVICE_KEY empty');
+
+  const candidatesList = await loadTodayCandidates();
+  if (candidatesList.length === 0) {
+    return emptyResult('no arrival flights today');
+  }
+
+  const health = await readHealth();
+  if (isInBackoff(health)) {
     return {
-      skipped: 'DATA_GO_KR_SERVICE_KEY empty',
-      arrivalsFetched: 0,
-      candidates: 0,
-      matched: 0,
-      notified: 0,
-      promotedToRequestOut: 0,
-      errors: 0,
+      ...emptyResult('airport backoff 15m after 3 failures'),
+      candidates: candidatesList.length,
     };
   }
 
-  const today = kstTodayYmd();
-  const arrivals = await fetchIncheonArrivals({ serviceKey: key });
-  const exitDatesCopied = await copyExitDateIntoArrivalDate();
-
-  const queries = [
-    db().collection('reservations').where('arrivalDate', '==', today).limit(500).get(),
-  ];
-  if (!exitDatesCopied) {
-    queries.push(db().collection('reservations').where('exitDate', '==', today).limit(500).get());
+  let arrivals: IncheonArrival[] = [];
+  try {
+    arrivals = await fetchIncheonArrivals({ serviceKey: key });
+    await markAirportSuccess();
+  } catch (err) {
+    await markAirportFailure(err);
+    console.error('[flightDelay] airport fetch failed', {
+      err: err instanceof Error ? err.message : String(err),
+    });
+    return {
+      ...emptyResult('airport fetch failed'),
+      candidates: candidatesList.length,
+      errors: 1,
+    };
   }
-  const listed = await Promise.all(queries);
-  const byArrival = listed[0];
-  const byExit = listed[1];
 
-  const docs = new Map<string, FirebaseFirestore.QueryDocumentSnapshot>();
-  for (const d of byArrival.docs) docs.set(d.id, d);
-  for (const d of byExit?.docs || []) docs.set(d.id, d);
-
-  let candidates = 0;
   let matched = 0;
   let notified = 0;
   let promotedToRequestOut = 0;
   let errors = 0;
 
-  for (const doc of docs.values()) {
-    const data = doc.data();
+  for (const { doc, data, flightRaw } of candidatesList) {
     const status = String(data.status || '');
-    if (!ACTIVE_STATUSES.has(status)) continue;
-
-    const airport = resolveAirport(data);
-    if (airport && airport !== 'ICN') continue;
-
-    const flightRaw = resolveArrivalFlight(data);
-    if (!normalizeFlightId(flightRaw)) continue;
-
-    if (resolveArrivalDate(data) !== today) continue;
-
-    candidates += 1;
     const arrival = findArrivalForFlight(arrivals, flightRaw);
     if (!arrival) continue;
     matched += 1;
@@ -352,7 +434,7 @@ export async function runFlightDelayCheck(serviceKey: string): Promise<FlightDel
 
   return {
     arrivalsFetched: arrivals.length,
-    candidates,
+    candidates: candidatesList.length,
     matched,
     notified,
     promotedToRequestOut,

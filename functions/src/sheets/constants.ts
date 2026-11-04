@@ -61,6 +61,7 @@ export const COMPANY_TAB_BY_ID: Record<string, string> = {
   season: '시즌',
   hi: '안녕',
   annyeong: '안녕',
+  asia: '아시아',
   airpick: '에어픽본사',
 };
 

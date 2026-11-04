@@ -11,6 +11,10 @@ const config: CapacitorConfig = {
     androidScheme: 'https',
   },
   plugins: {
+    LocalNotifications: {
+      smallIcon: 'ic_stat_airpick',
+      iconColor: '#F59E0B',
+    },
     SplashScreen: {
       launchShowDuration: 1500,
       launchAutoHide: true,

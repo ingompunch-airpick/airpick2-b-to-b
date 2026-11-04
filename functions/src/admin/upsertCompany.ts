@@ -12,6 +12,10 @@ import {
   stripPasswordFromCompanyDoc,
   writeCompanyLoginPassword,
 } from './companySecrets';
+import { applySheetsRuntimeEnv } from '../sheets/runtimeEnv';
+import { ledgerTargetForCompany } from '../sheets/companyLedger';
+import { ensureLedgerTab, renameLedgerTab } from '../sheets/syncReservation';
+import { sheetsServiceAccountJson } from '../sheets/params';
 
 type UpsertMode = 'create' | 'update';
 
@@ -95,11 +99,37 @@ function sanitizeHomepageVisitChannels(value: unknown): { key: string; label: st
  * 본사 companies 생성·수정.
  * password 는 companies/{id}/secrets/login 에만 저장 (공개 문서 비노출).
  */
+async function alignCompanyLedgerTab(
+  companyId: string,
+  before: Record<string, unknown>,
+  after: Record<string, unknown>
+): Promise<void> {
+  try {
+    applySheetsRuntimeEnv();
+    if (process.env.SHEETS_ARCHIVE_ENABLED !== 'true') return;
+    const previous = await ledgerTargetForCompany(companyId, before);
+    const next = await ledgerTargetForCompany(companyId, after);
+    if (!next) return;
+    const serviceAccountJson = process.env.GOOGLE_SHEETS_SERVICE_ACCOUNT_JSON;
+    if (previous && previous.spreadsheetId === next.spreadsheetId && previous.tab !== next.tab) {
+      await renameLedgerTab(next.spreadsheetId, previous.tab, next.tab, serviceAccountJson);
+      return;
+    }
+    await ensureLedgerTab(next.spreadsheetId, next.tab, serviceAccountJson);
+  } catch (err) {
+    console.warn('[sheets] company tab align failed', {
+      companyId,
+      err: err instanceof Error ? err.message : String(err),
+    });
+  }
+}
+
 export const adminUpsertCompany = onCall(
   {
     region: 'us-central1',
     memory: '256MiB',
     timeoutSeconds: 60,
+    secrets: [sheetsServiceAccountJson],
   },
   async (request) => {
     const adminUser = assertPlatformAdmin(request);
@@ -155,6 +185,12 @@ export const adminUpsertCompany = onCall(
         },
         { merge: true }
       );
+      const beforeName = String(snap.data()?.name || '');
+      const afterName = typeof cleanPatch.name === 'string' ? cleanPatch.name : beforeName;
+      if (afterName.trim() !== beforeName.trim()) {
+        const before = (snap.data() || {}) as Record<string, unknown>;
+        await alignCompanyLedgerTab(companyId, before, { ...before, ...cleanPatch, name: afterName });
+      }
       return { ok: true as const, companyId, mode };
     }
 
@@ -205,6 +241,7 @@ export const adminUpsertCompany = onCall(
       ...document,
       id: companyId,
       status: typeof document.status === 'string' ? document.status : 'active',
+      listingApproved: document.listingApproved === true,
       blockedDates: Array.isArray(document.blockedDates) ? document.blockedDates : [],
       createdAt: now,
       createdBy: actor,

@@ -187,6 +187,7 @@ export default function App() {
     handleCompanySwitch,
     handleSaveBookingSettings,
     handleToggleCompanyOpen,
+    handleSetListingApproved,
   } = useCompanies({
     isLoggedIn,
     currentCompanyId,
@@ -855,6 +856,8 @@ export default function App() {
                       });
                     }}
                     onToggleCompanyOpen={handleToggleCompanyOpen}
+                    onSetListingApproved={handleSetListingApproved}
+                    onSaveBookingSettings={handleSaveBookingSettings}
                     onRemoteOpenCompany={(companyId) => handleCompanySwitch(companyId)}
                     onOpenPartnerEditor={() => setShowAdminModal(true)}
                   />

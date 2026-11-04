@@ -37,6 +37,11 @@ export interface Company {
   is_recommended?: boolean;
   phone?: string;
   representative?: string;
+  /**
+   * 본사가 손님 앱 노출을 승인했는지.
+   * 없음·true = 노출(기존 업체 호환). false = 숨김.
+   */
+  listingApproved?: boolean;
   isOpen?: boolean;
   /** 하루 전체 마감. 실내·야외를 나눈 뒤에는 양쪽이 모두 막힌 날만 남긴다. */
   blockedDates?: string[];
@@ -100,6 +105,12 @@ export interface Company {
   valetFeeT1?: number;
   /** 대면 입고 추가요금 (T2) — 0=무료 대면, 필드 없음=T2 대면 미제공 */
   valetFeeT2?: number;
+  /** 비대면 입고 추가요금 (T1) — 필드 없음=0원 */
+  dropFeeT1?: number;
+  /** 비대면 입고 추가요금 (T2) — 필드 없음=0원 */
+  dropFeeT2?: number;
+  /** 손님 앱 비교 단위. 없으면 위 요금·시설 필드로 valet 상품을 만들어 쓴다 */
+  parkingProducts?: ParkingProduct[];
   /**
    * 고객 만남 픽업지 안내 (선택).
    * 예: T1 3번 출구, 실외 단기주차장 앞. 비우면 접수증에 연락 안내 표시.
@@ -169,6 +180,34 @@ export interface Company {
       { code?: string; body?: string; buttonName?: string; title?: string }
     >;
   };
+}
+
+export type ParkingProductType = 'valet' | 'walk' | 'shuttle' | 'official';
+
+/**
+ * companies/{id}.parkingProducts[] — 손님 앱 비교 단위.
+ * 모르는 값은 필드를 비운다. 손님 화면은 필드가 있을 때만 그 줄을 보여 준다.
+ * 요금은 업체 필드(lot별 기본요금·야간·valetFee·dropFee)를 그대로 쓴다.
+ */
+export interface ParkingProduct {
+  id: string;
+  type: ParkingProductType;
+  lot: 'indoor' | 'outdoor';
+  terminal: 'T1' | 'T2' | 'both';
+  /** 대면(출국장 인계) 입고 받음 */
+  meet: boolean;
+  /** 비대면(단기주차장) 입고 받음 */
+  drop: boolean;
+  hidden?: true;
+  transferNote?: string;
+  transferMinutes?: number;
+  /** leave=키 맡김, keep=손님이 키 보관 */
+  keyHandover?: 'leave' | 'keep';
+  evCharging?: 'yes' | 'no';
+  hours?: { allDay: true } | { open: string; close: string };
+  /** 대면 인계 가능 시간. 대면 상품만. 없으면 손님 앱은 24시간으로 본다 */
+  meetHours?: { allDay: true } | { open: string; close: string };
+  updatedAt?: string;
 }
 
 /** 업체 주차장 (실내1·실외2 … 여러 개) */

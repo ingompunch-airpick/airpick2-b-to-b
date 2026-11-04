@@ -1,3 +1,4 @@
+import { App } from '@capacitor/app';
 import { Capacitor } from '@capacitor/core';
 import { PushNotifications } from '@capacitor/push-notifications';
 import { doc, setDoc } from 'firebase/firestore';
@@ -49,6 +50,28 @@ async function persistFcmToken(params: {
   );
 }
 
+/** functions/src/partnerPush.ts 와 같은 값 */
+export const PARTNER_PUSH_CHANNEL_ID = 'reservation_alerts';
+
+export type PartnerPushStatus = {
+  /** 안드로이드 앱인지 (웹은 브라우저 알림만) */
+  native: boolean;
+  permission: 'granted' | 'denied' | 'prompt';
+  /** 이 기기가 서버 푸시 대상에 등록됐는지 */
+  registered: boolean;
+};
+
+export async function getPartnerPushStatus(): Promise<PartnerPushStatus> {
+  if (!Capacitor.isNativePlatform()) {
+    const p = typeof Notification === 'undefined' ? 'denied' : Notification.permission;
+    return { native: false, permission: p === 'default' ? 'prompt' : p, registered: false };
+  }
+  const perm = await PushNotifications.checkPermissions();
+  const permission =
+    perm.receive === 'granted' ? 'granted' : perm.receive === 'denied' ? 'denied' : 'prompt';
+  return { native: true, permission, registered: Boolean(lastFcmToken) };
+}
+
 let listenersReady = false;
 let pendingContext: {
   companyId: string;
@@ -57,9 +80,27 @@ let pendingContext: {
 let lastFcmToken: string | null = null;
 let registerInFlight: Promise<boolean> | null = null;
 
+/** 앱이 꺼져 있을 때 온 출고요청 알림은 소리용이라, 앱을 열면 알림창에서 지운다 */
+async function clearCheckoutNotifications(): Promise<void> {
+  try {
+    const { notifications } = await PushNotifications.getDeliveredNotifications();
+    const checkout = notifications.filter((n) => String(n.tag || '').startsWith('out-'));
+    if (checkout.length > 0) {
+      await PushNotifications.removeDeliveredNotifications({ notifications: checkout });
+    }
+  } catch {
+    // 권한 없음 등
+  }
+}
+
 function ensurePushListeners(): void {
   if (listenersReady || !Capacitor.isNativePlatform()) return;
   listenersReady = true;
+
+  void clearCheckoutNotifications();
+  void App.addListener('appStateChange', ({ isActive }) => {
+    if (isActive) void clearCheckoutNotifications();
+  });
 
   void PushNotifications.addListener('registration', (event) => {
     const token = String(event.value || '').trim();
@@ -79,7 +120,7 @@ function ensurePushListeners(): void {
   });
 
   void PushNotifications.addListener('pushNotificationReceived', () => {
-    // 포그라운드는 기존 in-app 알림(notifyNewReservation)과 병행
+    // 앱이 켜져 있으면 예약 목록 구독(notifyNewReservation)이 음성·알림창을 맡는다
   });
 
   void PushNotifications.addListener('pushNotificationActionPerformed', () => {
@@ -132,15 +173,17 @@ export async function registerPartnerPushDevice(params: {
     }
 
     try {
+      // sound 를 비워야 시스템 기본 알림음. 'default' 는 raw/default 파일을 찾다가 무음이 된다.
+      // 채널 소리는 만든 뒤 못 바꾸므로 id 를 새로 쓴다 (서버 channelId 와 같아야 함).
       await PushNotifications.createChannel({
-        id: 'new_reservations',
+        id: PARTNER_PUSH_CHANNEL_ID,
         name: '예약 알림',
-        description: '새 예약이 들어오면 알려줍니다',
+        description: '앱이 꺼져 있을 때 새 예약·출고요청을 알려줍니다',
         importance: 5,
         visibility: 1,
-        sound: 'default',
         vibration: true,
       });
+      await PushNotifications.deleteChannel({ id: 'new_reservations' }).catch(() => undefined);
     } catch {
       // 웹·구버전 무시
     }

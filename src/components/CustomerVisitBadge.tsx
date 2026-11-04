@@ -19,7 +19,7 @@ export default function CustomerVisitBadge({
   useEffect(() => {
     let cancelled = false;
     setStoredCount(undefined);
-    void fetchCustomerVisitCount(reservation.phone)
+    void fetchCustomerVisitCount(reservation.phone, reservation.companyId)
       .then((count) => {
         if (!cancelled) setStoredCount(count);
       })
@@ -29,7 +29,7 @@ export default function CustomerVisitBadge({
     return () => {
       cancelled = true;
     };
-  }, [reservation.phone]);
+  }, [reservation.phone, reservation.companyId]);
 
   if (storedCount === undefined) return null;
 

@@ -1,5 +1,4 @@
 ﻿import React from 'react';
-import { Capacitor } from '@capacitor/core';
 import {
   X,
   Camera,
@@ -18,19 +17,16 @@ import {
   MessageSquareWarning,
   UserRoundSearch,
   UserPlus,
+  ChevronRight,
 } from 'lucide-react';
 import { AppView } from '../types';
 import { isAirpickHeadquarters } from '../constants/platform';
 import { airportRegionLabel } from '../utils/airport';
 import {
   areReservationAlertsEnabled,
-  requestReservationNotificationPermission,
-  setReservationAlertsEnabled,
   setRuntimeReservationAlertCopy,
 } from '../utils/reservationNotifications';
-import { registerPartnerPushDevice } from '../lib/partnerPush';
 import ReservationAlertSettingsModal from './ReservationAlertSettingsModal';
-import ProblemReportModal from './ProblemReportModal';
 import { fetchReservationAlertCopy } from '../lib/reservationAlertCopyFirestore';
 
 interface SidebarProps {
@@ -82,7 +78,6 @@ export default function Sidebar({
 }: SidebarProps) {
   const [alertsEnabled, setAlertsEnabled] = React.useState(() => areReservationAlertsEnabled());
   const [alertSettingsOpen, setAlertSettingsOpen] = React.useState(false);
-  const [problemReportOpen, setProblemReportOpen] = React.useState(false);
 
   React.useEffect(() => {
     if (!isOpen) return;
@@ -90,32 +85,6 @@ export default function Sidebar({
       .then((copy) => setRuntimeReservationAlertCopy(copy))
       .catch(() => undefined);
   }, [isOpen]);
-  const toggleAlerts = async () => {
-    const next = !alertsEnabled;
-    if (next) {
-      if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
-        await requestReservationNotificationPermission();
-      }
-      setReservationAlertsEnabled(true);
-      setAlertsEnabled(true);
-      if (currentCompanyId && !isAirpickHeadquarters(currentCompanyId)) {
-        const scopes =
-          operatorCompanyIds.length > 0 ? operatorCompanyIds : [currentCompanyId];
-        const ok = await registerPartnerPushDevice({
-          companyId: currentCompanyId,
-          scopeCompanyIds: scopes,
-        });
-        if (!ok && Capacitor.isNativePlatform()) {
-          window.alert(
-            '알림 권한이 꺼져 있거나 푸시 등록에 실패했습니다.\n설정 → 앱 → 알림을 켠 뒤 다시 시도해 주세요.'
-          );
-        }
-      }
-      return;
-    }
-    setReservationAlertsEnabled(false);
-    setAlertsEnabled(false);
-  };
 
   if (!isOpen && !alertSettingsOpen) return null;
 
@@ -292,35 +261,21 @@ export default function Sidebar({
         <div className="p-4 bg-neutral-950/80 border-t border-neutral-800">
           <button
             type="button"
-            onClick={toggleAlerts}
-            className={`w-full mb-2 py-2.5 px-3 rounded-xl border text-left flex items-center gap-2 transition-all ${
+            onClick={() => setAlertSettingsOpen(true)}
+            className={`w-full mb-3 py-2.5 px-3 rounded-xl border text-left flex items-center gap-2 transition-all ${
               alertsEnabled
                 ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
                 : 'bg-neutral-900 border-neutral-800 text-zinc-500'
             }`}
           >
             {alertsEnabled ? <Bell size={16} /> : <BellOff size={16} />}
-            <div>
+            <div className="flex-1">
               <span className="text-xs font-black block">알림</span>
               <span className="text-[10px] opacity-80">
                 {alertsEnabled ? '예약 · 출고 · 켜짐' : '예약 · 출고 · 꺼짐'}
               </span>
             </div>
-          </button>
-          <button
-            type="button"
-            onClick={() => setAlertSettingsOpen(true)}
-            className="w-full mb-3 py-2 px-3 rounded-xl border border-neutral-800 bg-neutral-950 text-left text-[11px] font-bold text-zinc-400 hover:text-zinc-200 hover:border-neutral-700 transition-all"
-          >
-            알림 문구 미리듣기 · 조정
-          </button>
-          <button
-            type="button"
-            onClick={() => setProblemReportOpen(true)}
-            className="w-full mb-3 -mt-1 py-2 px-3 rounded-xl border border-neutral-800 bg-neutral-950 text-left text-[11px] font-bold text-zinc-400 hover:text-zinc-200 hover:border-neutral-700 transition-all flex items-center gap-2"
-          >
-            <MessageSquareWarning size={14} />
-            문제 보내기
+            <ChevronRight size={14} className="opacity-60" />
           </button>
 
           <div className="flex gap-2">
@@ -360,9 +315,11 @@ export default function Sidebar({
       open={alertSettingsOpen}
       onClose={() => setAlertSettingsOpen(false)}
       currentCompanyId={currentCompanyId || ''}
+      operatorCompanyIds={operatorCompanyIds}
       canEdit={isSuperAdmin || isAirpickHeadquarters(currentCompanyId)}
+      enabled={alertsEnabled}
+      onEnabledChange={setAlertsEnabled}
     />
-    <ProblemReportModal open={problemReportOpen} onClose={() => setProblemReportOpen(false)} />
     </>
   );
 }

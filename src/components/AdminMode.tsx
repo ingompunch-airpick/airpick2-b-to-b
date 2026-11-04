@@ -31,8 +31,26 @@ interface AdminModeProps {
   blockedDates?: string[];
   onSaveBlockedDates?: (dates: string[]) => void;
   onToggleCompanyOpen?: (companyId: string, isOpen: boolean) => Promise<void> | void;
+  onSetListingApproved?: (companyId: string, approved: boolean) => Promise<void> | void;
   onRemoteOpenCompany?: (companyId: string) => void;
   onOpenPartnerEditor?: () => void;
+  onSaveBookingSettings?: (settings: {
+    blockedDates: string[];
+    blockedDatesIndoor: string[];
+    blockedDatesOutdoor: string[];
+    cancelCutoffHours: number;
+    sameDayBookingBlocked: boolean;
+    bookingLeadHours: number;
+    hourlyCapEnabled: boolean;
+    maxCarsPerHour: number;
+    parkingCapEnabled: boolean;
+    maxParkedCars: number;
+    maxParkedCarsIndoor: number;
+    maxParkedCarsOutdoor: number;
+    dailyIntakeCapEnabled: boolean;
+    maxCarsPerDay: number;
+    scheduleBlocks: import('../utils/scheduleBlock').ScheduleBlockRule[];
+  }) => Promise<void>;
 }
 
 function resolveAdminView(view: AppView | string): AppView {
@@ -62,8 +80,10 @@ export default function AdminMode({
   blockedDates = [],
   onSaveBlockedDates,
   onToggleCompanyOpen,
+  onSetListingApproved,
   onRemoteOpenCompany,
   onOpenPartnerEditor,
+  onSaveBookingSettings,
 }: AdminModeProps) {
   const adminView = resolveAdminView(currentView);
   const [reviewFocusCompanyId, setReviewFocusCompanyId] = useState<string | null>(null);
@@ -117,6 +137,7 @@ export default function AdminMode({
             onUpdateCompanies={onUpdateCompanies}
             onUpdatePartners={onUpdatePartners}
             onToggleCompanyOpen={onToggleCompanyOpen}
+            onSetListingApproved={onSetListingApproved}
             onRemoteOpenCompany={onRemoteOpenCompany}
             onOpenPartnerEditor={onOpenPartnerEditor}
             onOpenReviews={openCompanyReviews}
@@ -138,6 +159,12 @@ export default function AdminMode({
           onBack={() => setCurrentView('statistics')}
           isEmployee={isEmployee}
           employeeRole={employeeRole}
+          onSaveBookingSettings={onSaveBookingSettings}
+          onToggleCompanyOpen={
+            onToggleCompanyOpen
+              ? (isOpen) => Promise.resolve(onToggleCompanyOpen(currentCompanyId, isOpen))
+              : undefined
+          }
         />
       );
 

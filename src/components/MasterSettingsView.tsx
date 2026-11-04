@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { CompanyInfo, Reservation, Company, PartnerCompany, Employee, FacilityType } from '../types';
+import { CompanyInfo, Reservation, Company, PartnerCompany, Employee, FacilityType, ParkingProduct } from '../types';
 import { 
   Save, 
   Users, 
@@ -12,13 +12,30 @@ import { doc, setDoc, deleteField } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import TimePickerModal from './TimePickerModal';
 import AdminDashboard from './AdminDashboard';
-import PartnerParkingProfileReadonly from './PartnerParkingProfileReadonly';
+import ParkingProductsEditor from './ParkingProductsEditor';
+import PartnerProfileFormFields from './PartnerProfileFormFields';
+import BlockoutCalendarModal from './BlockoutCalendarModal';
+import {
+  parkingProductsForFirestore,
+  parkingProductValidationError,
+  productsOfferHandoff,
+  readParkingProducts,
+} from '../utils/parkingProducts';
+import {
+  applyPartnerProfileToCompany,
+  DEFAULT_PARTNER_PROFILE,
+  inferFacilityType,
+  partnerOnboardingError,
+  profileExtrasForFirestore,
+  readPartnerProfileFromCompany,
+  type PartnerProfileInput,
+} from '../utils/companyProfile';
+import { preparePartnerProfileUploads } from '../lib/companyPhotos';
 import { isAirpickHeadquarters } from '../constants/platform';
 import { ensureFirestoreAuth } from '../lib/firebaseAuth';
 import { upsertCompanyEmployees } from '../lib/partnerLoginApi';
 import { reportError } from '../lib/errorReport';
 import { writePartnersToStorage } from '../utils/partnerSync';
-import { inferFacilityType } from '../utils/companyProfile';
 import {
   airportShortName,
   getAirport,
@@ -26,33 +43,8 @@ import {
   resolveCompanyAirportId,
 } from '../utils/airport';
 
-/** 최고관리자(제휴 가맹점 수정)만 companies에 쓰는 필드 — 가맹점 자체 저장에서 제외 */
-export const HQ_ONLY_COMPANY_PARKING_KEYS = [
-  'facilityType',
-  'is_indoor',
-  'supports_indoor',
-  'supports_outdoor',
-  'features',
-  'indoorParkingAddress',
-  'outdoorParkingAddress',
-  'indoorParkingLat',
-  'indoorParkingLng',
-  'outdoorParkingLat',
-  'outdoorParkingLng',
-  'parkingLots',
-  'parkingDistances',
-  'parkingDistancesIndoor',
-  'parkingDistancesOutdoor',
-  'image_url',
-  'image_urls',
-  'sharesParkingLocation',
-  'sharesPhotos',
-  'insurance',
-  'hasInsurance',
-  'insuranceProvider',
-  'insuranceLimit',
-  'sharesInsurance',
-] as const;
+/** 본사만 바꾸는 필드 — 업체 저장 payload에 넣지 않음 */
+export const HQ_ONLY_COMPANY_PARKING_KEYS = ['listingApproved'] as const;
 
 // TimeSpinner is deprecated and replaced by unified TimePickerModal with firm Confirm actions.
 
@@ -261,13 +253,33 @@ interface MasterSettingsViewProps {
   onBack?: () => void;
   isEmployee?: boolean;
   employeeRole?: 'admin' | 'driver';
+  onSaveBookingSettings?: (settings: {
+    blockedDates: string[];
+    blockedDatesIndoor: string[];
+    blockedDatesOutdoor: string[];
+    cancelCutoffHours: number;
+    sameDayBookingBlocked: boolean;
+    bookingLeadHours: number;
+    hourlyCapEnabled: boolean;
+    maxCarsPerHour: number;
+    parkingCapEnabled: boolean;
+    maxParkedCars: number;
+    maxParkedCarsIndoor: number;
+    maxParkedCarsOutdoor: number;
+    dailyIntakeCapEnabled: boolean;
+    maxCarsPerDay: number;
+    scheduleBlocks: import('../utils/scheduleBlock').ScheduleBlockRule[];
+  }) => Promise<void>;
+  onToggleCompanyOpen?: (isOpen: boolean) => Promise<void>;
 }
 
-type PartnerSettingsTab = 'basic' | 'pricing' | 'staff';
+type PartnerSettingsTab = 'onboard' | 'products' | 'pricing' | 'ops' | 'staff';
 
 const PARTNER_SETTINGS_TABS: { id: PartnerSettingsTab; label: string }[] = [
-  { id: 'basic', label: '기본' },
+  { id: 'onboard', label: '입점' },
+  { id: 'products', label: '상품' },
   { id: 'pricing', label: '요금' },
+  { id: 'ops', label: '운영' },
   { id: 'staff', label: '직원' },
 ];
 
@@ -282,14 +294,20 @@ export default function MasterSettingsView({
   isSuperAdmin = false,
   onBack,
   isEmployee = false,
-  employeeRole = 'driver'
+  employeeRole = 'driver',
+  onSaveBookingSettings,
+  onToggleCompanyOpen,
 }: MasterSettingsViewProps) {
-  const [settingsTab, setSettingsTab] = useState<PartnerSettingsTab>('basic');
+  const [settingsTab, setSettingsTab] = useState<PartnerSettingsTab>('onboard');
 
   // Core States for Partner View (Self rate/profile management redirect)
   const [partnerPassword, setPartnerPassword] = useState('');
   const [partnerPhone, setPartnerPhone] = useState('');
+  const [partnerName, setPartnerName] = useState('');
+  const [partnerRepresentative, setPartnerRepresentative] = useState('');
+  const [partnerProfile, setPartnerProfile] = useState<PartnerProfileInput>({ ...DEFAULT_PARTNER_PROFILE });
   const [partnerRateText, setPartnerRateText] = useState('');
+  const profileDirtyRef = useRef(false);
 
   // Employee Management States
   const [empName, setEmpName] = useState('');
@@ -435,12 +453,14 @@ export default function MasterSettingsView({
   const [peakSurcharge, setPeakSurcharge] = useState(0);
   const [activePickerTarget, setActivePickerTarget] = useState<'surchargeStart' | 'surchargeEnd' | null>(null);
 
-  // 대면 입고 제공 설정 (T1/T2 각각 · 0=무료 대면)
-  const [valetEnabled, setValetEnabled] = useState(false);
-  const [valetT1Enabled, setValetT1Enabled] = useState(false);
-  const [valetT2Enabled, setValetT2Enabled] = useState(false);
-  const [valetFeeT1, setValetFeeT1] = useState(0);
-  const [valetFeeT2, setValetFeeT2] = useState(0);
+  const [parkingProducts, setParkingProducts] = useState<ParkingProduct[]>([]);
+  // 대면·비대면 추가요금 (T1/T2 각각 · 0=무료). 받는 상품이 없는 터미널은 저장 시 필드 삭제
+  const [handoffFees, setHandoffFees] = useState({
+    valetFeeT1: 0,
+    valetFeeT2: 0,
+    dropFeeT1: 0,
+    dropFeeT2: 0,
+  });
   const [pickupLocation, setPickupLocation] = useState('');
 
   /** 편집 중 Firestore/캐시 스냅샷이 입력값을 0으로 덮지 않게 */
@@ -456,7 +476,7 @@ export default function MasterSettingsView({
     formDirtyRef.current = false;
     hydratedCompanyIdRef.current = null;
     hydratedWithPricingRef.current = false;
-    setSettingsTab('basic');
+    setSettingsTab('onboard');
   }, [companyInfo.id]);
 
   useEffect(() => {
@@ -504,13 +524,19 @@ export default function MasterSettingsView({
     setPeakEndTime(c.peakEndTime ?? '');
     setPeakSurcharge(c.peakSurcharge ?? 0);
 
-    const hasT1 = typeof c.valetFeeT1 === 'number';
-    const hasT2 = typeof c.valetFeeT2 === 'number';
-    setValetT1Enabled(hasT1);
-    setValetT2Enabled(hasT2);
-    setValetEnabled(hasT1 || hasT2);
-    setValetFeeT1(hasT1 ? (c.valetFeeT1 as number) : 0);
-    setValetFeeT2(hasT2 ? (c.valetFeeT2 as number) : 0);
+    setParkingProducts(readParkingProducts(c));
+    setHandoffFees({
+      valetFeeT1: typeof c.valetFeeT1 === 'number' ? c.valetFeeT1 : 0,
+      valetFeeT2: typeof c.valetFeeT2 === 'number' ? c.valetFeeT2 : 0,
+      dropFeeT1: typeof c.dropFeeT1 === 'number' ? c.dropFeeT1 : 0,
+      dropFeeT2: typeof c.dropFeeT2 === 'number' ? c.dropFeeT2 : 0,
+    });
+    if (!profileDirtyRef.current) {
+      setPartnerName(c.name || companyInfo.name || '');
+      setPartnerRepresentative(c.representative || '');
+      if (typeof c.phone === 'string' && c.phone.trim()) setPartnerPhone(c.phone);
+      setPartnerProfile(readPartnerProfileFromCompany(c));
+    }
   }, [partners, companies, companyInfo.id, companyInfo.phone]);
 
   const currentCompany = useMemo(
@@ -535,37 +561,73 @@ export default function MasterSettingsView({
     const parts: string[] = [facilityTypeLabel];
     if (pickupLocation.trim()) parts.push('픽업 등록');
     parts.push(`직원 ${employeeList.length}명`);
-    if (valetEnabled) parts.push('대면 ON');
+    const visible = parkingProducts.filter((p) => !p.hidden).length;
+    parts.push(`상품 ${visible}개`);
     return parts.join(' · ');
-  }, [facilityTypeLabel, pickupLocation, employeeList.length, valetEnabled]);
+  }, [facilityTypeLabel, pickupLocation, employeeList.length, parkingProducts]);
+
+  const basePriceLabel = useMemo(() => {
+    const label = (price: number, days: number) =>
+      price > 0 ? `${price.toLocaleString()}원/${days || 1}일` : '미설정';
+    return {
+      indoor: label(indoorBasePrice, indoorBaseDays),
+      outdoor: label(outdoorBasePrice, outdoorBaseDays),
+    };
+  }, [indoorBasePrice, indoorBaseDays, outdoorBasePrice, outdoorBaseDays]);
 
   const handleSavePartnerSelf = async () => {
     try {
-      // 대면 입고 검증: ON이면 T1·T2 중 최소 1개, 각 요금은 0 이상 정수
-      if (valetEnabled) {
-        if (!valetT1Enabled && !valetT2Enabled) {
-          alert('대면 입고를 제공하려면 터미널을 최소 한 곳 선택해 주세요.');
-          return;
-        }
-        const feeInvalid = (fee: number, on: boolean) =>
-          on && (!Number.isInteger(fee) || fee < 0);
-        if (feeInvalid(valetFeeT1, valetT1Enabled) || feeInvalid(valetFeeT2, valetT2Enabled)) {
-          alert('대면 추가요금은 0 이상의 정수(원)로 입력해 주세요. (무료 대면이면 0)');
-          return;
-        }
+      const productError = parkingProductValidationError(parkingProducts);
+      if (productError) {
+        setSettingsTab('products');
+        alert(productError);
+        return;
       }
 
-      // 대면 미제공 터미널은 Firestore에서 필드 삭제 (deleteField), 로컬은 키 제거
-      const valetT1On = valetEnabled && valetT1Enabled;
-      const valetT2On = valetEnabled && valetT2Enabled;
-      const valetFirestorePayload: Record<string, unknown> = {
-        valetFeeT1: valetT1On ? Math.trunc(valetFeeT1) : deleteField(),
-        valetFeeT2: valetT2On ? Math.trunc(valetFeeT2) : deleteField(),
-      };
+      const onboardError = partnerOnboardingError(
+        { ...partnerProfile, insuranceEnrolled: true },
+        { name: partnerName, phone: partnerPhone }
+      );
+      if (onboardError) {
+        setSettingsTab('onboard');
+        alert(onboardError);
+        return;
+      }
 
-      const cleanPhone = String(
-        partnerPhone || companyInfo.phone || '1544-5746'
-      ).trim();
+      // 받는 상품이 없는 터미널의 추가요금은 Firestore에서 삭제. 대면은 「필드 없음=미제공」 규칙 유지
+      const feeFields = {
+        valetFeeT1: productsOfferHandoff(parkingProducts, 'meet', 'T1') ? Math.trunc(handoffFees.valetFeeT1) : null,
+        valetFeeT2: productsOfferHandoff(parkingProducts, 'meet', 'T2') ? Math.trunc(handoffFees.valetFeeT2) : null,
+        dropFeeT1: productsOfferHandoff(parkingProducts, 'drop', 'T1') ? Math.trunc(handoffFees.dropFeeT1) : null,
+        dropFeeT2: productsOfferHandoff(parkingProducts, 'drop', 'T2') ? Math.trunc(handoffFees.dropFeeT2) : null,
+      };
+      if (Object.values(feeFields).some((fee) => fee != null && (!Number.isInteger(fee) || fee < 0))) {
+        alert('추가요금은 0 이상의 정수(원)로 입력해 주세요. (무료면 0)');
+        return;
+      }
+      const savedAt = new Date().toISOString();
+      const productsPayload = parkingProductsForFirestore(parkingProducts, savedAt);
+      const valetFirestorePayload: Record<string, unknown> = {
+        parkingProducts: productsPayload,
+      };
+      for (const [key, fee] of Object.entries(feeFields)) {
+        valetFirestorePayload[key] = fee == null ? deleteField() : fee;
+      }
+
+      const cleanPhone = String(partnerPhone || companyInfo.phone || '').trim();
+      const cleanName = partnerName.trim() || companyInfo.name;
+      const cleanRepresentative = partnerRepresentative.trim();
+
+      let profileToSave = { ...partnerProfile, insuranceEnrolled: true };
+      try {
+        profileToSave = await preparePartnerProfileUploads(companyInfo.id, profileToSave);
+        setPartnerProfile(profileToSave);
+      } catch (uploadErr) {
+        setSettingsTab('onboard');
+        alert(uploadErr instanceof Error ? uploadErr.message : '사진·서류 업로드에 실패했습니다.');
+        return;
+      }
+      const profilePayload = profileExtrasForFirestore(profileToSave);
 
       let found = false;
       const updatedPartners = (partners || []).map(p => {
@@ -631,13 +693,19 @@ export default function MasterSettingsView({
           const next: Company = {
             ...c,
             ...pricingPayload,
+            ...applyPartnerProfileToCompany(
+              { ...c, name: cleanName, phone: cleanPhone, representative: cleanRepresentative },
+              profileToSave
+            ),
           };
           if (cleanPickupLocation) next.pickupLocation = cleanPickupLocation;
           else delete next.pickupLocation;
-          if (valetT1On) next.valetFeeT1 = Math.trunc(valetFeeT1);
-          else delete next.valetFeeT1;
-          if (valetT2On) next.valetFeeT2 = Math.trunc(valetFeeT2);
-          else delete next.valetFeeT2;
+          next.parkingProducts = productsPayload;
+          for (const [key, fee] of Object.entries(feeFields)) {
+            const field = key as 'valetFeeT1' | 'valetFeeT2' | 'dropFeeT1' | 'dropFeeT2';
+            if (fee == null) delete next[field];
+            else next[field] = fee;
+          }
           return next;
         }
         return c;
@@ -650,17 +718,18 @@ export default function MasterSettingsView({
       if (onUpdateCompany) {
         onUpdateCompany({
           ...companyInfo,
-          phone: cleanPhone
+          name: cleanName,
+          phone: cleanPhone,
         });
         localStorage.setItem('master_company_info', JSON.stringify({
           ...companyInfo,
-          phone: cleanPhone
+          name: cleanName,
+          phone: cleanPhone,
         }));
       }
 
       // Direct Firestore update for this partner company item (cross-account sync source of truth)
       // NOTE: 로컬스토리지는 보조 캐시일 뿐이며, Firestore 저장 실패 시 타 기기/본사 화면에 반영되지 않습니다.
-      // 주소·핀·T1/T2 거리·사진·시설유형·보험은 최고관리자만 저장 (아래 payload에 포함하지 않음).
       try {
         await ensureFirestoreAuth();
         const docRef = doc(db, 'companies', companyInfo.id);
@@ -669,8 +738,12 @@ export default function MasterSettingsView({
           {
             ...pricingPayload,
             ...valetFirestorePayload,
+            ...profilePayload,
+            name: cleanName,
+            phone: cleanPhone,
+            representative: cleanRepresentative || deleteField(),
             pickupLocation: cleanPickupLocation || deleteField(),
-            updatedAt: new Date().toISOString(),
+            updatedAt: savedAt,
           },
           { merge: true }
         );
@@ -685,6 +758,7 @@ export default function MasterSettingsView({
       }
 
       formDirtyRef.current = false;
+      profileDirtyRef.current = false;
       hydratedCompanyIdRef.current = companyInfo.id;
       hydratedWithPricingRef.current = true;
 
@@ -772,7 +846,7 @@ export default function MasterSettingsView({
           {settingsSummary}
         </p>
 
-        <div className="grid grid-cols-3 gap-1 p-1 mb-4 bg-neutral-900/80 rounded-xl border border-neutral-800/60">
+        <div className="grid grid-cols-5 gap-1 p-1 mb-4 bg-neutral-900/80 rounded-xl border border-neutral-800/60">
           {PARTNER_SETTINGS_TABS.map((tab) => (
             <button
               key={tab.id}
@@ -790,59 +864,117 @@ export default function MasterSettingsView({
         </div>
 
         <div className="space-y-4">
-          {settingsTab === 'basic' && (
+          {settingsTab === 'onboard' && (
             <>
               <div className="bg-neutral-900/40 p-4.5 rounded-2xl border border-neutral-850 flex items-center justify-between">
                 <div>
                   <span className="text-[11px] text-white/60 font-black tracking-wider block mb-0.5">
                     로그인 업체
                   </span>
-                  <span className="text-xs font-black text-white">{companyInfo.name || '와와'}</span>
+                  <span className="text-xs font-black text-white">{partnerName || companyInfo.name}</span>
                 </div>
                 <span className="text-[12px] bg-neutral-950 border border-neutral-850 text-white/80 px-3 py-1 rounded-xl font-mono font-bold">
                   ID: {companyInfo.id}
                 </span>
               </div>
 
-              {!isAirpickHeadquarters(companyInfo.id) && (
-                <>
-                  <p className="text-[11px] text-amber-500/90 font-bold px-1">
-                    {isSuperAdmin
-                      ? '본사 원격 지원 · 보험·주소·핀은 제휴업체 관리에서 수정'
-                      : '보험·주소·핀·거리·사진은 최고관리자만 수정'}
-                  </p>
-                  <PartnerParkingProfileReadonly company={currentCompany} />
-                </>
-              )}
-
-              {!isAirpickHeadquarters(companyInfo.id) && (
-                <div className="bg-neutral-900/40 p-5 rounded-3xl border border-neutral-850 space-y-3">
-                  <div className="flex items-center gap-2 text-xs font-black text-amber-500 tracking-wider">
-                    <FileSpreadsheet size={14} className="text-amber-500" />
-                    <span>고객 만남 픽업지</span>
-                  </div>
-                  <p className="text-[12px] text-white/70 leading-relaxed">
-                    접수증에 표시됩니다. 비우면 「업체로 연락해 안내받으세요」
-                  </p>
-                  <div>
-                    <label className="text-[11px] text-white/80 font-bold block mb-1">
-                      픽업지 안내 문구
-                    </label>
-                    <input
-                      type="text"
-                      value={pickupLocation}
-                      onChange={(e) => {
-                        markFormDirty();
-                        setPickupLocation(e.target.value);
-                      }}
-                      placeholder="예: T1 3번 출구 앞"
-                      maxLength={120}
-                      className="w-full px-3 py-2.5 bg-[#131315] border border-neutral-850 rounded-xl text-sm text-white placeholder:text-white/30 focus:outline-none focus:border-amber-500/50"
-                    />
-                  </div>
+              <div className="bg-neutral-900/40 p-5 rounded-3xl border border-neutral-850 space-y-3">
+                <p className="text-xs font-black text-amber-500 tracking-wider">업체 정보</p>
+                <div>
+                  <label className="text-[11px] text-white/80 font-bold block mb-1">상호</label>
+                  <input
+                    type="text"
+                    value={partnerName}
+                    onChange={(e) => {
+                      markFormDirty();
+                      profileDirtyRef.current = true;
+                      setPartnerName(e.target.value);
+                    }}
+                    className="w-full px-3 py-2.5 bg-[#131315] border border-neutral-850 rounded-xl text-sm text-white"
+                  />
                 </div>
-              )}
+                <div>
+                  <label className="text-[11px] text-white/80 font-bold block mb-1">대표</label>
+                  <input
+                    type="text"
+                    value={partnerRepresentative}
+                    onChange={(e) => {
+                      markFormDirty();
+                      profileDirtyRef.current = true;
+                      setPartnerRepresentative(e.target.value);
+                    }}
+                    className="w-full px-3 py-2.5 bg-[#131315] border border-neutral-850 rounded-xl text-sm text-white"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] text-white/80 font-bold block mb-1">전화</label>
+                  <input
+                    type="tel"
+                    value={partnerPhone}
+                    onChange={(e) => {
+                      markFormDirty();
+                      profileDirtyRef.current = true;
+                      setPartnerPhone(e.target.value);
+                    }}
+                    className="w-full px-3 py-2.5 bg-[#131315] border border-neutral-850 rounded-xl text-sm text-white"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] text-white/80 font-bold block mb-1">픽업지 안내</label>
+                  <input
+                    type="text"
+                    value={pickupLocation}
+                    onChange={(e) => {
+                      markFormDirty();
+                      setPickupLocation(e.target.value);
+                    }}
+                    placeholder="예: T1 3번 출구 앞"
+                    maxLength={120}
+                    className="w-full px-3 py-2.5 bg-[#131315] border border-neutral-850 rounded-xl text-sm text-white placeholder:text-white/30"
+                  />
+                </div>
+              </div>
+
+              <PartnerProfileFormFields
+                profile={partnerProfile}
+                companyId={companyInfo.id}
+                variant="dark"
+                insuranceRequired
+                onChange={(next) => {
+                  markFormDirty();
+                  profileDirtyRef.current = true;
+                  setPartnerProfile(next);
+                }}
+              />
             </>
+          )}
+
+          {settingsTab === 'ops' && currentCompany && onSaveBookingSettings && onToggleCompanyOpen && (
+            <BlockoutCalendarModal
+              embedded
+              isOpen
+              onClose={() => undefined}
+              blockedDates={currentCompany.blockedDates ?? []}
+              blockedDatesIndoor={currentCompany.blockedDatesIndoor}
+              blockedDatesOutdoor={currentCompany.blockedDatesOutdoor}
+              cancelCutoffHours={currentCompany.cancelCutoffHours}
+              sameDayBookingBlocked={currentCompany.sameDayBookingBlocked}
+              bookingLeadHours={currentCompany.bookingLeadHours}
+              hourlyCapEnabled={currentCompany.hourlyCapEnabled}
+              maxCarsPerHour={currentCompany.maxCarsPerHour}
+              parkingCapEnabled={currentCompany.parkingCapEnabled}
+              maxParkedCars={currentCompany.maxParkedCars}
+              maxParkedCarsIndoor={currentCompany.maxParkedCarsIndoor}
+              maxParkedCarsOutdoor={currentCompany.maxParkedCarsOutdoor}
+              dailyIntakeCapEnabled={currentCompany.dailyIntakeCapEnabled}
+              maxCarsPerDay={currentCompany.maxCarsPerDay}
+              scheduleBlocks={currentCompany.scheduleBlocks ?? []}
+              company={currentCompany}
+              onSave={onSaveBookingSettings}
+              companyIsOpen={currentCompany.isOpen !== false}
+              onToggleCompanyOpen={onToggleCompanyOpen}
+              companyName={currentCompany.name}
+            />
           )}
 
           {settingsTab === 'pricing' && (
@@ -1031,100 +1163,28 @@ export default function MasterSettingsView({
                 </div>
               </div>
 
-              <div className="bg-neutral-900/40 p-5 rounded-3xl border border-neutral-850 space-y-4">
-                <div className="flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-2 text-xs font-black text-amber-500 tracking-wider">
-                    <FileSpreadsheet size={14} className="text-amber-500" />
-                    <span>대면 입고</span>
-                  </div>
-                  <button
-                    type="button"
-                    role="switch"
-                    aria-checked={valetEnabled}
-                    onClick={() => {
-                      markFormDirty();
-                      setValetEnabled((v) => !v);
-                    }}
-                    className={`relative w-11 h-6 rounded-full transition-colors shrink-0 ${valetEnabled ? 'bg-amber-500' : 'bg-neutral-700'}`}
-                  >
-                    <span
-                      className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${valetEnabled ? 'translate-x-5' : ''}`}
-                    />
-                  </button>
-                </div>
-                <p className="text-[12px] text-white/70 leading-relaxed">
-                  터미널에서 직접 인계·인수. 무료면 0원
-                </p>
-
-                {valetEnabled && (
-                  <div className="space-y-3">
-                    <div className="p-3 bg-[#131315] border border-neutral-850 rounded-xl space-y-3">
-                      <label className="flex items-center gap-2 cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={valetT1Enabled}
-                          onChange={(e) => {
-                            markFormDirty();
-                            setValetT1Enabled(e.target.checked);
-                          }}
-                          className="w-4 h-4 rounded border-neutral-800 text-amber-500 focus:ring-amber-500 bg-[#1C1C1E] cursor-pointer"
-                        />
-                        <span className="text-[12px] text-white font-bold">
-                          {primaryTerminal?.label || '제1터미널'} 대면
-                        </span>
-                      </label>
-                      {valetT1Enabled && (
-                        <PriceInput
-                          label={`${primaryTerminal?.shortLabel || 'T1'} 추가요금`}
-                          value={valetFeeT1}
-                          onChange={(v) => {
-                            markFormDirty();
-                            setValetFeeT1(v);
-                          }}
-                          focusColorClass="focus-within:border-amber-500"
-                          placeholder="무료면 0"
-                        />
-                      )}
-                    </div>
-
-                    <div className="p-3 bg-[#131315] border border-neutral-850 rounded-xl space-y-3">
-                      <label className="flex items-center gap-2 cursor-pointer select-none">
-                        <input
-                          type="checkbox"
-                          checked={valetT2Enabled}
-                          onChange={(e) => {
-                            markFormDirty();
-                            setValetT2Enabled(e.target.checked);
-                          }}
-                          className="w-4 h-4 rounded border-neutral-800 text-amber-500 focus:ring-amber-500 bg-[#1C1C1E] cursor-pointer"
-                        />
-                        <span className="text-[12px] text-white font-bold">
-                          {secondaryTerminal?.label || '제2터미널'} 대면
-                        </span>
-                      </label>
-                      {valetT2Enabled && (
-                        <PriceInput
-                          label={`${secondaryTerminal?.shortLabel || 'T2'} 추가요금`}
-                          value={valetFeeT2}
-                          onChange={(v) => {
-                            markFormDirty();
-                            setValetFeeT2(v);
-                          }}
-                          focusColorClass="focus-within:border-amber-500"
-                          placeholder="무료면 0"
-                        />
-                      )}
-                    </div>
-
-                    {!valetT1Enabled && !valetT2Enabled && (
-                      <p className="text-[11px] text-red-400 font-bold px-1">
-                        터미널을 최소 한 곳 선택해 주세요.
-                      </p>
-                    )}
-                  </div>
-                )}
-              </div>
+              <p className="text-[11px] text-zinc-500 font-semibold px-1">
+                대면·비대면 추가요금은 「상품」 탭에서 받는 방식을 체크한 뒤 적습니다.
+              </p>
             </>
+          )}
+
+          {settingsTab === 'products' && (
+            <ParkingProductsEditor
+              products={parkingProducts}
+              onChange={(next) => {
+                markFormDirty();
+                setParkingProducts(next);
+              }}
+              fees={handoffFees}
+              onFeesChange={(next) => {
+                markFormDirty();
+                setHandoffFees(next);
+              }}
+              t1Label={primaryTerminal?.shortLabel || 'T1'}
+              t2Label={secondaryTerminal?.shortLabel || 'T2'}
+              basePriceLabel={basePriceLabel}
+            />
           )}
 
           {settingsTab === 'staff' && (
@@ -1249,6 +1309,7 @@ export default function MasterSettingsView({
           )}
         </div>
 
+        {settingsTab !== 'ops' ? (
         <div className="fixed bottom-0 left-0 right-0 z-40 p-4 bg-gradient-to-t from-black via-black/95 to-transparent pointer-events-none">
           <div className="max-w-lg mx-auto pointer-events-auto">
             <button
@@ -1260,13 +1321,16 @@ export default function MasterSettingsView({
               <Save size={14} />
               <span>저장하기</span>
             </button>
-            {settingsTab === 'staff' && (
-              <p className="text-[10px] text-zinc-500 text-center mt-2 font-semibold">
-                직원 추가·삭제는 즉시 반영 · 저장은 요금·픽업·대면용
-              </p>
-            )}
+            <p className="text-[10px] text-zinc-500 text-center mt-2 font-semibold">
+              {settingsTab === 'staff'
+                ? '직원 추가·삭제는 즉시 반영 · 저장은 입점·상품·요금용'
+                : settingsTab === 'onboard'
+                  ? '상호·전화·보험·주소·사진은 여기서 저장합니다'
+                  : '저장은 입점·상품·요금·픽업용 · 영업 설정은 운영 탭'}
+            </p>
           </div>
         </div>
+        ) : null}
       </div>
       {surchargeTimePicker}
       </>

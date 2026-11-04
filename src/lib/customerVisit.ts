@@ -13,12 +13,15 @@ export interface CustomerVisitDoc {
   lastAt?: string;
   lastReservationId?: string;
   companyIds?: string[];
+  /** 업체별 출고 완료 횟수 */
+  visits?: Record<string, number>;
 }
 
 /** 예약 카드용: 같은 번호의 N번째 예약(취소 제외, createdAt 순) */
 export type VisitOrdinalReservation = {
   id?: string;
   phone?: string;
+  companyId?: string;
   createdAt?: string;
   status?: string;
 };
@@ -41,6 +44,7 @@ export function computeReservationVisitOrdinal(
   for (const r of pool) {
     if (!r?.id) continue;
     if (normalizePhoneDigits(r.phone) !== phone) continue;
+    if (!sameCompany(target, r)) continue;
     if (normalizeReservationStatus(r.status) === 'cancelled') continue;
     byId.set(String(r.id), r);
   }
@@ -67,8 +71,14 @@ function sortByCreatedAt(list: VisitOrdinalReservation[]): VisitOrdinalReservati
   });
 }
 
+function sameCompany(left: VisitOrdinalReservation, right: VisitOrdinalReservation): boolean {
+  const companyId = String(left.companyId || '').trim().toLowerCase();
+  if (!companyId) return true;
+  return String(right.companyId || '').trim().toLowerCase() === companyId;
+}
+
 /**
- * 화면에 보일 방문 순번.
+ * 화면에 보일 방문 순번. 같은 업체의 출고만 센다.
  * 출고로 이미 센 횟수(지워진 예약 포함)에, 아직 출고 전인 이번 예약을 더한다.
  */
 export function displayedVisitCount(
@@ -84,6 +94,7 @@ export function displayedVisitCount(
   for (const reservation of pool) {
     if (!reservation?.id) continue;
     if (normalizePhoneDigits(reservation.phone) !== phone) continue;
+    if (!sameCompany(target, reservation)) continue;
     if (normalizeReservationStatus(reservation.status) === 'cancelled') continue;
     byId.set(String(reservation.id), reservation);
   }
@@ -117,22 +128,27 @@ export function displayedVisitCount(
 const visitCountCache = new Map<string, Promise<number | null>>();
 
 export async function fetchCustomerVisitCount(
-  phone: string | undefined | null
+  phone: string | undefined | null,
+  companyId?: string | null
 ): Promise<number | null> {
   const id = customerDocId(phone);
   if (!id) return null;
-  const cached = visitCountCache.get(id);
+  const company = String(companyId || '').trim().toLowerCase();
+  const cacheKey = `${id}:${company}`;
+  const cached = visitCountCache.get(cacheKey);
   if (cached) return cached;
   const pending = (async () => {
     await ensureFirestoreAuth();
     const snap = await getDoc(doc(db, 'customers', id));
     if (!snap.exists()) return null;
-    const n = snap.data()?.visitCount;
-    return typeof n === 'number' && n >= 0 ? n : null;
+    const visits = snap.data()?.visits;
+    if (!company || !visits || typeof visits !== 'object') return null;
+    const n = (visits as Record<string, unknown>)[company];
+    return typeof n === 'number' && n >= 0 ? n : 0;
   })();
-  visitCountCache.set(id, pending);
+  visitCountCache.set(cacheKey, pending);
   pending.catch(() => {
-    visitCountCache.delete(id);
+    visitCountCache.delete(cacheKey);
   });
   return pending;
 }

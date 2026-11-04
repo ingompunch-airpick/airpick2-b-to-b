@@ -33,6 +33,7 @@ export interface HqPartnerBoardRow {
   blockedCount: number;
   profile: HqPartnerProfileFlags;
   incomplete: boolean;
+  listingApproved: boolean;
   rating: number;
   reviewsCount: number;
   parentCompanyId?: string;
@@ -110,6 +111,7 @@ export function buildHqPartnerBoardRows(companies: Company[]): HqPartnerBoardRow
         blockedCount: Array.isArray(company.blockedDates) ? company.blockedDates.length : 0,
         profile,
         incomplete,
+        listingApproved: company.listingApproved !== false,
         rating: typeof company.rating === 'number' ? company.rating : 0,
         reviewsCount: typeof company.reviews_count === 'number' ? company.reviews_count : 0,
         parentCompanyId: company.parentCompanyId,

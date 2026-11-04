@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Bell, Play, Save, X } from 'lucide-react';
+import { Bell, BellOff, Play, Save, X } from 'lucide-react';
 import {
   ALERT_TITLE_CHECKOUT_PRESETS,
   ALERT_TITLE_RESERVE_PRESETS,
@@ -8,9 +8,17 @@ import {
   type ReservationAlertCopy,
 } from '../utils/reservationAlertCopy';
 import {
+  requestReservationNotificationPermission,
+  sendTestReservationAlert,
+  setReservationAlertsEnabled,
   speakReservationAlertPreview,
   setRuntimeReservationAlertCopy,
 } from '../utils/reservationNotifications';
+import {
+  getPartnerPushStatus,
+  registerPartnerPushDevice,
+  type PartnerPushStatus,
+} from '../lib/partnerPush';
 import {
   fetchReservationAlertCopy,
   saveReservationAlertCopy,
@@ -21,58 +29,79 @@ type Props = {
   open: boolean;
   onClose: () => void;
   currentCompanyId: string;
-  /** HQ만 저장 가능. 파트너는 미리듣기만 */
+  operatorCompanyIds?: string[];
+  /** HQ만 문구 저장 가능. 파트너는 미리듣기만 */
   canEdit: boolean;
+  enabled: boolean;
+  onEnabledChange: (enabled: boolean) => void;
 };
 
-function PreviewCard({
-  title,
-  tone,
-}: {
-  title: string;
-  tone: 'fuchsia' | 'sky';
-}) {
-  const border =
-    tone === 'fuchsia' ? 'border-fuchsia-500/40' : 'border-sky-500/40';
-  const label = tone === 'fuchsia' ? 'text-fuchsia-300' : 'text-sky-300';
+/** 문제가 있을 때만 보인다 */
+function Warning({ text }: { text: string }) {
   return (
-    <div className={`rounded-2xl border ${border} bg-neutral-950 px-3 py-3`}>
-      <p className={`text-sm font-black ${label}`}>{title || '제목'}</p>
-    </div>
+    <p className="px-3 py-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-[12px] font-bold text-rose-300 leading-relaxed">
+      {text}
+    </p>
   );
 }
 
-function PresetRow({
-  presets,
+/** 한 줄: 이름 · 문구 · ▶. 본사만 입력칸과 추천 문구가 보인다 */
+function CopyRow({
+  label,
   value,
-  onPick,
-  disabled,
+  placeholder,
+  presets,
+  editable,
+  onChange,
+  onPlay,
 }: {
-  presets: readonly string[];
+  label: string;
   value: string;
-  onPick: (v: string) => void;
-  disabled?: boolean;
+  placeholder: string;
+  presets: readonly string[];
+  editable: boolean;
+  onChange: (v: string) => void;
+  onPlay: () => void;
 }) {
+  const others = presets.filter((p) => p !== value);
   return (
-    <div className="flex flex-wrap gap-1.5">
-      {presets.map((p) => {
-        const active = value === p;
-        return (
-          <button
-            key={p}
-            type="button"
-            disabled={disabled}
-            onClick={() => onPick(p)}
-            className={`px-2.5 py-1 rounded-lg text-[10px] font-black border transition-all disabled:opacity-40 ${
-              active
-                ? 'bg-amber-500 text-neutral-950 border-amber-500'
-                : 'bg-neutral-900 text-zinc-400 border-neutral-800 hover:text-zinc-200'
-            }`}
-          >
-            {p}
-          </button>
-        );
-      })}
+    <div className="space-y-1.5">
+      <div className="flex items-center gap-2">
+        <span className="w-14 shrink-0 text-[11px] font-bold text-zinc-500">{label}</span>
+        {editable ? (
+          <input
+            value={value}
+            maxLength={24}
+            onChange={(e) => onChange(e.target.value)}
+            className="flex-1 min-w-0 px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-sm text-zinc-100 font-bold"
+            placeholder={placeholder}
+          />
+        ) : (
+          <span className="flex-1 min-w-0 text-sm font-black text-zinc-100">{value || placeholder}</span>
+        )}
+        <button
+          type="button"
+          onClick={onPlay}
+          aria-label={`${label} 들어 보기`}
+          className="shrink-0 w-9 h-9 rounded-xl border border-amber-500/30 text-amber-300 inline-flex items-center justify-center"
+        >
+          <Play size={14} />
+        </button>
+      </div>
+      {editable && others.length > 0 ? (
+        <div className="flex flex-wrap gap-1.5 pl-16">
+          {others.map((p) => (
+            <button
+              key={p}
+              type="button"
+              onClick={() => onChange(p)}
+              className="px-2 py-0.5 rounded-lg text-[10px] font-black border bg-neutral-900 text-zinc-400 border-neutral-800 hover:text-zinc-200"
+            >
+              {p}
+            </button>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -81,15 +110,53 @@ export default function ReservationAlertSettingsModal({
   open,
   onClose,
   currentCompanyId,
+  operatorCompanyIds = [],
   canEdit,
+  enabled,
+  onEnabledChange,
 }: Props) {
+  const [pushStatus, setPushStatus] = useState<PartnerPushStatus | null>(null);
+  const [toggling, setToggling] = useState(false);
+  const partnerDevice = Boolean(currentCompanyId) && !isAirpickHeadquarters(currentCompanyId);
+
+  const refreshStatus = () => {
+    void getPartnerPushStatus()
+      .then(setPushStatus)
+      .catch(() => setPushStatus(null));
+  };
+
+  useEffect(() => {
+    if (open) refreshStatus();
+  }, [open]);
+
+  const toggleEnabled = async () => {
+    if (toggling) return;
+    if (enabled) {
+      setReservationAlertsEnabled(false);
+      onEnabledChange(false);
+      return;
+    }
+    setToggling(true);
+    try {
+      if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+        await requestReservationNotificationPermission();
+      }
+      setReservationAlertsEnabled(true);
+      onEnabledChange(true);
+      if (partnerDevice) {
+        const scopes = operatorCompanyIds.length > 0 ? operatorCompanyIds : [currentCompanyId];
+        await registerPartnerPushDevice({ companyId: currentCompanyId, scopeCompanyIds: scopes });
+      }
+    } finally {
+      setToggling(false);
+      refreshStatus();
+    }
+  };
   const [copy, setCopy] = useState<ReservationAlertCopy>(DEFAULT_RESERVATION_ALERT_COPY);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedFlash, setSavedFlash] = useState(false);
-  const [previewKind, setPreviewKind] = useState<'reserve' | 'checkout' | null>(null);
-
   const hq = isAirpickHeadquarters(currentCompanyId) || canEdit;
 
   useEffect(() => {
@@ -121,10 +188,8 @@ export default function ReservationAlertSettingsModal({
   if (!open) return null;
 
   const playPreview = (kind: 'reserve' | 'checkout') => {
-    setPreviewKind(kind);
     const title = kind === 'checkout' ? copy.titleCheckout : copy.titleReserve;
     speakReservationAlertPreview({ title, kind: 'other' });
-    window.setTimeout(() => setPreviewKind(null), 2500);
   };
 
   const handleSave = async () => {
@@ -151,10 +216,8 @@ export default function ReservationAlertSettingsModal({
           <div className="flex items-center gap-2">
             <Bell size={16} className="text-amber-400" />
             <div>
-              <p className="text-sm font-black text-white">알림 문구</p>
-              <p className="text-[10px] text-zinc-500 font-semibold">
-                미리 듣고 · 고르고 · {hq ? '저장' : '본사만 저장 가능'}
-              </p>
+              <p className="text-sm font-black text-white">알림</p>
+              <p className="text-[10px] text-zinc-500 font-semibold">예약 · 출고요청</p>
             </div>
           </div>
           <button
@@ -167,85 +230,91 @@ export default function ReservationAlertSettingsModal({
         </div>
 
         <div className="p-4 space-y-4 max-h-[75vh] overflow-y-auto">
+          <button
+            type="button"
+            role="switch"
+            aria-checked={enabled}
+            disabled={toggling}
+            onClick={() => void toggleEnabled()}
+            className={`w-full px-3 py-3 rounded-2xl border flex items-center justify-between gap-3 transition-all disabled:opacity-60 ${
+              enabled
+                ? 'bg-amber-500/10 border-amber-500/40'
+                : 'bg-neutral-950 border-neutral-800'
+            }`}
+          >
+            <span className="flex items-center gap-2.5 text-left">
+              {enabled ? (
+                <Bell size={18} className="text-amber-400" />
+              ) : (
+                <BellOff size={18} className="text-zinc-500" />
+              )}
+              <span>
+                <span className={`block text-[13px] font-black ${enabled ? 'text-amber-300' : 'text-zinc-300'}`}>
+                  이 기기 알림 {enabled ? '켜짐' : '꺼짐'}
+                </span>
+                <span className="block text-[11px] text-zinc-500 font-semibold">
+                  새 예약은 소리와 알림창, 출고요청은 소리로 알려줍니다
+                </span>
+              </span>
+            </span>
+            <span
+              className={`relative w-11 h-6 rounded-full shrink-0 transition-colors ${enabled ? 'bg-amber-500' : 'bg-neutral-700'}`}
+            >
+              <span
+                className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${enabled ? 'translate-x-5' : ''}`}
+              />
+            </span>
+          </button>
+
+          {enabled ? (
+            <section className="space-y-2">
+              {pushStatus && pushStatus.permission !== 'granted' ? (
+                <Warning
+                  text={
+                    pushStatus.native
+                      ? '알림창이 막혀 있습니다. 휴대폰 설정 → 애플리케이션 → 에어픽 파트너 → 알림을 켜 주세요.'
+                      : '브라우저 알림이 막혀 있습니다. 주소창 왼쪽 자물쇠 → 알림 → 허용으로 바꿔 주세요. 소리는 그대로 납니다.'
+                  }
+                />
+              ) : null}
+              {pushStatus?.native && partnerDevice && pushStatus.permission === 'granted' && !pushStatus.registered ? (
+                <Warning text="앱이 꺼져 있을 때 받을 준비가 안 됐습니다. 알림을 껐다 켜 주세요." />
+              ) : null}
+              <button
+                type="button"
+                onClick={() => sendTestReservationAlert()}
+                className="w-full py-2.5 rounded-xl border border-amber-500/30 text-amber-300 text-[12px] font-black inline-flex items-center justify-center gap-1.5"
+              >
+                <Play size={13} /> 테스트 알림 보내기
+              </button>
+            </section>
+          ) : null}
+
           {loading ? (
             <p className="text-[12px] text-zinc-500 font-semibold">불러오는 중…</p>
           ) : (
             <>
-              <section className="space-y-2">
-                <p className="text-[10px] font-black uppercase tracking-wide text-amber-400/90">
-                  신규 예약
-                </p>
-                <PresetRow
-                  presets={ALERT_TITLE_RESERVE_PRESETS}
-                  value={copy.titleReserve}
-                  disabled={!hq}
-                  onPick={(v) => setCopy((c) => ({ ...c, titleReserve: v }))}
-                />
-                <input
-                  value={copy.titleReserve}
-                  disabled={!hq}
-                  maxLength={24}
-                  onChange={(e) =>
-                    setCopy((c) => ({ ...c, titleReserve: e.target.value }))
-                  }
-                  className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-sm text-zinc-100 font-bold disabled:opacity-50"
-                  placeholder="예약"
-                />
-                <button
-                  type="button"
-                  onClick={() => playPreview('reserve')}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-amber-500/30 text-amber-300 text-[11px] font-black"
-                >
-                  <Play size={12} /> 미리 듣기
-                </button>
-              </section>
-
-              <section className="space-y-2">
-                <p className="text-[10px] font-black uppercase tracking-wide text-amber-400/90">
-                  출고
-                </p>
-                <PresetRow
-                  presets={ALERT_TITLE_CHECKOUT_PRESETS}
-                  value={copy.titleCheckout}
-                  disabled={!hq}
-                  onPick={(v) => setCopy((c) => ({ ...c, titleCheckout: v }))}
-                />
-                <input
-                  value={copy.titleCheckout}
-                  disabled={!hq}
-                  maxLength={24}
-                  onChange={(e) =>
-                    setCopy((c) => ({ ...c, titleCheckout: e.target.value }))
-                  }
-                  className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-sm text-zinc-100 font-bold disabled:opacity-50"
-                  placeholder="출고요청"
-                />
-                <button
-                  type="button"
-                  onClick={() => playPreview('checkout')}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-amber-500/30 text-amber-300 text-[11px] font-black"
-                >
-                  <Play size={12} /> 미리 듣기
-                </button>
-              </section>
-
-              <div className="space-y-2">
-                <p className="text-[10px] font-black text-zinc-500 uppercase">미리보기</p>
-                <PreviewCard title={copy.titleReserve} tone="sky" />
-                <PreviewCard title={copy.titleCheckout} tone="fuchsia" />
-              </div>
-
-              {previewKind ? (
-                <div className="rounded-2xl border border-amber-500/40 bg-amber-500/10 px-3 py-3 animate-pulse">
-                  <p className="text-sm font-black text-amber-300">
-                    {previewKind === 'checkout' ? copy.titleCheckout : copy.titleReserve}
-                  </p>
-                </div>
-              ) : null}
-
-              <p className="text-[10px] text-zinc-600 font-semibold leading-relaxed">
-                미리듣기는 제목만 읽어 줍니다. (옛 비프음은 섞지 않음)
+              <p className="text-[10px] font-black uppercase tracking-wide text-amber-400/90 pt-2 border-t border-neutral-800">
+                읽어 주는 말 {hq ? '' : '· 본사에서 정합니다'}
               </p>
+              <CopyRow
+                label="새 예약"
+                value={copy.titleReserve}
+                placeholder="예약"
+                presets={ALERT_TITLE_RESERVE_PRESETS}
+                editable={hq}
+                onChange={(v) => setCopy((c) => ({ ...c, titleReserve: v }))}
+                onPlay={() => playPreview('reserve')}
+              />
+              <CopyRow
+                label="출고요청"
+                value={copy.titleCheckout}
+                placeholder="출고요청"
+                presets={ALERT_TITLE_CHECKOUT_PRESETS}
+                editable={hq}
+                onChange={(v) => setCopy((c) => ({ ...c, titleCheckout: v }))}
+                onPlay={() => playPreview('checkout')}
+              />
             </>
           )}
 

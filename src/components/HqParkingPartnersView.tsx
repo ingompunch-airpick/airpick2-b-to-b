@@ -15,6 +15,7 @@ type Props = {
   onUpdateCompanies: (updated: Company[]) => void;
   onUpdatePartners: (updated: PartnerCompany[]) => void;
   onToggleCompanyOpen?: (companyId: string, isOpen: boolean) => Promise<void> | void;
+  onSetListingApproved?: (companyId: string, approved: boolean) => Promise<void> | void;
   onRemoteOpenCompany?: (companyId: string) => void;
   onOpenPartnerEditor?: () => void;
   onOpenReviews?: (companyId: string) => void;
@@ -37,6 +38,7 @@ export default function HqParkingPartnersView({
   onUpdateCompanies,
   onUpdatePartners,
   onToggleCompanyOpen,
+  onSetListingApproved,
   onRemoteOpenCompany,
   onOpenPartnerEditor,
   onOpenReviews,
@@ -51,7 +53,7 @@ export default function HqParkingPartnersView({
         <div>
           <h2 className="text-sm font-black text-white">주차 업체</h2>
           <p className="text-[11px] text-zinc-500 font-semibold mt-0.5">
-            운영 상태 · 등록 · 명함 QR. 마케팅 제휴는 ⑤.
+            영업 · 등록 · 명함 QR. 마케팅 제휴는 ⑤.
           </p>
         </div>
 
@@ -87,6 +89,9 @@ export default function HqParkingPartnersView({
           onUpdateCompanies={onUpdateCompanies}
           onToggleCompanyOpen={async (companyId, isOpen) => {
             if (onToggleCompanyOpen) await onToggleCompanyOpen(companyId, isOpen);
+          }}
+          onSetListingApproved={async (companyId, approved) => {
+            if (onSetListingApproved) await onSetListingApproved(companyId, approved);
           }}
           onRemoteOpen={(companyId) => onRemoteOpenCompany?.(companyId)}
           onOpenPartnerEditor={() => {

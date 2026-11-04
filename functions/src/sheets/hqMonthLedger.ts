@@ -151,6 +151,7 @@ function companyIdFromCell(value: unknown, tabName: string): string {
   if (tabName === '가유') return 'gayu';
   if (tabName === '시즌') return 'season';
   if (tabName === '안녕') return 'hi';
+  if (tabName === '아시아') return 'asia';
   return 'unknown';
 }
 
@@ -442,17 +443,18 @@ export type HqLedgerBundle = {
 export async function loadHqLedgerBundle(config: {
   spreadsheetId: string;
   wawaSpreadsheetId: string;
+  extraSpreadsheetIds?: string[];
   serviceAccountJson?: string;
 }): Promise<HqLedgerBundle> {
-  const cacheKey = `${config.spreadsheetId}|${config.wawaSpreadsheetId}`;
+  const ids = [config.spreadsheetId, config.wawaSpreadsheetId, ...(config.extraSpreadsheetIds || [])].filter(
+    (id, index, all) => id && all.indexOf(id) === index
+  );
+  const cacheKey = ids.join('|');
   let rows = rowCache && rowCache.key === cacheKey && Date.now() - rowCache.at < ROW_CACHE_MS
     ? rowCache.rows
     : null;
   if (!rows) {
     const sheets = sheetsClient(config.serviceAccountJson);
-    const ids = [config.spreadsheetId, config.wawaSpreadsheetId].filter(
-      (id, index, all) => id && all.indexOf(id) === index
-    );
     const groups = await Promise.all(ids.map((id) => readSpreadsheetRows(sheets, id)));
     rows = groups.flat();
     rowCache = { key: cacheKey, at: Date.now(), rows };

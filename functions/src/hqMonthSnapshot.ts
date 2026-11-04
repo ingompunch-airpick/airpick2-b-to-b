@@ -1,4 +1,5 @@
 import * as admin from 'firebase-admin';
+import { listCompanyLedgerSpreadsheetIds } from './sheets/companyLedger';
 import {
   loadHqLedgerBundle,
   type CompanyMonthStat,
@@ -358,6 +359,7 @@ export async function freezePastHqMonths(): Promise<{ wrote: string[] }> {
     const bundle = await loadHqLedgerBundle({
       spreadsheetId: sheetsSpreadsheetId.value(),
       wawaSpreadsheetId: sheetsWawaSpreadsheetId.value(),
+      extraSpreadsheetIds: await listCompanyLedgerSpreadsheetIds(),
       ...(serviceAccountJson ? { serviceAccountJson } : {}),
     });
     sheetMonths = bundle.months;

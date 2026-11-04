@@ -16,6 +16,8 @@ type Props = {
   /** Storage 업로드 경로용 — 없으면 로컬 미리보기만 유지 후 저장 시 업로드 */
   companyId?: string;
   variant?: 'light' | 'dark';
+  /** true면 가입 스위치를 숨기고 보험 칸을 항상 연다 */
+  insuranceRequired?: boolean;
 };
 
 const FACILITY_OPTIONS: { value: FacilityType; label: string; desc: string }[] = [
@@ -116,6 +118,7 @@ export default function PartnerProfileFormFields({
   profile,
   onChange,
   variant = 'light',
+  insuranceRequired = false,
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const businessDocInputRef = useRef<HTMLInputElement>(null);
@@ -393,8 +396,12 @@ export default function PartnerProfileFormFields({
             label="보험"
             url={profile.insuranceCertificateUrl}
             variant={variant}
-            disabled={!profile.insuranceEnrolled}
-            disabledHint={!profile.insuranceEnrolled ? '보험 가입을 켜면 업로드할 수 있습니다.' : undefined}
+            disabled={!insuranceRequired && !profile.insuranceEnrolled}
+            disabledHint={
+              !insuranceRequired && !profile.insuranceEnrolled
+                ? '보험 가입을 켜면 업로드할 수 있습니다.'
+                : undefined
+            }
             onPick={() => pickVerificationDocument('insuranceCertificateUrl')}
             onClear={() => set('insuranceCertificateUrl', '')}
           />
@@ -402,26 +409,30 @@ export default function PartnerProfileFormFields({
       </div>
 
       <div className={sectionCls}>
-        <div className="flex items-center justify-between gap-2">
-          <label className={labelCls}>보험 가입 여부</label>
-          <button
-            type="button"
-            onClick={() => set('insuranceEnrolled', !profile.insuranceEnrolled)}
-            className={`px-3 py-1.5 rounded-lg text-[11px] font-black border transition-all ${
-              profile.insuranceEnrolled
-                ? variant === 'dark'
-                  ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
-                  : 'bg-emerald-50 border-emerald-200 text-emerald-700'
-                : variant === 'dark'
-                  ? 'bg-neutral-900 border-neutral-700 text-zinc-500'
-                  : 'bg-slate-100 border-slate-200 text-slate-500'
-            }`}
-          >
-            {profile.insuranceEnrolled ? '가입' : '미가입'}
-          </button>
-        </div>
+        {!insuranceRequired ? (
+          <div className="flex items-center justify-between gap-2">
+            <label className={labelCls}>보험 가입 여부</label>
+            <button
+              type="button"
+              onClick={() => set('insuranceEnrolled', !profile.insuranceEnrolled)}
+              className={`px-3 py-1.5 rounded-lg text-[11px] font-black border transition-all ${
+                profile.insuranceEnrolled
+                  ? variant === 'dark'
+                    ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
+                    : 'bg-emerald-50 border-emerald-200 text-emerald-700'
+                  : variant === 'dark'
+                    ? 'bg-neutral-900 border-neutral-700 text-zinc-500'
+                    : 'bg-slate-100 border-slate-200 text-slate-500'
+              }`}
+            >
+              {profile.insuranceEnrolled ? '가입' : '미가입'}
+            </button>
+          </div>
+        ) : (
+          <p className={labelCls}>보험</p>
+        )}
 
-        {profile.insuranceEnrolled && (
+        {(insuranceRequired || profile.insuranceEnrolled) && (
           <div className="space-y-3">
             <div className="grid grid-cols-2 gap-3">
               <div>

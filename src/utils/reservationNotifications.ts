@@ -1,3 +1,5 @@
+import { Capacitor } from '@capacitor/core';
+import { LocalNotifications } from '@capacitor/local-notifications';
 import type { Reservation } from '../types';
 import { reservationBelongsToCompany } from './reservationScope';
 import { filterReservationsForOperatorGroup } from './operatorHierarchy';
@@ -55,34 +57,53 @@ export function speakReservationAlertPreview(input: {
 
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) return;
 
-  try {
-    window.speechSynthesis.cancel();
+  const synth = window.speechSynthesis;
+  const speakOnce = (retry: boolean) => {
     const utter = new SpeechSynthesisUtterance(title);
     utter.lang = 'ko-KR';
     utter.rate = 1.05;
     utter.pitch = input.kind === 'airpick' ? 1.15 : 1.0;
+    // 목록이 아직 비어 있으면 lang 만으로 한국어 음성을 고른다 (기다리면 두 번 읽힐 수 있음)
+    const voices = synth.getVoices();
+    const ko =
+      voices.find((v) => v.lang === 'ko-KR') ||
+      voices.find((v) => v.lang.toLowerCase().startsWith('ko'));
+    if (ko) utter.voice = ko;
 
-    const pickKoVoice = () => {
-      const voices = window.speechSynthesis.getVoices();
-      const ko =
-        voices.find((v) => v.lang === 'ko-KR') ||
-        voices.find((v) => v.lang.toLowerCase().startsWith('ko'));
-      if (ko) utter.voice = ko;
-      window.speechSynthesis.speak(utter);
+    let started = false;
+    utter.onstart = () => {
+      started = true;
     };
+    utter.onerror = (e) => console.warn('[alert voice]', e.error);
+    // 크롬은 참조가 없는 utterance 를 버려 소리가 끊긴다
+    activeUtterance = utter;
+    synth.resume();
+    synth.speak(utter);
 
-    if (window.speechSynthesis.getVoices().length > 0) {
-      pickKoVoice();
+    // 크롬이 「말하는 중」에 멈춰 아무 소리도 안 내는 경우가 있다 — 한 번만 다시 시도
+    if (retry) {
+      window.setTimeout(() => {
+        if (started || activeUtterance !== utter) return;
+        synth.cancel();
+        window.setTimeout(() => speakOnce(false), 120);
+      }, 1500);
+    }
+  };
+
+  try {
+    if (synth.speaking || synth.pending) {
+      // cancel 직후 바로 speak 하면 크롬이 새 문장을 삼킨다
+      synth.cancel();
+      window.setTimeout(() => speakOnce(true), 120);
     } else {
-      window.speechSynthesis.addEventListener('voiceschanged', pickKoVoice, {
-        once: true,
-      });
-      window.setTimeout(pickKoVoice, 250);
+      speakOnce(true);
     }
   } catch {
     // TTS 미지원
   }
 }
+
+let activeUtterance: SpeechSynthesisUtterance | null = null;
 
 /** 유입과 관계없이 같은 신규 예약 문구 */
 export function newReservationAlertTitle(
@@ -92,17 +113,50 @@ export function newReservationAlertTitle(
   return copy.titleReserve;
 }
 
-export function notifyNewReservation(res: Reservation, _companyLabel: string): void {
-  if (!areReservationAlertsEnabled()) return;
+/** 앱 안 알림창용 — 소리 없음(LOW). 소리는 음성 한 번만 */
+const IN_APP_CHANNEL_ID = 'reservation_inapp';
+let inAppChannelReady: Promise<void> | null = null;
 
-  const title = newReservationAlertTitle(res);
+function ensureInAppChannel(): Promise<void> {
+  if (!inAppChannelReady) {
+    inAppChannelReady = LocalNotifications.createChannel({
+      id: IN_APP_CHANNEL_ID,
+      name: '예약 알림 (앱 사용 중)',
+      description: '앱을 보고 있을 때 들어온 예약을 알림창에 남깁니다. 소리는 음성으로만 납니다.',
+      importance: 2,
+      visibility: 1,
+    }).catch(() => undefined);
+  }
+  return inAppChannelReady;
+}
 
-  speakReservationAlertPreview({ title, kind: 'other' });
+function notificationIdFromTag(tag: string): number {
+  let h = 0;
+  for (let i = 0; i < tag.length; i += 1) h = (h * 31 + tag.charCodeAt(i)) | 0;
+  return Math.abs(h) || 1;
+}
 
+/** 알림창(안드로이드)·윈도우 알림(PC)에 남긴다 */
+async function showTrayNotification(title: string, tag: string): Promise<void> {
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const perm = await LocalNotifications.checkPermissions();
+      if (perm.display !== 'granted') return;
+      await ensureInAppChannel();
+      await LocalNotifications.schedule({
+        notifications: [
+          { id: notificationIdFromTag(tag), title, body: '', channelId: IN_APP_CHANNEL_ID },
+        ],
+      });
+    } catch {
+      // 권한·플러그인 없음
+    }
+    return;
+  }
   if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
     try {
       new Notification(title, {
-        tag: `res-${res.id}`,
+        tag,
         renotify: true,
         silent: true,
       } as NotificationOptions & { renotify?: boolean; silent?: boolean });
@@ -110,6 +164,33 @@ export function notifyNewReservation(res: Reservation, _companyLabel: string): v
       // mobile Safari 등
     }
   }
+}
+
+/**
+ * 앱이 뒤로 가 있으면 서버 푸시가 알림창·소리를 맡는다 (같이 울리면 두 번 남).
+ * PC 브라우저는 서버 푸시가 없으니 숨겨져 있어도 알린다.
+ */
+function shouldAlertInApp(): boolean {
+  if (!Capacitor.isNativePlatform()) return true;
+  return typeof document === 'undefined' || document.visibilityState === 'visible';
+}
+
+function alertInApp(title: string, tag: string, opts: { tray: boolean }): void {
+  if (!shouldAlertInApp()) return;
+  speakReservationAlertPreview({ title, kind: 'other' });
+  if (opts.tray) void showTrayNotification(title, tag);
+}
+
+/** 알림 화면 「테스트」 — 실제 예약 알림과 같은 소리·알림창 */
+export function sendTestReservationAlert(): void {
+  const title = newReservationAlertTitle();
+  speakReservationAlertPreview({ title, kind: 'other' });
+  void showTrayNotification(title, `test-${Date.now()}`);
+}
+
+export function notifyNewReservation(res: Reservation, _companyLabel: string): void {
+  if (!areReservationAlertsEnabled()) return;
+  alertInApp(newReservationAlertTitle(res), `res-${res.id}`, { tray: true });
 }
 
 /** 출고 탭으로 넘어온 건. 비행기 자동 전환과 출고요청 버튼 모두 같은 문구. */
@@ -120,20 +201,8 @@ export function checkoutAlertTitle(): string {
 export function notifyRequestOut(res: Reservation): void {
   if (!areReservationAlertsEnabled()) return;
 
-  const title = checkoutAlertTitle();
-  speakReservationAlertPreview({ title, kind: 'other' });
-
-  if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
-    try {
-      new Notification(title, {
-        tag: `out-${res.id}`,
-        renotify: true,
-        silent: true,
-      } as NotificationOptions & { renotify?: boolean; silent?: boolean });
-    } catch {
-      // mobile Safari 등
-    }
-  }
+  /** 출고요청은 소리만. 알림창에는 예약만 남긴다 */
+  alertInApp(checkoutAlertTitle(), `out-${res.id}`, { tray: false });
 }
 
 export function findRequestOutReservations(
