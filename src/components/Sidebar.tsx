@@ -133,17 +133,19 @@ export default function Sidebar({
         {/* Header section with driver card */}
         <div className="p-6 border-b border-neutral-800 bg-neutral-950/60">
           <div className="flex items-center justify-between mb-4">
-            <div className="flex items-center gap-3">
-              {safeCompanyInfo.logo ? (
-                <div className="w-10 h-10 rounded-2xl overflow-hidden border border-neutral-850 shrink-0">
-                  <img src={safeCompanyInfo.logo} alt="로고" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
-                </div>
-              ) : (
-                <div className="bg-amber-500 text-neutral-950 p-2.5 rounded-2xl font-bold text-sm w-10 h-10 flex items-center justify-center shrink-0 select-none">
-                  {safeCompanyInfo.name.substring(0, 2)}
-                </div>
-              )}
-              <div>
+            <div className="flex items-center gap-3 min-w-0">
+              {!isAirpickHeadquarters(currentCompanyId) ? (
+                safeCompanyInfo.logo ? (
+                  <div className="w-10 h-10 rounded-2xl overflow-hidden border border-neutral-850 shrink-0">
+                    <img src={safeCompanyInfo.logo} alt="로고" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                  </div>
+                ) : (
+                  <div className="bg-amber-500 text-neutral-950 p-2.5 rounded-2xl font-bold text-sm w-10 h-10 flex items-center justify-center shrink-0 select-none">
+                    {safeCompanyInfo.name.substring(0, 2)}
+                  </div>
+                )
+              ) : null}
+              <div className="min-w-0">
                 <h3 className="font-bold text-sm tracking-tight text-white flex items-center gap-1.5">
                   {isAirpickHeadquarters(currentCompanyId)
                     ? '에어픽 본사'
@@ -303,7 +305,7 @@ export default function Sidebar({
           </div>
 
           <p className="text-[11px] text-zinc-650 font-mono text-center mt-3">
-            에어픽 v2.2.0
+            에어픽 1.0.8
           </p>
         </div>
 
