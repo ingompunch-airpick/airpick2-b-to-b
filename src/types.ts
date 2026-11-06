@@ -240,8 +240,8 @@ export interface ParkingDistances {
 export interface CompanyInsurance {
   enrolled: boolean;
   provider?: string;
+  /** 마스터가 적은 상품명 그대로 */
   productName?: string;
-  /** 마스터 등록 시 배상책임보험 권장 (레거시: 발렛보험) */
   coverageLimitWon?: number;
   /** 보험증권 이미지 URL (B2C 손님 상세에서 확인) */
   certificateUrl?: string;
