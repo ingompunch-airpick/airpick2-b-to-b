@@ -1,7 +1,7 @@
 import React from 'react';
 import { MapPin, ShieldCheck } from 'lucide-react';
 import type { Company, CompanyInsurance, CompanyParkingLot } from '../types';
-import { inferFacilityType } from '../utils/companyProfile';
+import { formatInsuranceCoverageLimit, inferFacilityType } from '../utils/companyProfile';
 import { normalizeInsuranceProductName } from '../utils/insurance';
 
 function formatPin(lat?: number, lng?: number): string {
@@ -19,17 +19,15 @@ function resolveInsuranceSummary(company: Company): {
     const bits = [ins.provider, normalizeInsuranceProductName(ins.productName) || ins.productName]
       .map((s) => String(s ?? '').trim())
       .filter(Boolean);
-    if (ins.coverageLimitWon != null) {
-      bits.push(`한도 ${Number(ins.coverageLimitWon).toLocaleString()}원`);
-    }
+    const limit = formatInsuranceCoverageLimit(ins, company.insuranceLimit);
+    if (limit) bits.push(limit);
     return { enrolled: true, detail: bits.length ? bits.join(' · ') : '가입' };
   }
   if (company.hasInsurance === false) return { enrolled: false, detail: '미가입' };
   if (company.insuranceProvider || company.insuranceLimit) {
     const bits = [company.insuranceProvider?.trim()].filter(Boolean) as string[];
-    if (company.insuranceLimit != null) {
-      bits.push(`한도 ${Number(company.insuranceLimit).toLocaleString()}원`);
-    }
+    const limit = formatInsuranceCoverageLimit(null, company.insuranceLimit);
+    if (limit) bits.push(limit);
     return { enrolled: true, detail: bits.length ? bits.join(' · ') : '가입' };
   }
   return { enrolled: false, detail: '미등록' };

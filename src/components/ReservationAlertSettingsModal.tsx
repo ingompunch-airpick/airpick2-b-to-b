@@ -117,7 +117,8 @@ export default function ReservationAlertSettingsModal({
 }: Props) {
   const [pushStatus, setPushStatus] = useState<PartnerPushStatus | null>(null);
   const [toggling, setToggling] = useState(false);
-  const partnerDevice = Boolean(currentCompanyId) && !isAirpickHeadquarters(currentCompanyId);
+  const atHq = isAirpickHeadquarters(currentCompanyId);
+  const partnerDevice = Boolean(currentCompanyId) && !atHq;
 
   const refreshStatus = () => {
     void getPartnerPushStatus()
@@ -157,7 +158,7 @@ export default function ReservationAlertSettingsModal({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [savedFlash, setSavedFlash] = useState(false);
-  const hq = isAirpickHeadquarters(currentCompanyId) || canEdit;
+  const hq = atHq || canEdit;
 
   useEffect(() => {
     if (!open) return;
@@ -216,8 +217,12 @@ export default function ReservationAlertSettingsModal({
           <div className="flex items-center gap-2">
             <Bell size={16} className="text-amber-400" />
             <div>
-              <p className="text-sm font-black text-white">알림</p>
-              <p className="text-[10px] text-zinc-500 font-semibold">예약 · 출고요청</p>
+              <p className="text-sm font-black text-white">
+                {atHq ? '알림 문구' : '알림'}
+              </p>
+              <p className="text-[10px] text-zinc-500 font-semibold">
+                {atHq ? '파트너 기기가 읽어 주는 말' : '예약 · 출고요청'}
+              </p>
             </div>
           </div>
           <button
@@ -230,71 +235,87 @@ export default function ReservationAlertSettingsModal({
         </div>
 
         <div className="p-4 space-y-4 max-h-[75vh] overflow-y-auto">
-          <button
-            type="button"
-            role="switch"
-            aria-checked={enabled}
-            disabled={toggling}
-            onClick={() => void toggleEnabled()}
-            className={`w-full px-3 py-3 rounded-2xl border flex items-center justify-between gap-3 transition-all disabled:opacity-60 ${
-              enabled
-                ? 'bg-amber-500/10 border-amber-500/40'
-                : 'bg-neutral-950 border-neutral-800'
-            }`}
-          >
-            <span className="flex items-center gap-2.5 text-left">
-              {enabled ? (
-                <Bell size={18} className="text-amber-400" />
-              ) : (
-                <BellOff size={18} className="text-zinc-500" />
-              )}
-              <span>
-                <span className={`block text-[13px] font-black ${enabled ? 'text-amber-300' : 'text-zinc-300'}`}>
-                  이 기기 알림 {enabled ? '켜짐' : '꺼짐'}
-                </span>
-                <span className="block text-[11px] text-zinc-500 font-semibold">
-                  새 예약은 소리와 알림창, 출고요청은 소리로 알려줍니다
-                </span>
-              </span>
-            </span>
-            <span
-              className={`relative w-11 h-6 rounded-full shrink-0 transition-colors ${enabled ? 'bg-amber-500' : 'bg-neutral-700'}`}
-            >
-              <span
-                className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${enabled ? 'translate-x-5' : ''}`}
-              />
-            </span>
-          </button>
-
-          {enabled ? (
-            <section className="space-y-2">
-              {pushStatus && pushStatus.permission !== 'granted' ? (
-                <Warning
-                  text={
-                    pushStatus.native
-                      ? '알림창이 막혀 있습니다. 휴대폰 설정 → 애플리케이션 → 에어픽 파트너 → 알림을 켜 주세요.'
-                      : '브라우저 알림이 막혀 있습니다. 주소창 왼쪽 자물쇠 → 알림 → 허용으로 바꿔 주세요. 소리는 그대로 납니다.'
-                  }
-                />
-              ) : null}
-              {pushStatus?.native && partnerDevice && pushStatus.permission === 'granted' && !pushStatus.registered ? (
-                <Warning text="앱이 꺼져 있을 때 받을 준비가 안 됐습니다. 알림을 껐다 켜 주세요." />
-              ) : null}
+          {!atHq ? (
+            <>
               <button
                 type="button"
-                onClick={() => sendTestReservationAlert()}
-                className="w-full py-2.5 rounded-xl border border-amber-500/30 text-amber-300 text-[12px] font-black inline-flex items-center justify-center gap-1.5"
+                role="switch"
+                aria-checked={enabled}
+                disabled={toggling}
+                onClick={() => void toggleEnabled()}
+                className={`w-full px-3 py-3 rounded-2xl border flex items-center justify-between gap-3 transition-all disabled:opacity-60 ${
+                  enabled
+                    ? 'bg-amber-500/10 border-amber-500/40'
+                    : 'bg-neutral-950 border-neutral-800'
+                }`}
               >
-                <Play size={13} /> 테스트 알림 보내기
+                <span className="flex items-center gap-2.5 text-left">
+                  {enabled ? (
+                    <Bell size={18} className="text-amber-400" />
+                  ) : (
+                    <BellOff size={18} className="text-zinc-500" />
+                  )}
+                  <span>
+                    <span
+                      className={`block text-[13px] font-black ${enabled ? 'text-amber-300' : 'text-zinc-300'}`}
+                    >
+                      이 기기 알림 {enabled ? '켜짐' : '꺼짐'}
+                    </span>
+                    <span className="block text-[11px] text-zinc-500 font-semibold">
+                      새 예약은 소리와 알림창, 출고요청은 소리로 알려줍니다
+                    </span>
+                  </span>
+                </span>
+                <span
+                  className={`relative w-11 h-6 rounded-full shrink-0 transition-colors ${enabled ? 'bg-amber-500' : 'bg-neutral-700'}`}
+                >
+                  <span
+                    className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${enabled ? 'translate-x-5' : ''}`}
+                  />
+                </span>
               </button>
-            </section>
-          ) : null}
+
+              {enabled ? (
+                <section className="space-y-2">
+                  {pushStatus && pushStatus.permission !== 'granted' ? (
+                    <Warning
+                      text={
+                        pushStatus.native
+                          ? '알림창이 막혀 있습니다. 휴대폰 설정 → 애플리케이션 → 에어픽 파트너 → 알림을 켜 주세요.'
+                          : '브라우저 알림이 막혀 있습니다. 주소창 왼쪽 자물쇠 → 알림 → 허용으로 바꿔 주세요. 소리는 그대로 납니다.'
+                      }
+                    />
+                  ) : null}
+                  {pushStatus?.native &&
+                  partnerDevice &&
+                  pushStatus.permission === 'granted' &&
+                  !pushStatus.registered ? (
+                    <Warning text="앱이 꺼져 있을 때 받을 준비가 안 됐습니다. 알림을 껐다 켜 주세요." />
+                  ) : null}
+                  <button
+                    type="button"
+                    onClick={() => sendTestReservationAlert()}
+                    className="w-full py-2.5 rounded-xl border border-amber-500/30 text-amber-300 text-[12px] font-black inline-flex items-center justify-center gap-1.5"
+                  >
+                    <Play size={13} /> 테스트 알림 보내기
+                  </button>
+                </section>
+              ) : null}
+            </>
+          ) : (
+            <p className="text-[11px] text-zinc-500 font-semibold leading-relaxed">
+              본사 단말기에는 예약 알림이 오지 않습니다. 아래에서 파트너 기기가 읽어 주는 말만
+              바꿉니다.
+            </p>
+          )}
 
           {loading ? (
             <p className="text-[12px] text-zinc-500 font-semibold">불러오는 중…</p>
           ) : (
             <>
-              <p className="text-[10px] font-black uppercase tracking-wide text-amber-400/90 pt-2 border-t border-neutral-800">
+              <p
+                className={`text-[10px] font-black uppercase tracking-wide text-amber-400/90 ${atHq ? '' : 'pt-2 border-t border-neutral-800'}`}
+              >
                 읽어 주는 말 {hq ? '' : '· 본사에서 정합니다'}
               </p>
               <CopyRow

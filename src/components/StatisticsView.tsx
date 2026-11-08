@@ -52,19 +52,38 @@ import {
   buildHqCompanyRows,
   buildHqTodayCompanyRows,
   computeCustomerMix,
+  exitDateYmd,
   filterAdmittedInMonth,
   filterSettledInMonth,
   monthLabelFromPrefix,
   shiftMonthPrefix,
 } from '../utils/hqAnalytics';
+import {
+  B2C_COMMISSION_RATE,
+  B2C_COMMISSION_START_YMD,
+  buildB2cCommissionRows,
+  listB2cCommissionBookings,
+  sumAffiliateCustomerDiscountInMonth,
+  sumB2cCommissionRows,
+} from '../utils/b2cCommission';
 import HqHomepageVisits from './HqHomepageVisits';
 import MetaField from './MetaField';
 import {
   isMultiOperatorScope,
   resolveOperatorBrandLabel,
 } from '../utils/operatorBrandLabel';
+import { isWawaCompany } from '../utils/pricing';
 
 import CustomDatePickerModal from './CustomDatePickerModal';
+
+function reservationMatchesCompanyId(r: Reservation, companyId: string): boolean {
+  const want = String(companyId || '').trim().toLowerCase();
+  if (!want) return false;
+  if (want === 'wawa') return isWawaCompany(r.companyId, r.companyName);
+  return String(r.companyId || '')
+    .trim()
+    .toLowerCase() === want;
+}
 
 function reservationDepartureOn(r: Reservation, ymd: string): boolean {
   return normalizeDateString(r.departureDate) === ymd;
@@ -160,6 +179,10 @@ export default function StatisticsView({
   } | null>(null);
   const [hqMonthPrefix, setHqMonthPrefix] = useState(() => getKSTDateOnlyString().substring(0, 7));
   const [hqTab, setHqTab] = useState<'today' | 'month' | 'visits'>('today');
+  /** 오늘 탭 · 업체 카드 펼침 */
+  const [hqTodayFocusId, setHqTodayFocusId] = useState<string | null>(null);
+  /** 월간 수수료 · 업체 건별 펼침 */
+  const [hqCommissionFocusId, setHqCommissionFocusId] = useState<string | null>(null);
   const [hqSnapshot, setHqSnapshot] = useState<{
     month: string;
     status: 'loading' | 'ready' | 'missing';
@@ -417,7 +440,31 @@ export default function StatisticsView({
     const hqMonthTotalSettled = hqMonthSettled.length;
 
     const hqCompanyRows = buildHqCompanyRows(hqMonthAdmitted, companies, hqMonthSettled);
+    const hqCommissionRows =
+      hqMonthPrefix >= B2C_COMMISSION_START_YMD.slice(0, 7)
+        ? buildB2cCommissionRows(masterActiveRes, hqMonthPrefix, companies)
+        : [];
+    const hqCommissionSum = sumB2cCommissionRows(hqCommissionRows);
+    const hqAffiliateDiscountSum = sumAffiliateCustomerDiscountInMonth(
+      masterActiveRes,
+      hqMonthPrefix
+    );
+    const hqCommissionBookings = hqCommissionFocusId
+      ? listB2cCommissionBookings(masterActiveRes, hqMonthPrefix, hqCommissionFocusId)
+      : [];
     const hqTodayCompanyRows = buildHqTodayCompanyRows(masterActiveRes, todayStr, companies);
+    const hqTodayFocusRows =
+      hqTodayFocusId == null
+        ? []
+        : masterActiveRes.filter((r) => {
+            if (!reservationMatchesCompanyId(r, hqTodayFocusId)) return false;
+            return (
+              toKSTDateOnlyString(r.createdAt) === todayStr ||
+              normalizeDateString(r.departureDate) === todayStr ||
+              (exitDateYmd(r) === todayStr && r.status === 'completed_out') ||
+              isParked(r.status)
+            );
+          });
     // 상단 접수 = 업체별 접수 합 (집계 기준 불일치로 4 vs 3 나는 것 방지)
     const masterTodayReservations = hqTodayCompanyRows.reduce((s, row) => s + row.received, 0);
     const hqCustomerMix = computeCustomerMix(
@@ -502,7 +549,7 @@ export default function StatisticsView({
     const hqTabs = [
       { id: 'today' as const, label: '오늘' },
       { id: 'month' as const, label: '월간' },
-      { id: 'visits' as const, label: '홈 방문' },
+      { id: 'visits' as const, label: '파트너 홈' },
     ];
 
     return (
@@ -564,18 +611,35 @@ export default function StatisticsView({
             ) : (
               <div className="space-y-2.5">
                 {hqTodayCompanyRows.map((row) => {
+                  const open = hqTodayFocusId === row.id;
                   const metrics = [
                     { label: '당일 예약', value: row.received },
                     { label: '입차', value: row.admitted },
+                    { label: '출차', value: row.exited },
                     { label: '주차중', value: row.parked },
                   ];
                   return (
                     <div
                       key={row.id}
-                      className="bg-[#121214] border border-neutral-800/80 rounded-2xl px-4 py-3.5 space-y-2.5"
+                      className={`bg-[#121214] border rounded-2xl px-4 py-3.5 space-y-2.5 ${
+                        open ? 'border-amber-500/40' : 'border-neutral-800/80'
+                      }`}
                     >
-                      <span className="text-sm font-black text-white block truncate">{row.name}</span>
-                      <div className="grid grid-cols-3 gap-2">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setHqTodayFocusId((prev) => (prev === row.id ? null : row.id))
+                        }
+                        className="w-full text-left flex items-center justify-between gap-2"
+                      >
+                        <span className="text-sm font-black text-white block truncate">
+                          {row.name}
+                        </span>
+                        <span className="text-[10px] text-zinc-500 font-bold shrink-0">
+                          {open ? '접기' : '목록'}
+                        </span>
+                      </button>
+                      <div className="grid grid-cols-4 gap-1.5">
                         {metrics.map((m) => (
                           <div
                             key={m.label}
@@ -592,6 +656,38 @@ export default function StatisticsView({
                           </div>
                         ))}
                       </div>
+                      {open ? (
+                        <div className="space-y-1.5 pt-1 border-t border-neutral-800">
+                          {hqTodayFocusRows.length === 0 ? (
+                            <p className="text-[11px] text-zinc-500 font-bold py-2">
+                              오늘 관련 예약이 없습니다.
+                            </p>
+                          ) : (
+                            hqTodayFocusRows.map((r) => (
+                              <button
+                                key={r.id}
+                                type="button"
+                                onClick={() => onEditReservation?.(r)}
+                                className="w-full text-left rounded-xl bg-neutral-900/70 border border-neutral-800 px-3 py-2 flex items-center justify-between gap-2"
+                              >
+                                <span className="min-w-0">
+                                  <span className="text-[12px] font-black text-white block truncate">
+                                    {r.carNumber || '—'}
+                                  </span>
+                                  <span className="text-[10px] text-zinc-500 font-bold">
+                                    {statusToLabel(r.status)} ·{' '}
+                                    {(r.totalPrice || 0).toLocaleString()}원
+                                  </span>
+                                </span>
+                                <span className="text-[10px] text-zinc-500 font-mono shrink-0">
+                                  {normalizeDateString(r.departureDate).slice(5)}→
+                                  {normalizeDateString(r.arrivalDate).slice(5)}
+                                </span>
+                              </button>
+                            ))
+                          )}
+                        </div>
+                      ) : null}
                     </div>
                   );
                 })}
@@ -752,6 +848,142 @@ export default function StatisticsView({
                     </div>
                   );
                 })
+              )}
+            </div>
+
+            <div className="bg-[#121214] border border-fuchsia-500/25 rounded-[22px] p-4 space-y-3">
+              <div>
+                <p className="text-xs font-black text-fuchsia-300 tracking-wider">B2C 수수료 정산</p>
+                <p className="text-[11px] text-zinc-500 font-bold mt-1 leading-relaxed">
+                  {B2C_COMMISSION_START_YMD.slice(0, 7)}부터 · 손님앱 예약 · 출고완료 · 정가의{' '}
+                  {Math.round(B2C_COMMISSION_RATE * 100)}% − 가입할인 5천
+                </p>
+              </div>
+              {hqMonthPrefix < B2C_COMMISSION_START_YMD.slice(0, 7) ? (
+                <p className="text-[12px] text-zinc-500 font-bold py-2">
+                  {B2C_COMMISSION_START_YMD.slice(0, 7)}부터 집계합니다.
+                </p>
+              ) : hqCommissionRows.length === 0 ? (
+                <p className="text-[12px] text-zinc-500 font-bold py-2">
+                  이달 출고 완료된 에어픽(B2C) 예약이 없습니다.
+                </p>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="rounded-xl bg-fuchsia-500/10 border border-fuchsia-500/20 px-3 py-2.5">
+                      <span className="text-[10px] text-fuchsia-300 font-bold block">에어픽 받을 돈</span>
+                      <span className="text-lg font-black text-fuchsia-200 font-mono">
+                        {hqCommissionSum.commissionWon.toLocaleString()}원
+                      </span>
+                      <span className="text-[11px] text-zinc-500 font-bold font-mono block mt-0.5">
+                        {hqCommissionSum.count}건
+                      </span>
+                    </div>
+                    <div className="rounded-xl bg-neutral-900/80 border border-neutral-800 px-3 py-2.5">
+                      <span className="text-[10px] text-zinc-400 font-bold block">가입할인 차감</span>
+                      <span className="text-lg font-black text-zinc-200 font-mono">
+                        {hqCommissionSum.couponWon.toLocaleString()}원
+                      </span>
+                      <span className="text-[11px] text-zinc-500 font-bold font-mono block mt-0.5">
+                        정가 {hqCommissionSum.listRevenue.toLocaleString()}원
+                      </span>
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-zinc-500 font-bold px-0.5">
+                    제휴 링크 고객할인 합 {hqAffiliateDiscountSum.toLocaleString()}원 · 상세는 ⑤
+                    마케팅 제휴
+                  </p>
+                  <div className="space-y-2">
+                    {hqCommissionRows.map((row) => {
+                      const open = hqCommissionFocusId === row.id;
+                      return (
+                        <div
+                          key={`fee-${row.id}`}
+                          className={`rounded-xl bg-neutral-900/60 border px-3 py-2.5 ${
+                            open ? 'border-fuchsia-500/40' : 'border-neutral-800'
+                          }`}
+                        >
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setHqCommissionFocusId((prev) => (prev === row.id ? null : row.id))
+                            }
+                            className="w-full text-left flex items-center justify-between gap-2"
+                          >
+                            <span className="text-[13px] font-black text-white truncate">
+                              {row.name}
+                            </span>
+                            <span className="text-[11px] text-zinc-500 font-bold font-mono shrink-0">
+                              {row.count}건 · {open ? '접기' : '건별'}
+                            </span>
+                          </button>
+                          <div className="grid grid-cols-3 gap-1.5 mt-2">
+                            <div>
+                              <span className="text-[10px] text-zinc-500 font-bold block">정가</span>
+                              <span className="text-[12px] font-black text-zinc-200 font-mono">
+                                {row.listRevenue.toLocaleString()}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-[10px] text-zinc-500 font-bold block">수수료</span>
+                              <span className="text-[12px] font-black text-fuchsia-300 font-mono">
+                                {row.commissionWon.toLocaleString()}
+                              </span>
+                            </div>
+                            <div>
+                              <span className="text-[10px] text-zinc-500 font-bold block">업체몫</span>
+                              <span className="text-[12px] font-black text-emerald-300 font-mono">
+                                {row.partnerPayoutWon.toLocaleString()}
+                              </span>
+                            </div>
+                          </div>
+                          {row.couponWon > 0 ? (
+                            <p className="text-[10px] text-zinc-500 font-bold mt-1.5">
+                              가입할인 −{row.couponWon.toLocaleString()}원 반영
+                            </p>
+                          ) : null}
+                          {open ? (
+                            <div className="mt-2 space-y-1.5 border-t border-neutral-800 pt-2">
+                              {(hqCommissionFocusId === row.id ? hqCommissionBookings : []).map(
+                                (b) => (
+                                  <div
+                                    key={b.id}
+                                    className="rounded-lg bg-neutral-950/80 border border-neutral-800 px-2.5 py-2"
+                                  >
+                                    <div className="flex items-center justify-between gap-2">
+                                      <span className="text-[12px] font-black text-white truncate">
+                                        {b.carNumber}
+                                      </span>
+                                      <span className="text-[10px] text-zinc-500 font-mono shrink-0">
+                                        출고 {b.exitYmd.slice(5)}
+                                      </span>
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-1 mt-1.5 text-[10px] font-mono">
+                                      <span className="text-zinc-400">
+                                        정가 {b.listPrice.toLocaleString()}
+                                      </span>
+                                      <span className="text-fuchsia-300">
+                                        수수료 {b.commissionWon.toLocaleString()}
+                                      </span>
+                                      <span className="text-zinc-500 text-right">
+                                        쿠폰 {b.couponWon > 0 ? `−${b.couponWon.toLocaleString()}` : '0'}
+                                      </span>
+                                    </div>
+                                    {b.estimatedPricing ? (
+                                      <p className="text-[9px] text-amber-500/80 font-bold mt-1">
+                                        정가·쿠폰 필드 없음 · totalPrice로 추정
+                                      </p>
+                                    ) : null}
+                                  </div>
+                                )
+                              )}
+                            </div>
+                          ) : null}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
               )}
             </div>
           </div>

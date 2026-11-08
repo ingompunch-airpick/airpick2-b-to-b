@@ -53,7 +53,7 @@ export default function HqParkingPartnersView({
         <div>
           <h2 className="text-sm font-black text-white">주차 업체</h2>
           <p className="text-[11px] text-zinc-500 font-semibold mt-0.5">
-            영업 · 등록 · 명함 QR. 마케팅 제휴는 ⑤.
+            영업 · 등록 · 명함 QR(B2C 예약 링크). 파트너 홈 방문은 ① · 제휴 코드는 ⑤.
           </p>
         </div>
 
@@ -62,7 +62,7 @@ export default function HqParkingPartnersView({
             [
               { id: 'board' as const, label: '상태' },
               { id: 'edit' as const, label: '등록·편집' },
-              { id: 'qr' as const, label: '명함 QR' },
+              { id: 'qr' as const, label: '명함 QR · B2C' },
             ] as const
           ).map((item) => (
             <button

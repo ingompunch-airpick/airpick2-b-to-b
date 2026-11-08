@@ -457,17 +457,17 @@ export default function PartnerProfileFormFields({
               </div>
             </div>
             <div>
-              <label className={labelCls}>보상 한도 (원) · 내부용</label>
+              <label className={labelCls}>보상 한도 · 내부용</label>
               <input
                 type="text"
-                inputMode="numeric"
-                value={profile.insuranceCoverageLimitWon}
-                onChange={(e) => set('insuranceCoverageLimitWon', e.target.value.replace(/[^\d,]/g, ''))}
-                className={`${inputCls} font-mono`}
-                placeholder="예: 100000000"
+                value={profile.insuranceCoverageLimitText}
+                onChange={(e) => set('insuranceCoverageLimitText', e.target.value)}
+                className={inputCls}
+                placeholder="예: 대인 1억 · 대물 1억 · 자차 5천만"
               />
               <p className={`mt-1 text-[10px] font-medium ${hintCls}`}>
-                손님 앱 목록에는 금액을 노출하지 않습니다. 보험증권은 위 「증명서류」에 등록합니다.
+                대인·대물·자차를 한 줄에 적습니다. 손님 앱에는 노출하지 않으며, 보험증권은 위 「증명서류」에
+                등록합니다.
               </p>
             </div>
           </div>

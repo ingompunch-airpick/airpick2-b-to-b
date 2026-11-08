@@ -242,7 +242,13 @@ export interface CompanyInsurance {
   provider?: string;
   /** 마스터가 적은 상품명 그대로 */
   productName?: string;
-  coverageLimitWon?: number;
+  /**
+   * 보상 한도 안내 한 줄 (내부용). 예: 대인 1억 · 대물 1억 · 자차 5천만
+   * 예전 단일 숫자 필드는 coverageLimitWon 으로 남을 수 있음.
+   */
+  coverageLimitText?: string;
+  /** @deprecated coverageLimitText 사용. 예전 단일 숫자 한도(지울 때 null) */
+  coverageLimitWon?: number | null;
   /** 보험증권 이미지 URL (B2C 손님 상세에서 확인) */
   certificateUrl?: string;
   updatedAt?: string;
@@ -331,6 +337,10 @@ export interface Reservation {
   /** 예약 시점 공항 (업체 airport 스탬프). 미설정 시 ICN */
   airport?: 'ICN' | 'GMP';
   totalPrice: number;
+  /** B2C 정가(가입 할인·포인트 전). 수수료 기준. 없으면 totalPrice(+쿠폰)로 추정 */
+  listPrice?: number;
+  /** 카카오 가입 첫 예약 할인(원). 에어픽 수수료에서 차감 */
+  signupCouponWon?: number;
   /** 접수 때 사용한 포인트. totalPrice 는 이 금액이 빠진 현장 받을 돈 */
   pointSpentWon?: number;
   /**

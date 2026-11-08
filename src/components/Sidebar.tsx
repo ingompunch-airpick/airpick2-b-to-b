@@ -150,35 +150,37 @@ export default function Sidebar({
                   {isAirpickHeadquarters(currentCompanyId)
                     ? '에어픽 본사'
                     : isSuperAdmin
-                      ? '본사 (원격)'
+                      ? `${safeCompanyInfo.name}`
                       : isEmployee
                         ? (employeeRole === 'admin' ? `${employeeName} 부관리자` : `${employeeName} 기사`)
                         : `${safeCompanyInfo.name} 관리자`}
                   <span className="text-[12px] text-amber-500 font-bold bg-amber-500/10 px-1.5 py-0.5 rounded font-sans shrink-0">
                     {isAirpickHeadquarters(currentCompanyId)
                       ? '본사'
-                      : isAdminModeActive
-                        ? (isSuperAdmin ? '원격관리' : '관리자')
-                        : isEmployee
-                          ? (employeeRole === 'admin' ? '부관리자' : '직원기사')
-                          : '기사'}
+                      : isSuperAdmin
+                        ? '원격'
+                        : isAdminModeActive
+                          ? '관리자'
+                          : isEmployee
+                            ? (employeeRole === 'admin' ? '부관리자' : '직원기사')
+                            : '기사'}
                   </span>
                 </h3>
                 {!isAirpickHeadquarters(currentCompanyId) && (
                   <p className="text-[12px] text-zinc-400 font-mono mt-0.5 truncate max-w-[150px]">
-                    {isAdminModeActive
-                      ? isSuperAdmin
-                        ? `원격 · ${safeCompanyInfo.name}`
-                        : isEmployee && employeeRole === 'admin'
+                    {isSuperAdmin
+                      ? `본사 원격 · ${currentCompanyId || companyInfo?.id || '—'}`
+                      : isAdminModeActive
+                        ? isEmployee && employeeRole === 'admin'
                           ? `소속 부관리자: ${employeeName}`
                           : `${safeCompanyInfo.name} 관리자 계정`
-                      : isEmployee
-                        ? employeeRole === 'admin'
-                          ? `소속 부관리자: ${employeeName}`
-                          : `소속 직원: ${employeeName}`
-                        : isAnonymous
-                          ? `익명 ${safeCompanyInfo.name.substring(0, 2)} 기사`
-                          : userEmail}
+                        : isEmployee
+                          ? employeeRole === 'admin'
+                            ? `소속 부관리자: ${employeeName}`
+                            : `소속 직원: ${employeeName}`
+                          : isAnonymous
+                            ? `익명 ${safeCompanyInfo.name.substring(0, 2)} 기사`
+                            : userEmail}
                   </p>
                 )}
               </div>
@@ -194,7 +196,7 @@ export default function Sidebar({
           <div className="flex items-center justify-between p-2.5 bg-neutral-900 rounded-xl border border-neutral-800 text-xs">
             <span className="text-zinc-400 font-medium">단말기 ID</span>
             <span className="font-mono font-bold text-white uppercase text-[13px] tracking-wider">
-              {isSuperAdmin ? 'airpick' : (currentCompanyId || companyInfo?.id || '—')}
+              {currentCompanyId || companyInfo?.id || '—'}
             </span>
           </div>
         </div>
@@ -265,16 +267,28 @@ export default function Sidebar({
             type="button"
             onClick={() => setAlertSettingsOpen(true)}
             className={`w-full mb-3 py-2.5 px-3 rounded-xl border text-left flex items-center gap-2 transition-all ${
-              alertsEnabled
-                ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
-                : 'bg-neutral-900 border-neutral-800 text-zinc-500'
+              isAirpickHeadquarters(currentCompanyId)
+                ? 'bg-neutral-900 border-neutral-800 text-zinc-300'
+                : alertsEnabled
+                  ? 'bg-amber-500/10 border-amber-500/30 text-amber-400'
+                  : 'bg-neutral-900 border-neutral-800 text-zinc-500'
             }`}
           >
-            {alertsEnabled ? <Bell size={16} /> : <BellOff size={16} />}
+            {isAirpickHeadquarters(currentCompanyId) || alertsEnabled ? (
+              <Bell size={16} />
+            ) : (
+              <BellOff size={16} />
+            )}
             <div className="flex-1">
-              <span className="text-xs font-black block">알림</span>
+              <span className="text-xs font-black block">
+                {isAirpickHeadquarters(currentCompanyId) ? '알림 문구' : '알림'}
+              </span>
               <span className="text-[10px] opacity-80">
-                {alertsEnabled ? '예약 · 출고 · 켜짐' : '예약 · 출고 · 꺼짐'}
+                {isAirpickHeadquarters(currentCompanyId)
+                  ? '예약 · 출고 읽어 주는 말'
+                  : alertsEnabled
+                    ? '예약 · 출고 · 켜짐'
+                    : '예약 · 출고 · 꺼짐'}
               </span>
             </div>
             <ChevronRight size={14} className="opacity-60" />

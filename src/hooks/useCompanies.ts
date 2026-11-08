@@ -138,7 +138,8 @@ export function useCompanies({
         targetCompanyInfo.name = '에어픽';
         setIsAdminModeActive(true);
         localStorage.setItem('local_is_admin_mode_active', 'true');
-        setCurrentView('statistics');
+        // 원격에서 본사로 돌아올 때는 ② 주차 업체로
+        setCurrentView('master_settings');
       } else {
         const foundComp = (companies || []).find((c) => c.id === selectedId);
         if (foundComp) {

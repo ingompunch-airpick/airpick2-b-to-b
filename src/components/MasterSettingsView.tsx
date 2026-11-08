@@ -11,7 +11,6 @@ import {
 import { doc, setDoc, deleteField } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import TimePickerModal from './TimePickerModal';
-import AdminDashboard from './AdminDashboard';
 import ParkingProductsEditor from './ParkingProductsEditor';
 import PartnerProfileFormFields from './PartnerProfileFormFields';
 import BlockoutCalendarModal from './BlockoutCalendarModal';
@@ -31,7 +30,6 @@ import {
   type PartnerProfileInput,
 } from '../utils/companyProfile';
 import { preparePartnerProfileUploads } from '../lib/companyPhotos';
-import { isAirpickHeadquarters } from '../constants/platform';
 import { ensureFirestoreAuth } from '../lib/firebaseAuth';
 import { upsertCompanyEmployees } from '../lib/partnerLoginApi';
 import { reportError } from '../lib/errorReport';
@@ -772,35 +770,6 @@ export default function MasterSettingsView({
       alert(`저장 도중 오류가 발생했습니다: ${unexpectedErr?.message || unexpectedErr}`);
     }
   };
-
-  const isHqOnboardingMode = isSuperAdmin && isAirpickHeadquarters(companyInfo.id);
-
-  if (isHqOnboardingMode) {
-    return (
-      <div className="bg-black min-h-screen text-zinc-100 p-4 pb-20">
-        <div className="mb-5 px-1">
-          <h2 className="text-sm font-black text-white">주차 업체 관리</h2>
-          <p className="text-[12px] text-zinc-500 font-bold mt-0.5 leading-relaxed">
-            예약·입출고용 주차 대행 업체만 등록합니다. 마케팅 제휴는 「⑥ 마케팅 제휴」에서 따로 관리합니다.
-          </p>
-        </div>
-        <AdminDashboard
-          onClose={() => onBack?.()}
-          companies={companies || []}
-          partners={partners || []}
-          reservations={reservations}
-          onUpdatePartners={(updated) => {
-            onUpdatePartners?.(updated);
-            writePartnersToStorage(updated);
-          }}
-          onUpdateCompanies={(updated) => {
-            onUpdateCompanies?.(updated);
-            localStorage.setItem('companies', JSON.stringify(updated));
-          }}
-        />
-      </div>
-    );
-  }
 
   const surchargeTimePicker = (
     <TimePickerModal

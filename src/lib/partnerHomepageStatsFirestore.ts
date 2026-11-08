@@ -4,16 +4,24 @@ import { ensurePlatformAdminAuth } from './firebaseAuth';
 import {
   countFromUnknown,
   homepageVisitFetchWindow,
-  HOMEPAGE_STATS_COMPANY_IDS,
+  HOMEPAGE_STATS_FALLBACK_IDS,
   sourcesFromUnknown,
   type HomepageDayStat,
 } from '../utils/partnerHomepageStats';
 
-export async function fetchPartnerHomepageDays(today: string): Promise<HomepageDayStat[]> {
+export async function fetchPartnerHomepageDays(
+  today: string,
+  companyIds?: string[]
+): Promise<HomepageDayStat[]> {
   await ensurePlatformAdminAuth();
   const { start, end } = homepageVisitFetchWindow(today);
+  const ids =
+    companyIds && companyIds.length > 0
+      ? companyIds.map((id) => id.trim().toLowerCase()).filter(Boolean)
+      : [...HOMEPAGE_STATS_FALLBACK_IDS];
+
   const groups = await Promise.all(
-    HOMEPAGE_STATS_COMPANY_IDS.map(async (companyId) => {
+    ids.map(async (companyId) => {
       const snap = await getDocs(
         query(
           collection(db, 'partnerHomepageStats', companyId, 'days'),

@@ -9,7 +9,7 @@ import {
   channelsFromCounts,
   emptyHomepageVisitTotals,
   HOMEPAGE_CHANNEL_PRESETS,
-  HOMEPAGE_STATS_COMPANY_IDS,
+  homepageStatsCompanyIds,
   homepageChannelUrl,
   homepageOtherCount,
   homepageVisitRange,
@@ -261,11 +261,13 @@ export default function HqHomepageVisits({ companies }: { companies: Company[] }
   const [overrides, setOverrides] = useState<Record<string, HomepageVisitChannel[]>>({});
   const [savingId, setSavingId] = useState('');
   const [saveError, setSaveError] = useState<Record<string, string>>({});
+  const statsCompanyIds = useMemo(() => homepageStatsCompanyIds(companies), [companies]);
 
   useEffect(() => {
     let cancelled = false;
     setError('');
-    fetchPartnerHomepageDays(today)
+    setDays(null);
+    fetchPartnerHomepageDays(today, statsCompanyIds)
       .then((rows) => {
         if (!cancelled) setDays(rows);
       })
@@ -275,12 +277,12 @@ export default function HqHomepageVisits({ companies }: { companies: Company[] }
     return () => {
       cancelled = true;
     };
-  }, [today]);
+  }, [today, statsCompanyIds]);
 
   const range = homepageVisitRange(today, period);
   const rows = useMemo(() => {
     const loaded = days || [];
-    const companiesRows = HOMEPAGE_STATS_COMPANY_IDS.map((companyId) => {
+    const companiesRows = statsCompanyIds.map((companyId) => {
       const company = companies.find((item) => (item.id || '').toLowerCase() === companyId);
       const explicit = Array.isArray(company?.homepageVisitChannels)
         ? sanitizeHomepageVisitChannels(company.homepageVisitChannels) ?? []
@@ -299,11 +301,11 @@ export default function HqHomepageVisits({ companies }: { companies: Company[] }
       emptyHomepageVisitTotals()
     );
     return { companiesRows, all };
-  }, [companies, days, overrides, range.end, range.start]);
+  }, [companies, days, overrides, range.end, range.start, statsCompanyIds]);
 
   const note = rangeIncludesPreSourceDays(range.start)
-    ? '9월 27일 전 숫자는 페이지를 연 횟수라 사람 수보다 큽니다. 링크별 숫자는 그날 이후 방문부터입니다.'
-    : '한 사람이 메뉴를 더 봐도 1번만 셉니다. 측정은 업체마다 따로 만듭니다.';
+    ? '9월 27일 전 숫자는 페이지를 연 횟수라 사람 수보다 큽니다. 링크별 숫자는 그날 이후 방문부터입니다. 파트너 홈 유입만 셉니다(명함 QR·B2C 예약 링크는 ② 명함 QR).'
+    : '한 사람이 메뉴를 더 봐도 1번만 셉니다. 파트너 홈 유입만 · 명함 QR은 ② 명함 QR 탭.';
 
   const saveChannels = async (companyId: string, next: HomepageVisitChannel[]) => {
     setSavingId(companyId);

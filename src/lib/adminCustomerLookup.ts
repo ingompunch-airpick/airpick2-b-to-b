@@ -49,6 +49,51 @@ async function fetchReservationsByPhone(phoneKey: string): Promise<Reservation[]
   );
 }
 
+function normalizeCarNumber(raw: string): string {
+  return String(raw || '').trim().replace(/\s+/g, '');
+}
+
+function carNumberTailOf(raw: string): string | null {
+  const digits = normalizeCarNumber(raw).replace(/\D/g, '');
+  if (digits.length < 4) return null;
+  return digits.slice(-4);
+}
+
+async function addReservationSnap(
+  byId: Map<string, Reservation>,
+  field: 'carNumberTail' | 'carNumber',
+  value: string
+): Promise<void> {
+  const q = query(collection(db, 'reservations'), where(field, '==', value));
+  const snap = await getDocs(q);
+  for (const d of snap.docs) {
+    const [row] = normalizeDocsArray([{ id: d.id, ...d.data() }]);
+    if (row?.id) byId.set(row.id, row);
+  }
+}
+
+async function fetchReservationsByCar(raw: string): Promise<Reservation[]> {
+  const byId = new Map<string, Reservation>();
+  const compact = normalizeCarNumber(raw);
+  const tail = carNumberTailOf(raw);
+  const isSuffixOnly = /^\d{4}$/.test(compact);
+
+  if (isSuffixOnly && tail) {
+    await addReservationSnap(byId, 'carNumberTail', tail);
+    await addReservationSnap(byId, 'carNumber', compact);
+  } else {
+    if (compact) await addReservationSnap(byId, 'carNumber', compact);
+    if (raw.trim() && raw.trim() !== compact) {
+      await addReservationSnap(byId, 'carNumber', raw.trim());
+    }
+    if (tail) await addReservationSnap(byId, 'carNumberTail', tail);
+  }
+
+  return Array.from(byId.values()).sort((a, b) =>
+    String(b.createdAt || '').localeCompare(String(a.createdAt || ''))
+  );
+}
+
 export async function lookupCustomerByPhone(
   rawPhone: string
 ): Promise<HqCustomerLookupResult> {
@@ -81,4 +126,64 @@ export async function lookupCustomerByPhone(
     customer,
     reservations: reservations.slice(0, 50),
   };
+}
+
+/** 차량번호 전체 또는 끝 4자리로 예약 조회 */
+export async function lookupCustomerByCar(
+  rawCar: string
+): Promise<HqCustomerLookupResult> {
+  await ensurePlatformAdminAuth();
+
+  const compact = normalizeCarNumber(rawCar);
+  const tail = carNumberTailOf(rawCar);
+  if (!compact || (!tail && compact.length < 4)) {
+    throw new Error('차량번호 전체 또는 숫자 끝 4자리를 입력해 주세요. (예: 31소3456 / 3456)');
+  }
+
+  const reservations = await fetchReservationsByCar(rawCar);
+  const label = tail ? `차량 ·${tail}` : `차량 ${compact}`;
+  if (reservations.length === 0) {
+    return {
+      phoneKey: '',
+      phoneDisplay: label,
+      customer: null,
+      reservations: [],
+    };
+  }
+
+  const firstPhone = normalizePhoneDigits(String(reservations[0]?.phone || ''));
+  if (firstPhone.length >= 10 && firstPhone.startsWith('01')) {
+    try {
+      const byPhone = await lookupCustomerByPhone(firstPhone);
+      const merged = new Map<string, Reservation>();
+      for (const r of [...byPhone.reservations, ...reservations]) {
+        if (r?.id) merged.set(r.id, r);
+      }
+      return {
+        ...byPhone,
+        reservations: Array.from(merged.values())
+          .sort((a, b) => String(b.createdAt || '').localeCompare(String(a.createdAt || '')))
+          .slice(0, 50),
+      };
+    } catch {
+      /* 전화 조회 실패 시 차량 결과만 */
+    }
+  }
+
+  return {
+    phoneKey: firstPhone,
+    phoneDisplay: firstPhone ? formatPhoneDisplay(firstPhone) : label,
+    customer: null,
+    reservations: reservations.slice(0, 50),
+  };
+}
+
+/** 전화(01…)면 전화, 아니면 차량번호 */
+export async function lookupHqCustomer(raw: string): Promise<HqCustomerLookupResult> {
+  const trimmed = String(raw || '').trim();
+  const phoneDigits = normalizePhoneDigits(trimmed);
+  if (phoneDigits.length >= 10 && phoneDigits.startsWith('01')) {
+    return lookupCustomerByPhone(trimmed);
+  }
+  return lookupCustomerByCar(trimmed);
 }

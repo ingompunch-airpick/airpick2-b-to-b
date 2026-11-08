@@ -32,7 +32,8 @@ export interface PartnerProfileInput {
   insuranceEnrolled: boolean;
   insuranceProvider: string;
   insuranceProductName: string;
-  insuranceCoverageLimitWon: string;
+  /** 대인·대물·자차 등을 한 줄로 (내부용) */
+  insuranceCoverageLimitText: string;
   /** 보험증권 이미지 — http(s) 또는 data URL(저장 시 업로드) */
   insuranceCertificateUrl: string;
   /** 사업자등록증 — http(s) 또는 data URL(저장 시 업로드) */
@@ -87,11 +88,28 @@ export const DEFAULT_PARTNER_PROFILE: PartnerProfileInput = {
   insuranceEnrolled: false,
   insuranceProvider: '',
   insuranceProductName: '',
-  insuranceCoverageLimitWon: '',
+  insuranceCoverageLimitText: '',
   insuranceCertificateUrl: '',
   businessRegistrationUrl: '',
   parkingContractUrl: '',
 };
+
+/** 폼·표시용 한도 문구. 텍스트 우선, 없으면 예전 숫자. */
+export function formatInsuranceCoverageLimit(
+  ins?: Pick<CompanyInsurance, 'coverageLimitText' | 'coverageLimitWon'> | null,
+  legacyLimit?: number | null
+): string {
+  const text = String(ins?.coverageLimitText || '').trim();
+  if (text) return text;
+  const n =
+    ins?.coverageLimitWon !== undefined && ins?.coverageLimitWon !== null
+      ? Number(ins.coverageLimitWon)
+      : legacyLimit != null
+        ? Number(legacyLimit)
+        : NaN;
+  if (!Number.isFinite(n) || n <= 0) return '';
+  return `${n.toLocaleString('ko-KR')}원`;
+}
 
 export function inferFacilityType(company?: Partial<Company>): FacilityType {
   if (company?.facilityType) return company.facilityType;
@@ -221,7 +239,7 @@ export function readPartnerProfileFromCompany(company?: Company): PartnerProfile
   let insuranceEnrolled = false;
   let insuranceProvider = '';
   let insuranceProductName = '';
-  let insuranceCoverageLimitWon = '';
+  let insuranceCoverageLimitText = '';
   let insuranceCertificateUrl = '';
 
   if (raw.insurance && typeof raw.insurance === 'object') {
@@ -229,17 +247,14 @@ export function readPartnerProfileFromCompany(company?: Company): PartnerProfile
     insuranceEnrolled = !!ins.enrolled;
     insuranceProvider = ins.provider || '';
     insuranceProductName = normalizeInsuranceProductName(ins.productName) || ins.productName || '';
-    insuranceCoverageLimitWon =
-      ins.coverageLimitWon !== undefined && ins.coverageLimitWon !== null
-        ? String(ins.coverageLimitWon)
-        : '';
+    insuranceCoverageLimitText = formatInsuranceCoverageLimit(ins, raw.insuranceLimit as number | undefined);
     insuranceCertificateUrl = ins.certificateUrl?.trim() || '';
   } else if (raw.hasInsurance === false) {
     insuranceEnrolled = false;
   } else if (raw.insuranceProvider || raw.insuranceLimit) {
     insuranceEnrolled = true;
     insuranceProvider = String(raw.insuranceProvider || '');
-    insuranceCoverageLimitWon = raw.insuranceLimit ? String(raw.insuranceLimit) : '';
+    insuranceCoverageLimitText = formatInsuranceCoverageLimit(null, raw.insuranceLimit as number | undefined);
   }
 
   const primaryImage = String(raw.image_url || '').trim();
@@ -260,7 +275,7 @@ export function readPartnerProfileFromCompany(company?: Company): PartnerProfile
     insuranceEnrolled,
     insuranceProvider,
     insuranceProductName,
-    insuranceCoverageLimitWon,
+    insuranceCoverageLimitText,
     insuranceCertificateUrl,
     businessRegistrationUrl: verificationDocuments?.businessRegistrationUrl?.trim() || '',
     parkingContractUrl: verificationDocuments?.parkingContractUrl?.trim() || '',
@@ -278,7 +293,7 @@ export function buildInsurancePayload(input: PartnerProfileInput): {
   insurance: CompanyInsurance;
   hasInsurance: boolean;
   insuranceProvider?: string;
-  insuranceLimit?: number;
+  insuranceLimit?: number | null;
 } {
   if (!input.insuranceEnrolled) {
     return {
@@ -289,18 +304,20 @@ export function buildInsurancePayload(input: PartnerProfileInput): {
 
   const provider = input.insuranceProvider.trim();
   const productName = resolveInsuranceProductNameForStorage(input.insuranceProductName, true);
-  const limitRaw = input.insuranceCoverageLimitWon.replace(/,/g, '').trim();
-  const coverageLimitWon = limitRaw ? Number(limitRaw) : undefined;
+  const coverageLimitText = input.insuranceCoverageLimitText.trim();
+  const digitsOnly = coverageLimitText.replace(/,/g, '');
+  const asNumber =
+    digitsOnly && /^\d+$/.test(digitsOnly) ? Number(digitsOnly) : undefined;
   const certificateUrl = input.insuranceCertificateUrl.trim() || undefined;
 
   const insurance: CompanyInsurance = {
     enrolled: true,
     provider: provider || undefined,
     productName: productName || undefined,
+    coverageLimitText: coverageLimitText || undefined,
+    // 순수 숫자만 적힌 예전 값 호환. 대인·대물 문구면 숫자 칸은 null 로 지움.
     coverageLimitWon:
-      coverageLimitWon !== undefined && !Number.isNaN(coverageLimitWon)
-        ? coverageLimitWon
-        : undefined,
+      asNumber !== undefined && Number.isFinite(asNumber) ? asNumber : null,
     certificateUrl,
     updatedAt: new Date().toISOString(),
   };
@@ -309,7 +326,7 @@ export function buildInsurancePayload(input: PartnerProfileInput): {
     insurance,
     hasInsurance: true,
     insuranceProvider: provider || undefined,
-    insuranceLimit: insurance.coverageLimitWon,
+    insuranceLimit: asNumber !== undefined && Number.isFinite(asNumber) ? asNumber : null,
   };
 }
 

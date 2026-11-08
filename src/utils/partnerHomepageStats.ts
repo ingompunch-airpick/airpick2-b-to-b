@@ -1,7 +1,33 @@
 import { shiftYmd } from './kstDate';
 
-/** 파트너 홈 방문 통계를 보여 주는 업체. 사장 화면에는 쓰지 않는다. */
-export const HOMEPAGE_STATS_COMPANY_IDS = ['gayu', 'hi', 'season', 'wawa'] as const;
+/** 예전 기본값 — 홈 공개 업체가 없을 때만 폴백 */
+export const HOMEPAGE_STATS_FALLBACK_IDS = ['gayu', 'hi', 'season', 'wawa'] as const;
+
+/** @deprecated homepageStatsCompanyIds(companies) 사용 */
+export const HOMEPAGE_STATS_COMPANY_IDS = HOMEPAGE_STATS_FALLBACK_IDS;
+
+/** 홈 공개·설정이 있는 입점업체. 없으면 예전 4곳으로 폴백. */
+export function homepageStatsCompanyIds(
+  companies: Array<{
+    id?: string;
+    partnerHomepage?: { enabled?: boolean; config?: unknown } | null;
+  }>
+): string[] {
+  const withHome = [
+    ...new Set(
+      companies
+        .filter((c) => {
+          const id = String(c.id || '').trim().toLowerCase();
+          if (!id || id === 'airpick') return false;
+          const home = c.partnerHomepage;
+          return home?.enabled === true || !!home?.config;
+        })
+        .map((c) => String(c.id).trim().toLowerCase())
+    ),
+  ].sort((a, b) => a.localeCompare(b));
+
+  return withHome.length > 0 ? withHome : [...HOMEPAGE_STATS_FALLBACK_IDS];
+}
 
 /** 이 날짜부터 pageViews는 방문 1회, sources는 처음 들어온 주소. */
 export const HOMEPAGE_SOURCE_FROM = '2026-09-27';

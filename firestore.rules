@@ -209,6 +209,8 @@ service cloud.firestore {
           'affiliateCode',
           'affiliateCustomerDiscountWon',
           'affiliateReferrerCreditWon',
+          'listPrice',
+          'signupCouponWon',
           'pointSpendWon',
           'pointSpentWon',
           'pointsEarnedWon',

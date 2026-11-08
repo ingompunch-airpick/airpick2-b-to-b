@@ -119,7 +119,7 @@ export default function AdminDashboard({
   /** Firestore 예약 — 업체별 통계용 (로컬 캐시 대체) */
   reservations?: Reservation[];
 }) {
-  const [activeTab, setActiveTab] = useState<'create' | 'partners'>('create');
+  const [activeTab, setActiveTab] = useState<'create' | 'partners'>('partners');
   const [registerKind, setRegisterKind] = useState<'primary' | 'sub'>('primary');
 
   // State for editing a sub-operator (companies only)
@@ -143,7 +143,15 @@ export default function AdminDashboard({
   const [editProfile, setEditProfile] = useState<PartnerProfileInput>({ ...DEFAULT_PARTNER_PROFILE });
   const [savingEdit, setSavingEdit] = useState(false);
   const [saveEditError, setSaveEditError] = useState('');
+  const [flashMsg, setFlashMsg] = useState('');
   const savingEditRef = React.useRef(false);
+  const flashTimerRef = React.useRef<number | null>(null);
+
+  const showFlash = (msg: string) => {
+    setFlashMsg(msg);
+    if (flashTimerRef.current != null) window.clearTimeout(flashTimerRef.current);
+    flashTimerRef.current = window.setTimeout(() => setFlashMsg(''), 3500);
+  };
   const [pendingDelete, setPendingDelete] = useState<{
     companyId: string;
     companyName: string;
@@ -280,7 +288,7 @@ export default function AdminDashboard({
       return;
     }
 
-    alert(`[${editingSubCompany.name}] 하위 업체 정보가 수정되었습니다.`);
+    showFlash(`[${editingSubCompany.name}] 하위 업체 저장되었습니다.`);
     setEditingSubCompany(null);
   };
 
@@ -306,7 +314,7 @@ export default function AdminDashboard({
     }
 
     removePartnerLocalPartitions(companyId, safeStorage);
-    alert(`[${companyName}] 하위 업체가 삭제되었습니다.`);
+    showFlash(`[${companyName}] 하위 업체가 삭제되었습니다.`);
   };
 
   const handleStartEdit = (p: PartnerCompany) => {
@@ -484,9 +492,9 @@ export default function AdminDashboard({
       savingEditRef.current = false;
       setSavingEdit(false);
       setEditingPartner(null);
-      alert(
+      showFlash(
         previousId === targetId
-          ? `[${editName}] 업체 정보가 수정되었습니다.`
+          ? `[${editName}] 저장되었습니다.`
           : `[${editName}] 아이디가 ${targetId} 로 바뀌었습니다. 다음 로그인부터 새 아이디를 씁니다.`
       );
     } catch (err) {
@@ -661,9 +669,7 @@ export default function AdminDashboard({
     initPartnerLocalPartitions(cleanId, safeStorage);
 
     setRecentOnboarding({ companyId: cleanId, companyName: newName.trim() });
-    alert(
-      `[${newName}] 신규 제휴 업체 등록이 완료되었습니다.\n아이디 '${cleanId}' 로 로그인할 수 있습니다.\n\n아래 온보딩 체크리스트를 순서대로 확인해 주세요.`
-    );
+    showFlash(`[${newName}] 등록 완료 · 아이디 ${cleanId} · 아래 온보딩을 확인하세요`);
 
     // Reset fields
     setNewId('');
@@ -739,8 +745,8 @@ export default function AdminDashboard({
 
     initPartnerLocalPartitions(cleanId, safeStorage);
 
-    alert(
-      `[${newName}] 하위 업체가 등록되었습니다.\nB2C에만 노출되며, B2B는 대표 [${newParentId}] 계정으로 통합 관리합니다.`
+    showFlash(
+      `[${newName}] 하위 등록 완료 · B2C만 노출 · B2B는 대표 ${newParentId}로 관리`
     );
 
     setNewId('');
@@ -777,7 +783,7 @@ export default function AdminDashboard({
     }
 
     removePartnerLocalPartitions(companyId, safeStorage);
-    alert(`[${companyName}] 업체 정보가 성공적으로 영구 삭제되었습니다.`);
+    showFlash(`[${companyName}] 업체가 삭제되었습니다.`);
   };
 
   const confirmPendingDelete = async () => {
@@ -797,6 +803,11 @@ export default function AdminDashboard({
 
   return (
     <div className="space-y-4 text-zinc-100">
+      {flashMsg ? (
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/15 px-3 py-2.5 text-[12px] font-bold text-emerald-200">
+          {flashMsg}
+        </div>
+      ) : null}
       {/* Tab select buttons */}
       <div className="flex bg-neutral-900/80 p-1.5 rounded-2xl border border-neutral-800 gap-1 select-none">
         <button
