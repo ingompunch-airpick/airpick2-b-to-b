@@ -24,6 +24,14 @@ import {
   resolveItchaPickupGuide,
   usesItchaPickupGuide,
 } from '../utils/itchaPickupGuide';
+import {
+  kakaoDirectionsUrl,
+  naverDirectionsUrl,
+  resolveHandoffPlace,
+  resolveReceiptHandoffType,
+  tmapDirectionsUrl,
+  type HandoffPlace,
+} from '../utils/handoffPlaces';
 
 const AIRPICK_SITE_URL = 'https://www.에어픽.kr';
 
@@ -190,17 +198,42 @@ function PickupLocationRow({
   value,
   videoUrl,
   videoLabel,
+  place,
 }: {
   value: string;
   videoUrl?: string;
   videoLabel?: string;
+  place?: HandoffPlace | null;
 }) {
+  const mapButtons = place
+    ? [
+        { id: 'naver', label: '네이버', href: naverDirectionsUrl(place) },
+        { id: 'kakao', label: '카카오', href: kakaoDirectionsUrl(place) },
+        { id: 'tmap', label: '티맵', href: tmapDirectionsUrl(place) },
+      ]
+    : [];
+
   return (
     <div className="col-span-2 min-w-0 px-2.5 py-2">
       <p className="text-[10px] font-bold tracking-wide text-[#9a8b78]">픽업지</p>
       <p className="mt-0.5 text-[14px] font-black leading-snug text-[#1a1f2e] whitespace-pre-wrap break-words">
         {value}
       </p>
+      {mapButtons.length > 0 ? (
+        <div className="mt-2 grid grid-cols-3 gap-1.5 print:hidden">
+          {mapButtons.map((b) => (
+            <a
+              key={b.id}
+              href={b.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="rounded-lg border border-[#d4c8b4] bg-white px-1.5 py-2 text-center text-[11px] font-black text-[#1a1f2e] active:scale-[0.98]"
+            >
+              {b.label}
+            </a>
+          ))}
+        </div>
+      ) : null}
       {videoUrl ? (
         <a
           href={videoUrl}
@@ -208,7 +241,7 @@ function PickupLocationRow({
           rel="noopener noreferrer"
           className="mt-1.5 inline-flex text-[12px] font-bold text-[#1a4a9e] underline underline-offset-2 decoration-[#1a4a9e]/40"
         >
-          {videoLabel || '가는 길 보기'}
+          {videoLabel || '가는 길 영상'}
         </a>
       ) : null}
     </div>
@@ -358,8 +391,16 @@ export default function VehicleReceiptPage({ code }: VehicleReceiptPageProps) {
       usesItchaPickupGuide(reservation.companyId || company?.id) &&
       resolveItchaPickupGuide(itchaTerminal, itchaKind);
 
+    const handoffType = resolveReceiptHandoffType(reservation, company);
+    const handoffPlace = resolveHandoffPlace(
+      handoffType,
+      itchaKind === 'arrival'
+        ? reservation.arrivalTerminal || reservation.departureTerminal
+        : reservation.departureTerminal
+    );
     const pickupLocation =
       itchaGuide?.displayText ||
+      handoffPlace?.name ||
       (typeof company?.pickupLocation === 'string' && company.pickupLocation.trim()) ||
       PICKUP_CONTACT_FALLBACK;
     const pickupVideoUrl = itchaGuide?.videoUrl;
@@ -433,6 +474,7 @@ export default function VehicleReceiptPage({ code }: VehicleReceiptPageProps) {
       pickupLocation,
       pickupVideoUrl,
       pickupVideoLabel,
+      handoffPlace,
       companyName,
       status: reservation.status,
       shareUrl: buildReceiptUrl(reservation),
@@ -553,6 +595,7 @@ export default function VehicleReceiptPage({ code }: VehicleReceiptPageProps) {
               value={view.pickupLocation}
               videoUrl={view.pickupVideoUrl}
               videoLabel={view.pickupVideoLabel}
+              place={view.handoffPlace}
             />
             <div className="col-span-2 min-w-0">
               <GridCell label="고객센터" value={view.companyCenterLabel} tel />

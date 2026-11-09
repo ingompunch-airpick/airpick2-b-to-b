@@ -101,14 +101,18 @@ export interface Company {
   peakStartTime?: string;
   peakEndTime?: string;
   peakSurcharge?: number;
-  /** 대면 입고 추가요금 (T1) — 0=무료 대면, 필드 없음=T1 대면 미제공 */
+  /** 커브사이드 추가요금 (T1) — 0=무료, 필드 없음=T1 커브 미제공. 레거시 키명 valetFee */
   valetFeeT1?: number;
-  /** 대면 입고 추가요금 (T2) — 0=무료 대면, 필드 없음=T2 대면 미제공 */
+  /** 커브사이드 추가요금 (T2) */
   valetFeeT2?: number;
-  /** 비대면 입고 추가요금 (T1) — 필드 없음=0원 */
+  /** 드랍오프 추가요금 (T1) — 필드 없음=0원 */
   dropFeeT1?: number;
-  /** 비대면 입고 추가요금 (T2) — 필드 없음=0원 */
+  /** 드랍오프 추가요금 (T2) */
   dropFeeT2?: number;
+  /** 밋앤그릿 추가요금 (T1) — 필드 없음=미제공 */
+  meetGreetFeeT1?: number;
+  /** 밋앤그릿 추가요금 (T2) */
+  meetGreetFeeT2?: number;
   /** 손님 앱 비교 단위. 없으면 위 요금·시설 필드로 valet 상품을 만들어 쓴다 */
   parkingProducts?: ParkingProduct[];
   /**
@@ -184,19 +188,25 @@ export interface Company {
 
 export type ParkingProductType = 'valet' | 'walk' | 'shuttle' | 'official';
 
+/** 입고(인도) 방식 — 상품·가는 길·추가요금 분기 */
+export type HandoffType = 'curb' | 'meet_greet' | 'drop';
+
 /**
  * companies/{id}.parkingProducts[] — 손님 앱 비교 단위.
  * 모르는 값은 필드를 비운다. 손님 화면은 필드가 있을 때만 그 줄을 보여 준다.
- * 요금은 업체 필드(lot별 기본요금·야간·valetFee·dropFee)를 그대로 쓴다.
+ * 요금은 업체 필드(lot별 기본요금·야간·valetFee·dropFee·meetGreetFee)를 쓴다.
+ * Firestore 저장 시 curb ↔ 레거시 meet 도 같이 써서 B2C 구버전과 호환한다.
  */
 export interface ParkingProduct {
   id: string;
   type: ParkingProductType;
   lot: 'indoor' | 'outdoor';
   terminal: 'T1' | 'T2' | 'both';
-  /** 대면(출국장 인계) 입고 받음 */
-  meet: boolean;
-  /** 비대면(단기주차장) 입고 받음 */
+  /** 커브사이드 — 출국장 대면 인계 */
+  curb: boolean;
+  /** 밋앤그릿 — 합동청사역 등 지정 픽업 */
+  meetGreet: boolean;
+  /** 드랍오프 — 단기주차장 비대면 */
   drop: boolean;
   hidden?: true;
   transferNote?: string;
@@ -205,8 +215,8 @@ export interface ParkingProduct {
   keyHandover?: 'leave' | 'keep';
   evCharging?: 'yes' | 'no';
   hours?: { allDay: true } | { open: string; close: string };
-  /** 대면 인계 가능 시간. 대면 상품만. 없으면 손님 앱은 24시간으로 본다 */
-  meetHours?: { allDay: true } | { open: string; close: string };
+  /** 커브사이드 인계 가능 시간. 없으면 손님 앱은 24시간으로 본다 */
+  curbHours?: { allDay: true } | { open: string; close: string };
   updatedAt?: string;
 }
 

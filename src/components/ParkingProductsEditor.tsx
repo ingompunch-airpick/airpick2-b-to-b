@@ -1,7 +1,8 @@
 import React from 'react';
 import { EyeOff, Plus, Trash2 } from 'lucide-react';
-import type { ParkingProduct } from '../types';
+import type { HandoffType, ParkingProduct } from '../types';
 import {
+  HANDOFF_TYPE_LABELS,
   newParkingProductId,
   PARKING_PRODUCT_LIMIT,
   PARKING_PRODUCT_TYPES,
@@ -13,6 +14,8 @@ export interface HandoffFees {
   valetFeeT2: number;
   dropFeeT1: number;
   dropFeeT2: number;
+  meetGreetFeeT1: number;
+  meetGreetFeeT2: number;
 }
 
 interface Props {
@@ -32,6 +35,12 @@ const chipOff = 'bg-neutral-900 border-neutral-800 text-zinc-400 hover:text-zinc
 const inputCls =
   'w-full bg-[#1C1C1E] border border-neutral-800 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-500 font-bold';
 const labelCls = 'text-[11px] text-white/80 font-bold block mb-1';
+
+const HANDOFF_OPTIONS: { key: HandoffType; field: 'curb' | 'meetGreet' | 'drop'; hint: string }[] = [
+  { key: 'curb', field: 'curb', hint: '출국장 대면' },
+  { key: 'meet_greet', field: 'meetGreet', hint: '지정 픽업지' },
+  { key: 'drop', field: 'drop', hint: '단기주차장' },
+];
 
 function Chips<T extends string>({
   value,
@@ -84,10 +93,10 @@ function hoursMode(p: ParkingProduct): HoursMode {
   return 'allDay' in p.hours ? 'allDay' : 'range';
 }
 
-type MeetHoursMode = 'allDay' | 'range';
+type CurbHoursMode = 'allDay' | 'range';
 
-function meetHoursMode(p: ParkingProduct): MeetHoursMode {
-  if (p.meetHours && !('allDay' in p.meetHours)) return 'range';
+function curbHoursMode(p: ParkingProduct): CurbHoursMode {
+  if (p.curbHours && !('allDay' in p.curbHours)) return 'range';
   return 'allDay';
 }
 
@@ -117,7 +126,15 @@ export default function ParkingProductsEditor({
     if (products.length >= PARKING_PRODUCT_LIMIT) return;
     onChange([
       ...products,
-      { id: newParkingProductId(), type: 'valet', lot: 'outdoor', terminal: 'both', meet: false, drop: true },
+      {
+        id: newParkingProductId(),
+        type: 'valet',
+        lot: 'outdoor',
+        terminal: 'both',
+        curb: false,
+        meetGreet: false,
+        drop: true,
+      },
     ]);
   };
 
@@ -126,10 +143,13 @@ export default function ParkingProductsEditor({
     onChange(products.filter((p) => p.id !== id));
   };
 
-  const meetT1 = productsOfferHandoff(products, 'meet', 'T1');
-  const meetT2 = productsOfferHandoff(products, 'meet', 'T2');
+  const curbT1 = productsOfferHandoff(products, 'curb', 'T1');
+  const curbT2 = productsOfferHandoff(products, 'curb', 'T2');
+  const greetT1 = productsOfferHandoff(products, 'meet_greet', 'T1');
+  const greetT2 = productsOfferHandoff(products, 'meet_greet', 'T2');
   const dropT1 = productsOfferHandoff(products, 'drop', 'T1');
   const dropT2 = productsOfferHandoff(products, 'drop', 'T2');
+  const anyFee = curbT1 || curbT2 || greetT1 || greetT2 || dropT1 || dropT2;
 
   return (
     <div className="space-y-4">
@@ -150,9 +170,9 @@ export default function ParkingProductsEditor({
       {products.map((p, index) => {
         const mode = hoursMode(p);
         const range = p.hours && !('allDay' in p.hours) ? p.hours : { open: '', close: '' };
-        const meetMode = meetHoursMode(p);
-        const meetRange =
-          p.meetHours && !('allDay' in p.meetHours) ? p.meetHours : { open: '', close: '' };
+        const curbMode = curbHoursMode(p);
+        const curbRange =
+          p.curbHours && !('allDay' in p.curbHours) ? p.curbHours : { open: '', close: '' };
         return (
           <div
             key={p.id}
@@ -222,70 +242,73 @@ export default function ParkingProductsEditor({
 
             <div>
               <label className={labelCls}>입고 방식 (받는 것만 체크)</label>
-              <div className="flex gap-4">
-                {(
-                  [
-                    { key: 'meet', label: '대면 (출국장 인계)' },
-                    { key: 'drop', label: '비대면 (단기주차장)' },
-                  ] as const
-                ).map((h) => (
+              <div className="flex flex-col gap-2">
+                {HANDOFF_OPTIONS.map((h) => (
                   <label key={h.key} className="flex items-center gap-2 cursor-pointer select-none">
                     <input
                       type="checkbox"
-                      checked={p[h.key]}
-                      onChange={(e) =>
-                        update(
-                          p.id,
-                          h.key === 'meet'
-                            ? { meet: e.target.checked, meetHours: e.target.checked ? p.meetHours : undefined }
-                            : { drop: e.target.checked }
-                        )
-                      }
+                      checked={p[h.field]}
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        if (h.field === 'curb') {
+                          update(p.id, {
+                            curb: checked,
+                            curbHours: checked ? p.curbHours : undefined,
+                          });
+                        } else if (h.field === 'meetGreet') {
+                          update(p.id, { meetGreet: checked });
+                        } else {
+                          update(p.id, { drop: checked });
+                        }
+                      }}
                       className="w-4 h-4 rounded border-neutral-800 text-amber-500 focus:ring-amber-500 bg-[#1C1C1E]"
                     />
-                    <span className="text-[12px] text-white font-bold">{h.label}</span>
+                    <span className="text-[12px] text-white font-bold">
+                      {HANDOFF_TYPE_LABELS[h.key]}
+                      <span className="ml-1.5 text-[11px] text-zinc-500 font-semibold">{h.hint}</span>
+                    </span>
                   </label>
                 ))}
               </div>
             </div>
 
-            {p.meet ? (
+            {p.curb ? (
               <div>
-                <label className={labelCls}>대면 시간</label>
+                <label className={labelCls}>커브사이드 시간</label>
                 <Chips
-                  value={meetMode}
+                  value={curbMode}
                   options={[
                     { id: 'allDay', label: '24시간' },
                     { id: 'range', label: '시간 지정' },
                   ]}
                   onSelect={(next) =>
                     update(p.id, {
-                      meetHours:
+                      curbHours:
                         next === 'allDay'
                           ? { allDay: true }
-                          : { open: meetRange.open, close: meetRange.close },
+                          : { open: curbRange.open, close: curbRange.close },
                     })
                   }
                 />
-                {meetMode === 'range' ? (
+                {curbMode === 'range' ? (
                   <div className="grid grid-cols-2 gap-3 mt-2">
                     <input
                       type="time"
-                      value={meetRange.open}
+                      value={curbRange.open}
                       onChange={(e) =>
-                        update(p.id, { meetHours: { open: e.target.value, close: meetRange.close } })
+                        update(p.id, { curbHours: { open: e.target.value, close: curbRange.close } })
                       }
                       className={`${inputCls} font-mono`}
-                      aria-label="대면 시작"
+                      aria-label="커브사이드 시작"
                     />
                     <input
                       type="time"
-                      value={meetRange.close}
+                      value={curbRange.close}
                       onChange={(e) =>
-                        update(p.id, { meetHours: { open: meetRange.open, close: e.target.value } })
+                        update(p.id, { curbHours: { open: curbRange.open, close: e.target.value } })
                       }
                       className={`${inputCls} font-mono`}
-                      aria-label="대면 종료"
+                      aria-label="커브사이드 종료"
                     />
                   </div>
                 ) : null}
@@ -401,26 +424,44 @@ export default function ParkingProductsEditor({
         </button>
       ) : null}
 
-      {meetT1 || meetT2 || dropT1 || dropT2 ? (
+      {anyFee ? (
         <div className="bg-neutral-900/40 p-5 rounded-3xl border border-neutral-850 space-y-3">
           <p className="text-xs font-black text-amber-500 tracking-wider">추가요금</p>
           <p className="text-[12px] text-white/70 leading-relaxed">
             기본요금에 더해지는 금액만 적습니다. 무료면 0원. 같은 방식의 상품에 모두 적용됩니다.
           </p>
-          {meetT1 || meetT2 ? (
+          {curbT1 || curbT2 ? (
             <div className="grid grid-cols-2 gap-3">
-              {meetT1 ? (
+              {curbT1 ? (
                 <FeeInput
-                  label={`${t1Label} 대면`}
+                  label={`${t1Label} 커브사이드`}
                   value={fees.valetFeeT1}
                   onChange={(v) => onFeesChange({ ...fees, valetFeeT1: v })}
                 />
               ) : null}
-              {meetT2 ? (
+              {curbT2 ? (
                 <FeeInput
-                  label={`${t2Label} 대면`}
+                  label={`${t2Label} 커브사이드`}
                   value={fees.valetFeeT2}
                   onChange={(v) => onFeesChange({ ...fees, valetFeeT2: v })}
+                />
+              ) : null}
+            </div>
+          ) : null}
+          {greetT1 || greetT2 ? (
+            <div className="grid grid-cols-2 gap-3">
+              {greetT1 ? (
+                <FeeInput
+                  label={`${t1Label} 밋앤그릿`}
+                  value={fees.meetGreetFeeT1}
+                  onChange={(v) => onFeesChange({ ...fees, meetGreetFeeT1: v })}
+                />
+              ) : null}
+              {greetT2 ? (
+                <FeeInput
+                  label={`${t2Label} 밋앤그릿`}
+                  value={fees.meetGreetFeeT2}
+                  onChange={(v) => onFeesChange({ ...fees, meetGreetFeeT2: v })}
                 />
               ) : null}
             </div>
@@ -429,14 +470,14 @@ export default function ParkingProductsEditor({
             <div className="grid grid-cols-2 gap-3">
               {dropT1 ? (
                 <FeeInput
-                  label={`${t1Label} 비대면`}
+                  label={`${t1Label} 드랍오프`}
                   value={fees.dropFeeT1}
                   onChange={(v) => onFeesChange({ ...fees, dropFeeT1: v })}
                 />
               ) : null}
               {dropT2 ? (
                 <FeeInput
-                  label={`${t2Label} 비대면`}
+                  label={`${t2Label} 드랍오프`}
                   value={fees.dropFeeT2}
                   onChange={(v) => onFeesChange({ ...fees, dropFeeT2: v })}
                 />

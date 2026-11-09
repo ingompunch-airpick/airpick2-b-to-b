@@ -452,12 +452,14 @@ export default function MasterSettingsView({
   const [activePickerTarget, setActivePickerTarget] = useState<'surchargeStart' | 'surchargeEnd' | null>(null);
 
   const [parkingProducts, setParkingProducts] = useState<ParkingProduct[]>([]);
-  // 대면·비대면 추가요금 (T1/T2 각각 · 0=무료). 받는 상품이 없는 터미널은 저장 시 필드 삭제
+  // 커브·밋앤그릿·드랍 추가요금 (T1/T2 · 0=무료). 받는 상품이 없는 터미널은 저장 시 필드 삭제
   const [handoffFees, setHandoffFees] = useState({
     valetFeeT1: 0,
     valetFeeT2: 0,
     dropFeeT1: 0,
     dropFeeT2: 0,
+    meetGreetFeeT1: 0,
+    meetGreetFeeT2: 0,
   });
   const [pickupLocation, setPickupLocation] = useState('');
 
@@ -528,6 +530,8 @@ export default function MasterSettingsView({
       valetFeeT2: typeof c.valetFeeT2 === 'number' ? c.valetFeeT2 : 0,
       dropFeeT1: typeof c.dropFeeT1 === 'number' ? c.dropFeeT1 : 0,
       dropFeeT2: typeof c.dropFeeT2 === 'number' ? c.dropFeeT2 : 0,
+      meetGreetFeeT1: typeof c.meetGreetFeeT1 === 'number' ? c.meetGreetFeeT1 : 0,
+      meetGreetFeeT2: typeof c.meetGreetFeeT2 === 'number' ? c.meetGreetFeeT2 : 0,
     });
     if (!profileDirtyRef.current) {
       setPartnerName(c.name || companyInfo.name || '');
@@ -592,12 +596,26 @@ export default function MasterSettingsView({
         return;
       }
 
-      // 받는 상품이 없는 터미널의 추가요금은 Firestore에서 삭제. 대면은 「필드 없음=미제공」 규칙 유지
+      // 받는 상품이 없는 터미널의 추가요금은 Firestore에서 삭제. 커브·밋앤그릿은 「필드 없음=미제공」
       const feeFields = {
-        valetFeeT1: productsOfferHandoff(parkingProducts, 'meet', 'T1') ? Math.trunc(handoffFees.valetFeeT1) : null,
-        valetFeeT2: productsOfferHandoff(parkingProducts, 'meet', 'T2') ? Math.trunc(handoffFees.valetFeeT2) : null,
-        dropFeeT1: productsOfferHandoff(parkingProducts, 'drop', 'T1') ? Math.trunc(handoffFees.dropFeeT1) : null,
-        dropFeeT2: productsOfferHandoff(parkingProducts, 'drop', 'T2') ? Math.trunc(handoffFees.dropFeeT2) : null,
+        valetFeeT1: productsOfferHandoff(parkingProducts, 'curb', 'T1')
+          ? Math.trunc(handoffFees.valetFeeT1)
+          : null,
+        valetFeeT2: productsOfferHandoff(parkingProducts, 'curb', 'T2')
+          ? Math.trunc(handoffFees.valetFeeT2)
+          : null,
+        dropFeeT1: productsOfferHandoff(parkingProducts, 'drop', 'T1')
+          ? Math.trunc(handoffFees.dropFeeT1)
+          : null,
+        dropFeeT2: productsOfferHandoff(parkingProducts, 'drop', 'T2')
+          ? Math.trunc(handoffFees.dropFeeT2)
+          : null,
+        meetGreetFeeT1: productsOfferHandoff(parkingProducts, 'meet_greet', 'T1')
+          ? Math.trunc(handoffFees.meetGreetFeeT1)
+          : null,
+        meetGreetFeeT2: productsOfferHandoff(parkingProducts, 'meet_greet', 'T2')
+          ? Math.trunc(handoffFees.meetGreetFeeT2)
+          : null,
       };
       if (Object.values(feeFields).some((fee) => fee != null && (!Number.isInteger(fee) || fee < 0))) {
         alert('추가요금은 0 이상의 정수(원)로 입력해 주세요. (무료면 0)');
@@ -700,7 +718,13 @@ export default function MasterSettingsView({
           else delete next.pickupLocation;
           next.parkingProducts = productsPayload;
           for (const [key, fee] of Object.entries(feeFields)) {
-            const field = key as 'valetFeeT1' | 'valetFeeT2' | 'dropFeeT1' | 'dropFeeT2';
+            const field = key as
+              | 'valetFeeT1'
+              | 'valetFeeT2'
+              | 'dropFeeT1'
+              | 'dropFeeT2'
+              | 'meetGreetFeeT1'
+              | 'meetGreetFeeT2';
             if (fee == null) delete next[field];
             else next[field] = fee;
           }
@@ -1133,7 +1157,7 @@ export default function MasterSettingsView({
               </div>
 
               <p className="text-[11px] text-zinc-500 font-semibold px-1">
-                대면·비대면 추가요금은 「상품」 탭에서 받는 방식을 체크한 뒤 적습니다.
+                커브·밋앤그릿·드랍 추가요금은 「상품」 탭에서 받는 방식을 체크한 뒤 적습니다.
               </p>
             </>
           )}
