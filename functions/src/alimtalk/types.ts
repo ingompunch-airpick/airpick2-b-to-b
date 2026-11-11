@@ -30,7 +30,10 @@ export interface ReservationSnapshot {
   receiptCode?: string;
   /** 알림톡 경로용 짧 은 코드 (구형 긴 receiptToken 대비) */
   receiptLinkCode?: string;
-  alimtalkSent?: Partial<Record<'reserve' | 'checkin' | 'checkout', AlimtalkSentRecord>>;
+  alimtalkSent?: Partial<
+    Record<'reserve' | 'remind' | 'checkin' | 'checkout', AlimtalkSentRecord>
+  >;
+  createdAt?: string;
 
   /** 업체 상세 템플릿용 — 일정·항공편·주차 위치 */
   departureDate?: string;

@@ -17,6 +17,8 @@ import { verifyPartnerLogin } from './admin/verifyPartnerLogin';
 import { upsertCompanyEmployees } from './admin/upsertCompanyEmployees';
 import { getHqMonthLedger } from './admin/getHqMonthLedger';
 import { freezePastHqMonths } from './hqMonthSnapshot';
+import { applyAlimtalkRuntimeEnv } from './alimtalk/params';
+import { processRemindBatch } from './alimtalk/processRemindBatch';
 
 /** 손님(B2C) HTTPS API — 리전 asia-northeast3 (이름·리전 유지) */
 import { getReceipt } from './api/getReceipt';
@@ -69,6 +71,22 @@ if (!admin.apps.length) {
 const flightDelayEnabled = defineString('FLIGHT_DELAY_ENABLED', { default: 'false' });
 /** ICN 손님 API와 동일 — Secret Manager. .env에 평문으로 넣지 말 것(겹침 오류). */
 const dataGoKrServiceKey = defineSecret('DATA_GO_KR_SERVICE_KEY');
+
+/** 매일 19:00 KST — 내일 입고 airpick-b2c 예약에 remind 알림톡 */
+export const dispatchAlimtalkReminders = onSchedule(
+  {
+    schedule: '0 19 * * *',
+    timeZone: 'Asia/Seoul',
+    region: 'asia-northeast3',
+    memory: '512MiB',
+    timeoutSeconds: 540,
+  },
+  async () => {
+    applyAlimtalkRuntimeEnv();
+    const result = await processRemindBatch();
+    console.log('[dispatchAlimtalkReminders]', JSON.stringify(result));
+  }
+);
 
 /** 매일 00:20 KST — 지난달 합계를 hqMonthSnapshots 에 남긴다. 이번달은 적지 않는다. */
 export const freezeHqMonthSnapshots = onSchedule(

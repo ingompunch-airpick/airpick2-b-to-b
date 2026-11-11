@@ -1,11 +1,11 @@
 import { onDocumentWritten } from 'firebase-functions/v2/firestore';
-import { defineString } from 'firebase-functions/params';
 import {
   sheetsArchiveEnabled,
   sheetsServiceAccountJson,
   sheetsSpreadsheetId,
   sheetsWawaSpreadsheetId,
 } from './sheets/params';
+import { applyAlimtalkRuntimeEnv } from './alimtalk/params';
 import { buildNhnConfigFromEnv, processReservationAlimtalk } from './alimtalk/sendReservationAlimtalk';
 import { buildSheetsConfigFromEnv } from './sheets/syncReservation';
 import { processReservationSheetsArchive } from './sheets/processReservationSheets';
@@ -27,32 +27,8 @@ import {
 import { syncCapacityAggregate } from './capacityAggregate';
 import { syncParkingOccupancy } from './parkingOccupancy';
 
-const alimtalkEnabled = defineString('ALIMTALK_ENABLED', { default: 'false' });
-const alimtalkProvider = defineString('ALIMTALK_PROVIDER', { default: 'nhn' });
-const nhnAppKey = defineString('NHN_ALIMTALK_APP_KEY', { default: '' });
-const nhnSecretKey = defineString('NHN_ALIMTALK_SECRET_KEY', { default: '' });
-const nhnSenderKey = defineString('NHN_ALIMTALK_SENDER_KEY', { default: '' });
-const ncpAccessKey = defineString('NCP_ALIMTALK_ACCESS_KEY', { default: '' });
-const ncpSecretKey = defineString('NCP_ALIMTALK_SECRET_KEY', { default: '' });
-const ncpServiceId = defineString('NCP_ALIMTALK_SERVICE_ID', { default: '' });
-const ncpPlusFriendId = defineString('NCP_ALIMTALK_PLUS_FRIEND_ID', { default: '@airpickup' });
-const ncpTemplateReserve = defineString('NCP_ALIMTALK_TEMPLATE_RESERVE', { default: 'reservation2' });
-const ncpTemplateCheckin = defineString('NCP_ALIMTALK_TEMPLATE_CHECKIN', { default: '' });
-const ncpTemplateCheckout = defineString('NCP_ALIMTALK_TEMPLATE_CHECKOUT', { default: 'checkout1' });
-
 function applyRuntimeEnv(): void {
-  process.env.ALIMTALK_ENABLED = alimtalkEnabled.value();
-  process.env.ALIMTALK_PROVIDER = alimtalkProvider.value();
-  process.env.NHN_ALIMTALK_APP_KEY = nhnAppKey.value();
-  process.env.NHN_ALIMTALK_SECRET_KEY = nhnSecretKey.value();
-  process.env.NHN_ALIMTALK_SENDER_KEY = nhnSenderKey.value();
-  process.env.NCP_ALIMTALK_ACCESS_KEY = ncpAccessKey.value();
-  process.env.NCP_ALIMTALK_SECRET_KEY = ncpSecretKey.value();
-  process.env.NCP_ALIMTALK_SERVICE_ID = ncpServiceId.value();
-  process.env.NCP_ALIMTALK_PLUS_FRIEND_ID = ncpPlusFriendId.value();
-  process.env.NCP_ALIMTALK_TEMPLATE_RESERVE = ncpTemplateReserve.value();
-  process.env.NCP_ALIMTALK_TEMPLATE_CHECKIN = ncpTemplateCheckin.value();
-  process.env.NCP_ALIMTALK_TEMPLATE_CHECKOUT = ncpTemplateCheckout.value();
+  applyAlimtalkRuntimeEnv();
 
   process.env.SHEETS_ARCHIVE_ENABLED = sheetsArchiveEnabled.value();
   process.env.GOOGLE_SHEETS_SPREADSHEET_ID = sheetsSpreadsheetId.value();

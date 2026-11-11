@@ -19,7 +19,7 @@ export function resolveAlimtalkProvider(): AlimtalkProvider {
 
 /**
  * NCP는 콘솔에 등록된 코드만 사용.
- * checkin/checkout 미설정 시 빈 문자열 → 발송 스킵 (reserve만 먼저 검증할 때).
+ * checkin 미설정 시 빈 문자열 → 발송 스킵.
  */
 export function resolveTemplateCode(
   eventType: AlimtalkEventType,
@@ -28,13 +28,14 @@ export function resolveTemplateCode(
   if (provider === 'ncp') {
     const envMap: Record<AlimtalkEventType, string | undefined> = {
       reserve: process.env.NCP_ALIMTALK_TEMPLATE_RESERVE?.trim(),
+      remind: process.env.NCP_ALIMTALK_TEMPLATE_REMIND?.trim(),
       checkin: process.env.NCP_ALIMTALK_TEMPLATE_CHECKIN?.trim(),
       checkout: process.env.NCP_ALIMTALK_TEMPLATE_CHECKOUT?.trim(),
     };
     const fromEnv = envMap[eventType];
     if (fromEnv) return fromEnv;
-    // reserve / checkout 콘솔 코드 (reservation 정지 → reservation2, checkout1)
-    if (eventType === 'reserve') return 'reservation2';
+    if (eventType === 'reserve') return 'reservation3';
+    if (eventType === 'remind') return 'remind';
     if (eventType === 'checkout') return 'checkout1';
     return '';
   }
@@ -72,6 +73,7 @@ export function buildAlimtalkConfigFromEnv(): AlimtalkConfig | null {
       plusFriendId,
       templateCodes: {
         reserve: resolveTemplateCode('reserve', 'ncp'),
+        remind: resolveTemplateCode('remind', 'ncp'),
         checkin: resolveTemplateCode('checkin', 'ncp'),
         checkout: resolveTemplateCode('checkout', 'ncp'),
       },

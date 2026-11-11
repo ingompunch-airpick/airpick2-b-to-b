@@ -1,4 +1,8 @@
-import { RECEIPT_PUBLIC_ORIGIN, REVIEW_PUBLIC_ORIGIN } from './constants';
+import {
+  DIRECTIONS_PUBLIC_ORIGIN,
+  RECEIPT_PUBLIC_ORIGIN,
+  REVIEW_PUBLIC_ORIGIN,
+} from './constants';
 import type { ReservationSnapshot } from './types';
 
 /** 알림톡 #{토큰} · `/r/{code}` 경로에 넣을 짧은 코드 (≤14) */
@@ -62,4 +66,20 @@ export function buildReviewUrl(
   if (!id) return '';
   const base = origin.replace(/\/$/, '');
   return `${base}/my?review=${encodeURIComponent(id)}`;
+}
+
+/**
+ * 가는 길 — `/directions` 또는 `/directions/{토큰}`.
+ * reservation3 등록본은 토큰 없는 고정 URL, remind 는 토큰 경로.
+ */
+export function buildDirectionsUrl(
+  reservation: Pick<ReservationSnapshot, 'id' | 'receiptToken' | 'receiptCode' | 'receiptLinkCode'>,
+  options: { withToken?: boolean } = {},
+  origin: string = DIRECTIONS_PUBLIC_ORIGIN
+): string {
+  const base = origin.replace(/\/$/, '');
+  if (!options.withToken) return `${base}/directions`;
+  const pathCode = resolveReceiptPathCode(reservation);
+  if (!pathCode) return `${base}/directions`;
+  return `${base}/directions/${encodeURIComponent(pathCode)}`;
 }

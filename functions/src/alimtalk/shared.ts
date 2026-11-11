@@ -42,6 +42,7 @@ export interface NcpAlimtalkConfig {
   plusFriendId: string;
   templateCodes: {
     reserve: string;
+    remind: string;
     checkin: string;
     checkout: string;
   };

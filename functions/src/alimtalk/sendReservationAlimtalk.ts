@@ -1,43 +1,79 @@
 import * as admin from 'firebase-admin';
 import * as nodeCrypto from 'crypto';
 import { type AlimtalkEventType } from './constants';
-import { applyCompanyChannel, fetchCompanyAlimtalkSettings } from './companyPolicy';
+import {
+  applyCompanyChannel,
+  fetchCompanyAlimtalkSettings,
+  type CompanyAlimtalkSettings,
+} from './companyPolicy';
+import { resolveAlimtalkHandoffLabels } from './handoffLabels';
 import {
   buildAlimtalkConfigFromEnv,
   isNcpTemplateReady,
   resolveTemplateCode,
   sendAlimtalkMessage,
 } from './provider';
-import type { AlimtalkButton } from './shared';
+import type { AlimtalkButton, AlimtalkConfig, RenderedAlimtalkContent } from './shared';
 import { normalizeRecipientPhone } from './phone';
-import { buildReceiptUrl, buildReviewUrl, resolveReceiptPathCode } from './receiptUrl';
+import {
+  buildDirectionsUrl,
+  buildReceiptUrl,
+  buildReviewUrl,
+  resolveReceiptPathCode,
+} from './receiptUrl';
 import { renderTemplateBody } from './ncpTemplates';
 import {
   buildCheckinParams,
   buildCheckoutParams,
   buildPartnerDetailParams,
+  buildRemindParams,
   buildReserveParams,
+  type AirpickDetailParamOptions,
 } from './templateParams';
 import type { AlimtalkTemplateParams, ReservationSnapshot } from './types';
-import { resolveBookingSource } from '../sheets/bookingSource';
-import type { RenderedAlimtalkContent } from './shared';
+import { resolveBookingSource, type BookingSource } from '../sheets/bookingSource';
 
 const CLAIM_TTL_MS = 90_000;
 
-function snapshotFromData(id: string, data: FirebaseFirestore.DocumentData | undefined): ReservationSnapshot | null {
+function snapshotFromData(
+  id: string,
+  data: FirebaseFirestore.DocumentData | undefined
+): ReservationSnapshot | null {
   if (!data) return null;
   return { id, ...data } as ReservationSnapshot;
 }
 
-function resolveTemplateParams(
+async function resolveAirpickDetailOptions(
+  reservation: ReservationSnapshot,
+  companyPhone: string
+): Promise<AirpickDetailParamOptions> {
+  const handoff = await resolveAlimtalkHandoffLabels(
+    reservation.companyId,
+    reservation.departureTerminal,
+    reservation.companyName
+  );
+  return {
+    companyName: handoff.companyName,
+    companyPhone,
+    handoffMethod: handoff.handoffMethod,
+    pickupGuide: handoff.pickupGuide,
+  };
+}
+
+async function resolveTemplateParams(
   eventType: AlimtalkEventType,
   reservation: ReservationSnapshot,
   companyPhone: string
-): AlimtalkTemplateParams {
+): Promise<AlimtalkTemplateParams> {
   const receiptUrl = buildReceiptUrl(reservation);
   switch (eventType) {
     case 'reserve':
-      return buildReserveParams(reservation, receiptUrl);
+    case 'remind': {
+      const options = await resolveAirpickDetailOptions(reservation, companyPhone);
+      return eventType === 'reserve'
+        ? buildReserveParams(reservation, options, receiptUrl)
+        : buildRemindParams(reservation, options);
+    }
     case 'checkin':
       return buildCheckinParams(reservation, receiptUrl);
     case 'checkout':
@@ -45,31 +81,60 @@ function resolveTemplateParams(
   }
 }
 
-function resolveAlimtalkButton(
+function resolveAlimtalkButtons(
   eventType: AlimtalkEventType,
   reservation: ReservationSnapshot
-): AlimtalkButton | null {
+): AlimtalkButton[] | null {
   if (eventType === 'checkout') {
     const reviewUrl = buildReviewUrl(reservation);
     if (!reviewUrl) return null;
-    return {
-      ordering: 1,
-      type: 'WL',
-      name: '후기 남기기',
-      linkMo: reviewUrl,
-      linkPc: reviewUrl,
-    };
+    return [
+      {
+        ordering: 1,
+        type: 'WL',
+        name: '후기 남기기',
+        linkMo: reviewUrl,
+        linkPc: reviewUrl,
+      },
+    ];
   }
 
   const receiptUrl = buildReceiptUrl(reservation);
   if (!receiptUrl) return null;
-  return {
-    ordering: 1,
-    type: 'WL',
-    name: eventType === 'checkin' ? '보관증 보기' : '접수증 보기',
-    linkMo: receiptUrl,
-    linkPc: receiptUrl,
-  };
+
+  if (eventType === 'checkin') {
+    return [
+      {
+        ordering: 1,
+        type: 'WL',
+        name: '보관증 보기',
+        linkMo: receiptUrl,
+        linkPc: receiptUrl,
+      },
+    ];
+  }
+
+  // reservation3: 가는 길 고정 URL / remind: 토큰 경로
+  const directionsUrl = buildDirectionsUrl(reservation, {
+    withToken: eventType === 'remind',
+  });
+
+  return [
+    {
+      ordering: 1,
+      type: 'WL',
+      name: '접수증 보기',
+      linkMo: receiptUrl,
+      linkPc: receiptUrl,
+    },
+    {
+      ordering: 2,
+      type: 'WL',
+      name: '가는 길 보기',
+      linkMo: directionsUrl,
+      linkPc: directionsUrl,
+    },
+  ];
 }
 
 export function resolveAlimtalkEvents(
@@ -87,7 +152,6 @@ export function resolveAlimtalkEvents(
       | undefined;
     if (!record) return true;
     if (record.error) return true;
-    // requestId 있으면 성공 — claimAt만 있으면 mark 실패·중단으로 간주 → 재시도
     if (record.requestId) return false;
     return true;
   };
@@ -97,7 +161,6 @@ export function resolveAlimtalkEvents(
     return events;
   }
 
-  // secretKey 오류 등 이전 실패분 — 상태 변화 없어도 문서 갱신 시 재시도
   if (after.alimtalkSent?.reserve?.error && needsSend('reserve')) {
     events.push('reserve');
   }
@@ -122,7 +185,6 @@ type SentRecordPayload = {
   buttonUrl?: string;
 };
 
-/** 동시 트리거(시트 sync 등)로 알림톡이 두 번 나가는 것 방지 */
 async function tryClaimAlimtalkSend(
   reservationId: string,
   eventType: AlimtalkEventType
@@ -139,10 +201,8 @@ async function tryClaimAlimtalkSend(
           }
         | undefined;
 
-      // 이미 성공
       if (record?.requestId && !record.error) return false;
 
-      // 다른 인스턴스가 claim 중
       const claimMs = Date.parse(String(record?.claimAt || ''));
       if (
         Number.isFinite(claimMs) &&
@@ -168,7 +228,6 @@ async function markAlimtalkSent(
   eventType: AlimtalkEventType,
   record: SentRecordPayload
 ): Promise<void> {
-  // 맵 통째 교체로 claimAt 제거 — nested FieldValue.delete() 는 Firestore에서 불가
   await admin.firestore().doc(`reservations/${reservationId}`).update({
     [`alimtalkSent.${eventType}`]: {
       sentAt: new Date().toISOString(),
@@ -185,10 +244,6 @@ function createShortReceiptLinkCode(): string {
   return nodeCrypto.randomBytes(6).toString('hex');
 }
 
-/**
- * 구형 32자 receiptToken 예약 — 알림톡 #{토큰}(≤14)용 receiptLinkCode 부여.
- * 신규 12자 토큰은 그대로 사용.
- */
 async function ensureReceiptPathCode(
   reservationId: string,
   reservation: ReservationSnapshot
@@ -203,65 +258,27 @@ async function ensureReceiptPathCode(
   return { ...reservation, receiptLinkCode: code };
 }
 
-export async function processReservationAlimtalk(
-  reservationId: string,
-  beforeData: FirebaseFirestore.DocumentData | undefined,
-  afterData: FirebaseFirestore.DocumentData | undefined,
-  config: ReturnType<typeof buildAlimtalkConfigFromEnv>
-): Promise<void> {
-  const before = snapshotFromData(reservationId, beforeData);
-  const after = snapshotFromData(reservationId, afterData);
+async function sendEventsForReservation(args: {
+  reservationId: string;
+  reservation: ReservationSnapshot;
+  source: BookingSource;
+  companySettings: CompanyAlimtalkSettings;
+  events: AlimtalkEventType[];
+  config: AlimtalkConfig;
+  recipientNo: string;
+}): Promise<void> {
+  const {
+    reservationId,
+    source,
+    companySettings,
+    events,
+    config,
+    recipientNo,
+  } = args;
 
-  const candidateEvents = resolveAlimtalkEvents(before, after);
-  if (candidateEvents.length === 0) return;
-
-  /**
-   * 발송 대상은 업체 설정(companies/{id}.alimtalk)이 정한다.
-   * 설정이 없으면 기존과 동일하게 에어픽(B2C) 예약만 — 홈페이지·현장 B2B는 시트만 동기화.
-   */
-  const source = resolveBookingSource(after?.createdBy, afterData as Record<string, unknown> | undefined);
-  const companySettings = await fetchCompanyAlimtalkSettings(after?.companyId);
-  if (!companySettings.enabled || !companySettings.sources.includes(source)) {
-    console.log('[alimtalk] skipped — company policy', {
-      reservationId,
-      companyId: after?.companyId,
-      createdBy: after?.createdBy,
-      source,
-      enabled: companySettings.enabled,
-      sources: companySettings.sources,
-    });
-    return;
-  }
-
-  const events = candidateEvents.filter((e) => companySettings.events.includes(e));
-  if (events.length === 0) {
-    console.log('[alimtalk] skipped — event disabled for company', {
-      reservationId,
-      companyId: after?.companyId,
-      candidateEvents,
-      enabledEvents: companySettings.events,
-    });
-    return;
-  }
-
-  if (!config) {
-    console.log('[alimtalk] skipped — credentials or ALIMTALK_ENABLED not configured', {
-      reservationId,
-      events,
-      provider: process.env.ALIMTALK_PROVIDER || 'nhn',
-    });
-    return;
-  }
-
-  const recipientNo = normalizeRecipientPhone(after?.phone);
-  if (!recipientNo) {
-    console.warn('[alimtalk] skipped — invalid phone', { reservationId, phone: after?.phone });
-    return;
-  }
-
-  let reservationForSend = after!;
+  let reservationForSend = args.reservation;
   try {
-    reservationForSend = await ensureReceiptPathCode(reservationId, after!);
+    reservationForSend = await ensureReceiptPathCode(reservationId, args.reservation);
   } catch (err) {
     console.error('[alimtalk] ensureReceiptPathCode failed', {
       reservationId,
@@ -271,11 +288,6 @@ export async function processReservationAlimtalk(
 
   const companyPhone = companySettings.phone;
 
-  /**
-   * 에어픽(B2C) 예약은 항상 공용 템플릿 + 공용 채널(@airpickup).
-   * 홈페이지·현장만 업체 채널·전용 템플릿을 쓴다.
-   * (업체 채널에 에어픽 템플릿을 실으면 NCP 수신 실패 — @wawa0521+reservation2 사례)
-   */
   for (const eventType of events) {
     const partnerTemplate =
       source !== 'airpick-b2c' ? companySettings.templates?.[eventType] : undefined;
@@ -283,7 +295,7 @@ export async function processReservationAlimtalk(
     if (source !== 'airpick-b2c' && !partnerTemplate) {
       console.log('[alimtalk] skipped — no partner template for event', {
         reservationId,
-        companyId: after?.companyId,
+        companyId: args.reservation.companyId,
         source,
         eventType,
       });
@@ -301,7 +313,6 @@ export async function processReservationAlimtalk(
       console.log('[alimtalk] skipped — NCP template not configured yet', {
         reservationId,
         eventType,
-        hint: 'set NCP_ALIMTALK_TEMPLATE_CHECKIN / CHECKOUT after reserve works',
       });
       continue;
     }
@@ -312,14 +323,16 @@ export async function processReservationAlimtalk(
       continue;
     }
 
-    const templateCode = partnerTemplate?.code || resolveTemplateCode(eventType, config.provider);
+    const templateCode =
+      partnerTemplate?.code || resolveTemplateCode(eventType, config.provider);
     if (!templateCode) {
       console.log('[alimtalk] skipped — empty template code', { reservationId, eventType });
       continue;
     }
+
     const templateParameter = partnerTemplate
       ? buildPartnerDetailParams(reservationForSend)
-      : resolveTemplateParams(eventType, reservationForSend, companyPhone);
+      : await resolveTemplateParams(eventType, reservationForSend, companyPhone);
     const rendered: RenderedAlimtalkContent | undefined = partnerTemplate
       ? {
           ...(partnerTemplate.title ? { title: partnerTemplate.title } : {}),
@@ -328,18 +341,21 @@ export async function processReservationAlimtalk(
       : undefined;
 
     const receiptUrl = buildReceiptUrl(reservationForSend);
-    const button = partnerTemplate
+    const buttons: AlimtalkButton[] | undefined = partnerTemplate
       ? partnerTemplate.buttonName && receiptUrl
-        ? {
-            ordering: 1,
-            type: 'WL' as const,
-            name: partnerTemplate.buttonName,
-            linkMo: receiptUrl,
-            linkPc: receiptUrl,
-          }
-        : null
-      : resolveAlimtalkButton(eventType, reservationForSend);
-    if (!partnerTemplate && !button) {
+        ? [
+            {
+              ordering: 1,
+              type: 'WL',
+              name: partnerTemplate.buttonName,
+              linkMo: receiptUrl,
+              linkPc: receiptUrl,
+            },
+          ]
+        : undefined
+      : resolveAlimtalkButtons(eventType, reservationForSend) || undefined;
+
+    if (!partnerTemplate && (!buttons || buttons.length === 0)) {
       console.warn('[alimtalk] skipped — button link empty', { reservationId, eventType });
       await markAlimtalkSent(reservationId, eventType, {
         templateCode,
@@ -348,14 +364,16 @@ export async function processReservationAlimtalk(
       });
       continue;
     }
-    const buttons: AlimtalkButton[] | undefined = button ? [button] : undefined;
-    const buttonUrl = button?.linkMo || '';
+    const buttonUrl = buttons?.map((b) => b.linkMo).filter(Boolean).join(' | ') || '';
 
-    // 업체 전용 템플릿은 반드시 업체 채널로만. 채널 없으면 에어픽에 잘못 실리지 않게 중단.
-    if (partnerTemplate && !companySettings.channel?.plusFriendId && !companySettings.channel?.senderKey) {
+    if (
+      partnerTemplate &&
+      !companySettings.channel?.plusFriendId &&
+      !companySettings.channel?.senderKey
+    ) {
       console.warn('[alimtalk] skipped — partner template without company channel', {
         reservationId,
-        companyId: after?.companyId,
+        companyId: args.reservation.companyId,
         source,
         eventType,
         templateCode,
@@ -399,7 +417,6 @@ export async function processReservationAlimtalk(
         continue;
       }
 
-      // 접수/입차는 버튼(접수증) 없이 성공 처리하지 않음 — 홈/대표링크만 열리는 것 방지
       const allowButtonless =
         eventType === 'checkout' &&
         (result.resultCode === -3000 ||
@@ -471,6 +488,156 @@ export async function processReservationAlimtalk(
       console.error('[alimtalk] exception', { reservationId, eventType, message, buttonUrl });
     }
   }
+}
+
+export async function processReservationAlimtalk(
+  reservationId: string,
+  beforeData: FirebaseFirestore.DocumentData | undefined,
+  afterData: FirebaseFirestore.DocumentData | undefined,
+  config: ReturnType<typeof buildAlimtalkConfigFromEnv>
+): Promise<void> {
+  const before = snapshotFromData(reservationId, beforeData);
+  const after = snapshotFromData(reservationId, afterData);
+
+  const candidateEvents = resolveAlimtalkEvents(before, after);
+  if (candidateEvents.length === 0) return;
+
+  const source = resolveBookingSource(
+    after?.createdBy,
+    afterData as Record<string, unknown> | undefined
+  );
+  const companySettings = await fetchCompanyAlimtalkSettings(after?.companyId);
+  if (!companySettings.enabled || !companySettings.sources.includes(source)) {
+    console.log('[alimtalk] skipped — company policy', {
+      reservationId,
+      companyId: after?.companyId,
+      createdBy: after?.createdBy,
+      source,
+      enabled: companySettings.enabled,
+      sources: companySettings.sources,
+    });
+    return;
+  }
+
+  const events = candidateEvents.filter((e) => companySettings.events.includes(e));
+  if (events.length === 0) {
+    console.log('[alimtalk] skipped — event disabled for company', {
+      reservationId,
+      companyId: after?.companyId,
+      candidateEvents,
+      enabledEvents: companySettings.events,
+    });
+    return;
+  }
+
+  if (!config) {
+    console.log('[alimtalk] skipped — credentials or ALIMTALK_ENABLED not configured', {
+      reservationId,
+      events,
+      provider: process.env.ALIMTALK_PROVIDER || 'nhn',
+    });
+    return;
+  }
+
+  const recipientNo = normalizeRecipientPhone(after?.phone);
+  if (!recipientNo) {
+    console.warn('[alimtalk] skipped — invalid phone', { reservationId, phone: after?.phone });
+    return;
+  }
+
+  await sendEventsForReservation({
+    reservationId,
+    reservation: after!,
+    source,
+    companySettings,
+    events,
+    config,
+    recipientNo,
+  });
+}
+
+/**
+ * 입고 전날 19:00 리마인드 — 스케줄러에서 호출.
+ * airpick-b2c 만, 예약 시 입고까지 24h 미만이면 생략.
+ */
+export async function processRemindAlimtalkForReservation(
+  reservationId: string,
+  data: FirebaseFirestore.DocumentData,
+  config: NonNullable<ReturnType<typeof buildAlimtalkConfigFromEnv>>
+): Promise<'sent' | 'skipped' | 'failed'> {
+  const reservation = snapshotFromData(reservationId, data);
+  if (!reservation) return 'skipped';
+  if (reservation.status === 'cancelled') return 'skipped';
+  if (
+    reservation.status === 'completed_in' ||
+    reservation.status === 'completed_out' ||
+    reservation.status === 'request_out'
+  ) {
+    return 'skipped';
+  }
+
+  const sent = reservation.alimtalkSent?.remind as
+    | { requestId?: string; error?: string }
+    | undefined;
+  if (sent?.requestId && !sent.error) return 'skipped';
+
+  const source = resolveBookingSource(
+    reservation.createdBy,
+    data as Record<string, unknown>
+  );
+  if (source !== 'airpick-b2c') return 'skipped';
+
+  const companySettings = await fetchCompanyAlimtalkSettings(reservation.companyId);
+  if (!companySettings.enabled || !companySettings.sources.includes(source)) {
+    return 'skipped';
+  }
+  // remind 는 @airpickup 공용 — 업체 events 에 없어도 B2C 는 발송
+
+  if (!shouldSendRemind(reservation)) return 'skipped';
+
+  const recipientNo = normalizeRecipientPhone(reservation.phone);
+  if (!recipientNo) return 'skipped';
+
+  await sendEventsForReservation({
+    reservationId,
+    reservation,
+    source,
+    companySettings,
+    events: ['remind'],
+    config,
+    recipientNo,
+  });
+
+  const after = await admin.firestore().doc(`reservations/${reservationId}`).get();
+  const record = after.data()?.alimtalkSent?.remind as
+    | { requestId?: string; error?: string }
+    | undefined;
+  if (record?.requestId && !record.error) return 'sent';
+  if (record?.error) return 'failed';
+  return 'skipped';
+}
+
+/** 예약 생성 시점에 입고까지 24시간 미만이면 리마인드 생략 */
+export function shouldSendRemind(reservation: ReservationSnapshot): boolean {
+  const departureMs = kstDateTimeMs(reservation.departureDate, reservation.departureTime);
+  if (!Number.isFinite(departureMs)) return false;
+
+  const createdMs = Date.parse(String(reservation.createdAt || ''));
+  if (Number.isFinite(createdMs) && departureMs - createdMs < 24 * 60 * 60 * 1000) {
+    return false;
+  }
+  return true;
+}
+
+function kstDateTimeMs(date?: string, time?: string): number {
+  const d = String(date || '').trim().slice(0, 10);
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(d)) return NaN;
+  const tRaw = String(time || '00:00').trim();
+  const tm = /^(\d{1,2}):(\d{2})/.exec(tRaw);
+  const hh = tm ? Number(tm[1]) : 0;
+  const mm = tm ? Number(tm[2]) : 0;
+  // Asia/Seoul = UTC+9
+  return Date.parse(`${d}T${String(hh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:00+09:00`);
 }
 
 export { buildAlimtalkConfigFromEnv as buildNhnConfigFromEnv };

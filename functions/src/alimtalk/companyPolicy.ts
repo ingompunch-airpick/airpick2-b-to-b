@@ -4,6 +4,13 @@ import type { BookingSource } from '../sheets/bookingSource';
 import { DEFAULT_COMPANY_PHONE, type AlimtalkEventType } from './constants';
 import type { AlimtalkConfig } from './shared';
 import {
+  BUCKS_CHANNEL_PLUS_FRIEND_ID,
+  BUCKS_RESERVE_BUTTON_NAME,
+  BUCKS_RESERVE_TEMPLATE_BODY,
+  BUCKS_RESERVE_TEMPLATE_CODE,
+  BUCKS_RESERVE_TEMPLATE_TITLE,
+} from './bucksReserveTemplate';
+import {
   WAWA_RESERVE_TEMPLATE_BODY,
   WAWA_RESERVE_TEMPLATE_CODE,
 } from './wawaReserveTemplate';
@@ -13,9 +20,14 @@ const KNOWN_TEMPLATE_BODIES: Record<string, string> = {
   [WAWA_RESERVE_TEMPLATE_CODE]: WAWA_RESERVE_TEMPLATE_BODY,
   // 예전 Firestore 값(밑줄) — 콘솔은 영문·숫자만 허용
   wawa_reserve: WAWA_RESERVE_TEMPLATE_BODY,
+  [BUCKS_RESERVE_TEMPLATE_CODE]: BUCKS_RESERVE_TEMPLATE_BODY,
 };
 
-const ALL_EVENTS: AlimtalkEventType[] = ['reserve', 'checkin', 'checkout'];
+const KNOWN_TEMPLATE_TITLES: Record<string, string> = {
+  [BUCKS_RESERVE_TEMPLATE_CODE]: BUCKS_RESERVE_TEMPLATE_TITLE,
+};
+
+const ALL_EVENTS: AlimtalkEventType[] = ['reserve', 'remind', 'checkin', 'checkout'];
 const ALL_SOURCES: BookingSource[] = ['airpick-b2c', 'homepage', 'b2b'];
 
 /**
@@ -99,7 +111,8 @@ function parseTemplates(
       codeRaw === 'wawa_reserve' ? WAWA_RESERVE_TEMPLATE_CODE : codeRaw;
     const body = String(e.body ?? '').trim() || KNOWN_TEMPLATE_BODIES[code] || '';
     if (!code || !body) continue;
-    const title = String(e.title ?? '').trim();
+    const title =
+      String(e.title ?? '').trim() || KNOWN_TEMPLATE_TITLES[code] || '';
     const buttonName = String(e.buttonName ?? '').trim();
     out[event] = {
       code,
@@ -109,7 +122,9 @@ function parseTemplates(
         ? { buttonName }
         : code === WAWA_RESERVE_TEMPLATE_CODE
           ? { buttonName: '접수증보기' }
-          : {}),
+          : code === BUCKS_RESERVE_TEMPLATE_CODE
+            ? { buttonName: BUCKS_RESERVE_BUTTON_NAME }
+            : {}),
     };
   }
 
@@ -146,14 +161,21 @@ export async function fetchCompanyAlimtalkSettings(
   try {
     const snap = await admin.firestore().doc(`companies/${companyId}`).get();
     const settings = parseCompanyAlimtalkSettings(snap.data());
-    // 와와 전용 채널 — Firestore channel 누락 시 콘솔 @wawa0521 사용
-    if (
-      String(companyId).trim().toLowerCase() === 'wawa' &&
-      !settings.channel?.plusFriendId
-    ) {
+    const id = String(companyId).trim().toLowerCase();
+    // 와와·벅스 전용 채널 — Firestore channel 누락 시 콘솔 기본값
+    if (id === 'wawa' && !settings.channel?.plusFriendId) {
       return {
         ...settings,
         channel: { ...(settings.channel || {}), plusFriendId: '@wawa0521' },
+      };
+    }
+    if (id === 'bucks' && !settings.channel?.plusFriendId) {
+      return {
+        ...settings,
+        channel: {
+          ...(settings.channel || {}),
+          plusFriendId: BUCKS_CHANNEL_PLUS_FRIEND_ID,
+        },
       };
     }
     return settings;
