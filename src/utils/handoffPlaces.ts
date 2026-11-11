@@ -101,9 +101,13 @@ export function resolveHandoffPlace(
   return PLACES[handoff][terminal];
 }
 
+/**
+ * 네이버 길찾기 경로: `/directions/{출발}/{도착}/{경유}/{모드}`
+ * 세 번째에 넣으면 경유지로 잡히므로 도착(두 번째)에 둔다. 출발 `-` = 현위치.
+ */
 export function naverDirectionsUrl(place: HandoffPlace): string {
   const name = encodeURIComponent(place.name);
-  return `https://map.naver.com/v5/directions/-/-/${place.lng},${place.lat},${name}/car`;
+  return `https://map.naver.com/p/directions/-/${place.lng},${place.lat},${name},,/-/car`;
 }
 
 export function kakaoDirectionsUrl(place: HandoffPlace): string {

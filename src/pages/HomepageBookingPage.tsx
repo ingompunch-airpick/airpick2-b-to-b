@@ -89,6 +89,39 @@ function splitLocal(value: string): { date: string; time: string } {
   return { date, time: time.slice(0, 5) };
 }
 
+function formatLocalDisplay(value: string): string {
+  const { date, time } = splitLocal(value);
+  if (!date) return '-';
+  const m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(date);
+  const datePart = m
+    ? `${m[1]}. ${Number(m[2])}. ${Number(m[3])}.`
+    : date;
+  if (!time) return datePart;
+  const [hhRaw, mm = '00'] = time.split(':');
+  const hh = Number(hhRaw);
+  if (!Number.isFinite(hh)) return `${datePart} ${time}`;
+  const period = hh < 12 ? '오전' : '오후';
+  const h12 = hh % 12 === 0 ? 12 : hh % 12;
+  return `${datePart} ${period} ${h12}:${mm}`;
+}
+
+function terminalDisplay(raw: string): string {
+  const t = raw.trim().toUpperCase();
+  if (t === 'T1') return 'T1 (제1여객터미널)';
+  if (t === 'T2') return 'T2 (제2여객터미널)';
+  return raw.trim() || '-';
+}
+
+function SummaryRow({ label, value }: { label: string; value: string }) {
+  if (!value.trim()) return null;
+  return (
+    <div className="flex items-start justify-between gap-4 py-2.5">
+      <dt className="shrink-0 text-sm text-stone-500">{label}</dt>
+      <dd className="text-right text-sm font-semibold text-stone-900 break-words">{value}</dd>
+    </div>
+  );
+}
+
 interface HomepageBookingPageProps {
   companyId: string;
 }
@@ -585,10 +618,10 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
               </p>
               <h1 className="mt-2 text-3xl font-bold tracking-tight">{displayName}</h1>
               <p className="mt-2 text-sm leading-relaxed text-stone-300">
-                예약이 접수되었습니다. 접수증에서 일정을 확인하세요.
+                예약이 접수되었습니다. 아래 내용을 확인해 주세요.
               </p>
             </div>
-            <div className="space-y-5 px-6 py-6">
+            <div className="space-y-6 px-6 py-6">
               <div className="flex items-end justify-between gap-4 border-b border-stone-100 pb-5">
                 <div>
                   <p className="text-xs font-medium text-stone-400">예약번호</p>
@@ -602,6 +635,37 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
                   </p>
                 </div>
               </div>
+
+              <dl className="divide-y divide-stone-100">
+                <SummaryRow label="예약자" value={userName.trim()} />
+                <SummaryRow label="휴대폰" value={phone.trim()} />
+                <SummaryRow label="차량기종" value={carModel.trim()} />
+                <SummaryRow label="차량번호" value={carNumber.trim()} />
+                <SummaryRow label="주차유형" value={isIndoor ? '실내' : '야외'} />
+              </dl>
+
+              <div>
+                <p className="text-[11px] font-semibold tracking-[0.18em] text-stone-400">출국</p>
+                <dl className="mt-1 divide-y divide-stone-100">
+                  <SummaryRow label="터미널" value={terminalDisplay(departureTerminal)} />
+                  <SummaryRow label="항공사" value={departureAirline.trim()} />
+                  <SummaryRow label="항공편" value={departureFlight.trim().toUpperCase()} />
+                  <SummaryRow label="공항도착" value={formatLocalDisplay(depLocal)} />
+                </dl>
+              </div>
+
+              <div>
+                <p className="text-[11px] font-semibold tracking-[0.18em] text-stone-400">입국</p>
+                <dl className="mt-1 divide-y divide-stone-100">
+                  <SummaryRow label="터미널" value={terminalDisplay(arrivalTerminal)} />
+                  <SummaryRow label="항공사" value={arrivalAirline.trim()} />
+                  <SummaryRow label="항공편" value={arrivalFlight.trim().toUpperCase()} />
+                  <SummaryRow label="비행기도착" value={formatLocalDisplay(arrLocal)} />
+                  <SummaryRow label="여행지" value={destination.trim()} />
+                  <SummaryRow label="요청사항" value={customerNotes.trim()} />
+                </dl>
+              </div>
+
               {done.receiptUrl ? (
                 <a
                   href={done.receiptUrl}
