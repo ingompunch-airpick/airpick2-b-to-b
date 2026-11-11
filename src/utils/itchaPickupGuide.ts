@@ -25,12 +25,12 @@ const T1 = {
 
 const T2 = {
   departure: {
-    place: '2터미널 단기주차장 지하 서편 146',
+    place: '2터미널 단기주차장 2층 서편 146',
     videoUrl: 'https://youtu.be/9TQLX_51n6o?si=m2bJGlxpFnMvmht5',
     videoLabel: '가는 길 보기',
   },
   arrival: {
-    place: '2터미널 단기주차장 지하 서편 146',
+    place: '2터미널 단기주차장 2층 서편 146',
     videoUrl: 'https://youtu.be/Jrd5I7TXe9U?si=kLc6D29WI-o6HKKw',
     videoLabel: '가는 길 보기',
   },
