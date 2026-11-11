@@ -2,7 +2,7 @@ import * as admin from 'firebase-admin';
 
 type HandoffType = 'curb' | 'meet_greet' | 'drop';
 
-const ITCHA_COMPANY_IDS = new Set(['gayu', 'season', 'hi', 'annyeong']);
+const ITCHA_COMPANY_IDS = new Set(['gayu', 'season', 'hi']);
 
 const METHOD_LABEL: Record<HandoffType, string> = {
   drop: '단기주차장에 세우고 내리기',

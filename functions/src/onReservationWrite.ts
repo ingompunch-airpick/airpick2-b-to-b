@@ -45,8 +45,8 @@ function applyRuntimeEnv(): void {
  * - 마감일·전체마감·당일차단 신규건 자동취소 (홈페이지/B2C 백스톱)
  * - 시간당 한도 초과 신규건 자동취소
  * - 파트너 FCM (신규 예약 / 입고·출고 상태 전환)
+ * - 알림톡 발송 (NCP/NHN) — 시트보다 먼저
  * - Google Sheets 장부 동기화 (탭: 에어픽 / 와와 / 가유 / …)
- * - 알림톡 발송 (NHN 또는 NCP, 활성화 시)
  */
 export const onReservationSync = onDocumentWritten(
   {
@@ -181,18 +181,19 @@ export const onReservationSync = onDocumentWritten(
       }
     }
 
-    await processReservationSheetsArchive(
-      reservationId,
-      beforeData,
-      afterData,
-      buildSheetsConfigFromEnv()
-    );
-
+    // 알림톡 우선 — 시트 잠금/지연에 카톡이 묶이지 않게
     await processReservationAlimtalk(
       reservationId,
       beforeData,
       afterData,
       buildNhnConfigFromEnv()
+    );
+
+    await processReservationSheetsArchive(
+      reservationId,
+      beforeData,
+      afterData,
+      buildSheetsConfigFromEnv()
     );
   }
 );

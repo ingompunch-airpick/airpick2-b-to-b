@@ -37,7 +37,7 @@ const T2 = {
 } as const satisfies Record<'departure' | 'arrival', ItchaPickupLeg>;
 
 /** 동일 만남 장소·영상을 쓰는 업체 ID */
-const ITCHA_PICKUP_COMPANY_IDS = new Set(['gayu', 'season', 'hi', 'annyeong']);
+const ITCHA_PICKUP_COMPANY_IDS = new Set(['gayu', 'season', 'hi']);
 
 export function usesItchaPickupGuide(companyId?: string | null): boolean {
   const id = String(companyId || '')

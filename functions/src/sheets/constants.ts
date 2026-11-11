@@ -60,6 +60,7 @@ export const COMPANY_TAB_BY_ID: Record<string, string> = {
   gayu_partner: '가유',
   season: '시즌',
   hi: '안녕',
+  // 레거시 companyId — 신규는 hi 만. 옛 예약 시트 탭용
   annyeong: '안녕',
   asia: '아시아',
   airpick: '에어픽본사',

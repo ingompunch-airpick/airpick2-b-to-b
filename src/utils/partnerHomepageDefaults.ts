@@ -322,10 +322,10 @@ export function buildPartnerHomepageConfig(seed: PartnerHomepageSeed): PartnerHo
 
 export function partnerHomepageBookingUrl(companyId: string) {
   const id = companyId.trim().toLowerCase();
+  // 공식 companyId 는 hi / gayu / season. URL path 의 annyeong·gayou 는 itcha 쪽 경로명.
   const external: Record<string, string> = {
     gayu: 'https://www.itcha.co.kr/reserve/gayou/',
     hi: 'https://www.itcha.co.kr/reserve/annyeong',
-    annyeong: 'https://www.itcha.co.kr/reserve/annyeong',
     season: 'https://itcha.co.kr/reserve/seasonparking',
     seasonparking: 'https://itcha.co.kr/reserve/seasonparking',
   };
