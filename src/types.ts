@@ -421,8 +421,13 @@ export interface Reservation {
   cancelledAt?: string;
 
   // Process operator tracking
+  /** 유입 채널: homepage | airpick-b2c | b2b (접수자 이름 넣지 말 것) */
   createdBy?: string;
+  /** 현장 접수자 표시명 — 유입 채널(createdBy)과 분리 */
+  createdByOperator?: string;
   updatedBy?: string;
+  /** 출고 완료 시 방문수 +1 claim (Functions) */
+  visitBumpedAt?: string;
   /** 입고완료(completed_in) 처리 담당 — 손님 앱 「내 예약」 표시용 */
   checkedInBy?: string;
   checkedInAt?: string;

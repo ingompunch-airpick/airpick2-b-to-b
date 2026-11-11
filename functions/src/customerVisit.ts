@@ -29,17 +29,20 @@ function isCompletedOut(status: unknown): boolean {
 }
 
 /**
- * 출고 완료(completed_out)로 바뀌는 순간 그 업체의 방문만 +1.
+ * 출고 완료(completed_out) 진입 시 방문 +1 (예약당 1회).
+ * completed_out 을 되돌리면 -1 하고 claim 을 풀어 재출고 시 다시 +1.
  * customers/{phone}.visits.{companyId}
- * 예약만 잡고 취소·재예약한 경우는 방문으로 치지 않음.
  */
 export async function bumpCustomerVisitOnCheckout(
   reservationId: string,
   before: FirebaseFirestore.DocumentData | undefined,
   after: FirebaseFirestore.DocumentData
 ): Promise<void> {
-  if (!isCompletedOut(after.status)) return;
-  if (before && isCompletedOut(before.status)) return;
+  const afterOut = isCompletedOut(after.status);
+  const beforeOut = before ? isCompletedOut(before.status) : false;
+
+  if (afterOut && beforeOut) return;
+  if (!afterOut && !beforeOut) return;
 
   const phoneKey = normalizePhoneDigits(after.phone);
   if (!phoneKey || phoneKey.length < 10 || !phoneKey.startsWith('01')) {
@@ -53,43 +56,73 @@ export async function bumpCustomerVisitOnCheckout(
   const nameLast = String(after.userName || after.name || '').trim();
   const companyId = String(after.companyId || '').trim().toLowerCase();
   const now = new Date().toISOString();
-  const ref = admin.firestore().collection('customers').doc(phoneKey);
+  const resRef = admin.firestore().doc(`reservations/${reservationId}`);
+  const custRef = admin.firestore().collection('customers').doc(phoneKey);
 
+  if (afterOut && !beforeOut) {
+    await admin.firestore().runTransaction(async (tx) => {
+      const resSnap = await tx.get(resRef);
+      const resData = resSnap.data() || {};
+      if (resData.visitBumpedAt) return;
+
+      const snap = await tx.get(custRef);
+      if (!snap.exists) {
+        tx.set(custRef, {
+          phoneKey,
+          phoneDisplay: formatPhoneDisplay(phoneKey),
+          visitCount: 1,
+          ...(companyId ? { visits: { [companyId]: 1 } } : {}),
+          firstAt: now,
+          lastAt: now,
+          lastReservationId: reservationId,
+          ...(nameLast ? { nameLast } : {}),
+          ...(companyId ? { companyIds: [companyId] } : {}),
+          updatedAt: now,
+        });
+      } else {
+        const prev = snap.data() || {};
+        const companyIds = Array.isArray(prev.companyIds) ? [...prev.companyIds] : [];
+        if (companyId && !companyIds.includes(companyId)) companyIds.push(companyId);
+
+        tx.update(custRef, {
+          visitCount: admin.firestore.FieldValue.increment(1),
+          ...(companyId
+            ? { [`visits.${companyId}`]: admin.firestore.FieldValue.increment(1) }
+            : {}),
+          lastAt: now,
+          lastReservationId: reservationId,
+          phoneDisplay: formatPhoneDisplay(phoneKey),
+          updatedAt: now,
+          ...(nameLast ? { nameLast } : {}),
+          ...(companyIds.length ? { companyIds } : {}),
+        });
+      }
+
+      tx.update(resRef, { visitBumpedAt: now });
+    });
+    console.log('[customerVisit] bumped on checkout', { reservationId, phoneKey });
+    return;
+  }
+
+  // completed_out → 그 외: 이미 bump 했으면 1회 되돌림
   await admin.firestore().runTransaction(async (tx) => {
-    const snap = await tx.get(ref);
-    if (!snap.exists) {
-      tx.set(ref, {
-        phoneKey,
-        phoneDisplay: formatPhoneDisplay(phoneKey),
-        visitCount: 1,
-        ...(companyId ? { visits: { [companyId]: 1 } } : {}),
-        firstAt: now,
-        lastAt: now,
-        lastReservationId: reservationId,
-        ...(nameLast ? { nameLast } : {}),
-        ...(companyId ? { companyIds: [companyId] } : {}),
+    const resSnap = await tx.get(resRef);
+    const resData = resSnap.data() || {};
+    if (!resData.visitBumpedAt) return;
+
+    const snap = await tx.get(custRef);
+    if (snap.exists) {
+      tx.update(custRef, {
+        visitCount: admin.firestore.FieldValue.increment(-1),
+        ...(companyId
+          ? { [`visits.${companyId}`]: admin.firestore.FieldValue.increment(-1) }
+          : {}),
         updatedAt: now,
       });
-      return;
     }
-
-    const prev = snap.data() || {};
-    const companyIds = Array.isArray(prev.companyIds) ? [...prev.companyIds] : [];
-    if (companyId && !companyIds.includes(companyId)) companyIds.push(companyId);
-
-    tx.update(ref, {
-      visitCount: admin.firestore.FieldValue.increment(1),
-      ...(companyId
-        ? { [`visits.${companyId}`]: admin.firestore.FieldValue.increment(1) }
-        : {}),
-      lastAt: now,
-      lastReservationId: reservationId,
-      phoneDisplay: formatPhoneDisplay(phoneKey),
-      updatedAt: now,
-      ...(nameLast ? { nameLast } : {}),
-      ...(companyIds.length ? { companyIds } : {}),
+    tx.update(resRef, {
+      visitBumpedAt: admin.firestore.FieldValue.delete(),
     });
   });
-
-  console.log('[customerVisit] bumped on checkout', { reservationId, phoneKey });
+  console.log('[customerVisit] reverted on undo checkout', { reservationId, phoneKey });
 }

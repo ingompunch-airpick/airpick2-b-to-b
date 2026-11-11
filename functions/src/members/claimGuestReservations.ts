@@ -155,7 +155,8 @@ export const claimGuestReservations = onCall(
       const patch: FirebaseFirestore.UpdateData<FirebaseFirestore.DocumentData> = {
         reservationIds: nextIds,
       };
-      if (!already) {
+      // 0건이면 claim 잠금 금지 — 이후 비회원 예약이 생겨도 다시 붙일 수 있어야 함
+      if (!already && claimedReservationIds.length > 0) {
         patch.guestPhoneClaimed = phoneKey;
         patch.guestPhoneClaimedAt = new Date().toISOString();
       }

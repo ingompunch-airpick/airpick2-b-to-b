@@ -12,6 +12,7 @@ import {
 } from './sheets/params';
 import { normalizePhoneDigits } from './customerVisit';
 import { loadPurgedVisitCounts } from './customerHistory';
+import { resolveBookingSource } from './sheets/bookingSource';
 
 /** 스냅샷 전에는 지우지 않으므로, 예전 90일 안이면 그달 예약이 아직 온전하다. */
 const DATA_STILL_COMPLETE_DAYS = 90;
@@ -118,9 +119,12 @@ function companyIdOf(data: Record<string, unknown>): string {
 }
 
 function sourceOf(data: Record<string, unknown>): ResDoc['source'] {
-  const created = String(data.createdBy ?? '').trim().toLowerCase();
-  if (created === 'homepage') return 'homepage';
-  if (created === 'airpick-b2c' || created === 'airpick_b2c') return 'airpick';
+  const src = resolveBookingSource(
+    typeof data.createdBy === 'string' ? data.createdBy : null,
+    data
+  );
+  if (src === 'homepage') return 'homepage';
+  if (src === 'airpick-b2c') return 'airpick';
   return 'onsite';
 }
 

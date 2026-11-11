@@ -493,7 +493,18 @@ export default function SearchReceptionView({
       priceManual: intakePriceManual && totalPrice !== autoPrice,
       status: 'pending' as const,
       createdAt: new Date().toISOString(),
-      createdBy: isEmployee ? employeeName : (isSuperAdmin ? '본사 마스터(최고관리자)' : '업체 마스터'),
+      // 유입 채널은 고정값. 접수자 이름은 updatedBy/createdByOperator 로만.
+      createdBy: 'b2b',
+      createdByOperator: isEmployee
+        ? employeeName
+        : isSuperAdmin
+          ? '본사 마스터(최고관리자)'
+          : '업체 마스터',
+      updatedBy: isEmployee
+        ? employeeName
+        : isSuperAdmin
+          ? '본사 마스터(최고관리자)'
+          : '업체 마스터',
       ...(scheduleBlockOverride ? { scheduleBlockOverride: true } : {}),
       paymentMethod: 'unpaid',
       receiptCode: randReceipt,
