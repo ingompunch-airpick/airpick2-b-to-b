@@ -1,4 +1,7 @@
-/** companies/{id}.alimtalk — 홈페이지·현장 예약 알림톡 (NCP 콘솔 템플릿과 코드 일치) */
+/**
+ * companies/{id}.alimtalk — 홈페이지·현장 업체채널 알림톡.
+ * 에어픽 B2C는 여기와 무관하게 @airpickup 공용으로 항상 발송.
+ */
 
 export type CompanyAlimtalkSource = 'homepage' | 'b2b' | 'airpick-b2c';
 export type CompanyAlimtalkEvent = 'reserve' | 'checkin' | 'checkout';
@@ -204,34 +207,25 @@ export function summarizeCompanyAlimtalkForBoard(
       : {};
   const code = String(reserve.code || '').trim();
 
-  // enabled=false 는 업체 채널 OFF일 뿐 — B2C(@airpickup)는 계속 나간다
-  if (o.enabled === false) {
-    return {
-      kind: 'airpick',
-      label: '에어픽 공용',
-      detail: '업체 채널 OFF · B2C만 @airpickup',
-    };
-  }
-
-  if (plusFriendId && code) {
+  if (plusFriendId && code && o.enabled !== false) {
     return {
       kind: 'partner',
-      label: `ON · ${plusFriendId} · ${code}`,
-      detail: '홈/현장은 업체 채널 · B2C는 에어픽 공용',
+      label: `업체채널 · ${plusFriendId}`,
+      detail: `홈/현장 ${code} · B2C는 항상 @airpickup`,
     };
   }
 
   if (plusFriendId || code) {
     return {
       kind: 'incomplete',
-      label: '알림톡 미완',
-      detail: '채널 ID와 예약완료 코드를 등록·편집에서 보완',
+      label: '업체채널 미완',
+      detail: '채널·코드 연결 필요 · B2C는 이미 @airpickup',
     };
   }
 
   return {
     kind: 'airpick',
-    label: '에어픽 공용',
-    detail: 'B2C 예약만 @airpickup',
+    label: 'B2C @airpickup',
+    detail: '업체채널 미연결 · 에어픽 예약은 공용 발송',
   };
 }

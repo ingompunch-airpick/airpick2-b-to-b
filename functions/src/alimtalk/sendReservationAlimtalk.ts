@@ -507,24 +507,35 @@ export async function processReservationAlimtalk(
     afterData as Record<string, unknown> | undefined
   );
   const companySettings = await fetchCompanyAlimtalkSettings(after?.companyId);
-  // enabled=false 는 업체 채널(홈/현장) OFF. 에어픽 B2C(@airpickup)는 sources 만 본다.
-  const policyAllows =
-    source === 'airpick-b2c'
-      ? companySettings.sources.includes(source)
-      : companySettings.enabled && companySettings.sources.includes(source);
-  if (!policyAllows) {
-    console.log('[alimtalk] skipped — company policy', {
-      reservationId,
-      companyId: after?.companyId,
-      createdBy: after?.createdBy,
-      source,
-      enabled: companySettings.enabled,
-      sources: companySettings.sources,
-    });
-    return;
+
+  // 에어픽 B2C = 플랫폼 공용(@airpickup). 업체 enabled/sources/events 와 무관, 전 업체 무조건 발송.
+  // 홈·현장 = 업체 채널. 연결(enabled + channel + template)된 업체만.
+  if (source !== 'airpick-b2c') {
+    if (source === 'unknown') {
+      console.log('[alimtalk] skipped — unknown booking source', {
+        reservationId,
+        companyId: after?.companyId,
+        createdBy: after?.createdBy,
+      });
+      return;
+    }
+    if (!companySettings.enabled || !companySettings.sources.includes(source)) {
+      console.log('[alimtalk] skipped — partner channel policy', {
+        reservationId,
+        companyId: after?.companyId,
+        createdBy: after?.createdBy,
+        source,
+        enabled: companySettings.enabled,
+        sources: companySettings.sources,
+      });
+      return;
+    }
   }
 
-  const events = candidateEvents.filter((e) => companySettings.events.includes(e));
+  const events =
+    source === 'airpick-b2c'
+      ? candidateEvents
+      : candidateEvents.filter((e) => companySettings.events.includes(e));
   if (events.length === 0) {
     console.log('[alimtalk] skipped — event disabled for company', {
       reservationId,
@@ -592,11 +603,8 @@ export async function processRemindAlimtalkForReservation(
   );
   if (source !== 'airpick-b2c') return 'skipped';
 
+  // remind 도 B2C 공용 — 업체 설정 게이트 없음
   const companySettings = await fetchCompanyAlimtalkSettings(reservation.companyId);
-  // remind 는 @airpickup 공용 — 업체 enabled/events 와 무관, B2C sources 만
-  if (!companySettings.sources.includes(source)) {
-    return 'skipped';
-  }
 
   if (!shouldSendRemind(reservation)) return 'skipped';
 

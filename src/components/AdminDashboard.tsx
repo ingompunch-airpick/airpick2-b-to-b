@@ -1197,9 +1197,12 @@ export default function AdminDashboard({
                       <div className="rounded-xl border border-neutral-800 bg-neutral-950/50 p-3 space-y-2.5">
                         <div className="flex items-center justify-between gap-2">
                           <div>
-                            <p className="text-[12px] font-black text-zinc-200">알림톡 (NCP)</p>
+                            <p className="text-[12px] font-black text-zinc-200">
+                              업체 채널 알림톡 (홈·현장)
+                            </p>
                             <p className="text-[10px] text-zinc-500 font-semibold mt-0.5 leading-relaxed">
-                              콘솔에서 템플릿 등록·활성화 후, 여기 코드·채널만 맞추면 됩니다.
+                              에어픽 B2C는 업체와 무관하게 @airpickup으로 항상 발송됩니다. 여기는
+                              홈페이지·현장용 업체 채널 연결입니다.
                             </p>
                           </div>
                           <label className="inline-flex items-center gap-1.5 text-[11px] font-black text-zinc-300 shrink-0">

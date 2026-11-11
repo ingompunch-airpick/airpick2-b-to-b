@@ -31,20 +31,18 @@ const ALL_EVENTS: AlimtalkEventType[] = ['reserve', 'remind', 'checkin', 'checko
 const ALL_SOURCES: BookingSource[] = ['airpick-b2c', 'homepage', 'b2b'];
 
 /**
- * 업체 문서에 alimtalk 설정이 없을 때의 기본값 — 기존 동작(에어픽 B2C 예약만 발송)과 동일.
- * 홈페이지 업체를 추가할 때는 코드가 아니라 companies/{id}.alimtalk 만 켜면 된다.
+ * companies/{id}.alimtalk 은 **업체 채널(홈·현장)** 전용.
+ * 에어픽 B2C(@airpickup / reservation3·remind)는 이 문서와 무관하게 전 업체 발송.
  *
  * companies/{id}.alimtalk = {
- *   enabled: true,                           // 홈·현장 업체채널 ON/OFF (B2C와 무관)
- *   sources: ['airpick-b2c', 'homepage'],
+ *   enabled: true,                         // 업체 채널 ON
+ *   sources: ['homepage', 'b2b'],          // 홈·현장만 (airpick-b2c 키는 레거시, 발송 게이트 아님)
  *   events: ['reserve', 'checkin', 'checkout'],
- *   channel: { plusFriendId: '@업체채널' },  // 홈페이지·현장 전용. B2C는 항상 @airpickup
- *   templates: {                             // 홈페이지·현장만. B2C는 항상 공용
- *     reserve: { code: 'wawareserve', body: '...' }
- *   }
+ *   channel: { plusFriendId: '@업체채널' },
+ *   templates: { reserve: { code: 'wawareserve', body: '...' } }
  * }
  */
-const DEFAULT_SOURCES: BookingSource[] = ['airpick-b2c'];
+const DEFAULT_SOURCES: BookingSource[] = ['airpick-b2c', 'homepage', 'b2b'];
 
 export interface CompanyAlimtalkChannel {
   plusFriendId?: string;
