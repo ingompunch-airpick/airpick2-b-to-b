@@ -114,10 +114,8 @@ function resolveAlimtalkButtons(
     ];
   }
 
-  // reservation3: 가는 길 고정 URL / remind: 토큰 경로
-  const directionsUrl = buildDirectionsUrl(reservation, {
-    withToken: eventType === 'remind',
-  });
+  // reservation3·remind 콘솔 버튼 모두 …/directions/#{토큰} — 토큰 없으면 3027
+  const directionsUrl = buildDirectionsUrl(reservation, { withToken: true });
 
   return [
     {
