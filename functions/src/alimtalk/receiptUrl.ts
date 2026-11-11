@@ -69,8 +69,8 @@ export function buildReviewUrl(
 }
 
 /**
- * 가는 길 — `/directions` 또는 `/directions/{토큰}`.
- * reservation3 등록본은 토큰 없는 고정 URL, remind 는 토큰 경로.
+ * 가는 길 — NCP reservation3/remind 버튼: `…/directions/#{토큰}`.
+ * 토큰 없는 URL 로 보내면 카카오 3027(버튼 불일치).
  */
 export function buildDirectionsUrl(
   reservation: Pick<ReservationSnapshot, 'id' | 'receiptToken' | 'receiptCode' | 'receiptLinkCode'>,
@@ -78,8 +78,7 @@ export function buildDirectionsUrl(
   origin: string = DIRECTIONS_PUBLIC_ORIGIN
 ): string {
   const base = origin.replace(/\/$/, '');
-  if (!options.withToken) return `${base}/directions`;
   const pathCode = resolveReceiptPathCode(reservation);
-  if (!pathCode) return `${base}/directions`;
+  if (options.withToken === false || !pathCode) return `${base}/directions`;
   return `${base}/directions/${encodeURIComponent(pathCode)}`;
 }
