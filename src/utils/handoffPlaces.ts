@@ -17,25 +17,32 @@ export type HandoffPlace = {
  * 인천공항 고정 픽업 지점.
  * 좌표는 터미널 인근 대표점 — 앱 길찾기용. 밋앤그릿은 업체별로 나중에.
  */
-/** T1/T2 대표 좌표 — `constants/airports` ICN 과 맞춤. 예전 T2값이 T1 근처라 1터미널로 찍히던 문제 수정 */
-const ICN_T1 = { lat: 37.44749, lng: 126.4524 };
-const ICN_T2 = { lat: 37.46874, lng: 126.4334 };
+/** 출국장(커브) — 터미널 대표점 */
+const ICN_T1_CURB = { lat: 37.4485, lng: 126.4512 };
+const ICN_T2_CURB = { lat: 37.46874, lng: 126.4334 };
+
+/**
+ * 드랍오프 내비 목적지 = 단기주차장 입구(네이버 POI).
+ * H26·서편146은 주차 후 도보 만남 지점이라 차로 길찾기 목적지가 아님.
+ */
+const ICN_T1_DROP = { lat: 37.4485272, lng: 126.4555898 }; // 단기주차장 지하1층
+const ICN_T2_DROP = { lat: 37.4688498, lng: 126.4300628 }; // 단기주차장 입구
 
 const PLACES: Record<'drop' | 'curb', Record<'T1' | 'T2', HandoffPlace>> = {
   drop: {
     T1: {
       handoff: 'drop',
       terminal: 'T1',
-      name: '인천공항 1터미널 지하2층 H26',
-      address: '인천광역시 영종구 공항로 272 제1여객터미널 지하2층 H26',
-      ...ICN_T1,
+      name: '인천공항 1터미널 단기주차장(지하)',
+      address: '인천광역시 영종구 공항로 272 제1여객터미널 단기주차장 지하',
+      ...ICN_T1_DROP,
     },
     T2: {
       handoff: 'drop',
       terminal: 'T2',
-      name: '인천공항 2터미널 2층 서편 146',
-      address: '인천광역시 영종구 제2터미널대로 446 제2여객터미널 2층 서편 146',
-      ...ICN_T2,
+      name: '인천공항 2터미널 단기주차장',
+      address: '인천광역시 영종구 제2터미널대로 446 제2여객터미널 단기주차장',
+      ...ICN_T2_DROP,
     },
   },
   curb: {
@@ -44,15 +51,14 @@ const PLACES: Record<'drop' | 'curb', Record<'T1' | 'T2', HandoffPlace>> = {
       terminal: 'T1',
       name: '인천공항 1터미널 3층 출국장',
       address: '인천광역시 영종구 공항로 272 제1여객터미널 3층 출국장',
-      lat: 37.4485,
-      lng: 126.4512,
+      ...ICN_T1_CURB,
     },
     T2: {
       handoff: 'curb',
       terminal: 'T2',
       name: '인천공항 2터미널 3층 출국장',
       address: '인천광역시 영종구 제2터미널대로 446 제2여객터미널 3층 출국장',
-      ...ICN_T2,
+      ...ICN_T2_CURB,
     },
   },
 };

@@ -12,8 +12,8 @@ const METHOD_LABEL: Record<HandoffType, string> = {
 
 const PLACE_LABEL: Record<'drop' | 'curb', Record<'T1' | 'T2', string>> = {
   drop: {
-    T1: 'T1 지하2층 H26',
-    T2: 'T2 2층 서편 146',
+    T1: 'T1 단기주차장(지하)',
+    T2: 'T2 단기주차장',
   },
   curb: {
     T1: '출국장 3층',
