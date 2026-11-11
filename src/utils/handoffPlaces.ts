@@ -22,26 +22,26 @@ const ICN_T1_CURB = { lat: 37.4485, lng: 126.4512 };
 const ICN_T2_CURB = { lat: 37.46874, lng: 126.4334 };
 
 /**
- * 드랍오프 내비 목적지 = 단기주차장 입구(네이버 POI).
+ * 드랍오프 내비 목적지 = 단기주차장 지하2층(네이버 POI).
  * H26·서편146은 주차 후 도보 만남 지점이라 차로 길찾기 목적지가 아님.
  */
-const ICN_T1_DROP = { lat: 37.4485272, lng: 126.4555898 }; // 단기주차장 지하1층
-const ICN_T2_DROP = { lat: 37.4688498, lng: 126.4300628 }; // 단기주차장 입구
+const ICN_T1_DROP = { lat: 37.4485958, lng: 126.4556568 }; // 단기주차장 지하2층
+const ICN_T2_DROP = { lat: 37.4683746, lng: 126.4304702 }; // 단기지하 M층(지하 주차)
 
 const PLACES: Record<'drop' | 'curb', Record<'T1' | 'T2', HandoffPlace>> = {
   drop: {
     T1: {
       handoff: 'drop',
       terminal: 'T1',
-      name: '인천공항 1터미널 단기주차장(지하)',
-      address: '인천광역시 영종구 공항로 272 제1여객터미널 단기주차장 지하',
+      name: '인천공항 1터미널 단기주차장 지하2층',
+      address: '인천광역시 영종구 공항로 272 제1여객터미널 단기주차장 지하2층',
       ...ICN_T1_DROP,
     },
     T2: {
       handoff: 'drop',
       terminal: 'T2',
-      name: '인천공항 2터미널 단기주차장',
-      address: '인천광역시 영종구 제2터미널대로 446 제2여객터미널 단기주차장',
+      name: '인천공항 2터미널 단기주차장 지하',
+      address: '인천광역시 영종구 제2터미널대로 446 제2여객터미널 단기주차장 지하',
       ...ICN_T2_DROP,
     },
   },
