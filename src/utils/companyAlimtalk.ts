@@ -189,14 +189,6 @@ export function summarizeCompanyAlimtalkForBoard(
   }
 
   const o = raw as Record<string, unknown>;
-  if (o.enabled === false) {
-    return {
-      kind: 'off',
-      label: '알림톡 OFF',
-      detail: '발송 안 함',
-    };
-  }
-
   const channel =
     o.channel && typeof o.channel === 'object'
       ? (o.channel as Record<string, unknown>)
@@ -211,6 +203,15 @@ export function summarizeCompanyAlimtalkForBoard(
       ? (templates.reserve as Record<string, unknown>)
       : {};
   const code = String(reserve.code || '').trim();
+
+  // enabled=false 는 업체 채널 OFF일 뿐 — B2C(@airpickup)는 계속 나간다
+  if (o.enabled === false) {
+    return {
+      kind: 'airpick',
+      label: '에어픽 공용',
+      detail: '업체 채널 OFF · B2C만 @airpickup',
+    };
+  }
 
   if (plusFriendId && code) {
     return {

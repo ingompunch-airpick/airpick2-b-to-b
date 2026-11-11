@@ -35,7 +35,7 @@ const ALL_SOURCES: BookingSource[] = ['airpick-b2c', 'homepage', 'b2b'];
  * 홈페이지 업체를 추가할 때는 코드가 아니라 companies/{id}.alimtalk 만 켜면 된다.
  *
  * companies/{id}.alimtalk = {
- *   enabled: true,
+ *   enabled: true,                           // 홈·현장 업체채널 ON/OFF (B2C와 무관)
  *   sources: ['airpick-b2c', 'homepage'],
  *   events: ['reserve', 'checkin', 'checkout'],
  *   channel: { plusFriendId: '@업체채널' },  // 홈페이지·현장 전용. B2C는 항상 @airpickup
