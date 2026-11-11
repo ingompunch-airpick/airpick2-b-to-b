@@ -101,13 +101,54 @@ export function resolveHandoffPlace(
   return PLACES[handoff][terminal];
 }
 
+/** 웹 폴백 — elat/elng/etext 는 도착지 전용 파라미터 */
+export function naverDirectionsWebUrl(place: HandoffPlace): string {
+  const q = new URLSearchParams({
+    menu: 'route',
+    elat: String(place.lat),
+    elng: String(place.lng),
+    etext: place.name,
+    pathType: '0',
+  });
+  return `https://map.naver.com/index.nhn?${q.toString()}`;
+}
+
 /**
- * 네이버 길찾기 경로: `/directions/{출발}/{도착}/{경유}/{모드}`
- * 세 번째에 넣으면 경유지로 잡히므로 도착(두 번째)에 둔다. 출발 `-` = 현위치.
+ * 네이버 지도 앱 길찾기 (도착지 = dlat/dlng/dname).
+ * `/p/directions` 경로형은 앱에서 경유지로 열리는 경우가 있어 앱 스킴을 우선한다.
  */
+export function naverDirectionsAppUrl(place: HandoffPlace): string {
+  const q = new URLSearchParams({
+    dlat: String(place.lat),
+    dlng: String(place.lng),
+    dname: place.name,
+    appname: 'airpick-reservation.web.app',
+  });
+  return `nmap://route/car?${q.toString()}`;
+}
+
+/** <a href> 용 — 웹 URL. 모바일은 openNaverDirections 권장 */
 export function naverDirectionsUrl(place: HandoffPlace): string {
-  const name = encodeURIComponent(place.name);
-  return `https://map.naver.com/p/directions/-/${place.lng},${place.lat},${name},,/-/car`;
+  return naverDirectionsWebUrl(place);
+}
+
+/** 모바일은 앱 스킴(도착지 명시) → 실패 시 웹 */
+export function openNaverDirections(place: HandoffPlace): void {
+  const web = naverDirectionsWebUrl(place);
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(
+    typeof navigator !== 'undefined' ? navigator.userAgent : ''
+  );
+  if (!isMobile) {
+    window.open(web, '_blank', 'noopener,noreferrer');
+    return;
+  }
+  const started = Date.now();
+  window.location.href = naverDirectionsAppUrl(place);
+  window.setTimeout(() => {
+    if (Date.now() - started < 1800) {
+      window.location.href = web;
+    }
+  }, 900);
 }
 
 export function kakaoDirectionsUrl(place: HandoffPlace): string {

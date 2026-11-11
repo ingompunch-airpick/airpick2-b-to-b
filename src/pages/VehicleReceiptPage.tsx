@@ -26,7 +26,7 @@ import {
 } from '../utils/itchaPickupGuide';
 import {
   kakaoDirectionsUrl,
-  naverDirectionsUrl,
+  openNaverDirections,
   resolveHandoffPlace,
   resolveReceiptHandoffType,
   tmapDirectionsUrl,
@@ -205,33 +205,37 @@ function PickupLocationRow({
   videoLabel?: string;
   place?: HandoffPlace | null;
 }) {
-  const mapButtons = place
-    ? [
-        { id: 'naver', label: '네이버', href: naverDirectionsUrl(place) },
-        { id: 'kakao', label: '카카오', href: kakaoDirectionsUrl(place) },
-        { id: 'tmap', label: '티맵', href: tmapDirectionsUrl(place) },
-      ]
-    : [];
-
   return (
     <div className="col-span-2 min-w-0 px-2.5 py-2">
       <p className="text-[10px] font-bold tracking-wide text-[#9a8b78]">픽업지</p>
       <p className="mt-0.5 text-[14px] font-black leading-snug text-[#1a1f2e] whitespace-pre-wrap break-words">
         {value}
       </p>
-      {mapButtons.length > 0 ? (
+      {place ? (
         <div className="mt-2 grid grid-cols-3 gap-1.5 print:hidden">
-          {mapButtons.map((b) => (
-            <a
-              key={b.id}
-              href={b.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="rounded-lg border border-[#d4c8b4] bg-white px-1.5 py-2 text-center text-[11px] font-black text-[#1a1f2e] active:scale-[0.98]"
-            >
-              {b.label}
-            </a>
-          ))}
+          <button
+            type="button"
+            onClick={() => openNaverDirections(place)}
+            className="rounded-lg border border-[#d4c8b4] bg-white px-1.5 py-2 text-center text-[11px] font-black text-[#1a1f2e] active:scale-[0.98]"
+          >
+            네이버
+          </button>
+          <a
+            href={kakaoDirectionsUrl(place)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-lg border border-[#d4c8b4] bg-white px-1.5 py-2 text-center text-[11px] font-black text-[#1a1f2e] active:scale-[0.98]"
+          >
+            카카오
+          </a>
+          <a
+            href={tmapDirectionsUrl(place)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="rounded-lg border border-[#d4c8b4] bg-white px-1.5 py-2 text-center text-[11px] font-black text-[#1a1f2e] active:scale-[0.98]"
+          >
+            티맵
+          </a>
         </div>
       ) : null}
       {videoUrl ? (
