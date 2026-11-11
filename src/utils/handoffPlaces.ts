@@ -17,23 +17,25 @@ export type HandoffPlace = {
  * 인천공항 고정 픽업 지점.
  * 좌표는 터미널 인근 대표점 — 앱 길찾기용. 밋앤그릿은 업체별로 나중에.
  */
+/** T1/T2 대표 좌표 — `constants/airports` ICN 과 맞춤. 예전 T2값이 T1 근처라 1터미널로 찍히던 문제 수정 */
+const ICN_T1 = { lat: 37.44749, lng: 126.4524 };
+const ICN_T2 = { lat: 37.46874, lng: 126.4334 };
+
 const PLACES: Record<'drop' | 'curb', Record<'T1' | 'T2', HandoffPlace>> = {
   drop: {
     T1: {
       handoff: 'drop',
       terminal: 'T1',
       name: '인천공항 1터미널 지하2층 H26',
-      address: '인천광역시 중구 공항로 272 제1여객터미널 지하2층 H26',
-      lat: 37.4475,
-      lng: 126.4524,
+      address: '인천광역시 영종구 공항로 272 제1여객터미널 지하2층 H26',
+      ...ICN_T1,
     },
     T2: {
       handoff: 'drop',
       terminal: 'T2',
       name: '인천공항 2터미널 2층 서편 146',
-      address: '인천광역시 중구 공항로 272 제2여객터미널 2층 서편 146',
-      lat: 37.4493,
-      lng: 126.4583,
+      address: '인천광역시 영종구 제2터미널대로 446 제2여객터미널 2층 서편 146',
+      ...ICN_T2,
     },
   },
   curb: {
@@ -41,7 +43,7 @@ const PLACES: Record<'drop' | 'curb', Record<'T1' | 'T2', HandoffPlace>> = {
       handoff: 'curb',
       terminal: 'T1',
       name: '인천공항 1터미널 3층 출국장',
-      address: '인천광역시 중구 공항로 272 제1여객터미널 3층 출국장',
+      address: '인천광역시 영종구 공항로 272 제1여객터미널 3층 출국장',
       lat: 37.4485,
       lng: 126.4512,
     },
@@ -49,9 +51,8 @@ const PLACES: Record<'drop' | 'curb', Record<'T1' | 'T2', HandoffPlace>> = {
       handoff: 'curb',
       terminal: 'T2',
       name: '인천공항 2터미널 3층 출국장',
-      address: '인천광역시 중구 공항로 272 제2여객터미널 3층 출국장',
-      lat: 37.4504,
-      lng: 126.4572,
+      address: '인천광역시 영종구 제2터미널대로 446 제2여객터미널 3층 출국장',
+      ...ICN_T2,
     },
   },
 };
