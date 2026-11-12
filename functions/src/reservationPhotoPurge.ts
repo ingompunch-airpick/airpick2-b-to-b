@@ -5,8 +5,8 @@ const MEDIA_FOLDERS = new Set(['images', 'scratch']);
 
 /**
  * reservations/{업체}/{예약}/images|scratch 만 지운다.
- * 주차 중이거나 출차 후 30일이 안 된 예약은 남긴다.
- * 예약 문서가 이미 없으면(출차 40일 삭제) 그 폴더의 사진만 고아로 지운다.
+ * 주차 중이거나 출차 후 사진 보관일(현재 14일)이 안 된 예약은 남긴다.
+ * 예약 문서가 이미 없으면 그 폴더의 사진만 고아로 지운다.
  */
 export async function purgeCheckoutPhotos(
   nowMs = Date.now()

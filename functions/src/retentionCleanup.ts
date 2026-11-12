@@ -11,7 +11,7 @@ import { deleteReservationSecrets } from './reservations/reservationSecrets';
 const BATCH_LIMIT = 200;
 
 /**
- * 예약 문서 + 하위 secrets. 사진은 출차 30일에 따로 지운다.
+ * 예약 문서 + 하위 secrets. 사진은 출차 후 PHOTO 보관일(현재 14일)에 따로 지운다.
  * 지우기 전에 그 손님의 출차 1회를 본사 재방문 기록에 남긴다.
  */
 async function deleteReservationDocument(
@@ -70,7 +70,7 @@ async function drainStorageRetentionQueue(): Promise<number> {
 }
 
 /**
- * 정책 변경(예: 90일→40일) 후에도 출차 기준 새 보관 기간 안이면
+ * 정책 변경(예: 40일→365일) 후에도 출차 기준 새 보관 기간 안이면
  * 문서에 박혀 있던 옛 dataPurgeAt을 맞추고 삭제하지 않는다.
  */
 function freshDataPurgeAt(scheduleCompletedOutAt: string): string {
@@ -121,7 +121,11 @@ async function purgeReservationsPastData(
   nowIso: string,
   ready: Map<string, boolean>
 ): Promise<number> {
-  const horizon = addDaysToIso(nowIso, 90 - RESERVATION_DATA_RETENTION_DAYS);
+  // 보관이 90일보다 길면 만료·마커 갱신 대상만(<= now) 조회
+  const horizon = addDaysToIso(
+    nowIso,
+    Math.max(0, 90 - RESERVATION_DATA_RETENTION_DAYS)
+  );
   let count = 0;
   let cursor: FirebaseFirestore.QueryDocumentSnapshot | undefined;
 
@@ -183,7 +187,7 @@ async function purgeLegacyCompletedOut(
     if (schedule.dataPurgeAt > nowIso) continue;
     if (!(await checkoutMonthsSnapshotted(data, ready))) continue;
 
-    // 사진은 출차 30일에 이미 지웠다. 여기서는 예약 문서만 제거.
+    // 사진은 출차 후 사진 보관일에 이미 지웠다. 여기서는 예약 문서만 제거.
     await deleteReservationDocument(docSnap.id, data);
     count += 1;
   }

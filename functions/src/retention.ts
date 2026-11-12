@@ -1,8 +1,8 @@
 /** 출차 후 Firestore 예약 문서 보관 일수. 월 합계 스냅샷이 있을 때만 삭제한다. */
-export const RESERVATION_DATA_RETENTION_DAYS = 40;
+export const RESERVATION_DATA_RETENTION_DAYS = 365;
 
 /** 출차 후 Storage 차량·스크래치 사진 보관 일수. 이 날이 지나면 파일과 URL을 지운다. */
-export const PHOTO_STORAGE_RETENTION_DAYS = 30;
+export const PHOTO_STORAGE_RETENTION_DAYS = 14;
 
 const MS_PER_DAY = 24 * 60 * 60 * 1000;
 
@@ -65,8 +65,11 @@ export function checkoutPhotosDue(
   nowMs = Date.now()
 ): boolean {
   if (!data || String(data.status ?? '') !== 'completed_out') return false;
+  // 정책 변경(예: 30→14일)이 바로 먹도록 저장된 storagePurgeAt 대신 현재 일수로 계산
   const schedule = resolvePurgeSchedule(data);
   if (!schedule) return false;
-  const dueMs = new Date(schedule.storagePurgeAt).getTime();
+  const dueMs = new Date(
+    addDaysToIso(schedule.completedOutAt, PHOTO_STORAGE_RETENTION_DAYS)
+  ).getTime();
   return Number.isFinite(dueMs) && dueMs <= nowMs;
 }
