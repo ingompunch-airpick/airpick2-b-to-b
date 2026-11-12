@@ -8,8 +8,6 @@ import {
 import { isAirpickHeadquarters } from '../constants/platform';
 import { statusToLabel } from '../utils/reservationStatus';
 import { formatPhoneDisplay } from '../utils/phone';
-import { RESERVATION_DATA_RETENTION_DAYS } from '../constants/dataRetention';
-
 function formatWhen(raw?: string): string {
   const t = String(raw || '').trim();
   if (!t) return '-';
@@ -92,8 +90,7 @@ export default function HqCustomersView({
               </span>
             </div>
             <p className="text-[12px] text-zinc-500 mt-0.5">
-              휴대폰 또는 차량번호 끝 4자리. 출차 후 {RESERVATION_DATA_RETENTION_DAYS}일이 지난
-              예약은 앱에서 빠지고 시트에만 남습니다.
+              휴대폰 또는 차량번호 끝 4자리. 예약 내역은 앱에 유지됩니다.
             </p>
           </div>
         </div>

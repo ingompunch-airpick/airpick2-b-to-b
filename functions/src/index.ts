@@ -104,7 +104,7 @@ export const freezeHqMonthSnapshots = onSchedule(
   }
 );
 
-/** 매일 04:00 KST — 출차 14일 사진 삭제, 365일·월 합계 스냅샷 후 예약 문서 삭제 */
+/** 매일 04:00 KST — 출차 14일 사진 삭제. 예약 문서는 삭제하지 않음(PURGE_RESERVATION_DOCUMENTS=false). */
 export const purgeExpiredReservationData = onSchedule(
   {
     schedule: '0 4 * * *',

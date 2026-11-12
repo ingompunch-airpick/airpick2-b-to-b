@@ -4,7 +4,7 @@ import type { Reservation } from '../types';
 import { cn } from '../lib/utils';
 import ScratchUploadView from './ScratchUploadView';
 import PhotoSearchView from './PhotoSearchView';
-import { RESERVATION_DATA_RETENTION_DAYS } from '../constants/dataRetention';
+import { PHOTO_STORAGE_RETENTION_DAYS } from '../constants/dataRetention';
 
 type PhotoTab = 'register' | 'search';
 
@@ -31,7 +31,7 @@ export default function VehiclePhotosView({ onBack, reservations, onUpdateImages
           <div>
             <h2 className="text-sm font-black tracking-tight text-white">차량 사진</h2>
             <p className="text-[12px] font-bold text-zinc-500">
-              등록 · 조회 · 출차 후 {RESERVATION_DATA_RETENTION_DAYS}일까지 목록에 표시
+              등록 · 조회 · 출차 후 {PHOTO_STORAGE_RETENTION_DAYS}일까지 사진 보관
             </p>
           </div>
           <Camera size={18} className="ml-auto text-amber-500/80" />

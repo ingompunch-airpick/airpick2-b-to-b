@@ -1,5 +1,6 @@
 import * as admin from 'firebase-admin';
 import {
+  PURGE_RESERVATION_DOCUMENTS,
   RESERVATION_DATA_RETENTION_DAYS,
   addDaysToIso,
   resolvePurgeSchedule,
@@ -207,9 +208,14 @@ export async function runRetentionCleanup(): Promise<{
   const photos = await purgeCheckoutPhotos(now.getTime());
   const storageQueue = await drainStorageRetentionQueue();
   const storageDue = await clearDueStoragePurgeMarkers(nowIso);
-  const ready = new Map<string, boolean>();
-  const dataDue = await purgeReservationsPastData(nowIso, ready);
-  const legacy = await purgeLegacyCompletedOut(nowIso, ready);
+
+  let dataDue = 0;
+  let legacy = 0;
+  if (PURGE_RESERVATION_DOCUMENTS) {
+    const ready = new Map<string, boolean>();
+    dataDue = await purgeReservationsPastData(nowIso, ready);
+    legacy = await purgeLegacyCompletedOut(nowIso, ready);
+  }
 
   return { photos, storageQueue, storageDue, dataDue, legacy };
 }

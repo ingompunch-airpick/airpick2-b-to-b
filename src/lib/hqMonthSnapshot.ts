@@ -5,11 +5,15 @@ import { shiftYmd } from '../utils/kstDate';
 import { presentHqMonth, type HqLedgerBundle, type HqMonthLedger } from './hqMonthLedgerApi';
 import type { Company } from '../types';
 
-import { RESERVATION_DATA_RETENTION_DAYS } from '../constants/dataRetention';
+import {
+  PURGE_RESERVATION_DOCUMENTS,
+  RESERVATION_DATA_RETENTION_DAYS,
+} from '../constants/dataRetention';
 
-/** 그달 1일 출차도 보관 기간이 지나기 전이면 앱에 아직 있다. */
+/** 그달 1일 출차도 앱 예약 목록에 아직 있을 수 있으면 true. */
 export function monthStillInApp(month: string, today: string): boolean {
   if (month >= today.slice(0, 7)) return true;
+  if (!PURGE_RESERVATION_DOCUMENTS) return true;
   return shiftYmd(`${month}-01`, RESERVATION_DATA_RETENTION_DAYS) > today;
 }
 

@@ -1,4 +1,7 @@
-/** 출차 후 Firestore 예약 문서 보관 일수. 월 합계 스냅샷이 있을 때만 삭제한다. */
+/** false면 예약 문서는 삭제하지 않는다. 사진만 PHOTO 일수로 지운다. */
+export const PURGE_RESERVATION_DOCUMENTS = false;
+
+/** 문서 삭제를 다시 켤 때만 사용. 지금은 무기한 보관. */
 export const RESERVATION_DATA_RETENTION_DAYS = 365;
 
 /** 출차 후 Storage 차량·스크래치 사진 보관 일수. 이 날이 지나면 파일과 URL을 지운다. */
