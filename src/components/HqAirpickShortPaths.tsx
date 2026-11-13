@@ -19,13 +19,19 @@ function shortDate(ymd: string): string {
 export default function HqAirpickShortPaths({
   reservations,
   monthPrefix,
+  period: periodProp,
+  hidePeriodToggle = false,
 }: {
   reservations: Reservation[];
-  /** YYYY-MM — 월간 탭 선택 월 */
+  /** YYYY-MM — 「이번 달」집계용 */
   monthPrefix: string;
+  /** 부모가 기간을 넘기면 토글 숨김 가능 */
+  period?: ShortPathPeriod;
+  hidePeriodToggle?: boolean;
 }) {
   const todayYmd = getKSTDateOnlyString();
-  const [period, setPeriod] = useState<ShortPathPeriod>('month');
+  const [periodLocal, setPeriodLocal] = useState<ShortPathPeriod>('month');
+  const period = periodProp ?? periodLocal;
 
   const stats = useMemo(
     () =>
@@ -46,22 +52,24 @@ export default function HqAirpickShortPaths({
             B2C 예약 · 접수일 기준 · 에어픽.kr/long1 등
           </p>
         </div>
-        <div className="flex bg-neutral-900/80 p-1 rounded-xl border border-neutral-800 gap-0.5">
-          {PERIODS.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              onClick={() => setPeriod(p.id)}
-              className={`px-2.5 py-1.5 text-[11px] font-black rounded-lg transition-all ${
-                period === p.id
-                  ? 'bg-fuchsia-500/20 text-fuchsia-200 border border-fuchsia-500/30'
-                  : 'text-zinc-500 hover:text-zinc-300 border border-transparent'
-              }`}
-            >
-              {p.label}
-            </button>
-          ))}
-        </div>
+        {!hidePeriodToggle ? (
+          <div className="flex bg-neutral-900/80 p-1 rounded-xl border border-neutral-800 gap-0.5">
+            {PERIODS.map((p) => (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => setPeriodLocal(p.id)}
+                className={`px-2.5 py-1.5 text-[11px] font-black rounded-lg transition-all ${
+                  period === p.id
+                    ? 'bg-fuchsia-500/20 text-fuchsia-200 border border-fuchsia-500/30'
+                    : 'text-zinc-500 hover:text-zinc-300 border border-transparent'
+                }`}
+              >
+                {p.label}
+              </button>
+            ))}
+          </div>
+        ) : null}
       </div>
 
       <p className="text-[10px] text-zinc-600 font-bold px-0.5">

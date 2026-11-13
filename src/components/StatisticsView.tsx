@@ -41,7 +41,9 @@ import type { HqMonthLedger } from '../lib/hqMonthLedgerApi';
 import CustomerVisitBadge from './CustomerVisitBadge';
 import DateNavBar from './DateNavBar';
 import {
+  aggregateBookingSourceMetrics,
   aggregateGroupedBookingSourceMetrics,
+  bookingSourceLabel,
   groupedBookingSourceBadgeClass,
   groupedBookingSourceLabel,
   GROUPED_SOURCE_ROWS,
@@ -66,9 +68,7 @@ import {
   sumAffiliateCustomerDiscountInMonth,
   sumB2cCommissionRows,
 } from '../utils/b2cCommission';
-import HqHomepageVisits from './HqHomepageVisits';
-import HqAirpickShortPaths from './HqAirpickShortPaths';
-import HqHomepageBookings from './HqHomepageBookings';
+import HqAcquisitionView from './HqAcquisitionView';
 import MetaField from './MetaField';
 import {
   isMultiOperatorScope,
@@ -180,7 +180,7 @@ export default function StatisticsView({
     onsite: number;
   } | null>(null);
   const [hqMonthPrefix, setHqMonthPrefix] = useState(() => getKSTDateOnlyString().substring(0, 7));
-  const [hqTab, setHqTab] = useState<'today' | 'month' | 'visits'>('today');
+  const [hqTab, setHqTab] = useState<'today' | 'month' | 'acquisition'>('today');
   /** 오늘 탭 · 업체 카드 펼침 */
   const [hqTodayFocusId, setHqTodayFocusId] = useState<string | null>(null);
   /** 월간 수수료 · 업체 건별 펼침 */
@@ -548,10 +548,15 @@ export default function StatisticsView({
       </div>
     );
 
+    const hqTodaySourceMetrics = aggregateBookingSourceMetrics(
+      masterActiveRes,
+      (r) => toKSTDateOnlyString(r.createdAt) === todayStr
+    );
+
     const hqTabs = [
       { id: 'today' as const, label: '오늘' },
       { id: 'month' as const, label: '월간' },
-      { id: 'visits' as const, label: '파트너 홈' },
+      { id: 'acquisition' as const, label: '유입' },
     ];
 
     return (
@@ -605,6 +610,27 @@ export default function StatisticsView({
               <span className="text-lg font-black text-white font-mono">
                 {masterTodaySales.toLocaleString()}원
               </span>
+            </div>
+            <div className="bg-[#121214] border border-neutral-800/80 rounded-2xl px-4 py-3 flex flex-wrap items-center gap-x-3 gap-y-1">
+              <span className="text-[11px] text-zinc-500 font-bold">오늘 접수</span>
+              {(
+                [
+                  ['airpick-b2c', 'text-fuchsia-300'],
+                  ['homepage', 'text-sky-300'],
+                  ['b2b', 'text-amber-300'],
+                ] as const
+              ).map(([key, tone]) => (
+                <span key={key} className={`text-[12px] font-black font-mono ${tone}`}>
+                  {bookingSourceLabel(key)} {hqTodaySourceMetrics[key].count}
+                </span>
+              ))}
+              <button
+                type="button"
+                onClick={() => setHqTab('acquisition')}
+                className="ml-auto text-[11px] font-black text-zinc-500 hover:text-white"
+              >
+                유입 →
+              </button>
             </div>
             {hqTodayCompanyRows.length === 0 ? (
               <p className="px-4 py-6 text-center text-xs text-zinc-500 font-bold">
@@ -853,17 +879,6 @@ export default function StatisticsView({
               )}
             </div>
 
-            <HqAirpickShortPaths
-              reservations={masterActiveRes}
-              monthPrefix={hqMonthPrefix}
-            />
-
-            <HqHomepageBookings
-              reservations={masterActiveRes}
-              monthPrefix={hqMonthPrefix}
-              companies={companies}
-            />
-
             <div className="bg-[#121214] border border-fuchsia-500/25 rounded-[22px] p-4 space-y-3">
               <div>
                 <p className="text-xs font-black text-fuchsia-300 tracking-wider">B2C 수수료 정산</p>
@@ -1002,7 +1017,9 @@ export default function StatisticsView({
           </div>
         )}
 
-        {hqTab === 'visits' && <HqHomepageVisits companies={companies} />}
+        {hqTab === 'acquisition' && (
+          <HqAcquisitionView companies={companies} reservations={masterActiveRes} />
+        )}
       </div>
     );
   }
