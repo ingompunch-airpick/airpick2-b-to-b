@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useReservationRange, rangeAroundToday } from '../contexts/ReservationRangeContext';
 import { 
   ArrowLeft,
   Search, 
@@ -115,6 +116,12 @@ export default function SearchReceptionView({
 }: SearchReceptionViewProps) {
   // Search input state
   const [receptionSearchText, setReceptionSearchText] = useState('');
+  {
+    // 검색어가 있을 때만 지난 120일 ~ 앞으로 90일을 불러와 반납완료·취소 건까지 검색
+    const [sf, st] = rangeAroundToday(getKSTDateOnlyString(), 120, 90);
+    const searching = receptionSearchText.trim().length > 0;
+    useReservationRange(searching ? sf : '', searching ? st : '');
+  }
 
   // Editing state for searched reservation inside local modal
   const [editingSearchedRes, setEditingSearchedRes] = useState<Reservation | null>(null);

@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { useReservationRange, rangeAroundToday } from '../contexts/ReservationRangeContext';
 import type { Company, Reservation, ReservationStatus } from '../types';
 import { getKSTDateOnlyString } from '../utils/kstDate';
 import { normalizeDateString } from '../utils/reservationNormalize';
@@ -66,6 +67,8 @@ export default function ReservationLedgerView({
   const initial = monthBounds(today);
   const [from, setFrom] = useState(initial.from);
   const [to, setTo] = useState(initial.to);
+  // 고른 기간(입고일)만 불러옴 — 출고일 기준도 덮도록 앞 31일 여유
+  useReservationRange(rangeAroundToday(from, 31)[0], to);
   const [basis, setBasis] = useState<DateBasis>('intake');
   const [terminal, setTerminal] = useState('all');
   const [place, setPlace] = useState<'all' | 'indoor' | 'outdoor'>('all');

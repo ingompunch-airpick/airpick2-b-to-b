@@ -1,4 +1,5 @@
 ﻿import React, { useMemo, useState, useEffect } from 'react';
+import { useReservationRange, rangeAroundToday } from '../contexts/ReservationRangeContext';
 import { ArrowLeft, Copy, Search, X, ClipboardCheck } from 'lucide-react';
 import { Reservation, ReservationStatus } from '../types';
 import {
@@ -137,6 +138,11 @@ export default function ServiceHistoryView({
   const [todayStr, setTodayStr] = useState(() => getKSTDateString());
   const [searchKeyword, setSearchKeyword] = useState('');
   const [period, setPeriod] = useState<PeriodFilter>('30d');
+  {
+    const back = period === 'today' ? 1 : period === '7d' ? 7 : period === '30d' ? 30 : 365;
+    const [hf, ht] = rangeAroundToday(todayStr, back, 1);
+    useReservationRange(hf, ht);
+  }
 
   useEffect(() => {
     const checkDateRollOver = () => {

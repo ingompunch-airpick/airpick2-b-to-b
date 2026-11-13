@@ -1,4 +1,6 @@
 ﻿import React, { useState } from 'react';
+import { getKSTDateOnlyString } from '../utils/kstDate';
+import { useReservationRange, rangeAroundToday } from '../contexts/ReservationRangeContext';
 import { ArrowLeft, Trash2, CreditCard, Landmark, Coins, Check, Search, CheckCircle2 } from 'lucide-react';
 import { Reservation, PaymentMethod } from '../types';
 import { airportShortName, terminalShortLabel } from '../utils/airport';
@@ -11,6 +13,10 @@ interface PaymentChangeViewProps {
 
 export default function PaymentChangeView({ onBack, reservations, onUpdatePayment }: PaymentChangeViewProps) {
   const [typedDigits, setTypedDigits] = useState('');
+  {
+    const [pf, pt] = rangeAroundToday(getKSTDateOnlyString(), 60, 30);
+    useReservationRange(pf, pt);
+  }
   const [selectedRes, setSelectedRes] = useState<Reservation | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
   const [statusMsg, setStatusMsg] = useState('');

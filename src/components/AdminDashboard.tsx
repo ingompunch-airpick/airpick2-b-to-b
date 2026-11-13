@@ -1,4 +1,5 @@
 import React, { useMemo, useState } from 'react';
+import { useReservationRange, monthRange } from '../contexts/ReservationRangeContext';
 import { createPortal } from 'react-dom';
 import { 
   Edit, 
@@ -119,6 +120,11 @@ export default function AdminDashboard({
   /** Firestore 예약 — 업체별 통계용 (로컬 캐시 대체) */
   reservations?: Reservation[];
 }) {
+  {
+    // 업체별 이번 달 완료·매출 통계용 — 이번 달 입고분 불러오기
+    const [mf, mt] = monthRange(getKSTMonthOnlyString(), 0);
+    useReservationRange(mf, mt);
+  }
   const [activeTab, setActiveTab] = useState<'create' | 'partners'>('partners');
   const [registerKind, setRegisterKind] = useState<'primary' | 'sub'>('primary');
 

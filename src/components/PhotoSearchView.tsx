@@ -1,4 +1,6 @@
 import { useMemo, useState } from 'react';
+import { getKSTDateOnlyString } from '../utils/kstDate';
+import { useReservationRange, rangeAroundToday } from '../contexts/ReservationRangeContext';
 import { Search, X, ImageIcon, Download, Loader2 } from 'lucide-react';
 import type { Reservation } from '../types';
 import { getReservationPhotoUrls } from '../utils/reservationPhotoDisplay';
@@ -161,6 +163,12 @@ function GalleryModal({
 export default function PhotoSearchView({ reservations }: { reservations: Reservation[] }) {
   const [query, setQuery] = useState('');
   const [dateRange, setDateRange] = useState<DateRange>('30d');
+  {
+    // 사진은 출차 14일 뒤 삭제되므로 '전체'도 최근 120일이면 충분
+    const back = dateRange === '7d' ? 7 : dateRange === '30d' ? 30 : 120;
+    const [pf, pt] = rangeAroundToday(getKSTDateOnlyString(), back, 1);
+    useReservationRange(pf, pt);
+  }
   const [selected, setSelected] = useState<{ res: Reservation; urls: string[] } | null>(null);
 
   const results = useMemo(() => {

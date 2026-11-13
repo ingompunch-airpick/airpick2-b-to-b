@@ -1,4 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
+import { useReservationRange, rangeAroundToday } from '../contexts/ReservationRangeContext';
 import { ChevronDown, ChevronUp, Download, Printer, Settings2 } from 'lucide-react';
 import type { Company, Reservation } from '../types';
 import DateNavBar from './DateNavBar';
@@ -207,6 +208,11 @@ export default function DispatchBoardView({
   companies = [],
 }: DispatchBoardViewProps) {
   const [selectedDate, setSelectedDate] = useState(() => getKSTDateOnlyString());
+  {
+    // 달력에서 실시간 창 밖 날짜로 넘기면 그 날 앞뒤만 불러옴 (장기 주차 대비 앞 30일)
+    const [df, dt] = rangeAroundToday(selectedDate, 30, 1);
+    useReservationRange(df, dt);
+  }
   const [focus, setFocus] = useState<FocusMode>('all');
   const [prefs, setPrefs] = useState<DispatchBoardPrefs>(() => loadDispatchBoardPrefs());
   const [settingsOpen, setSettingsOpen] = useState(false);

@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { useReservationRange, rangeAroundToday, monthRange } from '../contexts/ReservationRangeContext';
 import type { Company, Reservation } from '../types';
 import { adminUpsertCompany } from '../lib/adminCompanyApi';
 import { fetchPartnerHomepageDays } from '../lib/partnerHomepageStatsFirestore';
@@ -337,6 +338,10 @@ export default function HqAcquisitionView({
   const today = getKSTDateOnlyString();
   const monthPrefix = today.slice(0, 7);
   const [period, setPeriod] = useState<ShortPathPeriod>('month');
+  {
+    const [af, at] = period === 'last7' ? rangeAroundToday(today, 7) : monthRange(monthPrefix, 0);
+    useReservationRange(af, at);
+  }
   const [days, setDays] = useState<HomepageDayStat[] | null>(null);
   const [error, setError] = useState('');
   const [overrides, setOverrides] = useState<Record<string, HomepageVisitChannel[]>>({});

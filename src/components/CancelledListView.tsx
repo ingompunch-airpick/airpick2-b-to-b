@@ -1,4 +1,6 @@
 ﻿import React, { useState } from 'react';
+import { getKSTDateOnlyString } from '../utils/kstDate';
+import { useReservationRange, rangeAroundToday } from '../contexts/ReservationRangeContext';
 import { motion, AnimatePresence } from 'motion/react';
 import { Search, Undo2, Ban, ShieldAlert, Calendar, Car, Coins, FileText, ChevronRight } from 'lucide-react';
 import { Reservation, AppView } from '../types';
@@ -12,6 +14,10 @@ interface CancelledListViewProps {
 
 export default function CancelledListView({ reservations, onUpdateStatus, onBack }: CancelledListViewProps) {
   const [searchTerm, setSearchTerm] = useState('');
+  {
+    const [cf, ct] = rangeAroundToday(getKSTDateOnlyString(), 60, 60);
+    useReservationRange(cf, ct);
+  }
 
   // Extract cancelled reservations
   const cancelledReservations = reservations.filter(r => r.status === 'cancelled');

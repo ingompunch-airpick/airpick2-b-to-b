@@ -1,4 +1,6 @@
 import React, { useState, useMemo } from 'react';
+import { getKSTDateOnlyString } from '../utils/kstDate';
+import { useReservationRange, rangeAroundToday } from '../contexts/ReservationRangeContext';
 import { Search, X, RefreshCw, Car, FileText } from 'lucide-react';
 import { Reservation, ReservationStatus, AppView, Company, PaymentMethod } from '../types';
 import ReservationCard from './ReservationCard';
@@ -62,6 +64,10 @@ export default function TimelineView({
 }: TimelineViewProps) {
   // Local UI filters
   const [searchKeyword, setSearchKeyword] = useState('');
+  {
+    const [tf, tt] = rangeAroundToday(getKSTDateOnlyString(), 30, 90);
+    useReservationRange(tf, tt);
+  }
   const [filterType, setFilterType] = useState<'주/출차일자' | '주차예약' | '출차예약' | '등록일시'>('주/출차일자');
 
   // Compute filtered timeline list

@@ -1,4 +1,5 @@
 ﻿import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { ReservationRangeContext } from './contexts/ReservationRangeContext';
 import { 
   Menu,
   ShieldCheck, 
@@ -254,6 +255,7 @@ export default function App() {
   const {
     reservations,
     setReservations,
+    requestReservationRange,
     loadingReservations,
     reservationSyncError,
     retryReservationSync,
@@ -453,6 +455,7 @@ export default function App() {
   }
 
   return (
+    <ReservationRangeContext.Provider value={requestReservationRange}>
     <div className="min-h-screen bg-black font-sans text-white pb-24 selection:bg-amber-500 selection:text-neutral-950 antialiased">
 
       {reservationSyncError && (
@@ -1232,5 +1235,6 @@ export default function App() {
         )}
       </AnimatePresence>
     </div>
+    </ReservationRangeContext.Provider>
   );
 }

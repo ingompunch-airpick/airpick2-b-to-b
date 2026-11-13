@@ -10,9 +10,16 @@ import {
 import type { Reservation } from '../types';
 import { getKSTDateOnlyString } from './kstDate';
 
-/** 입고일(departureDate) 기준 과거·미래 동기화 창 — 성수기·장기주차 여유 */
-export const RESERVATION_SYNC_LOOKBACK_DAYS = 400;
-export const RESERVATION_SYNC_FUTURE_DAYS = 400;
+/**
+ * 실시간 구독 창 (현장용) — docs/work/reservation-load-plan.md
+ * 입고일 또는 출고일이 이 창 안이면 실시간. 창 밖이라도 처리 안 끝난 예약(UNRESOLVED)은 실시간.
+ * 그보다 오래되거나 먼 예약은 화면이 필요할 때 useReservationRange 로 그 기간만 구독한다.
+ */
+export const RESERVATION_SYNC_LOOKBACK_DAYS = 3;
+export const RESERVATION_SYNC_FUTURE_DAYS = 14;
+
+/** 아직 끝나지 않은 상태 — 날짜와 관계없이 현장 화면에 있어야 함 (장기 주차·노쇼 포함) */
+export const UNRESOLVED_RESERVATION_STATUSES = ['pending', 'pending_in', 'completed_in', 'request_out'];
 
 const WAWA_FIRESTORE_COMPANY_IDS = ['wawa', 'wawa_valet', '와와', '와와발렛'];
 
@@ -59,42 +66,71 @@ export interface ReservationSyncScope {
   operatorCompanyIds: string[];
 }
 
+type DateField = 'departureDate' | 'arrivalDate' | 'createdAt';
+
+function scopedCompanyChunks(scope: ReservationSyncScope, size: number): string[][] {
+  const companyIds = expandCompanyIdsForFirestoreQuery(scope.operatorCompanyIds);
+  return companyIds.length ? chunkArray(companyIds, size) : [];
+}
+
+/** field 가 [startDate, endDate] 안인 예약 (본사=전체, 업체=자기 업체) */
+export function buildReservationRangeQueries(
+  db: Firestore,
+  scope: ReservationSyncScope,
+  field: DateField,
+  startDate: string,
+  endDate: string
+): Query[] {
+  const base = collection(db, 'reservations');
+  if (scope.isHqScope) {
+    return [query(base, where(field, '>=', startDate), where(field, '<=', endDate))];
+  }
+  return scopedCompanyChunks(scope, 10).map((chunk) =>
+    query(
+      base,
+      chunk.length === 1 ? where('companyId', '==', chunk[0]) : where('companyId', 'in', chunk),
+      where(field, '>=', startDate),
+      where(field, '<=', endDate)
+    )
+  );
+}
+
+/** 입고일이 창보다 앞인데 아직 안 끝난 예약 (장기 주차·출고요청·노쇼) */
+function buildUnresolvedQueries(
+  db: Firestore,
+  scope: ReservationSyncScope,
+  beforeDate: string
+): Query[] {
+  const base = collection(db, 'reservations');
+  const statuses = UNRESOLVED_RESERVATION_STATUSES;
+  if (scope.isHqScope) {
+    return [query(base, where('status', 'in', statuses), where('departureDate', '<', beforeDate))];
+  }
+  // in × in 조합 한도(30) — 업체 7개 × 상태 4개 = 28
+  return scopedCompanyChunks(scope, 7).map((chunk) =>
+    query(
+      base,
+      chunk.length === 1 ? where('companyId', '==', chunk[0]) : where('companyId', 'in', chunk),
+      where('status', 'in', statuses),
+      where('departureDate', '<', beforeDate)
+    )
+  );
+}
+
+/** 현장 실시간 구독 쿼리 = 입고일 창 + 출고일 창 + 최근 접수 + 창 이전의 미처리 예약 */
 export function buildReservationSyncQueries(
   db: Firestore,
   scope: ReservationSyncScope
 ): Query[] {
   const { startDate, endDate } = getReservationSyncDateRange();
-  const base = collection(db, 'reservations');
-
-  if (scope.isHqScope) {
-    return [
-      query(
-        base,
-        where('departureDate', '>=', startDate),
-        where('departureDate', '<=', endDate)
-      ),
-    ];
-  }
-
-  const companyIds = expandCompanyIdsForFirestoreQuery(scope.operatorCompanyIds);
-  if (!companyIds.length) return [];
-
-  return chunkArray(companyIds, 10).map((chunk) => {
-    if (chunk.length === 1) {
-      return query(
-        base,
-        where('companyId', '==', chunk[0]),
-        where('departureDate', '>=', startDate),
-        where('departureDate', '<=', endDate)
-      );
-    }
-    return query(
-      base,
-      where('companyId', 'in', chunk),
-      where('departureDate', '>=', startDate),
-      where('departureDate', '<=', endDate)
-    );
-  });
+  if (!scope.isHqScope && !scopedCompanyChunks(scope, 10).length) return [];
+  return [
+    ...buildReservationRangeQueries(db, scope, 'departureDate', startDate, endDate),
+    ...buildReservationRangeQueries(db, scope, 'arrivalDate', startDate, endDate),
+    // 최근 접수(먼 미래 입고 포함) — 「오늘 접수」 목록·새 예약 알림용. createdAt 은 ISO 문자열(UTC)
+    ...buildReservationRangeQueries(db, scope, 'createdAt', `${startDate}T00:00:00`, '9999-12-31'),
+    ...buildUnresolvedQueries(db, scope, startDate),
+  ];
 }
 
 function docsToReservations(
@@ -134,21 +170,17 @@ export async function fetchScopedReservations(
   return mergeReservationSnapshots(merged);
 }
 
-export function subscribeScopedReservations(
-  db: Firestore,
-  scope: ReservationSyncScope,
+function subscribeQueries(
+  queries: Query[],
   onData: (rows: Reservation[]) => void,
   onError: (err: unknown, queryIndex: number) => void
 ): () => void {
-  const queries = buildReservationSyncQueries(db, scope);
   if (!queries.length) {
     onData([]);
     return () => {};
   }
-
   const parts = new Map<number, Reservation[]>();
   const emit = () => onData(mergeReservationSnapshots(parts));
-
   const unsubs = queries.map((q, index) =>
     onSnapshot(
       q,
@@ -159,6 +191,30 @@ export function subscribeScopedReservations(
       (err) => onError(err, index)
     )
   );
-
   return () => unsubs.forEach((unsub) => unsub());
+}
+
+export function subscribeScopedReservations(
+  db: Firestore,
+  scope: ReservationSyncScope,
+  onData: (rows: Reservation[]) => void,
+  onError: (err: unknown, queryIndex: number) => void
+): () => void {
+  return subscribeQueries(buildReservationSyncQueries(db, scope), onData, onError);
+}
+
+/** 화면이 필요한 기간(입고일 기준)만 구독 — 화면을 닫으면 해제 */
+export function subscribeReservationRange(
+  db: Firestore,
+  scope: ReservationSyncScope,
+  startDate: string,
+  endDate: string,
+  onData: (rows: Reservation[]) => void,
+  onError: (err: unknown, queryIndex: number) => void
+): () => void {
+  return subscribeQueries(
+    buildReservationRangeQueries(db, scope, 'departureDate', startDate, endDate),
+    onData,
+    onError
+  );
 }

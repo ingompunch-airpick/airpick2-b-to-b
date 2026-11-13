@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useReservationRange, rangeAroundToday, monthRange } from '../contexts/ReservationRangeContext';
 import { 
   Coins, 
   Power, 
@@ -211,6 +212,15 @@ export default function StatisticsView({
   const [todayStr, setTodayStr] = useState(() => getKSTDateString());
   /** CRM 조회일 — 기본 오늘, 사용자가 다른 날 선택 가능 */
   const [crmDate, setCrmDate] = useState(() => getKSTDateString());
+  // 실시간 창 밖 날짜를 고르면 그 기간만 불러옴 (docs/work/reservation-load-plan.md)
+  {
+    const [cf, ct] = rangeAroundToday(crmDate, 30, 1);
+    useReservationRange(cf, ct);
+    const [sf, st] = monthRange(summaryMonthPrefix);
+    useReservationRange(sf, st);
+    const [hf, ht] = monthRange(hqMonthPrefix);
+    useReservationRange(hf, ht);
+  }
   const currentMonthPrefix = todayStr.substring(0, 7); // "2026-05"
 
   const multiOperatorScope = useMemo(

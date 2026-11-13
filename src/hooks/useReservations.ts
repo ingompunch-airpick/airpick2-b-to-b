@@ -10,7 +10,11 @@ import {
 import { formatPartnerDisplayName } from '../utils/companyDisplay';
 import { clearLegacyReservationLocalCaches } from '../utils/reservationScope';
 import { normalizeDateString, normalizeDocsArray } from '../utils/reservationNormalize';
-import { subscribeScopedReservations } from '../utils/reservationQuery';
+import {
+  getReservationSyncDateRange,
+  subscribeReservationRange,
+  subscribeScopedReservations,
+} from '../utils/reservationQuery';
 import { buildCheckoutRetentionFields } from '../lib/reservationRetention';
 import { mergeReservationImageUrls } from '../lib/reservationPhotos';
 import { buildScratchPhotoSet } from '../lib/scratchPhotos';
@@ -86,7 +90,11 @@ export function useReservations({
   employeeName,
   isSuperAdmin,
 }: UseReservationsParams) {
+  /** 현장 실시간 창(입고·출고 -3~+14일 + 미처리) */
   const [reservations, setReservations] = useState<Reservation[]>([]);
+  /** 화면이 요청한 기간 구독 결과 (통계·장부 등, 화면을 닫으면 해제) */
+  const [rangeRowsByKey, setRangeRowsByKey] = useState<Record<string, Reservation[]>>({});
+  const rangeSubsRef = useRef(new Map<string, { count: number; unsub: () => void }>());
   const [loadingReservations, setLoadingReservations] = useState(false);
   const [reservationSyncError, setReservationSyncError] = useState<string | null>(null);
   const [reservationSyncRetryKey, setReservationSyncRetryKey] = useState(0);
@@ -122,11 +130,23 @@ export function useReservations({
 
   const showCompanyNameOnCards = operatorCompanyIds.length > 1;
 
+  /** 실시간 창 + 화면 요청 기간 합치기 (같은 id 는 실시간 쪽 우선) */
+  const allReservations = useMemo(() => {
+    const extra = Object.values(rangeRowsByKey);
+    if (!extra.length) return reservations;
+    const byId = new Map<string, Reservation>();
+    for (const list of extra) for (const r of list) if (r?.id) byId.set(r.id, r);
+    for (const r of reservations) if (r?.id) byId.set(r.id, r);
+    return Array.from(byId.values()).sort((a, b) =>
+      String(b.createdAt || '').localeCompare(String(a.createdAt || ''))
+    );
+  }, [reservations, rangeRowsByKey]);
+
   const visibleReservations = useMemo(() => {
-    const normalized = normalizeDocsArray(reservations);
+    const normalized = normalizeDocsArray(allReservations);
     if (isAirpickHeadquarters(currentCompanyId)) return normalized;
     return filterReservationsForOperatorGroup(normalized, operatorCompanyIds);
-  }, [reservations, currentCompanyId, operatorCompanyIds]);
+  }, [allReservations, currentCompanyId, operatorCompanyIds]);
 
   useEffect(() => {
     currentCompanyIdRef.current = currentCompanyId;
@@ -288,6 +308,66 @@ export function useReservations({
     };
   }, [isLoggedIn, reservationSyncScopeKey, currentCompanyId, operatorCompanyIds, reservationSyncRetryKey]);
 
+  /** 범위 구독 정리 — 로그인·업체 범위가 바뀌면 모두 해제 */
+  useEffect(() => {
+    const subs = rangeSubsRef.current;
+    return () => {
+      subs.forEach((s) => s.unsub());
+      subs.clear();
+      setRangeRowsByKey({});
+    };
+  }, [isLoggedIn, reservationSyncScopeKey]);
+
+  /**
+   * 화면이 실시간 창 밖 기간(입고일 기준)을 필요로 할 때 호출. 반환 함수로 해제.
+   * 같은 기간을 여러 화면이 요청하면 구독 1개를 같이 쓴다.
+   */
+  const requestReservationRange = useCallback(
+    (from: string, to: string): (() => void) => {
+      if (!isLoggedIn || !from || !to || from > to) return () => {};
+      const live = getReservationSyncDateRange();
+      if (from >= live.startDate && to <= live.endDate) return () => {};
+      const key = `${reservationSyncScopeKey}|${from}|${to}`;
+      const subs = rangeSubsRef.current;
+      const existing = subs.get(key);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        const scope = {
+          isHqScope: isAirpickHeadquarters(currentCompanyId),
+          operatorCompanyIds: operatorCompanyIds.length > 0 ? operatorCompanyIds : [currentCompanyId],
+        };
+        const unsub = subscribeReservationRange(
+          db,
+          scope,
+          from,
+          to,
+          (rows) =>
+            setRangeRowsByKey((prev) => ({
+              ...prev,
+              [key]: normalizeDocsArray(rows),
+            })),
+          (err) => console.warn('[reservations] range sync failed', { from, to, err })
+        );
+        subs.set(key, { count: 1, unsub });
+      }
+      return () => {
+        const cur = subs.get(key);
+        if (!cur) return;
+        cur.count -= 1;
+        if (cur.count > 0) return;
+        cur.unsub();
+        subs.delete(key);
+        setRangeRowsByKey((prev) => {
+          const next = { ...prev };
+          delete next[key];
+          return next;
+        });
+      };
+    },
+    [isLoggedIn, reservationSyncScopeKey, currentCompanyId, operatorCompanyIds]
+  );
+
   const statusUpdateInFlightRef = useRef<Set<string>>(new Set());
 
   const handleUpdateValetStatus = useCallback(
@@ -308,7 +388,7 @@ export function useReservations({
           ? buildCheckoutRetentionFields(extraFields?.actualExitTime)
           : {};
 
-      const current = reservations.find((r) => r.id === resId);
+      const current = allReservations.find((r) => r.id === resId);
       const company = companies.find((c) => c.id === (current?.companyId || currentCompanyId));
       const revertCleanup = current
         ? statusRevertCleanupPatch(current.status, nextStatus)
@@ -381,7 +461,7 @@ export function useReservations({
         statusUpdateInFlightRef.current.delete(resId);
       }
     },
-    [isEmployee, employeeName, isSuperAdmin, reservations, companies, currentCompanyId]
+    [isEmployee, employeeName, isSuperAdmin, allReservations, companies, currentCompanyId]
   );
 
   const handleUpdatePaymentMethod = useCallback(
@@ -444,7 +524,7 @@ export function useReservations({
 
   const handlePatchReservationFields = useCallback(
     async (resId: string, updateData: Partial<Reservation>) => {
-      const current = reservations.find((r) => r.id === resId);
+      const current = allReservations.find((r) => r.id === resId);
       const company = companies.find((c) => c.id === (current?.companyId || currentCompanyId));
       const enriched = current
         ? (enrichReservationWritePatch(current, updateData, company) as Partial<Reservation>)
@@ -464,7 +544,7 @@ export function useReservations({
         throw err;
       }
     },
-    [reservations, companies, currentCompanyId]
+    [allReservations, companies, currentCompanyId]
   );
 
   const enableReservationAlerts = useCallback(async () => {
@@ -558,8 +638,9 @@ export function useReservations({
   }, [visibleReservations, selectedDate]);
 
   return {
-    reservations,
+    reservations: allReservations,
     setReservations,
+    requestReservationRange,
     loadingReservations,
     reservationSyncError,
     retryReservationSync,
