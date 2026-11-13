@@ -1,0 +1,55 @@
+name: Deploy B2B to Firebase Hosting (airpick-reservation.web.app)
+
+# GitHub Pages(직원 앱)와 같은 커밋을 airpick-reservation.web.app 에도 올린다.
+# web.app 은 업체 홈 「예약하기」(/h/{업체}), 손님 접수증(/r/), 제휴 통계, 업체 로그인 안내 주소로 쓰인다.
+# 예전엔 수동(npm run deploy:hosting)만이라 GitHub Pages 와 버전이 갈렸다 (2026-11-14 점검).
+#
+# 필요: 저장소 Secrets 에 FIREBASE_SERVICE_ACCOUNT (B2C 저장소와 같은 서비스 계정 JSON).
+# 없으면 이 작업은 건너뛰고 실패하지 않는다.
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-b2b-firebase-hosting
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      HAS_FIREBASE_SA: ${{ secrets.FIREBASE_SERVICE_ACCOUNT != '' }}
+    steps:
+      - name: Skip notice
+        if: env.HAS_FIREBASE_SA != 'true'
+        run: echo "FIREBASE_SERVICE_ACCOUNT 시크릿이 없어 web.app 배포를 건너뜁니다."
+
+      - uses: actions/checkout@v4
+        if: env.HAS_FIREBASE_SA == 'true'
+
+      - uses: actions/setup-node@v4
+        if: env.HAS_FIREBASE_SA == 'true'
+        with:
+          node-version: 20
+          cache: npm
+
+      - run: npm ci
+        if: env.HAS_FIREBASE_SA == 'true'
+
+      - name: Build (base '/')
+        if: env.HAS_FIREBASE_SA == 'true'
+        env:
+          VITE_APP_BUILD: ${{ github.sha }}
+        # server.cjs(개발용 서버 번들)가 공개 폴더에 섞이지 않게 vite 만 빌드
+        run: npx vite build
+
+      - uses: FirebaseExtended/action-hosting-deploy@v0
+        if: env.HAS_FIREBASE_SA == 'true'
+        with:
+          repoToken: ${{ secrets.GITHUB_TOKEN }}
+          firebaseServiceAccount: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+          projectId: airpick-reservation
+          channelId: live

@@ -14,7 +14,7 @@ export const WAWA_FEE_DEFAULTS: Partial<Company> = {
   extra_day_price: 5000,
   surchargePrice: 20000,
   surchargeStartTime: '19:00',
-  surchargeEndTime: '05:00',
+  surchargeEndTime: '04:55',
   t2Surcharge: 0,
 };
 

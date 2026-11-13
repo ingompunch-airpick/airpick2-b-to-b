@@ -70,19 +70,20 @@ function mapPricingCompany(id: string, data: Record<string, unknown>): PricingCo
 }
 
 // ── B2C pricing.ts 복사 (요금 계산 부분만) ───────────────────────────
+/** B2C·B2B WAWA_FEE_DEFAULTS 와 같게 (companies/wawa 실제 설정 기준) */
 const WAWA_DEFAULTS = {
   outdoorBasePrice: 40000,
-  outdoorBaseDays: 1,
+  outdoorBaseDays: 2,
   outdoorExtraPrice: 5000,
   indoorBasePrice: 40000,
-  indoorBaseDays: 1,
+  indoorBaseDays: 2,
   indoorExtraPrice: 10000,
   base_price: 40000,
-  base_days: 1,
+  base_days: 2,
   extra_day_price: 5000,
-  surchargePrice: 10000,
-  surchargeStartTime: '20:00',
-  surchargeEndTime: '04:00',
+  surchargePrice: 20000,
+  surchargeStartTime: '19:00',
+  surchargeEndTime: '04:55',
   t2Surcharge: 0,
 };
 
