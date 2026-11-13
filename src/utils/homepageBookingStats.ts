@@ -1,10 +1,14 @@
 /**
  * 업체 홈페이지 예약완료 — createdBy=homepage, 취소 제외.
- * 유입(acquisitionSource: 명함 등) + 업체별. 방문·클릭 퍼널과 분리.
+ * 업체마다 링크가 여러 개이므로: 업체 → 유입(acquisitionSource[/campaign]).
+ * 전 업체 명함·전단지를 한 줄로 합치지 않는다.
  */
 import type { Company, Reservation } from '../types';
 import { isAirpickHeadquarters } from '../constants/platform';
-import { acquisitionSourceLabel } from './acquisition';
+import {
+  acquisitionSourceLabel,
+  defaultAcquisitionCampaign,
+} from './acquisition';
 import { resolveBookingSourceFromReservation } from './bookingSource';
 import { formatPartnerDisplayName } from './companyDisplay';
 import { getKSTDateOnlyString, toKSTDateOnlyString } from './kstDate';
@@ -18,25 +22,25 @@ import { isWawaCompany } from './pricing';
 
 export type HomepageBookingPeriod = ShortPathPeriod;
 
+export type HomepageBookingLinkRow = {
+  /** source 또는 source::campaign */
+  key: string;
+  label: string;
+  count: number;
+  pct: number;
+};
+
 export type HomepageBookingCompanyRow = {
   companyId: string;
   label: string;
   count: number;
-};
-
-export type HomepageBookingSourceRow = {
-  source: string;
-  label: string;
-  count: number;
   pct: number;
-  companies: HomepageBookingCompanyRow[];
+  links: HomepageBookingLinkRow[];
 };
 
 export type HomepageBookingStats = {
   total: number;
-  withSource: number;
-  withoutSource: number;
-  rows: HomepageBookingSourceRow[];
+  rows: HomepageBookingCompanyRow[];
   fromYmd: string;
   toYmd: string;
 };
@@ -59,17 +63,26 @@ function companyLabel(companyId: string, companies: Company[]): string {
   return found?.name?.trim() || companyId;
 }
 
-function sourceKey(r: Reservation): string {
-  const raw = String(r.acquisitionSource || '').trim();
-  return raw || SHORT_PATH_NONE;
+/** 같은 source라도 캠페인이 기본값과 다르면 링크를 나눈다 */
+function linkKeyAndLabel(r: Reservation, companyId: string): { key: string; label: string } {
+  const rawSource = String(r.acquisitionSource || '').trim();
+  if (!rawSource) {
+    return { key: SHORT_PATH_NONE, label: '경로 없음' };
+  }
+  const source = rawSource;
+  const baseLabel = acquisitionSourceLabel(source);
+  const campaign = String(r.acquisitionCampaign || '').trim();
+  const defaultCmp = defaultAcquisitionCampaign(companyId, source);
+  if (campaign && campaign !== defaultCmp) {
+    return {
+      key: `${source}::${campaign}`,
+      label: `${baseLabel} · ${campaign}`,
+    };
+  }
+  return { key: source, label: baseLabel };
 }
 
-function sourceLabel(source: string): string {
-  if (!source || source === SHORT_PATH_NONE) return '경로 없음';
-  return acquisitionSourceLabel(source);
-}
-
-/** 홈 예약완료 · createdAt(KST) · 유입별(+업체 내역) */
+/** 홈 예약완료 · createdAt(KST) · 업체 → 링크 */
 export function aggregateHomepageBookings(
   reservations: Reservation[],
   opts: {
@@ -83,11 +96,9 @@ export function aggregateHomepageBookings(
   const companies = opts.companies || [];
   const { fromYmd, toYmd } = shortPathRange(opts.period, opts.monthPrefix, todayYmd);
 
-  /** source → companyId → count */
-  const nested = new Map<string, Map<string, number>>();
+  /** companyId → linkKey → { label, count } */
+  const nested = new Map<string, Map<string, { label: string; count: number }>>();
   let total = 0;
-  let withSource = 0;
-  let withoutSource = 0;
 
   for (const r of reservations) {
     if (isCancelled(r.status)) continue;
@@ -96,38 +107,42 @@ export function aggregateHomepageBookings(
     if (!ymd || ymd < fromYmd || ymd > toYmd) continue;
     const cid = companyKey(r);
     if (isAirpickHeadquarters(cid)) continue;
-    const src = sourceKey(r);
-    if (!nested.has(src)) nested.set(src, new Map());
-    const byCo = nested.get(src)!;
-    byCo.set(cid, (byCo.get(cid) || 0) + 1);
+    const { key, label } = linkKeyAndLabel(r, cid);
+    if (!nested.has(cid)) nested.set(cid, new Map());
+    const links = nested.get(cid)!;
+    const prev = links.get(key);
+    if (prev) prev.count += 1;
+    else links.set(key, { label, count: 1 });
     total += 1;
-    if (src === SHORT_PATH_NONE) withoutSource += 1;
-    else withSource += 1;
   }
 
-  const rows: HomepageBookingSourceRow[] = [...nested.entries()]
-    .map(([source, byCo]) => {
-      const companyRows: HomepageBookingCompanyRow[] = [...byCo.entries()]
-        .map(([companyId, count]) => ({
-          companyId,
-          label: companyLabel(companyId, companies),
-          count,
+  const rows: HomepageBookingCompanyRow[] = [...nested.entries()]
+    .map(([companyId, linksMap]) => {
+      const linkRowsRaw = [...linksMap.entries()].map(([key, v]) => ({
+        key,
+        label: v.label,
+        count: v.count,
+      }));
+      const count = linkRowsRaw.reduce((s, l) => s + l.count, 0);
+      const links: HomepageBookingLinkRow[] = linkRowsRaw
+        .map((l) => ({
+          ...l,
+          pct: count > 0 ? Math.round((l.count / count) * 100) : 0,
         }))
-        .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'ko'));
-      const count = companyRows.reduce((s, c) => s + c.count, 0);
+        .sort((a, b) => {
+          if (a.key === SHORT_PATH_NONE) return 1;
+          if (b.key === SHORT_PATH_NONE) return -1;
+          return b.count - a.count || a.label.localeCompare(b.label, 'ko');
+        });
       return {
-        source,
-        label: sourceLabel(source),
+        companyId,
+        label: companyLabel(companyId, companies),
         count,
         pct: total > 0 ? Math.round((count / total) * 100) : 0,
-        companies: companyRows,
+        links,
       };
     })
-    .sort((a, b) => {
-      if (a.source === SHORT_PATH_NONE) return 1;
-      if (b.source === SHORT_PATH_NONE) return -1;
-      return b.count - a.count || a.label.localeCompare(b.label, 'ko');
-    });
+    .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label, 'ko'));
 
-  return { total, withSource, withoutSource, rows, fromYmd, toYmd };
+  return { total, rows, fromYmd, toYmd };
 }
