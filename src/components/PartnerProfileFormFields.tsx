@@ -43,7 +43,6 @@ function withPhotos(profile: PartnerProfileInput, urls: string[]): PartnerProfil
 
 type VerificationDocKey =
   | 'businessRegistrationUrl'
-  | 'parkingContractUrl'
   | 'insuranceCertificateUrl';
 
 function VerificationDocumentSlot({
@@ -122,7 +121,6 @@ export default function PartnerProfileFormFields({
 }: Props) {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const businessDocInputRef = useRef<HTMLInputElement>(null);
-  const parkingDocInputRef = useRef<HTMLInputElement>(null);
   const insuranceDocInputRef = useRef<HTMLInputElement>(null);
   const profileRef = useRef(profile);
   profileRef.current = profile;
@@ -197,7 +195,6 @@ export default function PartnerProfileFormFields({
 
   const pickVerificationDocument = (key: VerificationDocKey) => {
     if (key === 'businessRegistrationUrl') businessDocInputRef.current?.click();
-    else if (key === 'parkingContractUrl') parkingDocInputRef.current?.click();
     else insuranceDocInputRef.current?.click();
   };
 
@@ -358,16 +355,6 @@ export default function PartnerProfileFormFields({
           }}
         />
         <input
-          ref={parkingDocInputRef}
-          type="file"
-          accept="image/*"
-          className="hidden"
-          onChange={(e) => {
-            void handleVerificationDocumentFile(e.target.files?.[0], 'parkingContractUrl');
-            e.target.value = '';
-          }}
-        />
-        <input
           ref={insuranceDocInputRef}
           type="file"
           accept="image/*"
@@ -377,20 +364,13 @@ export default function PartnerProfileFormFields({
             e.target.value = '';
           }}
         />
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <VerificationDocumentSlot
             label="사업자 등록증"
             url={profile.businessRegistrationUrl}
             variant={variant}
             onPick={() => pickVerificationDocument('businessRegistrationUrl')}
             onClear={() => set('businessRegistrationUrl', '')}
-          />
-          <VerificationDocumentSlot
-            label="주차장 계약서"
-            url={profile.parkingContractUrl}
-            variant={variant}
-            onPick={() => pickVerificationDocument('parkingContractUrl')}
-            onClear={() => set('parkingContractUrl', '')}
           />
           <VerificationDocumentSlot
             label="보험"

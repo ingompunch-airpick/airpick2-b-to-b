@@ -347,6 +347,15 @@ export interface Reservation {
   /** 예약 시점 공항 (업체 airport 스탬프). 미설정 시 ICN */
   airport?: 'ICN' | 'GMP';
   totalPrice: number;
+  /** 서버 금액 검증(손님 예약) — 문제 있을 때만 ok:false 로 남는다 */
+  priceCheck?: {
+    ok: boolean;
+    issues?: string[];
+    expectedCoreWon?: number;
+    submittedListWon?: number;
+    submittedTotalWon?: number;
+    checkedAt?: string;
+  };
   /** B2C 정가(가입 할인·포인트 전). 수수료 기준. 없으면 totalPrice(+쿠폰)로 추정 */
   listPrice?: number;
   /** 카카오 가입 첫 예약 할인(원). 에어픽 수수료에서 차감 */

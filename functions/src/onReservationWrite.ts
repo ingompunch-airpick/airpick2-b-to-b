@@ -15,6 +15,7 @@ import { enforceParkingCapacityOnCreate } from './parkingCapacity';
 import { enforceBookingPolicyOnCreate } from './bookingPolicy';
 import { bumpCustomerVisitOnCheckout } from './customerVisit';
 import { settlePointSpendOnCreate, syncPointsOnReservationUpdate } from './points/ledger';
+import { checkB2cReservationPrice, recordPriceCheckIssue } from './reservations/priceCheck';
 import { isUnownedUserId, mergeMemberReservationId, stampKakaoOwner } from './members/reservationIds';
 import {
   notifyPartnersNewReservation,
@@ -106,6 +107,18 @@ export const onReservationSync = onDocumentWritten(
         if (stamped) afterData = stamped;
       } catch (err) {
         console.error('[members] owner stamp failed', {
+          reservationId,
+          err: err instanceof Error ? err.message : String(err),
+        });
+      }
+      try {
+        const priceResult = await checkB2cReservationPrice(reservationId, afterData);
+        if (priceResult && !priceResult.ok) {
+          await recordPriceCheckIssue(reservationId, afterData, priceResult);
+          console.warn('[priceCheck] mismatch', { reservationId, issues: priceResult.issues });
+        }
+      } catch (err) {
+        console.error('[priceCheck] failed', {
           reservationId,
           err: err instanceof Error ? err.message : String(err),
         });

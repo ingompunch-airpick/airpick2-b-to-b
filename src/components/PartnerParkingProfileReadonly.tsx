@@ -173,18 +173,6 @@ export default function PartnerParkingProfileReadonly({ company }: { company?: C
               ) : (
                 <span className="text-[11px] text-white/40 font-semibold">사업자 등록증 없음</span>
               )}
-              {company.verificationDocuments?.parkingContractUrl ? (
-                <a
-                  href={company.verificationDocuments.parkingContractUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex text-[11px] font-bold text-amber-400 underline-offset-2 hover:underline"
-                >
-                  주차장 계약서
-                </a>
-              ) : (
-                <span className="text-[11px] text-white/40 font-semibold">주차장 계약서 없음</span>
-              )}
             </div>
           </div>
 

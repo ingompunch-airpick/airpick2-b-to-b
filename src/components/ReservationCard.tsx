@@ -339,6 +339,17 @@ export default function ReservationCard({
                 포인트 {res.pointSpentWon?.toLocaleString()}원 차감
               </span>
             ) : null}
+            {res.priceCheck?.ok === false ? (
+              <span
+                className="mt-0.5 block text-[11px] font-bold text-red-600"
+                title={(res.priceCheck.issues || []).join('\n')}
+              >
+                금액 확인 필요
+                {res.priceCheck.expectedCoreWon
+                  ? ` · 기본 요금 ${res.priceCheck.expectedCoreWon.toLocaleString()}원`
+                  : ''}
+              </span>
+            ) : null}
           </span>
         </div>
       </div>

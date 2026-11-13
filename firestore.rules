@@ -216,6 +216,7 @@ service cloud.firestore {
           'pointsEarnedWon',
           'pointRefunded',
           'pointSpendSettled',
+          'priceCheck',
         ]);
     }
 
@@ -243,7 +244,8 @@ service cloud.firestore {
 
       allow create: if isSignedIn()
         && isValidReservationId(reservationId)
-        && validReservationWrite();
+        && validReservationWrite()
+        && !('priceCheck' in request.resource.data);
 
       // 파트너는 자기 업체만 수정. 손님 클라이언트 수정은 CF(취소 등)로 이전됨.
       allow update: if isSignedIn()
@@ -395,7 +397,9 @@ service cloud.firestore {
     // ── customers (방문 횟수 — 전화 숫자 키) ───────────────────────────────
 
     match /customers/{phoneKey} {
-      allow read: if isPlatformAdmin() || isPartner();
+      // 전화번호 1건 조회(get)만 업체 허용. 전체 목록(list)은 본사만 — 업체끼리 고객 목록 열람 방지.
+      allow get: if isPlatformAdmin() || isPartner();
+      allow list: if isPlatformAdmin();
       allow create, update, delete: if false;
     }
 

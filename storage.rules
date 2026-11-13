@@ -25,15 +25,6 @@ service firebase.storage {
       return reservationId.matches('^[a-zA-Z0-9_-]{1,128}$');
     }
 
-    // 차량 사진: reservations/{companyId}/{reservationId}/images/…
-    match /reservations/{companyId}/{reservationId}/{allPaths=**} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn()
-        && isValidCompanyId(companyId)
-        && isValidReservationId(reservationId)
-        && request.resource.size < 15 * 1024 * 1024;
-    }
-
     function partnerCompanyId() {
       return isSignedIn()
         && request.auth.token.partnerCompanyId is string
@@ -57,6 +48,20 @@ service firebase.storage {
               == partnerCompanyId()
           )
         );
+    }
+
+    // 차량 사진: reservations/{companyId}/{reservationId}/images/…
+    // 올리기·보기·지우기는 업체 직원(파트너 토큰)과 본사만. 손님(익명 로그인)은 불가.
+    // 화면 표시는 다운로드 URL(토큰 포함)이라 이 규칙과 무관하게 계속 보인다.
+    // 하위 업체·와와 별칭 예약도 올려야 해서 업체 일치까지는 보지 않는다.
+    match /reservations/{companyId}/{reservationId}/{allPaths=**} {
+      allow read: if isPlatformAdmin() || partnerCompanyId().size() > 0;
+      allow create, update: if (isPlatformAdmin() || partnerCompanyId().size() > 0)
+        && isValidCompanyId(companyId)
+        && isValidReservationId(reservationId)
+        && request.resource.size < 15 * 1024 * 1024
+        && request.resource.contentType.matches('image/.*');
+      allow delete: if isPlatformAdmin() || partnerCompanyId().size() > 0;
     }
 
     // 가맹점 주차장·보험·서류 사진. 본사 또는 해당 업체가 올린다. 읽기는 공개.

@@ -278,15 +278,15 @@ export function readPartnerProfileFromCompany(company?: Company): PartnerProfile
     insuranceCoverageLimitText,
     insuranceCertificateUrl,
     businessRegistrationUrl: verificationDocuments?.businessRegistrationUrl?.trim() || '',
-    parkingContractUrl: verificationDocuments?.parkingContractUrl?.trim() || '',
+    // 주차장 계약서는 2026-11-14부터 받지 않음 (화면 제거). 기존 값은 읽지 않는다.
+    parkingContractUrl: '',
   };
 }
 
 function buildVerificationDocuments(input: PartnerProfileInput): CompanyVerificationDocuments | undefined {
   const businessRegistrationUrl = input.businessRegistrationUrl.trim() || undefined;
-  const parkingContractUrl = input.parkingContractUrl.trim() || undefined;
-  if (!businessRegistrationUrl && !parkingContractUrl) return undefined;
-  return { businessRegistrationUrl, parkingContractUrl };
+  if (!businessRegistrationUrl) return undefined;
+  return { businessRegistrationUrl };
 }
 
 export function buildInsurancePayload(input: PartnerProfileInput): {
