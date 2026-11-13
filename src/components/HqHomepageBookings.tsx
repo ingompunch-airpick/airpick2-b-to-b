@@ -27,6 +27,7 @@ export default function HqHomepageBookings({
 }) {
   const todayYmd = getKSTDateOnlyString();
   const [period, setPeriod] = useState<HomepageBookingPeriod>('month');
+  const [openSource, setOpenSource] = useState<string | null>(null);
 
   const stats = useMemo(
     () =>
@@ -45,7 +46,7 @@ export default function HqHomepageBookings({
         <div>
           <p className="text-xs font-black text-sky-300 tracking-wider">업체 홈페이지 예약</p>
           <p className="text-[11px] text-zinc-500 font-bold mt-1 leading-relaxed">
-            홈에서 예약완료된 건만 · 취소 제외 · 접수일 기준
+            예약완료만 · 명함·전단지 등 유입별 · 취소 제외
           </p>
         </div>
         <div className="flex bg-neutral-900/80 p-1 rounded-xl border border-neutral-800 gap-0.5">
@@ -71,12 +72,28 @@ export default function HqHomepageBookings({
         {period === 'last7' ? ' · 오늘 기준' : ''}
       </p>
 
-      <div className="rounded-xl bg-sky-500/10 border border-sky-500/20 px-3 py-2.5">
-        <span className="text-[10px] text-sky-300 font-bold block">예약완료 합계</span>
-        <span className="text-xl font-black text-sky-100 font-mono">
-          {stats.total}
-          <span className="text-sm ml-0.5">건</span>
-        </span>
+      <div className="grid grid-cols-3 gap-2">
+        <div className="rounded-xl bg-sky-500/10 border border-sky-500/20 px-3 py-2.5">
+          <span className="text-[10px] text-sky-300 font-bold block">예약완료</span>
+          <span className="text-xl font-black text-sky-100 font-mono">
+            {stats.total}
+            <span className="text-sm ml-0.5">건</span>
+          </span>
+        </div>
+        <div className="rounded-xl bg-neutral-900/80 border border-neutral-800 px-3 py-2.5">
+          <span className="text-[10px] text-zinc-400 font-bold block">유입 있음</span>
+          <span className="text-xl font-black text-zinc-100 font-mono">
+            {stats.withSource}
+            <span className="text-sm ml-0.5">건</span>
+          </span>
+        </div>
+        <div className="rounded-xl bg-neutral-900/80 border border-neutral-800 px-3 py-2.5">
+          <span className="text-[10px] text-zinc-400 font-bold block">경로 없음</span>
+          <span className="text-xl font-black text-zinc-100 font-mono">
+            {stats.withoutSource}
+            <span className="text-sm ml-0.5">건</span>
+          </span>
+        </div>
       </div>
 
       {stats.rows.length === 0 ? (
@@ -85,27 +102,63 @@ export default function HqHomepageBookings({
         </p>
       ) : (
         <div className="space-y-2">
-          {stats.rows.map((row) => (
-            <div key={row.companyId} className="flex items-center gap-2">
-              <span className="shrink-0 text-[11px] text-zinc-300 font-bold w-20 truncate">
-                {row.label}
-              </span>
-              <div className="flex-1 min-w-0">
-                <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-sky-500"
-                    style={{ width: `${row.pct}%` }}
-                  />
-                </div>
+          {stats.rows.map((row) => {
+            const open = openSource === row.source;
+            return (
+              <div
+                key={row.source}
+                className={`rounded-xl bg-neutral-900/60 border px-3 py-2.5 ${
+                  open ? 'border-sky-500/35' : 'border-neutral-800'
+                }`}
+              >
+                <button
+                  type="button"
+                  onClick={() =>
+                    setOpenSource((prev) => (prev === row.source ? null : row.source))
+                  }
+                  className="w-full text-left flex items-center gap-2"
+                >
+                  <span className="shrink-0 text-[11px] text-zinc-200 font-bold w-[4.5rem] truncate">
+                    {row.label}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
+                      <div
+                        className="h-full rounded-full bg-sky-500"
+                        style={{ width: `${row.pct}%` }}
+                      />
+                    </div>
+                  </div>
+                  <span className="text-[11px] text-zinc-400 font-mono w-10 text-right shrink-0">
+                    {row.count}건
+                  </span>
+                  <span className="text-[11px] text-zinc-300 font-bold font-mono w-10 text-right shrink-0">
+                    {row.pct}%
+                  </span>
+                  <span className="text-[10px] text-zinc-500 font-bold shrink-0 w-8 text-right">
+                    {open ? '접기' : '업체'}
+                  </span>
+                </button>
+                {open ? (
+                  <div className="mt-2 space-y-1 border-t border-neutral-800 pt-2">
+                    {row.companies.map((c) => (
+                      <div
+                        key={c.companyId}
+                        className="flex items-center justify-between gap-2 px-1"
+                      >
+                        <span className="text-[11px] text-zinc-400 font-bold truncate">
+                          {c.label}
+                        </span>
+                        <span className="text-[11px] text-zinc-200 font-mono font-black shrink-0">
+                          {c.count}건
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : null}
               </div>
-              <span className="text-[11px] text-zinc-400 font-mono w-10 text-right shrink-0">
-                {row.count}건
-              </span>
-              <span className="text-[11px] text-zinc-300 font-bold font-mono w-10 text-right shrink-0">
-                {row.pct}%
-              </span>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>
