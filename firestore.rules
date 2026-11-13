@@ -464,6 +464,28 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // ── b2cShortPathStats (에어픽.kr/long1 등 짧은 경로 방문) ─────────────
+    // B2C 공개 페이지 increment. 조회는 본사 Admin만. scopeId 고정 airpick.
+    match /b2cShortPathStats/{scopeId}/days/{dayId} {
+      allow read: if isPlatformAdmin();
+      allow create, update: if scopeId == 'airpick'
+        && dayId.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
+        && request.resource.data.keys().hasOnly(['pageViews', 'updatedAt', 'sources'])
+        && (
+          !('sources' in request.resource.data)
+          || (request.resource.data.sources is map && request.resource.data.sources.size() <= 80)
+        )
+        && request.resource.data.pageViews is int
+        && request.resource.data.pageViews > 0
+        && request.resource.data.pageViews < 100000000
+        && request.resource.data.updatedAt is string
+        && (
+          !exists(/databases/$(database)/documents/b2cShortPathStats/$(scopeId)/days/$(dayId))
+          || request.resource.data.pageViews >= resource.data.pageViews
+        );
+      allow delete: if false;
+    }
+
     // ── hqCustomerHistory (앱에서 지운 출차 완료 수, 전화번호별) ──────────
     match /hqCustomerHistory/{docId} {
       allow read: if isPlatformAdmin();

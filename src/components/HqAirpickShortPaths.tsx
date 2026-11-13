@@ -1,10 +1,15 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import type { Reservation } from '../types';
 import {
   aggregateAirpickShortPaths,
   type ShortPathPeriod,
 } from '../utils/airpickShortPathStats';
 import { getKSTDateOnlyString } from '../utils/kstDate';
+import {
+  fetchB2cShortPathDays,
+  sumB2cShortPathVisits,
+  type B2cShortPathDayStat,
+} from '../lib/b2cShortPathStatsFirestore';
 
 const PERIODS: { id: ShortPathPeriod; label: string }[] = [
   { id: 'last7', label: '최근 7일' },
@@ -32,6 +37,27 @@ export default function HqAirpickShortPaths({
   const todayYmd = getKSTDateOnlyString();
   const [periodLocal, setPeriodLocal] = useState<ShortPathPeriod>('month');
   const period = periodProp ?? periodLocal;
+  const [visitDays, setVisitDays] = useState<B2cShortPathDayStat[] | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchB2cShortPathDays(todayYmd)
+      .then((rows) => {
+        if (!cancelled) setVisitDays(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setVisitDays([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [todayYmd]);
+
+  const visitSum = useMemo(
+    () =>
+      sumB2cShortPathVisits(visitDays || [], period, monthPrefix, todayYmd),
+    [visitDays, period, monthPrefix, todayYmd]
+  );
 
   const stats = useMemo(
     () =>
@@ -39,8 +65,10 @@ export default function HqAirpickShortPaths({
         period,
         monthPrefix,
         todayYmd,
+        visitBySource: visitSum.bySource,
+        visitTotal: visitSum.pageViews,
       }),
-    [reservations, period, monthPrefix, todayYmd]
+    [reservations, period, monthPrefix, todayYmd, visitSum]
   );
 
   return (
@@ -49,7 +77,7 @@ export default function HqAirpickShortPaths({
         <div>
           <p className="text-xs font-black text-fuchsia-300 tracking-wider">에어픽 짧은 경로</p>
           <p className="text-[11px] text-zinc-500 font-bold mt-1 leading-relaxed">
-            B2C 예약 · 접수일 기준 · 에어픽.kr/long1 등
+            방문 + 예약 · 에어픽.kr/long1 등 · 접수일·방문일(KST)
           </p>
         </div>
         {!hidePeriodToggle ? (
@@ -77,24 +105,34 @@ export default function HqAirpickShortPaths({
         {period === 'last7' ? ' · 오늘 기준' : ''}
       </p>
 
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-2 gap-2">
+        <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 px-3 py-2.5">
+          <span className="text-[10px] text-amber-300 font-bold block">방문 합</span>
+          <span className="text-xl font-black text-amber-100 font-mono">
+            {visitDays === null ? '…' : stats.visitTotal}
+            <span className="text-sm ml-0.5">회</span>
+          </span>
+        </div>
         <div className="rounded-xl bg-fuchsia-500/10 border border-fuchsia-500/20 px-3 py-2.5">
-          <span className="text-[10px] text-fuchsia-300 font-bold block">B2C 합계</span>
+          <span className="text-[10px] text-fuchsia-300 font-bold block">예약 합</span>
           <span className="text-xl font-black text-fuchsia-100 font-mono">
             {stats.total}
             <span className="text-sm ml-0.5">건</span>
           </span>
         </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-2">
         <div className="rounded-xl bg-neutral-900/80 border border-neutral-800 px-3 py-2.5">
-          <span className="text-[10px] text-zinc-400 font-bold block">경로 있음</span>
-          <span className="text-xl font-black text-zinc-100 font-mono">
+          <span className="text-[10px] text-zinc-400 font-bold block">경로 있는 예약</span>
+          <span className="text-lg font-black text-zinc-100 font-mono">
             {stats.withPath}
             <span className="text-sm ml-0.5">건</span>
           </span>
         </div>
         <div className="rounded-xl bg-neutral-900/80 border border-neutral-800 px-3 py-2.5">
-          <span className="text-[10px] text-zinc-400 font-bold block">경로 없음</span>
-          <span className="text-xl font-black text-zinc-100 font-mono">
+          <span className="text-[10px] text-zinc-400 font-bold block">경로 없는 예약</span>
+          <span className="text-lg font-black text-zinc-100 font-mono">
             {stats.withoutPath}
             <span className="text-sm ml-0.5">건</span>
           </span>
@@ -103,28 +141,38 @@ export default function HqAirpickShortPaths({
 
       {stats.rows.length === 0 ? (
         <p className="text-[12px] text-zinc-500 font-bold py-2 px-0.5">
-          이 기간에 에어픽(B2C) 예약이 없습니다.
+          {visitDays === null
+            ? '불러오는 중…'
+            : '이 기간에 방문·예약이 없습니다.'}
         </p>
       ) : (
         <div className="space-y-2">
+          <div className="grid grid-cols-[1fr_3.25rem_3.25rem] gap-1 px-0.5">
+            <span className="text-[10px] text-zinc-600 font-bold">경로</span>
+            <span className="text-[10px] text-zinc-600 font-bold text-right">방문</span>
+            <span className="text-[10px] text-zinc-600 font-bold text-right">예약</span>
+          </div>
           {stats.rows.map((row) => (
-            <div key={row.source} className="flex items-center gap-2">
-              <span className="shrink-0 text-[11px] text-zinc-300 font-bold w-20 truncate">
+            <div
+              key={row.source}
+              className="grid grid-cols-[1fr_3.25rem_3.25rem] gap-1 items-center"
+            >
+              <span className="text-[11px] text-zinc-300 font-bold truncate min-w-0">
                 {row.label}
               </span>
-              <div className="flex-1 min-w-0">
-                <div className="h-1.5 bg-neutral-800 rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-fuchsia-500"
-                    style={{ width: `${row.pct}%` }}
-                  />
-                </div>
-              </div>
-              <span className="text-[11px] text-zinc-400 font-mono w-10 text-right shrink-0">
-                {row.count}건
+              <span
+                className={`text-[11px] font-mono font-black text-right ${
+                  row.visits > 0 ? 'text-amber-400' : 'text-zinc-700'
+                }`}
+              >
+                {row.visits > 0 ? row.visits : '—'}
               </span>
-              <span className="text-[11px] text-zinc-300 font-bold font-mono w-10 text-right shrink-0">
-                {row.pct}%
+              <span
+                className={`text-[11px] font-mono font-black text-right ${
+                  row.count > 0 ? 'text-fuchsia-300' : 'text-zinc-700'
+                }`}
+              >
+                {row.count > 0 ? row.count : '—'}
               </span>
             </div>
           ))}

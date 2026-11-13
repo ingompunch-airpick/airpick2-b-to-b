@@ -1,5 +1,5 @@
 /**
- * 에어픽 B2C 짧은 경로(에어픽.kr/long1 등) — reservations.acquisitionSource 집계.
+ * 에어픽 B2C 짧은 경로(에어픽.kr/long1 등) — 예약 + 방문 집계.
  * 홈 명함 QR(acquisitionClicks)과 분리. createdBy=airpick-b2c 만.
  */
 import type { Reservation } from '../types';
@@ -14,7 +14,10 @@ export const SHORT_PATH_NONE = '(경로 없음)';
 export type ShortPathRow = {
   source: string;
   label: string;
+  /** 예약 건수 */
   count: number;
+  /** 방문 수 (경로 유입) */
+  visits: number;
   pct: number;
 };
 
@@ -22,6 +25,7 @@ export type ShortPathStats = {
   total: number;
   withPath: number;
   withoutPath: number;
+  visitTotal: number;
   rows: ShortPathRow[];
   fromYmd: string;
   toYmd: string;
@@ -52,13 +56,20 @@ export function shortPathRange(
   };
 }
 
-/** 취소 제외 · B2C만 · createdAt(KST) 기간 · acquisitionSource 그룹 */
+/** 취소 제외 · B2C만 · createdAt(KST) 기간 · acquisitionSource + 방문 */
 export function aggregateAirpickShortPaths(
   reservations: Reservation[],
-  opts: { period: ShortPathPeriod; monthPrefix: string; todayYmd?: string }
+  opts: {
+    period: ShortPathPeriod;
+    monthPrefix: string;
+    todayYmd?: string;
+    visitBySource?: Record<string, number>;
+    visitTotal?: number;
+  }
 ): ShortPathStats {
   const todayYmd = opts.todayYmd || getKSTDateOnlyString();
   const { fromYmd, toYmd } = shortPathRange(opts.period, opts.monthPrefix, todayYmd);
+  const visitBySource = opts.visitBySource || {};
   const counts = new Map<string, number>();
   let total = 0;
   let withPath = 0;
@@ -77,18 +88,36 @@ export function aggregateAirpickShortPaths(
     else withoutPath += 1;
   }
 
-  const rows: ShortPathRow[] = [...counts.entries()]
-    .map(([source, count]) => ({
-      source,
-      label: shortPathLabel(source),
-      count,
-      pct: total > 0 ? Math.round((count / total) * 100) : 0,
-    }))
+  const keys = new Set<string>([...counts.keys(), ...Object.keys(visitBySource)]);
+  // 방문만 있고 예약 없는 경로도 행으로
+  for (const key of Object.keys(visitBySource)) {
+    if (!counts.has(key)) counts.set(key, 0);
+  }
+
+  const visitTotal =
+    opts.visitTotal ??
+    Object.values(visitBySource).reduce((s, n) => s + n, 0);
+
+  const rows: ShortPathRow[] = [...keys]
+    .map((source) => {
+      const count = counts.get(source) || 0;
+      const visits = source === SHORT_PATH_NONE ? 0 : visitBySource[source] || 0;
+      return {
+        source,
+        label: shortPathLabel(source),
+        count,
+        visits,
+        pct: total > 0 ? Math.round((count / total) * 100) : 0,
+      };
+    })
+    .filter((row) => row.count > 0 || row.visits > 0)
     .sort((a, b) => {
       if (a.source === SHORT_PATH_NONE) return 1;
       if (b.source === SHORT_PATH_NONE) return -1;
-      return b.count - a.count || a.source.localeCompare(b.source);
+      const aScore = a.visits + a.count;
+      const bScore = b.visits + b.count;
+      return bScore - aScore || b.count - a.count || a.source.localeCompare(b.source);
     });
 
-  return { total, withPath, withoutPath, rows, fromYmd, toYmd };
+  return { total, withPath, withoutPath, visitTotal, rows, fromYmd, toYmd };
 }
