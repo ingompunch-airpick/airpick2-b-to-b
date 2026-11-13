@@ -15,6 +15,8 @@ interface DateNavBarProps {
   compact?: boolean;
   /** 가운데 버튼에 「조회일」 라벨 */
   showLabel?: boolean;
+  /** 이 날짜 이후로는 이동 불가 (예: 주차접수 현황 = 오늘) */
+  maxDate?: string;
 }
 
 /**
@@ -27,13 +29,19 @@ export default function DateNavBar({
   onOpenCalendar,
   compact = false,
   showLabel = true,
+  maxDate,
 }: DateNavBarProps) {
   const todayStr = getKSTDateOnlyString();
-  const current = normalizeDateString(selectedDate) || todayStr;
+  const maxStr = maxDate ? normalizeDateString(maxDate) || maxDate : '';
+  const currentRaw = normalizeDateString(selectedDate) || todayStr;
+  const current = maxStr && currentRaw > maxStr ? maxStr : currentRaw;
   const isToday = current === todayStr;
+  const atMax = Boolean(maxStr && current >= maxStr);
 
   const go = (delta: number) => {
-    onChangeDate(shiftYmd(current, delta));
+    const next = shiftYmd(current, delta);
+    if (maxStr && next > maxStr) return;
+    onChangeDate(next);
   };
 
   const handleSide = (delta: number) => (e: React.MouseEvent | React.PointerEvent) => {
@@ -101,8 +109,9 @@ export default function DateNavBar({
       <button
         type="button"
         aria-label="다음 날"
+        disabled={atMax}
         onClick={handleSide(1)}
-        className={sideBtn}
+        className={cn(sideBtn, atMax && 'opacity-35 cursor-default hover:text-zinc-300 active:bg-transparent')}
       >
         <ChevronRight size={compact ? 16 : 18} className="pointer-events-none" aria-hidden />
       </button>

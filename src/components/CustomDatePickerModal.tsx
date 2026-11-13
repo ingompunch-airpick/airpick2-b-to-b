@@ -9,6 +9,8 @@ interface CustomDatePickerModalProps {
   onSelect: (dateStr: string) => void;
   title?: string;
   blockedDates?: string[];
+  /** 이 날짜 이후 선택 불가 (YYYY-MM-DD) */
+  maxDate?: string;
 }
 
 export default function CustomDatePickerModal({
@@ -17,7 +19,8 @@ export default function CustomDatePickerModal({
   initialValue,
   onSelect,
   title = "날짜 선택",
-  blockedDates = []
+  blockedDates = [],
+  maxDate,
 }: CustomDatePickerModalProps) {
   // Parse year, month, day from initial value
   const [currentYear, setCurrentYear] = useState<number>(() => {
@@ -59,6 +62,14 @@ export default function CustomDatePickerModal({
   };
 
   const handleNextMonth = () => {
+    if (maxDate) {
+      const next =
+        currentMonth === 11
+          ? { y: currentYear + 1, m: 0 }
+          : { y: currentYear, m: currentMonth + 1 };
+      const nextPrefix = `${next.y}-${String(next.m + 1).padStart(2, '0')}`;
+      if (nextPrefix > maxDate.slice(0, 7)) return;
+    }
     if (currentMonth === 11) {
       setCurrentMonth(0);
       setCurrentYear(currentYear + 1);
@@ -88,15 +99,28 @@ export default function CustomDatePickerModal({
   }
 
   const handleDateSelect = (dateStr: string) => {
+    if (maxDate && dateStr > maxDate) return;
     setSelectedDateStr(dateStr);
   };
 
   const handleConfirm = () => {
-    if (selectedDateStr) {
-      onSelect(selectedDateStr);
-      onClose();
-    }
+    if (!selectedDateStr) return;
+    if (maxDate && selectedDateStr > maxDate) return;
+    onSelect(selectedDateStr);
+    onClose();
   };
+
+  const nextMonthBlocked = Boolean(
+    maxDate &&
+      (() => {
+        const next =
+          currentMonth === 11
+            ? { y: currentYear + 1, m: 0 }
+            : { y: currentYear, m: currentMonth + 1 };
+        const nextPrefix = `${next.y}-${String(next.m + 1).padStart(2, '0')}`;
+        return nextPrefix > maxDate.slice(0, 7);
+      })()
+  );
 
   return (
     <AnimatePresence>
@@ -145,8 +169,13 @@ export default function CustomDatePickerModal({
               </div>
               <button
                 type="button"
+                disabled={nextMonthBlocked}
                 onClick={handleNextMonth}
-                className="p-1.5 bg-neutral-900 hover:bg-neutral-800 text-white rounded-xl transition-all border border-neutral-800"
+                className={`p-1.5 rounded-xl transition-all border border-neutral-800 ${
+                  nextMonthBlocked
+                    ? 'bg-neutral-950 text-zinc-600 cursor-not-allowed'
+                    : 'bg-neutral-900 hover:bg-neutral-800 text-white'
+                }`}
               >
                 <ChevronRight size={14} />
               </button>
@@ -171,7 +200,8 @@ export default function CustomDatePickerModal({
                   }
 
                   const isSelected = selectedDateStr === cell.dateStr;
-                  const isBlocked = blockedDates.includes(cell.dateStr);
+                  const isPastMax = Boolean(maxDate && cell.dateStr > maxDate);
+                  const isBlocked = blockedDates.includes(cell.dateStr) || isPastMax;
 
                   return (
                     <button

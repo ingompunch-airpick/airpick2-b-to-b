@@ -244,7 +244,7 @@ export default function StatisticsView({
 
           setCurrentYear((cy) => cy === prevYear ? curYear : cy);
           setCurrentMonth((cm) => cm === prevMonth ? curMonth : cm);
-          // CRM이 “오늘”을 보고 있을 때만 따라감 — 과거/미래 조회 중이면 유지
+          // CRM이 “오늘”을 보고 있을 때만 따라감 — 과거 조회 중이면 유지
           setCrmDate((crm) => (crm === prevDate ? currentTodayKST : crm));
           return currentTodayKST;
         }
@@ -255,6 +255,11 @@ export default function StatisticsView({
     const intervalId = setInterval(checkDateRollOver, 10000);
     return () => clearInterval(intervalId);
   }, []);
+
+  // 주차접수 현황은 오늘 이후 조회 불가
+  useEffect(() => {
+    if (crmDate > todayStr) setCrmDate(todayStr);
+  }, [crmDate, todayStr]);
 
   const hqDashboard =
     isSuperAdmin && (!currentCompanyId || isAirpickHeadquarters(currentCompanyId));
@@ -1330,6 +1335,7 @@ export default function StatisticsView({
               selectedDate={crmDate}
               onChangeDate={setCrmDate}
               onOpenCalendar={() => setCrmDatePickerOpen(true)}
+              maxDate={todayStr}
             />
 
             {/* 검색 */}
@@ -1517,10 +1523,11 @@ export default function StatisticsView({
         onClose={() => setCrmDatePickerOpen(false)}
         initialValue={crmDate}
         onSelect={(dateStr) => {
-          setCrmDate(dateStr);
+          setCrmDate(dateStr > todayStr ? todayStr : dateStr);
           setCrmDatePickerOpen(false);
         }}
         title="CRM 조회일 선택"
+        maxDate={todayStr}
       />
 
     </div>
