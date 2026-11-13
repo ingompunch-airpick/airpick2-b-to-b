@@ -453,8 +453,9 @@ export interface Reservation {
   reservationPassword?: string;
 
   /**
-   * 영업 유입(명함 QR 등). createdBy(채널)와 별개.
-   * 일반 홈/현장/B2C 예약에는 두지 않음.
+   * 유입 세부. createdBy(채널)와 별개.
+   * - 홈 명함 QR: business_card 등
+   * - B2C 짧은 경로: long1 등 (에어픽.kr/…)
    */
   acquisitionSource?: string;
   acquisitionMedium?: string;

@@ -67,6 +67,7 @@ import {
   sumB2cCommissionRows,
 } from '../utils/b2cCommission';
 import HqHomepageVisits from './HqHomepageVisits';
+import HqAirpickShortPaths from './HqAirpickShortPaths';
 import MetaField from './MetaField';
 import {
   isMultiOperatorScope,
@@ -850,6 +851,11 @@ export default function StatisticsView({
                 })
               )}
             </div>
+
+            <HqAirpickShortPaths
+              reservations={masterActiveRes}
+              monthPrefix={hqMonthPrefix}
+            />
 
             <div className="bg-[#121214] border border-fuchsia-500/25 rounded-[22px] p-4 space-y-3">
               <div>
