@@ -354,6 +354,8 @@ export interface Reservation {
     expectedCoreWon?: number;
     submittedListWon?: number;
     submittedTotalWon?: number;
+    /** 수수료에서 빼 줄 가입 쿠폰 (규칙 안 금액). 없으면 쿠폰 최대 5,000원으로 계산 */
+    couponAllowedWon?: number;
     checkedAt?: string;
   };
   /** B2C 정가(가입 할인·포인트 전). 수수료 기준. 없으면 totalPrice(+쿠폰)로 추정 */
@@ -510,4 +512,6 @@ export type AppView =
   /** 본사 전용 · 명함 QR 유입 성과 */
   | 'acquisition_funnel'
   /** 본사 전용 · B2C 제휴(어필리에이트) */
-  | 'affiliate_admin';
+  | 'affiliate_admin'
+  /** 본사 전용 · 에어픽.kr/join 입점 상담 신청함 */
+  | 'hq_partner_applications';

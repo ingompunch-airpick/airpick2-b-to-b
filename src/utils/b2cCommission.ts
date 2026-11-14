@@ -17,18 +17,48 @@ export function reservationListPrice(r: Reservation): number {
   return total + coupon;
 }
 
-export function reservationSignupCouponWon(r: Reservation): number {
-  return Math.max(0, Math.round(Number(r.signupCouponWon) || 0));
+/** 가입 쿠폰 최대 (B2C SIGNUP_COUPON_WON 과 같게) */
+export const SIGNUP_COUPON_MAX_WON = 5000;
+
+/**
+ * 수수료 기준 정가 — 서버 금액 검사(priceCheck)가 기본 요금이 더 높다고 했으면 기본 요금.
+ * 손님 화면이 보낸 정가가 낮게 들어와도 수수료가 줄지 않게 (2026-11-14 대표 결정: 직접 확인 없이 자동 적용)
+ */
+export function reservationCommissionBase(r: Reservation): number {
+  const list = reservationListPrice(r);
+  const expected = Math.max(0, Math.round(Number(r.priceCheck?.expectedCoreWon) || 0));
+  return r.priceCheck?.ok === false ? Math.max(list, expected) : list;
 }
 
-/** 정가×15% − 가입쿠폰(최소 0) */
+/** 수수료에서 빼 주는 가입 쿠폰 — 규칙 안 금액만 (카카오 첫 예약 · 최대 5,000원) */
+export function reservationSignupCouponWon(r: Reservation): number {
+  const coupon = Math.max(0, Math.round(Number(r.signupCouponWon) || 0));
+  const capped = Math.min(coupon, SIGNUP_COUPON_MAX_WON);
+  const allowed = r.priceCheck?.couponAllowedWon;
+  if (r.priceCheck?.ok === false && typeof allowed === 'number') {
+    return Math.max(0, Math.min(capped, Math.round(allowed)));
+  }
+  return capped;
+}
+
+/** 서버 기준으로 바꿔 계산했는지 (정산표 「기본 요금 기준」 꼬리표) */
+export function commissionAdjusted(r: Reservation): boolean {
+  if (r.priceCheck?.ok !== false) return false;
+  const rawCoupon = Math.max(0, Math.round(Number(r.signupCouponWon) || 0));
+  return (
+    reservationCommissionBase(r) !== reservationListPrice(r) ||
+    reservationSignupCouponWon(r) !== rawCoupon
+  );
+}
+
+/** 기준 정가×15% − 인정 가입쿠폰(최소 0) */
 export function airpickCommissionWon(r: Reservation): number {
-  const gross = Math.floor(reservationListPrice(r) * B2C_COMMISSION_RATE);
+  const gross = Math.floor(reservationCommissionBase(r) * B2C_COMMISSION_RATE);
   return Math.max(0, gross - reservationSignupCouponWon(r));
 }
 
 export function partnerPayoutWon(r: Reservation): number {
-  return Math.max(0, reservationListPrice(r) - airpickCommissionWon(r) - reservationSignupCouponWon(r));
+  return Math.max(0, reservationCommissionBase(r) - airpickCommissionWon(r) - reservationSignupCouponWon(r));
 }
 
 function companyIdAndName(r: Reservation): { id: string; name: string } {
@@ -104,7 +134,7 @@ export function buildB2cCommissionRows(
       };
       map.set(id, row);
     }
-    const list = reservationListPrice(r);
+    const list = reservationCommissionBase(r);
     const coupon = reservationSignupCouponWon(r);
     const commission = airpickCommissionWon(r);
     row.count += 1;
@@ -152,6 +182,8 @@ export type B2cCommissionBookingRow = {
   partnerPayoutWon: number;
   /** signupCouponWon / listPrice 필드가 예약에 없음 */
   estimatedPricing: boolean;
+  /** 서버 기본 요금·인정 쿠폰 기준으로 바꿔 계산함 */
+  adjusted: boolean;
 };
 
 /** 월간 수수료 건별 — companyId 없으면 전체 */
@@ -170,7 +202,7 @@ export function listB2cCommissionBookings(
     })
     .map((r) => {
       const { id, name } = companyIdAndName(r);
-      const list = reservationListPrice(r);
+      const list = reservationCommissionBase(r);
       const coupon = reservationSignupCouponWon(r);
       const commission = airpickCommissionWon(r);
       const hasList = Number(r.listPrice) > 0;
@@ -187,6 +219,7 @@ export function listB2cCommissionBookings(
         commissionWon: commission,
         partnerPayoutWon: Math.max(0, list - commission - coupon),
         estimatedPricing: !hasList && !hasCouponField,
+        adjusted: commissionAdjusted(r),
       };
     })
     .sort(

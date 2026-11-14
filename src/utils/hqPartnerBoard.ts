@@ -38,7 +38,16 @@ export interface HqPartnerBoardRow {
   reviewsCount: number;
   parentCompanyId?: string;
   isOperatorPrimary?: boolean;
+  /** 운영 업체 이름 (parentCompanyId → 「가유가 운영」) */
+  parentCompanyName?: string;
+  /** 심사·시연용 업체 — 목록 맨 아래, 흐리게 */
+  isDemo: boolean;
   alimtalk: CompanyAlimtalkBoardSummary;
+}
+
+/** 심사·시연용 업체 (실제 영업 아님) */
+export function isDemoCompanyId(id: string): boolean {
+  return String(id || '').trim().toLowerCase() === 'demo';
 }
 
 function hasParkingAddress(company: Company): boolean {
@@ -86,6 +95,9 @@ function formatCapLabel(enabled: boolean | undefined, value: number | undefined,
 }
 
 export function buildHqPartnerBoardRows(companies: Company[]): HqPartnerBoardRow[] {
+  const nameById = new Map(
+    companies.map((c) => [String(c.id || ''), String(c.name || c.id || '').trim()])
+  );
   return companies
     .filter((c) => c.id && !isAirpickHeadquarters(c.id))
     .map((company) => {
@@ -115,11 +127,15 @@ export function buildHqPartnerBoardRows(companies: Company[]): HqPartnerBoardRow
         rating: typeof company.rating === 'number' ? company.rating : 0,
         reviewsCount: typeof company.reviews_count === 'number' ? company.reviews_count : 0,
         parentCompanyId: company.parentCompanyId,
+        parentCompanyName: company.parentCompanyId
+          ? nameById.get(company.parentCompanyId) || company.parentCompanyId
+          : undefined,
+        isDemo: isDemoCompanyId(company.id),
         isOperatorPrimary: company.isOperatorPrimary,
         alimtalk: summarizeCompanyAlimtalkForBoard(company.alimtalk),
       };
     })
-    .sort((a, b) => a.name.localeCompare(b.name, 'ko'));
+    .sort((a, b) => Number(a.isDemo) - Number(b.isDemo) || a.name.localeCompare(b.name, 'ko'));
 }
 
 export function filterHqPartnerBoardRows(

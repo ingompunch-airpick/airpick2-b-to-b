@@ -9,6 +9,7 @@ import HqParkingPartnersView from './HqParkingPartnersView';
 import HqReviewsView from './HqReviewsView';
 import HqCustomersView from './HqCustomersView';
 import AffiliateAdminView from './AffiliateAdminView';
+import HqPartnerApplicationsView from './HqPartnerApplicationsView';
 import { isAirpickHeadquarters } from '../constants/platform';
 
 interface AdminModeProps {
@@ -142,6 +143,7 @@ export default function AdminMode({
             onOpenPartnerEditor={onOpenPartnerEditor}
             onOpenReviews={openCompanyReviews}
             onBack={() => setCurrentView('statistics')}
+            onNavigate={setCurrentView}
             initialTab="board"
           />
         );
@@ -205,7 +207,7 @@ export default function AdminMode({
       );
 
     case 'acquisition_funnel':
-      // 예전 톱메뉴 → 「② 주차 업체」 명함 QR 탭으로 통합
+      // 예전 톱메뉴 → 「주차 업체」 명함 QR 탭으로 통합
       if (!isSuperAdmin) return statisticsPanel;
       return (
         <HqParkingPartnersView
@@ -219,6 +221,7 @@ export default function AdminMode({
           onOpenPartnerEditor={onOpenPartnerEditor}
           onOpenReviews={openCompanyReviews}
           onBack={() => setCurrentView('statistics')}
+          onNavigate={setCurrentView}
           initialTab="qr"
         />
       );
@@ -230,6 +233,10 @@ export default function AdminMode({
           reservations={allReservations.length > 0 ? allReservations : reservations}
         />
       );
+
+    case 'hq_partner_applications':
+      if (!isSuperAdmin) return statisticsPanel;
+      return <HqPartnerApplicationsView />;
 
     default:
       return statisticsPanel;

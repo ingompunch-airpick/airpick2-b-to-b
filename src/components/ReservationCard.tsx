@@ -341,13 +341,12 @@ export default function ReservationCard({
             ) : null}
             {res.priceCheck?.ok === false ? (
               <span
-                className="mt-0.5 block text-[11px] font-bold text-red-600"
+                className="mt-0.5 block text-[10px] font-bold text-[var(--color-toss-fg-muted)]"
                 title={(res.priceCheck.issues || []).join('\n')}
               >
-                금액 확인 필요
                 {res.priceCheck.expectedCoreWon
-                  ? ` · 기본 요금 ${res.priceCheck.expectedCoreWon.toLocaleString()}원`
-                  : ''}
+                  ? `정산 기준 ${res.priceCheck.expectedCoreWon.toLocaleString()}원`
+                  : '정산 기준 확인'}
               </span>
             ) : null}
           </span>

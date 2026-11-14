@@ -933,7 +933,7 @@ export default function StatisticsView({
                     </div>
                   </div>
                   <p className="text-[11px] text-zinc-500 font-bold px-0.5">
-                    제휴 링크 고객할인 합 {hqAffiliateDiscountSum.toLocaleString()}원 · 상세는 ⑤
+                    제휴 링크 고객할인 합 {hqAffiliateDiscountSum.toLocaleString()}원 · 상세는 마케팅 제휴
                     마케팅 제휴
                   </p>
                   <div className="space-y-2">
@@ -1015,6 +1015,11 @@ export default function StatisticsView({
                                     {b.estimatedPricing ? (
                                       <p className="text-[9px] text-amber-500/80 font-bold mt-1">
                                         정가·쿠폰 필드 없음 · totalPrice로 추정
+                                      </p>
+                                    ) : null}
+                                    {b.adjusted ? (
+                                      <p className="text-[9px] text-zinc-500 font-bold mt-1">
+                                        기본 요금 기준 · 손님 화면 금액이 낮게 들어와 서버 계산으로 정산
                                       </p>
                                     ) : null}
                                   </div>

@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import type { Company, PartnerCompany, Reservation } from '../types';
+import { useState, type ReactNode } from 'react';
+import type { AppView, Company, PartnerCompany, Reservation } from '../types';
 import AdminDashboard from './AdminDashboard';
 import HqPartnerBoardView from './HqPartnerBoardView';
 import AcquisitionFunnelView from './AcquisitionFunnelView';
@@ -20,15 +20,25 @@ type Props = {
   onOpenPartnerEditor?: () => void;
   onOpenReviews?: (companyId: string) => void;
   onBack?: () => void;
+  /** 안내문 링크 — 대시보드·마케팅 제휴로 바로 이동 */
+  onNavigate?: (view: AppView) => void;
   initialTab?: TabId;
 };
+
+function NavLink({ onClick, children }: { onClick: () => void; children: ReactNode }) {
+  return (
+    <button type="button" onClick={onClick} className="font-black text-amber-400 hover:text-amber-300">
+      {children}
+    </button>
+  );
+}
 
 function cn(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(' ');
 }
 
 /**
- * 본사 「② 주차 업체」 — 상태 · 등록·편집 · 명함 QR.
+ * 본사 「주차 업체」 — 상태 · 등록·편집 · 명함 QR.
  * 매출·예약 대시보드와 역할을 겹치지 않게 유지.
  */
 export default function HqParkingPartnersView({
@@ -43,6 +53,7 @@ export default function HqParkingPartnersView({
   onOpenPartnerEditor,
   onOpenReviews,
   onBack,
+  onNavigate,
   initialTab = 'board',
 }: Props) {
   const [tab, setTab] = useState<TabId>(initialTab);
@@ -51,9 +62,12 @@ export default function HqParkingPartnersView({
     <div className="bg-black min-h-screen text-zinc-100">
       <div className="px-4 pt-4 pb-3 space-y-3 border-b border-neutral-900">
         <div>
-          <h2 className="text-sm font-black text-white">주차 업체</h2>
-          <p className="text-[11px] text-zinc-500 font-semibold mt-0.5">
-            영업 · 등록 · 명함 QR(B2C 예약 링크). 파트너 홈 방문은 ① · 제휴 코드는 ⑤.
+          <h2 className="text-base font-black text-white">주차 업체</h2>
+          <p className="text-[12px] text-zinc-500 font-semibold mt-1">
+            영업·손님앱 노출·프로필 상태. 매출·예약은{' '}
+            <NavLink onClick={() => onNavigate?.('statistics')}>대시보드 →</NavLink>
+            {' · '}제휴 코드는{' '}
+            <NavLink onClick={() => onNavigate?.('affiliate_admin')}>마케팅 제휴 →</NavLink>
           </p>
         </div>
 

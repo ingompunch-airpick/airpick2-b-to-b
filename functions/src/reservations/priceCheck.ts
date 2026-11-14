@@ -1,8 +1,8 @@
 /**
  * 손님(B2C) 예약 금액 검증 — 손님 화면이 보낸 금액·할인을 서버에서 다시 계산해 비교한다.
  *
- * 하는 일: 문제가 있으면 예약 문서에 `priceCheck` 를 남기고(업체 앱 카드에 「금액 확인 필요」 표시),
- *          본사 오류 보고(errorReports, 평일 09:00 메일)에 한 줄 올린다.
+ * 하는 일: 문제가 있으면 예약 문서에 `priceCheck`(기본 요금·인정 쿠폰)를 남긴다.
+ *          수수료 정산(src/utils/b2cCommission.ts)이 이 값으로 자동 계산 — 본사가 따로 확인하지 않는다.
  * 하지 않는 일: 예약을 취소하거나 금액을 고치지 않는다 (요금 계산 차이로 정상 예약이 막히지 않게).
  *
  * 요금 계산은 B2C `src/utils/pricing.ts`·`pricingProfiles.ts`·`lib/companies.ts`(요금 필드 매핑)를
@@ -246,6 +246,8 @@ export interface PriceCheckResult {
   expectedCoreWon: number;
   submittedListWon: number;
   submittedTotalWon: number;
+  /** 수수료에서 빼 줄 가입 쿠폰 (규칙 안: 카카오 첫 예약 · 최대 5,000원) */
+  couponAllowedWon: number;
 }
 
 const won = (v: unknown) => Math.max(0, Math.round(Number(v) || 0));
@@ -280,6 +282,7 @@ export async function checkB2cReservationPrice(
   const coupon = won(data.signupCouponWon);
   const affiliate = won(data.affiliateCustomerDiscountWon);
   const issues: string[] = [];
+  let couponAllowedWon = 0;
 
   if (expectedCoreWon > 0 && list + TOLERANCE_WON < expectedCoreWon) {
     issues.push(`정가가 기본 요금보다 낮음 (받은 ${list.toLocaleString()}원 · 기본 ${expectedCoreWon.toLocaleString()}원)`);
@@ -299,6 +302,7 @@ export async function checkB2cReservationPrice(
           !/cancel/i.test(String(d.data().status || ''))
       );
       if (used) issues.push('가입 쿠폰을 이미 쓴 회원의 재사용');
+      else couponAllowedWon = Math.min(coupon, SIGNUP_COUPON_WON);
     }
   }
 
@@ -324,42 +328,29 @@ export async function checkB2cReservationPrice(
     expectedCoreWon,
     submittedListWon: list,
     submittedTotalWon: total,
+    couponAllowedWon,
   };
 }
 
-/** 문제 있을 때만 예약에 표시하고 본사 오류 보고에 남긴다 */
+/**
+ * 문제 있을 때만 예약에 표시한다. 본사가 따로 확인하지 않는다 (2026-11-14 대표 결정):
+ * 수수료 정산이 expectedCoreWon(기본 요금)·couponAllowedWon 기준으로 자동 계산한다.
+ */
 export async function recordPriceCheckIssue(
   reservationId: string,
-  data: FirebaseFirestore.DocumentData,
+  _data: FirebaseFirestore.DocumentData,
   result: PriceCheckResult
 ): Promise<void> {
   if (result.ok) return;
-  const db = admin.firestore();
-  const now = new Date().toISOString();
-  await db.doc(`reservations/${reservationId}`).update({
+  await admin.firestore().doc(`reservations/${reservationId}`).update({
     priceCheck: {
       ok: false,
       issues: result.issues,
       expectedCoreWon: result.expectedCoreWon,
       submittedListWon: result.submittedListWon,
       submittedTotalWon: result.submittedTotalWon,
-      checkedAt: now,
+      couponAllowedWon: result.couponAllowedWon,
+      checkedAt: new Date().toISOString(),
     },
-  });
-  const companyId = String(data.companyId || '').trim();
-  await db.collection('errorReports').add({
-    app: 'b2c',
-    kind: 'report',
-    message: `예약 금액 확인 필요 ${reservationId}: ${result.issues.join(' / ')}`.slice(0, 300),
-    note: '',
-    screen: 'priceCheck',
-    appBuild: '',
-    platform: 'server',
-    companyIds: companyId ? [companyId] : [],
-    count: 1,
-    pendingCount: 1,
-    firstAt: now,
-    lastAt: now,
-    status: 'open',
   });
 }

@@ -723,9 +723,13 @@ export default function App() {
 
       {/* 3. Core Workspace Content Switcher - Dynamically widened for Timeline & Dashboards */}
       {(() => {
-        const isWideView = ['timeline', 'statistics', 'cancelled_list', 'master_settings', 'dispatch_board', 'reservation_ledger', 'service_history', 'parking_departure', 'payment_change', 'acquisition_funnel', 'affiliate_admin', 'hq_partner_board', 'hq_reviews', 'hq_customers'].includes(currentView);
+        const isWideView = ['timeline', 'statistics', 'cancelled_list', 'master_settings', 'dispatch_board', 'reservation_ledger', 'service_history', 'parking_departure', 'payment_change', 'acquisition_funnel', 'affiliate_admin', 'hq_partner_board', 'hq_reviews', 'hq_customers', 'hq_partner_applications'].includes(currentView);
+        // 본사 주차 업체 표·입점 신청함은 PC에서 넓게 (2026-11-14)
+        const isHqWideView =
+          isAirpickHeadquarters(currentCompanyId) &&
+          ['master_settings', 'hq_partner_applications'].includes(currentView);
         return (
-          <main className={cn("mx-auto p-4 mt-2 transition-all duration-200", isWideView ? "max-w-4xl" : "max-w-md")}>
+          <main className={cn("mx-auto p-4 mt-2 transition-all duration-200", isHqWideView ? "max-w-6xl" : isWideView ? "max-w-4xl" : "max-w-md")}>
             <AnimatePresence mode="wait">
               
               {/* VIEW A: Main Driver Valet Timeline */}

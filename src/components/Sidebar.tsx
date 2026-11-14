@@ -18,6 +18,7 @@ import {
   UserRoundSearch,
   UserPlus,
   ChevronRight,
+  Inbox,
 } from 'lucide-react';
 import { AppView } from '../types';
 import { isAirpickHeadquarters } from '../constants/platform';
@@ -28,6 +29,7 @@ import {
 } from '../utils/reservationNotifications';
 import ReservationAlertSettingsModal from './ReservationAlertSettingsModal';
 import { fetchReservationAlertCopy } from '../lib/reservationAlertCopyFirestore';
+import { subscribeNewPartnerApplicationCount } from '../lib/partnerApplicationsFirestore';
 
 interface SidebarProps {
   isOpen: boolean;
@@ -79,6 +81,13 @@ export default function Sidebar({
   const [alertsEnabled, setAlertsEnabled] = React.useState(() => areReservationAlertsEnabled());
   const [alertSettingsOpen, setAlertSettingsOpen] = React.useState(false);
 
+  const isHq = isAirpickHeadquarters(currentCompanyId);
+  const [newApplications, setNewApplications] = React.useState(0);
+  React.useEffect(() => {
+    if (!isOpen || !isHq || !isSuperAdmin) return;
+    return subscribeNewPartnerApplicationCount(setNewApplications);
+  }, [isOpen, isHq, isSuperAdmin]);
+
   React.useEffect(() => {
     if (!isOpen) return;
     void fetchReservationAlertCopy()
@@ -95,26 +104,56 @@ export default function Sidebar({
     logo: isAirpickHeadquarters(currentCompanyId) ? '' : (companyInfo?.logo || '')
   };
 
-  const menuItems = isAirpickHeadquarters(currentCompanyId)
+  type MenuItem = { id: string; label: string; icon: typeof TrendingUp; view: AppView; badge?: number };
+  type MenuGroup = { title: string; items: MenuItem[] };
+  // 2026-11-14: 번호(①②) 없이 묶음 + 한 줄 목록. 계획 docs/work/hq-app-refresh-plan.md
+  const menuGroups: MenuGroup[] = isHq
     ? [
-        { id: 'admin_statistics', label: '① 대시보드 (통계)', icon: TrendingUp, view: 'statistics' as AppView },
-        { id: 'admin_master_settings', label: '② 주차 업체', icon: Building2, view: 'master_settings' as AppView },
-        { id: 'admin_reviews', label: '③ 후기 관리', icon: MessageSquareWarning, view: 'hq_reviews' as AppView },
-        { id: 'admin_customers', label: '④ 고객 조회', icon: UserRoundSearch, view: 'hq_customers' as AppView },
-        { id: 'admin_affiliate', label: '⑤ 마케팅 제휴', icon: UserPlus, view: 'affiliate_admin' as AppView },
+        {
+          title: '운영',
+          items: [
+            { id: 'admin_statistics', label: '대시보드', icon: TrendingUp, view: 'statistics' },
+            { id: 'admin_master_settings', label: '주차 업체', icon: Building2, view: 'master_settings' },
+            {
+              id: 'admin_partner_applications',
+              label: '입점 신청',
+              icon: Inbox,
+              view: 'hq_partner_applications',
+              badge: newApplications,
+            },
+          ],
+        },
+        {
+          title: '고객',
+          items: [
+            { id: 'admin_reviews', label: '후기 관리', icon: MessageSquareWarning, view: 'hq_reviews' },
+            { id: 'admin_customers', label: '고객 조회', icon: UserRoundSearch, view: 'hq_customers' },
+            { id: 'admin_affiliate', label: '마케팅 제휴', icon: UserPlus, view: 'affiliate_admin' },
+          ],
+        },
       ]
     : isAdminModeActive
     ? [
-        { id: 'admin_statistics', label: '① 대시보드', icon: TrendingUp, view: 'statistics' as AppView },
-        { id: 'admin_dispatch_board', label: '② 입출차 배차표', icon: ClipboardList, view: 'dispatch_board' as AppView },
-        { id: 'admin_reservation_ledger', label: '③ 예약 목록', icon: ListFilter, view: 'reservation_ledger' as AppView },
-        { id: 'admin_master_settings', label: '④ 업체 정보 설정', icon: Settings, view: 'master_settings' as AppView },
+        {
+          title: '관리',
+          items: [
+            { id: 'admin_statistics', label: '대시보드', icon: TrendingUp, view: 'statistics' },
+            { id: 'admin_dispatch_board', label: '입출차 배차표', icon: ClipboardList, view: 'dispatch_board' },
+            { id: 'admin_reservation_ledger', label: '예약 목록', icon: ListFilter, view: 'reservation_ledger' },
+            { id: 'admin_master_settings', label: '업체 정보 설정', icon: Settings, view: 'master_settings' },
+          ],
+        },
       ]
     : [
-        { id: 'service_history', label: '① 나의 서비스 기록', icon: History, view: 'service_history' as AppView },
-        { id: 'scratch_images', label: '② 차량 사진', icon: Camera, view: 'scratch_images' as AppView },
-        { id: 'parking_departure', label: '③ 주차장별 현황', icon: Calendar, view: 'parking_departure' as AppView },
-        { id: 'cancelled_list', label: '④ 취소·무효 내역', icon: FileX, view: 'cancelled_list' as AppView },
+        {
+          title: '업무',
+          items: [
+            { id: 'service_history', label: '나의 서비스 기록', icon: History, view: 'service_history' },
+            { id: 'scratch_images', label: '차량 사진', icon: Camera, view: 'scratch_images' },
+            { id: 'parking_departure', label: '주차장별 현황', icon: Calendar, view: 'parking_departure' },
+            { id: 'cancelled_list', label: '취소·무효 내역', icon: FileX, view: 'cancelled_list' },
+          ],
+        },
       ];
 
   return (
@@ -193,51 +232,47 @@ export default function Sidebar({
             </button>
           </div>
 
-          <div className="flex items-center justify-between p-2.5 bg-neutral-900 rounded-xl border border-neutral-800 text-xs">
-            <span className="text-zinc-400 font-medium">단말기 ID</span>
-            <span className="font-mono font-bold text-white uppercase text-[13px] tracking-wider">
-              {currentCompanyId || companyInfo?.id || '—'}
-            </span>
-          </div>
+          <p className="text-[11px] text-zinc-500 font-semibold">
+            단말기 <span className="font-mono font-bold text-zinc-300 uppercase">{currentCompanyId || companyInfo?.id || '—'}</span>
+          </p>
         </div>
 
-        {/* Navigation Grid of Buttons */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-3 no-scrollbar">
-          <p className="text-[12px] text-zinc-500 font-bold tracking-widest uppercase px-2 mb-2">
-            {isAdminModeActive ? `${safeCompanyInfo.name} 관리자 메뉴` : `${safeCompanyInfo.name} 업무 메뉴`}
-          </p>
-          
-          <div className="grid grid-cols-1 gap-2.5">
-            {menuItems.map((item) => {
-              const Icon = item.icon;
-              const isActive = currentView === item.view;
-              return (
-                <button
-                  key={item.id}
-                  onClick={() => {
-                    onNavigate(item.view);
-                    onClose();
-                  }}
-                  className={`w-full text-left p-3.5 rounded-2xl flex items-center justify-between transition-all group ${
-                    isActive 
-                      ? 'bg-amber-500 text-neutral-950 shadow-md shadow-amber-500/10' 
-                      : 'bg-neutral-800 hover:bg-neutral-800/80 text-zinc-300 hover:text-white border border-neutral-800'
-                  }`}
-                >
-                  <div className="flex items-center gap-3.5">
-                    <div className={`p-2.5 rounded-xl transition-colors ${
-                      isActive ? 'bg-neutral-950 text-amber-500' : 'bg-neutral-900 text-zinc-400 group-hover:text-amber-500'
-                    }`}>
-                      <Icon size={18} />
-                    </div>
-                    <div>
-                      <h4 className="text-xs font-bold tracking-tight">{item.label}</h4>
-                    </div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+        {/* 메뉴 — 묶음별 한 줄 목록 */}
+        <div className="flex-1 overflow-y-auto px-3 py-4 space-y-5 no-scrollbar">
+          {menuGroups.map((group) => (
+            <div key={group.title}>
+              <p className="px-3 mb-1.5 text-[11px] font-black text-zinc-500">{group.title}</p>
+              <div className="space-y-0.5">
+                {group.items.map((item) => {
+                  const Icon = item.icon;
+                  const isActive = currentView === item.view;
+                  return (
+                    <button
+                      key={item.id}
+                      type="button"
+                      onClick={() => {
+                        onNavigate(item.view);
+                        onClose();
+                      }}
+                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors ${
+                        isActive
+                          ? 'bg-amber-500 text-neutral-950'
+                          : 'text-zinc-200 hover:bg-neutral-800'
+                      }`}
+                    >
+                      <Icon size={17} className={isActive ? 'text-neutral-950' : 'text-zinc-500'} />
+                      <span className="flex-1 text-[14px] font-bold tracking-tight">{item.label}</span>
+                      {item.badge ? (
+                        <span className="min-w-5 px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[11px] font-black text-center">
+                          {item.badge}
+                        </span>
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
 
           {/* Admin portal (Toggled modal) */}
           {!isAirpickHeadquarters(currentCompanyId) && !isSuperAdmin && !isAdmin && !isEmployee && (
@@ -295,22 +330,24 @@ export default function Sidebar({
           </button>
 
           <div className="flex gap-2">
-            <button
-              onClick={() => {
-                onNavigate(isAirpickHeadquarters(currentCompanyId) ? 'statistics' : (isAdminModeActive ? 'statistics' : 'timeline'));
-                onClose();
-              }}
-              className="flex-1 py-2.5 bg-zinc-800 text-white hover:bg-zinc-700/80 text-[13px] font-bold rounded-lg transition-all"
-            >
-              메인화면 이동
-            </button>
-            
+            {!isHq && !isAdminModeActive ? (
+              <button
+                type="button"
+                onClick={() => {
+                  onNavigate('timeline');
+                  onClose();
+                }}
+                className="flex-1 py-2.5 bg-zinc-800 text-white hover:bg-zinc-700/80 text-[13px] font-bold rounded-lg transition-all"
+              >
+                타임라인으로
+              </button>
+            ) : null}
             <button
               onClick={() => {
                 onLogout();
                 onClose();
               }}
-              className="px-5.5 py-3.5 bg-red-650 hover:bg-red-650 text-white font-black rounded-lg border border-red-500 shadow-md shadow-red-900/10 flex items-center justify-center gap-1.5 transition-all text-xs outline-none hover:scale-[1.02]"
+              className="flex-1 py-2.5 rounded-lg border border-red-500/60 text-red-300 hover:bg-red-500/10 font-black flex items-center justify-center gap-1.5 transition-all text-xs outline-none"
               title="로그아웃"
             >
               <LogOut size={14} className="stroke-[2.5]" />

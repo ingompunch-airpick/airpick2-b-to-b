@@ -92,7 +92,7 @@ export const submitPartnerApplication = onRequest(
         phone,
         memo: memo || null,
         status: 'new',
-        source: 'www.partner',
+        source: 'www.join',
         createdAt: admin.firestore.FieldValue.serverTimestamp(),
       });
       logger.info('partner_application_created', { id: ref.id });

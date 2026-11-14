@@ -324,7 +324,7 @@ export default function AffiliateAdminView({ reservations }: Props) {
       </div>
 
       <div className="rounded-xl border border-neutral-800 bg-neutral-950/80 px-3 py-2.5 text-[11px] text-zinc-500 font-semibold leading-relaxed">
-        <span className="text-zinc-300 font-black">주차 업체</span> → ② 주차 업체 ·{' '}
+        <span className="text-zinc-300 font-black">주차 업체</span> → 주차 업체 ·{' '}
         <span className="text-zinc-300 font-black">마케팅 제휴</span> → 여기서 코드·할인·고객 링크·포털
         비밀번호
       </div>

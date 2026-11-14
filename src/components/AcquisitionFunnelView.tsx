@@ -118,7 +118,7 @@ export default function AcquisitionFunnelView({
         <div className="min-w-0">
           <h2 className="text-base font-black text-white">명함 QR · B2C 예약 링크</h2>
           <p className="text-[11px] text-zinc-500 font-semibold mt-0.5">
-            스캔→예약 전환. 파트너 홈(네이버·구글) 방문은 ① 대시보드 「파트너 홈」
+            스캔→예약 전환. 파트너 홈(네이버·구글) 방문은 대시보드 「파트너 홈」
           </p>
         </div>
       </div>
