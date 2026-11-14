@@ -171,6 +171,11 @@ export interface Company {
   /** 홈 방문 측정. 업체마다 쓰는 광고·플레이스만 둔다. */
   homepageVisitChannels?: { key: string; label: string }[];
   /**
+   * 업체 홈 예약(/h/{id}) GTM 컨테이너 ID (예: GTM-XXXX).
+   * 있으면 해당 페이지만 로드. 없으면 광고 태그 없음.
+   */
+  gtmId?: string;
+  /**
    * 업체 알림톡 (NCP). 홈페이지·현장 예약용.
    * 에어픽 B2C 공용 템플릿과 별개 — channel·templates.reserve.code 필요.
    */

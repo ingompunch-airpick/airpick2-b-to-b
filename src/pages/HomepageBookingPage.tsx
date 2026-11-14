@@ -16,6 +16,10 @@ import HomepageDateTimeField from '../components/HomepageDateTimeField';
 import { BOOKING_CLOSED_MESSAGE } from '../utils/bookingClosedMessage';
 import { checkHomepageBookingPolicy } from '../utils/homepageBookingPolicy';
 import {
+  loadCompanyGtm,
+  pushHomepageReservationComplete,
+} from '../utils/homepageGtm';
+import {
   isHourlyCapActive,
 } from '../utils/hourlyCapacity';
 import { assertHourlyCapacityAvailable, checkHourlyCapacityForBooking } from '../lib/hourlyCapacityFirestore';
@@ -152,7 +156,11 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
 
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [done, setDone] = useState<{ id: string; receiptUrl: string } | null>(null);
+  const [done, setDone] = useState<{
+    id: string;
+    receiptUrl: string;
+    value: number;
+  } | null>(null);
   const [hourlyHint, setHourlyHint] = useState<HourlyCapacityResult | null>(null);
   const [dailyHint, setDailyHint] = useState<DailyIntakeResult | null>(null);
   const [parkingHint, setParkingHint] = useState<ParkingCapacityResult | null>(null);
@@ -232,6 +240,22 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
       cancelled = true;
     };
   }, [companyId]);
+
+  // 업체별 GTM — gtmId 있을 때만 head에 로드
+  useEffect(() => {
+    if (!company?.gtmId) return;
+    loadCompanyGtm(company.gtmId);
+  }, [company?.gtmId]);
+
+  // 예약 성공·완료 화면 표시 시 전환 이벤트 1회
+  useEffect(() => {
+    if (!done || !company) return;
+    pushHomepageReservationComplete({
+      vendor: company.id,
+      value: done.value,
+      transactionId: done.id,
+    });
+  }, [done, company]);
 
   const arrivalDateKey = arrLocal.slice(0, 10);
 
@@ -580,7 +604,7 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
         }
       }
       const receiptUrl = buildReceiptUrl({ id, receiptToken, receiptCode: undefined });
-      setDone({ id, receiptUrl });
+      setDone({ id, receiptUrl, value: price });
     } catch (submitErr) {
       setFormError(
         submitErr instanceof Error ? submitErr.message : '예약 저장에 실패했습니다. 다시 시도해 주세요.'
