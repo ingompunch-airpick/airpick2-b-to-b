@@ -242,7 +242,7 @@ export default function Sidebar({
           {menuGroups.map((group) => (
             <div key={group.title}>
               <p className="px-3 mb-1.5 text-[11px] font-black text-zinc-500">{group.title}</p>
-              <div className="space-y-0.5">
+              <div className="space-y-1.5">
                 {group.items.map((item) => {
                   const Icon = item.icon;
                   const isActive = currentView === item.view;
@@ -254,14 +254,14 @@ export default function Sidebar({
                         onNavigate(item.view);
                         onClose();
                       }}
-                      className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-colors ${
+                      className={`w-full min-h-[56px] flex items-center gap-3.5 px-4 py-3.5 rounded-2xl text-left transition-colors active:scale-[0.99] ${
                         isActive
                           ? 'bg-amber-500 text-neutral-950'
                           : 'text-zinc-200 hover:bg-neutral-800'
                       }`}
                     >
-                      <Icon size={17} className={isActive ? 'text-neutral-950' : 'text-zinc-500'} />
-                      <span className="flex-1 text-[14px] font-bold tracking-tight">{item.label}</span>
+                      <Icon size={21} className={isActive ? 'text-neutral-950' : 'text-zinc-500'} />
+                      <span className="flex-1 text-[16px] font-bold tracking-tight">{item.label}</span>
                       {item.badge ? (
                         <span className="min-w-5 px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[11px] font-black text-center">
                           {item.badge}
@@ -337,7 +337,7 @@ export default function Sidebar({
                   onNavigate('timeline');
                   onClose();
                 }}
-                className="flex-1 py-2.5 bg-zinc-800 text-white hover:bg-zinc-700/80 text-[13px] font-bold rounded-lg transition-all"
+                className="flex-1 min-h-[52px] py-3 bg-zinc-800 text-white hover:bg-zinc-700/80 text-[14px] font-bold rounded-xl transition-all"
               >
                 타임라인으로
               </button>
@@ -347,7 +347,7 @@ export default function Sidebar({
                 onLogout();
                 onClose();
               }}
-              className="flex-1 py-2.5 rounded-lg border border-red-500/60 text-red-300 hover:bg-red-500/10 font-black flex items-center justify-center gap-1.5 transition-all text-xs outline-none"
+              className="flex-1 min-h-[52px] py-3 rounded-xl border border-red-500/60 text-red-300 hover:bg-red-500/10 font-black flex items-center justify-center gap-1.5 transition-all text-[14px] outline-none"
               title="로그아웃"
             >
               <LogOut size={14} className="stroke-[2.5]" />
