@@ -52,6 +52,10 @@ export const ALLOWED_COMPANY_PATCH_KEYS = [
   'homepageVisitChannels',
   /** 업체 홈 예약(/h/) GTM 컨테이너 ID */
   'gtmId',
+  /** 에어픽 B2C 수수료율 (0~1). 홈·현장 제외 */
+  'commissionRate',
+  /** invoice | withhold */
+  'commissionMode',
   /** 본사 업체 목록·선택 드롭다운 순서 */
   'hqListOrder',
   /** 업체별 알림톡 채널·템플릿 */

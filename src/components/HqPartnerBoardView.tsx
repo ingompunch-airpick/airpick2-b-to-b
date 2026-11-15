@@ -338,8 +338,10 @@ export default function HqPartnerBoardView({
                     <td className="py-3.5 pr-3">{sw.listing}</td>
                     <td className="py-3.5 pr-3 whitespace-nowrap">{rating(row)}</td>
                     <td className="py-3.5 pr-3 text-zinc-300">{capLine(row)}</td>
-                    <td className="py-3.5 pr-3 text-zinc-400 whitespace-nowrap" title={row.alimtalk.detail}>
-                      {row.alimtalk.label}
+                    <td className="py-3.5 pr-3 text-zinc-300 max-w-[14rem]" title={row.alimtalk.detail}>
+                      <span className="block text-[12px] font-bold leading-snug">
+                        {row.alimtalk.label}
+                      </span>
                     </td>
                     <td className="py-3.5 pr-3">
                       {row.incomplete && onOpenPartnerEditor ? (

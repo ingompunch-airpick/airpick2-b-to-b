@@ -180,14 +180,18 @@ export type CompanyAlimtalkBoardSummary = {
   detail: string;
 };
 
+/**
+ * 보드 문구 — 항상 B2C=@airpickup 을 같이 적는다.
+ * 홈/현장만 업체 채널(있을 때).
+ */
 export function summarizeCompanyAlimtalkForBoard(
   raw: unknown
 ): CompanyAlimtalkBoardSummary {
   if (!raw || typeof raw !== 'object') {
     return {
       kind: 'airpick',
-      label: '에어픽 공용',
-      detail: 'B2C 예약만 @airpickup',
+      label: '홈채널 없음 · B2C @airpickup',
+      detail: '홈·현장 알림톡 없음 · 에어픽 앱 예약은 항상 @airpickup',
     };
   }
 
@@ -210,22 +214,22 @@ export function summarizeCompanyAlimtalkForBoard(
   if (plusFriendId && code && o.enabled !== false) {
     return {
       kind: 'partner',
-      label: `업체채널 · ${plusFriendId}`,
-      detail: `홈/현장 ${code} · B2C는 항상 @airpickup`,
+      label: `홈 ${plusFriendId} · B2C @airpickup`,
+      detail: `홈/현장 ${code} · 에어픽 앱 예약은 항상 @airpickup`,
     };
   }
 
   if (plusFriendId || code) {
     return {
       kind: 'incomplete',
-      label: '업체채널 미완',
-      detail: '채널·코드 연결 필요 · B2C는 이미 @airpickup',
+      label: '홈채널 미완 · B2C @airpickup',
+      detail: '홈/현장 채널·코드 미완 · 에어픽 앱 예약은 항상 @airpickup',
     };
   }
 
   return {
     kind: 'airpick',
-    label: 'B2C @airpickup',
-    detail: '업체채널 미연결 · 에어픽 예약은 공용 발송',
+    label: '홈채널 없음 · B2C @airpickup',
+    detail: '홈·현장 알림톡 없음 · 에어픽 앱 예약은 항상 @airpickup',
   };
 }

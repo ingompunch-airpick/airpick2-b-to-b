@@ -143,6 +143,8 @@ export default function AdminDashboard({
   const [editPhone, setEditPhone] = useState('');
   const [editPassword, setEditPassword] = useState('');
   const [editMemo, setEditMemo] = useState('');
+  /** B2C 수수료율 % 표시용 (15 = 15%). 저장 시 0~1로 변환 */
+  const [editCommissionPercent, setEditCommissionPercent] = useState('15');
   const [editAlimtalk, setEditAlimtalk] = useState<CompanyAlimtalkEditForm>(
     EMPTY_ALIMTALK_EDIT_FORM
   );
@@ -335,6 +337,16 @@ export default function AdminDashboard({
     setEditPassword(p.password || '');
     setEditMemo(p.settlementMemo || '');
     const company = companies.find((c) => c.id === p.companyId);
+    {
+      const rate = Number(company?.commissionRate);
+      const pct =
+        Number.isFinite(rate) && rate > 0
+          ? rate <= 1
+            ? Math.round(rate * 1000) / 10
+            : rate
+          : 15;
+      setEditCommissionPercent(String(pct));
+    }
     setEditProfile(readPartnerProfileFromCompany(company));
     setEditAlimtalk(readAlimtalkEditForm(company?.alimtalk));
   };
@@ -435,6 +447,15 @@ export default function AdminDashboard({
         }
       }
 
+      const commissionPct = Number(String(editCommissionPercent).trim().replace(/%/g, ''));
+      if (!Number.isFinite(commissionPct) || commissionPct < 0 || commissionPct > 100) {
+        setSaveEditError('B2C 수수료율은 0~100 사이 숫자로 입력하세요.');
+        savingEditRef.current = false;
+        setSavingEdit(false);
+        return;
+      }
+      const commissionRate = Math.round(commissionPct * 1000) / 100000; // 15 → 0.15
+
       const previousId = editingPartner.companyId;
       const updatedPartners = partners.map((p) => {
         if (p.companyId === previousId) {
@@ -461,6 +482,8 @@ export default function AdminDashboard({
             name: editName.trim(),
             phone: editPhone.trim(),
             representative: editRep.trim(),
+            commissionRate,
+            commissionMode: 'invoice' as const,
             alimtalk: alimtalkPatch,
           };
           return applyPartnerProfileToCompany(withBasics, profileToSave);
@@ -480,6 +503,8 @@ export default function AdminDashboard({
             representative: editRep.trim(),
             password: editPassword,
             settlementMemo: editMemo.trim(),
+            commissionRate,
+            commissionMode: 'invoice',
             status: editingPartner.status || 'active',
             isOperatorPrimary: true,
             alimtalk: alimtalkPatch,
@@ -1191,13 +1216,33 @@ export default function AdminDashboard({
                         </div>
                       </div>
 
-                      <div>
-                        <label className="text-[12px] text-zinc-400 block mb-1 font-bold">정산 방식 및 계약 조건 메모</label>
-                        <textarea
-                          value={editMemo}
-                          onChange={(e) => setEditMemo(e.target.value)}
-                          className="w-full px-3 py-2 border border-neutral-700 bg-[#1C1C1E] text-zinc-100 rounded-xl h-20 focus:outline-none focus:ring-1 focus:ring-amber-500/40 font-sans font-medium"
-                        />
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-[12px] text-zinc-400 block mb-1 font-bold">
+                            B2C 수수료율 (%) · 부가세 별도
+                          </label>
+                          <input
+                            type="text"
+                            inputMode="decimal"
+                            value={editCommissionPercent}
+                            onChange={(e) => setEditCommissionPercent(e.target.value)}
+                            className="w-full px-3 py-2 border border-neutral-700 bg-[#1C1C1E] text-zinc-100 rounded-xl focus:outline-none focus:ring-1 focus:ring-amber-500/40 font-mono font-semibold"
+                            placeholder="15"
+                          />
+                          <p className="mt-1 text-[10px] text-zinc-500 font-semibold leading-relaxed">
+                            에어픽 앱 예약만. 홈·현장은 0%. 기본 15.
+                          </p>
+                        </div>
+                        <div>
+                          <label className="text-[12px] text-zinc-400 block mb-1 font-bold">
+                            정산 방식 및 계약 조건 메모
+                          </label>
+                          <textarea
+                            value={editMemo}
+                            onChange={(e) => setEditMemo(e.target.value)}
+                            className="w-full px-3 py-2 border border-neutral-700 bg-[#1C1C1E] text-zinc-100 rounded-xl h-20 focus:outline-none focus:ring-1 focus:ring-amber-500/40 font-sans font-medium"
+                          />
+                        </div>
                       </div>
 
                       <div className="rounded-xl border border-neutral-800 bg-neutral-950/50 p-3 space-y-2.5">

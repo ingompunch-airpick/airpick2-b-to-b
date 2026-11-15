@@ -77,7 +77,7 @@ export default function HqAirpickShortPaths({
         <div>
           <p className="text-xs font-black text-fuchsia-300 tracking-wider">에어픽 짧은 경로</p>
           <p className="text-[11px] text-zinc-500 font-bold mt-1 leading-relaxed">
-            방문 + 예약 · 에어픽.kr/long1 등 · 접수일·방문일(KST)
+            방문 + 예약 · /long1·?src= · 최초유입 30일 · 접수일·방문일(KST)
           </p>
         </div>
         {!hidePeriodToggle ? (

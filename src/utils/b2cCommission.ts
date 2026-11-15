@@ -7,6 +7,7 @@ import { isWawaCompany } from './pricing';
 
 /** 에어픽 B2C 수수료 시작 (KST 달력일) — 지금부터 집계·확인 */
 export const B2C_COMMISSION_START_YMD = '2026-11-01';
+/** 기본 요율 — 부가세 별도 15%. 업체 commissionRate 없으면 이것 */
 export const B2C_COMMISSION_RATE = 0.15;
 
 export function reservationListPrice(r: Reservation): number {
@@ -51,17 +52,45 @@ export function commissionAdjusted(r: Reservation): boolean {
   );
 }
 
-/** 기준 정가×15% − 인정 가입쿠폰(최소 0) */
-export function airpickCommissionWon(r: Reservation): number {
-  const gross = Math.floor(reservationCommissionBase(r) * B2C_COMMISSION_RATE);
+/** 0~1로 정규화. 15 입력 시 0.15. 범위 밖·NaN이면 기본 15% */
+export function resolveCommissionRate(raw?: number | null): number {
+  const n = Number(raw);
+  if (!Number.isFinite(n) || n < 0) return B2C_COMMISSION_RATE;
+  if (n === 0) return 0;
+  if (n > 0 && n <= 1) return n;
+  if (n > 1 && n <= 100) return n / 100;
+  return B2C_COMMISSION_RATE;
+}
+
+export function companyCommissionRate(company?: Company | null): number {
+  return resolveCommissionRate(company?.commissionRate);
+}
+
+export function rateLabelPercent(rate: number): string {
+  const pct = Math.round(resolveCommissionRate(rate) * 1000) / 10;
+  return Number.isInteger(pct) ? String(pct) : String(pct);
+}
+
+/** 기준 정가×요율 − 인정 가입쿠폰(최소 0). 홈·현장은 호출하지 말 것 */
+export function airpickCommissionWon(
+  r: Reservation,
+  rate: number = B2C_COMMISSION_RATE
+): number {
+  const gross = Math.floor(reservationCommissionBase(r) * resolveCommissionRate(rate));
   return Math.max(0, gross - reservationSignupCouponWon(r));
 }
 
-export function partnerPayoutWon(r: Reservation): number {
-  return Math.max(0, reservationCommissionBase(r) - airpickCommissionWon(r) - reservationSignupCouponWon(r));
+export function partnerPayoutWon(
+  r: Reservation,
+  rate: number = B2C_COMMISSION_RATE
+): number {
+  return Math.max(
+    0,
+    reservationCommissionBase(r) - airpickCommissionWon(r, rate) - reservationSignupCouponWon(r)
+  );
 }
 
-function companyIdAndName(r: Reservation): { id: string; name: string } {
+export function companyIdAndName(r: Reservation): { id: string; name: string } {
   const rawId = String(r.companyId || '').trim();
   const rawName = String(r.companyName || '').trim();
   if (isWawaCompany(rawId, rawName)) {
@@ -72,7 +101,14 @@ function companyIdAndName(r: Reservation): { id: string; name: string } {
   return { id, name };
 }
 
-/** 12월부터 · B2C · 해당 월 출고완료 */
+function rateByCompanyId(companies: Company[] | undefined, companyId: string): number {
+  if (!companies?.length) return B2C_COMMISSION_RATE;
+  const want = companyId.trim().toLowerCase();
+  const found = companies.find((c) => String(c.id || '').trim().toLowerCase() === want);
+  return companyCommissionRate(found);
+}
+
+/** B2C · 해당 월 출고완료 · 수수료 시작일 이후 입고 */
 export function filterB2cCommissionEligible(
   reservations: Reservation[],
   monthPrefix: string
@@ -90,6 +126,7 @@ export function filterB2cCommissionEligible(
 export type B2cCommissionCompanyRow = {
   id: string;
   name: string;
+  rate: number;
   count: number;
   listRevenue: number;
   couponWon: number;
@@ -111,6 +148,7 @@ export function buildB2cCommissionRows(
     map.set(id, {
       id,
       name: String(c.name || c.id).trim() || c.id,
+      rate: companyCommissionRate(c),
       count: 0,
       listRevenue: 0,
       couponWon: 0,
@@ -121,11 +159,13 @@ export function buildB2cCommissionRows(
 
   for (const r of eligible) {
     const { id, name } = companyIdAndName(r);
+    const rate = rateByCompanyId(companies, id);
     let row = map.get(id);
     if (!row) {
       row = {
         id,
         name,
+        rate,
         count: 0,
         listRevenue: 0,
         couponWon: 0,
@@ -136,7 +176,7 @@ export function buildB2cCommissionRows(
     }
     const list = reservationCommissionBase(r);
     const coupon = reservationSignupCouponWon(r);
-    const commission = airpickCommissionWon(r);
+    const commission = airpickCommissionWon(r, rate);
     row.count += 1;
     row.listRevenue += list;
     row.couponWon += coupon;
@@ -156,7 +196,7 @@ export function buildB2cCommissionRows(
 
 export function sumB2cCommissionRows(rows: B2cCommissionCompanyRow[]): Omit<
   B2cCommissionCompanyRow,
-  'id' | 'name'
+  'id' | 'name' | 'rate'
 > {
   return rows.reduce(
     (acc, r) => ({
@@ -180,6 +220,7 @@ export type B2cCommissionBookingRow = {
   couponWon: number;
   commissionWon: number;
   partnerPayoutWon: number;
+  rate: number;
   /** signupCouponWon / listPrice 필드가 예약에 없음 */
   estimatedPricing: boolean;
   /** 서버 기본 요금·인정 쿠폰 기준으로 바꿔 계산함 */
@@ -190,7 +231,8 @@ export type B2cCommissionBookingRow = {
 export function listB2cCommissionBookings(
   reservations: Reservation[],
   monthPrefix: string,
-  companyId?: string
+  companyId?: string,
+  companies?: Company[]
 ): B2cCommissionBookingRow[] {
   const want = String(companyId || '')
     .trim()
@@ -202,9 +244,10 @@ export function listB2cCommissionBookings(
     })
     .map((r) => {
       const { id, name } = companyIdAndName(r);
+      const rate = rateByCompanyId(companies, id);
       const list = reservationCommissionBase(r);
       const coupon = reservationSignupCouponWon(r);
-      const commission = airpickCommissionWon(r);
+      const commission = airpickCommissionWon(r, rate);
       const hasList = Number(r.listPrice) > 0;
       const hasCouponField =
         r.signupCouponWon !== undefined && r.signupCouponWon !== null;
@@ -218,6 +261,7 @@ export function listB2cCommissionBookings(
         couponWon: coupon,
         commissionWon: commission,
         partnerPayoutWon: Math.max(0, list - commission - coupon),
+        rate,
         estimatedPricing: !hasList && !hasCouponField,
         adjusted: commissionAdjusted(r),
       };
@@ -237,4 +281,59 @@ export function sumAffiliateCustomerDiscountInMonth(
     const n = Math.max(0, Math.round(Number(r.affiliateCustomerDiscountWon) || 0));
     return sum + n;
   }, 0);
+}
+
+/** 정산 명세 CSV (UTF-8 BOM) */
+export function buildCommissionCsv(
+  bookings: B2cCommissionBookingRow[],
+  monthPrefix: string
+): string {
+  const header = [
+    '월',
+    '업체ID',
+    '업체명',
+    '예약ID',
+    '차량번호',
+    '출고일',
+    '요율',
+    '정가',
+    '가입쿠폰',
+    '수수료',
+    '업체몫',
+  ];
+  const lines = [header.join(',')];
+  for (const b of bookings) {
+    lines.push(
+      [
+        monthPrefix,
+        b.companyId,
+        csvEscape(b.companyName),
+        b.id,
+        csvEscape(b.carNumber),
+        b.exitYmd,
+        rateLabelPercent(b.rate) + '%',
+        b.listPrice,
+        b.couponWon,
+        b.commissionWon,
+        b.partnerPayoutWon,
+      ].join(',')
+    );
+  }
+  return `\uFEFF${lines.join('\n')}`;
+}
+
+function csvEscape(value: string): string {
+  const s = String(value || '');
+  if (/[",\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+  return s;
+}
+
+export function downloadCommissionCsv(filename: string, csv: string): void {
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 }

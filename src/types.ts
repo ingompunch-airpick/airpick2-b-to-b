@@ -176,6 +176,16 @@ export interface Company {
    */
   gtmId?: string;
   /**
+   * 에어픽 B2C 수수료율 (0~1). 예: 0.15 = 부가세 별도 15%.
+   * 없으면 기본 15%. 홈페이지·현장 예약에는 적용하지 않음.
+   */
+  commissionRate?: number;
+  /**
+   * invoice = 업체가 손님에게 받고 에어픽에 송금 (현재).
+   * withhold = 에어픽 결제 후 수수료 공제·월 지급 (결제 PG 이후).
+   */
+  commissionMode?: 'invoice' | 'withhold';
+  /**
    * 업체 알림톡 (NCP). 홈페이지·현장 예약용.
    * 에어픽 B2C 공용 템플릿과 별개 — channel·templates.reserve.code 필요.
    */

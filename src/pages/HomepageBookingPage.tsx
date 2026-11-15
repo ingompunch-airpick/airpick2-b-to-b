@@ -19,6 +19,7 @@ import {
   loadCompanyGtm,
   pushHomepageReservationComplete,
 } from '../utils/homepageGtm';
+import { ensureAirpickGa4, trackPurchaseOnce } from '../utils/ga4Purchase';
 import {
   isHourlyCapActive,
 } from '../utils/hourlyCapacity';
@@ -59,6 +60,11 @@ import {
   markAcquisitionLanded,
   validateAcquisitionForBooking,
 } from '../lib/acquisitionFirestore';
+import {
+  captureHomepageFirstTouch,
+  homepageFirstTouchFields,
+} from '../utils/homepageFirstTouch';
+import { recordHomepageBookingPageView } from '../lib/partnerHomepageVisit';
 import { formatPhoneInput, isValidMobilePhone } from '../utils/phone';
 
 type Terminal = string;
@@ -172,6 +178,14 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
 
   useEffect(() => {
     if (!companyId) return;
+    // 최초 유입 30일 저장 + 방문 집계(via=ph 는 업체 홈에서 이미 셈)
+    captureHomepageFirstTouch(companyId, window.location.pathname, window.location.search);
+    void recordHomepageBookingPageView(
+      companyId,
+      window.location.pathname,
+      window.location.search
+    );
+
     let cancelled = false;
     (async () => {
       try {
@@ -181,6 +195,9 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
         if (!aid) {
           const intent = parseAcquisitionIntentFromSearch(window.location.search);
           if (!intent) return;
+          // 파트너 홈 전달(via=ph)은 aid 없이 firstTouch 만으로 예약에 붙인다
+          const params = new URLSearchParams(window.location.search);
+          if (params.get('via') === 'ph') return;
           const created = await createAcquisitionClickClient({
             companyId,
             source: intent.source,
@@ -240,6 +257,11 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
       cancelled = true;
     };
   }, [companyId]);
+
+  // 에어픽 공통 GA4 (G-258) — /h/ 전 페이지. 이미 있으면 중복 로드 안 함
+  useEffect(() => {
+    ensureAirpickGa4();
+  }, []);
 
   // 업체별 GTM — gtmId 있을 때만 head에 로드
   useEffect(() => {
@@ -523,7 +545,7 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
         isT2
       );
 
-      // createdBy 는 채널(homepage) 유지. 명함 QR 등은 acquisition* 만 추가.
+      // createdBy 는 채널(homepage) 유지. 명함 QR·src 최초유입은 acquisition* 만 추가.
       let acquisitionFields: Partial<Reservation> = {};
       if (acquisitionAid) {
         const validated = await validateAcquisitionForBooking(acquisitionAid, company.id);
@@ -535,6 +557,12 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
             acquisitionClickId: validated.acquisitionClickId,
           };
         }
+      }
+      if (!acquisitionFields.acquisitionSource) {
+        acquisitionFields = {
+          ...acquisitionFields,
+          ...homepageFirstTouchFields(company.id),
+        };
       }
 
       const payload: Omit<Reservation, 'id'> = {
@@ -603,6 +631,14 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
           // 전환 마킹 실패해도 예약은 이미 저장됨
         }
       }
+      trackPurchaseOnce({
+        transactionId: id,
+        value: price,
+        vendor: company.id,
+        vendorName: displayName,
+        bookingPath: 'vendor_page',
+        bookingMethod: 'vendor_form',
+      });
       const receiptUrl = buildReceiptUrl({ id, receiptToken, receiptCode: undefined });
       setDone({ id, receiptUrl, value: price });
     } catch (submitErr) {
