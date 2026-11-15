@@ -73,8 +73,8 @@ export default function HqCommissionSettlementView({
     <div className="space-y-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-xs font-black text-fuchsia-300 tracking-wider">B2C 수수료 정산</p>
-          <p className="text-[11px] text-zinc-500 font-bold mt-1 leading-relaxed max-w-xl">
+          <p className="text-[14px] font-black text-fuchsia-300 tracking-wider">B2C 수수료 정산</p>
+          <p className="text-[13px] text-zinc-400 font-bold mt-1.5 leading-relaxed max-w-xl">
             에어픽 앱 예약만 · 출고 완료일 기준 · 홈·현장 수수료 없음 · 부가세 별도 · 지금은 업체가
             손님에게 받은 뒤 에어픽에 송금(청구)
           </p>
@@ -88,7 +88,7 @@ export default function HqCommissionSettlementView({
           >
             <ChevronLeft size={16} />
           </button>
-          <span className="text-[12px] font-black text-white font-mono px-2 min-w-[5.5rem] text-center">
+          <span className="text-[14px] font-black text-white font-mono px-2 min-w-[5.5rem] text-center">
             {monthLabelFromPrefix(monthPrefix)}
           </span>
           <button
@@ -284,21 +284,21 @@ function Kpi({
       }`}
     >
       <span
-        className={`text-[10px] font-bold block ${
-          tone === 'fuchsia' ? 'text-fuchsia-300' : 'text-zinc-500'
+        className={`text-[12px] font-bold block ${
+          tone === 'fuchsia' ? 'text-fuchsia-300' : 'text-zinc-400'
         }`}
       >
         {label}
       </span>
       <span
-        className={`text-base sm:text-lg font-black font-mono tracking-tight ${
+        className={`text-lg sm:text-xl font-black font-mono tracking-tight ${
           tone === 'fuchsia' ? 'text-fuchsia-200' : 'text-white'
         }`}
       >
         {value}
       </span>
       {sub ? (
-        <span className="text-[10px] text-zinc-500 font-bold font-mono block mt-0.5">{sub}</span>
+        <span className="text-[12px] text-zinc-500 font-bold font-mono block mt-0.5">{sub}</span>
       ) : null}
     </div>
   );
@@ -317,9 +317,9 @@ function Mini({
 }) {
   return (
     <div>
-      <span className="text-[10px] text-zinc-500 font-bold block">{label}</span>
+      <span className="text-[12px] text-zinc-500 font-bold block">{label}</span>
       <span
-        className={`text-[12px] font-black font-mono ${
+        className={`text-[14px] font-black font-mono ${
           accent ? 'text-fuchsia-300' : green ? 'text-emerald-300' : 'text-zinc-200'
         }`}
       >
