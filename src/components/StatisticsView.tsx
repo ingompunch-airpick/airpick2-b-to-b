@@ -64,8 +64,6 @@ import {
 import {
   B2C_COMMISSION_START_YMD,
   buildB2cCommissionRows,
-  companyCommissionRate,
-  rateLabelPercent,
   sumB2cCommissionRows,
 } from '../utils/b2cCommission';
 import HqAcquisitionView from './HqAcquisitionView';
@@ -960,28 +958,6 @@ export default function StatisticsView({
         ? null
         : realMonthSales;
 
-  const partnerCompany = companies.find(
-    (c) =>
-      String(c.id || '')
-        .trim()
-        .toLowerCase() ===
-      String(currentCompanyId || '')
-        .trim()
-        .toLowerCase()
-  );
-  const partnerCommissionStarted =
-    summaryMonthPrefix >= B2C_COMMISSION_START_YMD.slice(0, 7);
-  const partnerCommissionRow = partnerCommissionStarted
-    ? buildB2cCommissionRows(activeReservations, summaryMonthPrefix, companies).find(
-        (row) =>
-          row.id ===
-          String(currentCompanyId || '')
-            .trim()
-            .toLowerCase()
-      )
-    : undefined;
-  const partnerCommissionRate = companyCommissionRate(partnerCompany);
-
   // 총 입고·총 출고 = 그달 예정 입고일·출고일. 이번 달도 오늘 이후 예정을 포함한다.
   const totalAdmitted = activeReservations.filter((r) =>
     normalizeDateString(r.departureDate).startsWith(summaryMonthPrefix)
@@ -1212,51 +1188,6 @@ export default function StatisticsView({
             })}
           </div>
         </div>
-      </div>
-
-      {/* 에어픽 B2C 수수료 — 출고완료 · 앱 예약만 */}
-      <div className="bg-[#121214] border border-fuchsia-500/20 rounded-[22px] p-4 space-y-2">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <p className="text-xs font-black text-fuchsia-300 tracking-wider">에어픽에 낼 돈</p>
-            <p className="text-[11px] text-zinc-500 font-bold mt-1 leading-relaxed">
-              앱(B2C) 예약 · 출고 완료일 기준 · 요율 {rateLabelPercent(partnerCommissionRate)}%
-              (부가세 별도) · 홈·현장 제외
-            </p>
-          </div>
-          <div className="text-right shrink-0">
-            <span className="text-xl font-black text-fuchsia-200 font-mono block">
-              {!partnerCommissionStarted
-                ? '—'
-                : `${(partnerCommissionRow?.commissionWon || 0).toLocaleString()}원`}
-            </span>
-            <span className="text-[11px] text-zinc-500 font-bold font-mono">
-              {partnerCommissionStarted ? `${partnerCommissionRow?.count || 0}건` : '집계 전'}
-            </span>
-          </div>
-        </div>
-        {partnerCommissionRow && partnerCommissionRow.count > 0 ? (
-          <div className="grid grid-cols-3 gap-2 pt-1 border-t border-neutral-800">
-            <div>
-              <span className="text-[10px] text-zinc-500 font-bold block">정가</span>
-              <span className="text-[12px] font-black text-zinc-200 font-mono">
-                {partnerCommissionRow.listRevenue.toLocaleString()}
-              </span>
-            </div>
-            <div>
-              <span className="text-[10px] text-zinc-500 font-bold block">가입할인</span>
-              <span className="text-[12px] font-black text-zinc-200 font-mono">
-                {partnerCommissionRow.couponWon.toLocaleString()}
-              </span>
-            </div>
-            <div>
-              <span className="text-[10px] text-zinc-500 font-bold block">업체몫</span>
-              <span className="text-[12px] font-black text-emerald-300 font-mono">
-                {partnerCommissionRow.partnerPayoutWon.toLocaleString()}
-              </span>
-            </div>
-          </div>
-        ) : null}
       </div>
 
       {/* ── 접수내역 CRM (합친 섹션) ────────────────────────── */}

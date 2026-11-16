@@ -32,7 +32,7 @@ export interface PartnerProfileInput {
   insuranceEnrolled: boolean;
   insuranceProvider: string;
   insuranceProductName: string;
-  /** 대인·대물·자차 등을 한 줄로 (내부용) */
+  /** 대인·대물·자차 등을 한 줄로 (손님 앱 상세·예약·내 예약 노출) */
   insuranceCoverageLimitText: string;
   /** 보험증권 이미지 — http(s) 또는 data URL(저장 시 업로드) */
   insuranceCertificateUrl: string;

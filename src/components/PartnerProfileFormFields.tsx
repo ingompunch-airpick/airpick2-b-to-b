@@ -437,7 +437,7 @@ export default function PartnerProfileFormFields({
               </div>
             </div>
             <div>
-              <label className={labelCls}>보상 한도 · 내부용</label>
+              <label className={labelCls}>보상 한도 · 손님 앱 노출</label>
               <input
                 type="text"
                 value={profile.insuranceCoverageLimitText}
@@ -446,8 +446,8 @@ export default function PartnerProfileFormFields({
                 placeholder="예: 대인 1억 · 대물 1억 · 자차 5천만"
               />
               <p className={`mt-1 text-[10px] font-medium ${hintCls}`}>
-                대인·대물·자차를 한 줄에 적습니다. 손님 앱에는 노출하지 않으며, 보험증권은 위 「증명서류」에
-                등록합니다.
+                대인·대물·자차를 한 줄에 적습니다. 문구가 있으면 손님 앱 상세·예약·내 예약 보험 칸에
+                노출됩니다(비교 카드 제외). 비우면 숨깁니다. 보험증권은 위 「증명서류」에 등록합니다.
               </p>
             </div>
           </div>

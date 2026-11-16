@@ -268,7 +268,7 @@ export interface CompanyInsurance {
   /** 마스터가 적은 상품명 그대로 */
   productName?: string;
   /**
-   * 보상 한도 안내 한 줄 (내부용). 예: 대인 1억 · 대물 1억 · 자차 5천만
+   * 보상 한도 안내 한 줄 (손님 앱 상세·예약·내 예약 노출). 예: 대인 1억 · 대물 1억 · 자차 5천만
    * 예전 단일 숫자 필드는 coverageLimitWon 으로 남을 수 있음.
    */
   coverageLimitText?: string;
