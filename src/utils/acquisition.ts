@@ -29,6 +29,8 @@ export const ACQUISITION_SOURCE_LABELS: Record<string, string> = {
   blog: '블로그',
   instagram: '인스타',
   kakao: '카카오톡',
+  chatgpt: 'ChatGPT 광고',
+  openai: 'ChatGPT 광고',
   other: '기타',
 };
 

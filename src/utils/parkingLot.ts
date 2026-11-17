@@ -137,8 +137,9 @@ export function defaultParkingLotId(
 }
 
 /**
- * 카드 뱃지 라벨.
- * 입고 전: 실내/야외. 입고 후: lot 이름(없으면 실내/야외 fallback).
+ * 카드 뱃지·CRM 「주차」 공통.
+ * 입고 전: 실내/야외만 (parkingSpace·미지정·실내1 무시).
+ * 입고 후: lot 이름 → 없으면 실내/야외. 구역(B-12) 있으면 「실내1 · B-12」.
  */
 export function parkingFacilityBadgeLabel(
   res: Pick<Reservation, 'status' | 'isIndoor' | 'parkingLotId' | 'parkingSpace'>,
@@ -147,14 +148,36 @@ export function parkingFacilityBadgeLabel(
   const isIndoor = res.isIndoor !== false;
   const admitted = !isNotYetAdmitted(res.status);
 
-  if (admitted) {
-    const lot = findParkingLot(lots, res.parkingLotId);
-    if (lot?.name) {
-      return { text: lot.name, isIndoor: lot.type !== 'outdoor' };
-    }
+  if (!admitted) {
+    return { text: isIndoor ? '실내' : '야외', isIndoor };
   }
 
-  return { text: isIndoor ? '실내' : '야외', isIndoor };
+  const lot = findParkingLot(lots, res.parkingLotId);
+  const lotName = lot?.name?.trim() || '';
+  const facility = lotName || (isIndoor ? '실내' : '야외');
+  const facilityIsIndoor = lot ? lot.type !== 'outdoor' : isIndoor;
+  const space = String(res.parkingSpace || '').trim();
+  const zoneOk =
+    space &&
+    space !== '미지정' &&
+    !isGenericParkingSpaceLabel(space) &&
+    space !== facility &&
+    !/^실내\s*\d+/i.test(space) &&
+    !/^야외\s*\d+/i.test(space) &&
+    !/^실외\s*\d+/i.test(space);
+
+  return {
+    text: zoneOk ? `${facility} · ${space}` : facility,
+    isIndoor: facilityIsIndoor,
+  };
+}
+
+/** CRM·목록용 한 줄 (미지정 없음) */
+export function parkingCrmLabel(
+  res: Pick<Reservation, 'status' | 'isIndoor' | 'parkingLotId' | 'parkingSpace'>,
+  lots: CompanyParkingLot[] = []
+): string {
+  return parkingFacilityBadgeLabel(res, lots).text;
 }
 
 export function resolveCompanyLotsForReservation(

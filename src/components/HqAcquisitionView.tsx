@@ -14,7 +14,6 @@ import {
   homepageStatsCompanyIds,
   homepageVisitRange,
   HOMEPAGE_CHANNEL_PRESETS,
-  rangeIncludesPreSourceDays,
   sanitizeHomepageVisitChannels,
   sumHomepageSourceCounts,
   sumHomepageVisits,
@@ -182,7 +181,7 @@ function PartnerCompanyCard({
         <span className="text-sm font-black text-white truncate">{name}</span>
         <div className="flex items-center gap-3 shrink-0">
           <div className="text-right">
-            <span className="text-[10px] text-zinc-500 font-bold block">방문</span>
+            <span className="text-xs text-zinc-500 font-bold block">방문</span>
             <span
               className={`text-sm font-black font-mono ${
                 pageViews > 0 ? 'text-amber-400' : 'text-zinc-600'
@@ -192,7 +191,7 @@ function PartnerCompanyCard({
             </span>
           </div>
           <div className="text-right">
-            <span className="text-[10px] text-zinc-500 font-bold block">예약</span>
+            <span className="text-xs text-zinc-500 font-bold block">예약</span>
             <span
               className={`text-sm font-black font-mono ${
                 bookingTotal > 0 ? 'text-sky-300' : 'text-zinc-600'
@@ -201,21 +200,28 @@ function PartnerCompanyCard({
               {bookingTotal.toLocaleString()}
             </span>
           </div>
-          <span className="text-[10px] text-zinc-500 font-bold w-8 text-right">
-            {open ? '접기' : '링크'}
-          </span>
+          <div className="text-right min-w-[2.75rem]">
+            <span className="text-xs text-zinc-500 font-bold block">전환</span>
+            <span
+              className={`text-sm font-black font-mono ${
+                pageViews > 0 && bookingTotal > 0 ? 'text-emerald-300' : 'text-zinc-600'
+              }`}
+            >
+              {pageViews > 0 ? `${Math.round((bookingTotal / pageViews) * 100)}%` : '—'}
+            </span>
+          </div>
         </div>
       </button>
 
       {open ? (
         <div className="space-y-2 border-t border-neutral-800 pt-2">
           <div className="grid grid-cols-[1fr_3.25rem_3.25rem] gap-1 px-0.5">
-            <span className="text-[10px] text-zinc-600 font-bold">링크</span>
-            <span className="text-[10px] text-zinc-600 font-bold text-right">방문</span>
-            <span className="text-[10px] text-zinc-600 font-bold text-right">예약</span>
+            <span className="text-xs text-zinc-600 font-bold">링크</span>
+            <span className="text-xs text-zinc-600 font-bold text-right">방문</span>
+            <span className="text-xs text-zinc-600 font-bold text-right">예약</span>
           </div>
           {merged.length === 0 ? (
-            <p className="text-[11px] text-zinc-500 font-bold py-1">이 기간 수치가 없습니다.</p>
+            <p className="text-xs text-zinc-500 font-bold py-1">이 기간 수치가 없습니다.</p>
           ) : (
             merged.map((row) => {
               const isVisitChannel = channels.some((c) => c.key === row.key);
@@ -225,26 +231,26 @@ function PartnerCompanyCard({
                   className="grid grid-cols-[1fr_3.25rem_3.25rem] gap-1 items-center px-0.5"
                 >
                   <div className="min-w-0 flex items-center gap-1.5">
-                    <span className="text-[11px] text-zinc-300 font-bold truncate">{row.label}</span>
+                    <span className="text-xs text-zinc-300 font-bold truncate">{row.label}</span>
                     {isVisitChannel ? (
                       <button
                         type="button"
                         onClick={() => copy(row.key)}
-                        className="text-[10px] font-black text-zinc-600 hover:text-white shrink-0"
+                        className="text-xs font-black text-zinc-600 hover:text-white shrink-0"
                       >
                         {copiedKey === row.key ? '복사됨' : '주소'}
                       </button>
                     ) : null}
                   </div>
                   <span
-                    className={`text-[11px] font-mono font-black text-right ${
+                    className={`text-xs font-mono font-black text-right ${
                       row.visits > 0 ? 'text-amber-400' : 'text-zinc-700'
                     }`}
                   >
                     {row.visits > 0 ? row.visits : '—'}
                   </span>
                   <span
-                    className={`text-[11px] font-mono font-black text-right ${
+                    className={`text-xs font-mono font-black text-right ${
                       row.bookings > 0 ? 'text-sky-300' : 'text-zinc-700'
                     }`}
                   >
@@ -261,7 +267,7 @@ function PartnerCompanyCard({
                 type="button"
                 disabled={saving}
                 onClick={() => setAdding(true)}
-                className="text-[11px] font-black text-zinc-400 hover:text-white"
+                className="text-xs font-black text-zinc-400 hover:text-white"
               >
                 방문 측정 추가
               </button>
@@ -274,7 +280,7 @@ function PartnerCompanyCard({
                         key={preset.key}
                         type="button"
                         onClick={() => save([...channels, preset])}
-                        className="rounded-lg border border-neutral-700 px-2 py-1 text-[10px] font-black text-zinc-300"
+                        className="rounded-lg border border-neutral-700 px-2 py-1 text-xs font-black text-zinc-300"
                       >
                         {preset.label}
                       </button>
@@ -286,13 +292,13 @@ function PartnerCompanyCard({
                     value={label}
                     onChange={(e) => setLabel(e.target.value)}
                     placeholder="이름"
-                    className="rounded-lg border border-neutral-800 bg-neutral-900 px-2 py-1.5 text-[12px] font-bold text-white"
+                    className="rounded-lg border border-neutral-800 bg-neutral-900 px-2 py-1.5 text-[13px] font-bold text-white"
                   />
                   <input
                     value={key}
                     onChange={(e) => setKey(e.target.value.toLowerCase())}
                     placeholder="주소 place2"
-                    className="rounded-lg border border-neutral-800 bg-neutral-900 px-2 py-1.5 text-[12px] font-bold text-white"
+                    className="rounded-lg border border-neutral-800 bg-neutral-900 px-2 py-1.5 text-[13px] font-bold text-white"
                   />
                 </div>
                 <div className="flex gap-2">
@@ -301,7 +307,7 @@ function PartnerCompanyCard({
                     onClick={() =>
                       save([...channels, { key: key.trim().toLowerCase(), label: label.trim() }])
                     }
-                    className="rounded-lg bg-neutral-800 px-3 py-1.5 text-[11px] font-black text-white"
+                    className="rounded-lg bg-neutral-800 px-3 py-1.5 text-xs font-black text-white"
                   >
                     추가
                   </button>
@@ -311,7 +317,7 @@ function PartnerCompanyCard({
                       setAdding(false);
                       setFormError('');
                     }}
-                    className="rounded-lg px-3 py-1.5 text-[11px] font-black text-zinc-500"
+                    className="rounded-lg px-3 py-1.5 text-xs font-black text-zinc-500"
                   >
                     닫기
                   </button>
@@ -319,7 +325,7 @@ function PartnerCompanyCard({
               </div>
             )}
             {(formError || error) && (
-              <p className="text-[11px] font-bold text-rose-400">{formError || error}</p>
+              <p className="text-xs font-bold text-rose-400">{formError || error}</p>
             )}
           </div>
         </div>
@@ -415,10 +421,12 @@ export default function HqAcquisitionView({
 
   const allVisits = partnerRows.reduce((s, r) => s + r.pageViews, 0);
   const allBookings = bookingStats.total;
-
-  const note = rangeIncludesPreSourceDays(range.start)
-    ? '방문: 파트너 홈 유입. 9/27 전은 페이지 연 횟수. 예약: 홈 예약완료(취소 제외)·접수일. 명함 QR 클릭 퍼널은 주차업체 관리.'
-    : '방문: 파트너 홈(사람당 1). 예약: 홈 예약완료·접수일. 에어픽 짧은 경로는 위 카드. 명함 클릭 퍼널은 주차업체 관리.';
+  const allConversion =
+    allVisits > 0 ? Math.round((allBookings / allVisits) * 100) : null;
+  const nonePathBookings = partnerRows.reduce((sum, row) => {
+    const none = row.bookingLinks.find((link) => link.key === SHORT_PATH_NONE);
+    return sum + (none?.count || 0);
+  }, 0);
 
   const saveChannels = async (companyId: string, next: HomepageVisitChannel[]) => {
     setSavingId(companyId);
@@ -460,11 +468,15 @@ export default function HqAcquisitionView({
           </button>
         ))}
       </div>
-      <p className="px-1 text-[11px] text-zinc-500 font-bold">
+      <p className="px-1 text-xs text-zinc-500 font-bold">
         {shortDate(range.start)} – {shortDate(range.end)}
         {period === 'last7' ? ' · 오늘 기준' : ''}
       </p>
-      <p className="px-1 text-[10px] text-zinc-600 font-semibold leading-relaxed">{note}</p>
+      {nonePathBookings > 0 ? (
+        <p className="px-1 text-xs text-amber-400/90 font-bold">
+          경로 없는 홈 예약 {nonePathBookings}건
+        </p>
+      ) : null}
 
       <HqAirpickShortPaths
         reservations={reservations}
@@ -476,22 +488,25 @@ export default function HqAcquisitionView({
       <div className="space-y-2.5">
         <div className="flex items-end justify-between px-1 gap-2">
           <div>
-            <p className="text-xs font-black text-sky-300 tracking-wider">업체 홈</p>
-            <p className="text-[11px] text-zinc-500 font-bold mt-0.5">
-              업체별 → 링크 · 방문 + 예약완료
-            </p>
+            <p className="text-sm font-black text-sky-300 tracking-wider">업체 홈</p>
           </div>
           <div className="flex gap-3 shrink-0 text-right">
             <div>
-              <span className="text-[10px] text-zinc-500 font-bold block">방문 합</span>
+              <span className="text-xs text-zinc-500 font-bold block">방문</span>
               <span className="text-sm font-black font-mono text-amber-400">
                 {days === null ? '…' : allVisits.toLocaleString()}
               </span>
             </div>
             <div>
-              <span className="text-[10px] text-zinc-500 font-bold block">예약 합</span>
+              <span className="text-xs text-zinc-500 font-bold block">예약</span>
               <span className="text-sm font-black font-mono text-sky-300">
                 {allBookings.toLocaleString()}
+              </span>
+            </div>
+            <div>
+              <span className="text-xs text-zinc-500 font-bold block">전환</span>
+              <span className="text-sm font-black font-mono text-emerald-300">
+                {days === null || allConversion == null ? '—' : `${allConversion}%`}
               </span>
             </div>
           </div>
