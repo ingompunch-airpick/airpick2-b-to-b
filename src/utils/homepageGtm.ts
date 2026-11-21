@@ -77,27 +77,8 @@ export function pushHomepageReservationComplete(opts: {
     transaction_id: transactionId,
   });
 
-  // 주차벅스 — 완료 화면에서 Ads 전환 1회. gtag 로드 전이면 짧게 재시도.
-  if (vendor === 'bucks') {
-    const payload = {
-      send_to: 'AW-18564457511/iYQuCIb-6LQdEKfInJRF',
-      value: value > 0 ? value : 1.0,
-      currency: 'KRW',
-      transaction_id: transactionId,
-    };
-    const fire = () => {
-      if (typeof window.gtag !== 'function') return false;
-      window.gtag('event', 'conversion', payload);
-      return true;
-    };
-    if (!fire()) {
-      let tries = 0;
-      const timer = window.setInterval(() => {
-        tries += 1;
-        if (fire() || tries >= 20) window.clearInterval(timer);
-      }, 250);
-    }
-  }
+  // Ads 전환은 GTM(GTM-MSRW3JFT 「예약 전환」)이 reservation_complete에서 1회 처리.
+  // 코드에서 gtag conversion을 또 보내면 중복 집계되므로 여기서는 dataLayer만 push.
 
   return true;
 }
