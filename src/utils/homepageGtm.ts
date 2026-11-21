@@ -77,14 +77,26 @@ export function pushHomepageReservationComplete(opts: {
     transaction_id: transactionId,
   });
 
-  // 주차벅스 — 완료 화면에서도 Ads 전환(페이지 로드 방식). 제출 시점과 중복될 수 있어 txn 단위로만 1회.
-  if (vendor === 'bucks' && typeof window.gtag === 'function') {
-    window.gtag('event', 'conversion', {
+  // 주차벅스 — 완료 화면에서 Ads 전환 1회. gtag 로드 전이면 짧게 재시도.
+  if (vendor === 'bucks') {
+    const payload = {
       send_to: 'AW-18564457511/iYQuCIb-6LQdEKfInJRF',
       value: value > 0 ? value : 1.0,
       currency: 'KRW',
       transaction_id: transactionId,
-    });
+    };
+    const fire = () => {
+      if (typeof window.gtag !== 'function') return false;
+      window.gtag('event', 'conversion', payload);
+      return true;
+    };
+    if (!fire()) {
+      let tries = 0;
+      const timer = window.setInterval(() => {
+        tries += 1;
+        if (fire() || tries >= 20) window.clearInterval(timer);
+      }, 250);
+    }
   }
 
   return true;
