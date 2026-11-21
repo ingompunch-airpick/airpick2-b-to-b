@@ -122,16 +122,6 @@ function terminalDisplay(raw: string): string {
   return raw.trim() || '-';
 }
 
-function SummaryRow({ label, value }: { label: string; value: string }) {
-  if (!value.trim()) return null;
-  return (
-    <div className="flex items-start justify-between gap-4 py-2.5">
-      <dt className="shrink-0 text-sm text-stone-500">{label}</dt>
-      <dd className="text-right text-sm font-semibold text-stone-900 break-words">{value}</dd>
-    </div>
-  );
-}
-
 interface HomepageBookingPageProps {
   companyId: string;
 }
@@ -668,6 +658,8 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
   }
 
   if (done) {
+    const parkingLabel = isIndoor ? '실내' : '야외';
+    const carLine = [carNumber.trim(), parkingLabel].filter(Boolean).join(' · ');
     return (
       <div className="min-h-dvh bg-[#f4f0ea] text-stone-900">
         <div className="mx-auto max-w-lg px-4 pb-16 pt-10 sm:px-5">
@@ -678,11 +670,11 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
               </p>
               <h1 className="mt-2 text-3xl font-bold tracking-tight">{displayName}</h1>
               <p className="mt-2 text-sm leading-relaxed text-stone-300">
-                예약이 접수되었습니다. 아래 내용을 확인해 주세요.
+                예약이 접수되었습니다.
               </p>
             </div>
-            <div className="space-y-6 px-6 py-6">
-              <div className="flex items-end justify-between gap-4 border-b border-stone-100 pb-5">
+            <div className="space-y-5 px-6 py-6">
+              <div className="flex items-end justify-between gap-4">
                 <div>
                   <p className="text-xs font-medium text-stone-400">예약번호</p>
                   <p className="mt-1 font-mono text-sm font-semibold text-stone-800">{done.id}</p>
@@ -696,35 +688,38 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
                 </div>
               </div>
 
-              <dl className="divide-y divide-stone-100">
-                <SummaryRow label="예약자" value={userName.trim()} />
-                <SummaryRow label="휴대폰" value={phone.trim()} />
-                <SummaryRow label="차량기종" value={carModel.trim()} />
-                <SummaryRow label="차량번호" value={carNumber.trim()} />
-                <SummaryRow label="주차유형" value={isIndoor ? '실내' : '야외'} />
+              <dl className="space-y-3 border-t border-stone-100 pt-5 text-sm">
+                <div className="flex justify-between gap-4">
+                  <dt className="shrink-0 text-stone-400">출국</dt>
+                  <dd className="text-right font-medium text-stone-800">
+                    {formatLocalDisplay(depLocal)}
+                    <span className="mt-0.5 block text-xs font-normal text-stone-500">
+                      {terminalDisplay(departureTerminal)}
+                    </span>
+                  </dd>
+                </div>
+                <div className="flex justify-between gap-4">
+                  <dt className="shrink-0 text-stone-400">입국</dt>
+                  <dd className="text-right font-medium text-stone-800">
+                    {formatLocalDisplay(arrLocal)}
+                    <span className="mt-0.5 block text-xs font-normal text-stone-500">
+                      {terminalDisplay(arrivalTerminal)}
+                    </span>
+                  </dd>
+                </div>
+                {carLine ? (
+                  <div className="flex justify-between gap-4">
+                    <dt className="shrink-0 text-stone-400">차량</dt>
+                    <dd className="text-right font-medium text-stone-800">{carLine}</dd>
+                  </div>
+                ) : null}
+                {phone.trim() ? (
+                  <div className="flex justify-between gap-4">
+                    <dt className="shrink-0 text-stone-400">연락처</dt>
+                    <dd className="text-right font-medium text-stone-800">{phone.trim()}</dd>
+                  </div>
+                ) : null}
               </dl>
-
-              <div>
-                <p className="text-[11px] font-semibold tracking-[0.18em] text-stone-400">출국</p>
-                <dl className="mt-1 divide-y divide-stone-100">
-                  <SummaryRow label="터미널" value={terminalDisplay(departureTerminal)} />
-                  <SummaryRow label="항공사" value={departureAirline.trim()} />
-                  <SummaryRow label="항공편" value={departureFlight.trim().toUpperCase()} />
-                  <SummaryRow label="공항도착" value={formatLocalDisplay(depLocal)} />
-                </dl>
-              </div>
-
-              <div>
-                <p className="text-[11px] font-semibold tracking-[0.18em] text-stone-400">입국</p>
-                <dl className="mt-1 divide-y divide-stone-100">
-                  <SummaryRow label="터미널" value={terminalDisplay(arrivalTerminal)} />
-                  <SummaryRow label="항공사" value={arrivalAirline.trim()} />
-                  <SummaryRow label="항공편" value={arrivalFlight.trim().toUpperCase()} />
-                  <SummaryRow label="비행기도착" value={formatLocalDisplay(arrLocal)} />
-                  <SummaryRow label="여행지" value={destination.trim()} />
-                  <SummaryRow label="요청사항" value={customerNotes.trim()} />
-                </dl>
-              </div>
 
               {done.receiptUrl ? (
                 <a
@@ -735,6 +730,8 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
                 </a>
               ) : null}
               <p className="text-center text-xs text-stone-400">
+                자세한 내용은 접수증에서 확인할 수 있습니다.
+                <br />
                 문의 {company.phone || '업체 고객센터'}
               </p>
             </div>
