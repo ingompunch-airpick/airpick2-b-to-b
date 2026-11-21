@@ -14,22 +14,36 @@
     <link rel="apple-touch-icon" href="/icon-192-v2.png" />
     <link rel="icon" type="image/png" href="/icon-512-v2.png" />
     <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
-    <!-- 와와 온라인 예약 /h/wawa 전용. 직원 앱·다른 업체 예약에는 넣지 않는다. -->
+    <!-- 업체 홈 예약(/h/{id}) 전용 Google Ads. 직원 앱·다른 경로에는 넣지 않는다. -->
     <script>
       (function () {
         var path = (location.pathname || '').replace(/\/+$/, '').toLowerCase();
-        if (path !== '/h/wawa') return;
+        var ads =
+          path === '/h/wawa'
+            ? {
+                id: 'AW-18276546315',
+                // 와와: 제출 클릭 시 전환
+                submit: 'AW-18276546315/JB0qCOOKxK0dEIvu94pE',
+              }
+            : path === '/h/bucks'
+              ? {
+                  id: 'AW-18564457511',
+                  // 주차벅스「예약」은 페이지 로드(완료) 전환 — 완료 화면에서 gtag. submit 없음
+                  submit: '',
+                }
+              : null;
+        if (!ads) return;
 
         var loader = document.createElement('script');
         loader.async = true;
-        loader.src = 'https://www.googletagmanager.com/gtag/js?id=AW-18276546315';
+        loader.src = 'https://www.googletagmanager.com/gtag/js?id=' + ads.id;
         document.head.appendChild(loader);
 
         window.dataLayer = window.dataLayer || [];
         function gtag(){dataLayer.push(arguments);}
         window.gtag = gtag;
         gtag('js', new Date());
-        gtag('config', 'AW-18276546315');
+        gtag('config', ads.id);
 
         function formatE164(phone) {
           if (!phone) return '';
@@ -41,6 +55,7 @@
         }
 
         document.addEventListener('submit', function(e) {
+          if (!ads.submit) return;
           var form = e.target.closest('form');
           if (!form) return;
 
@@ -61,8 +76,8 @@
           }
 
           gtag('event', 'conversion', {
-            'send_to': 'AW-18276546315/JB0qCOOKxK0dEIvu94pE',
-            'value': priceValue,
+            'send_to': ads.submit,
+            'value': priceValue || 1.0,
             'currency': 'KRW'
           });
         });

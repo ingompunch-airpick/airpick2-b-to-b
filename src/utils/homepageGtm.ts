@@ -6,6 +6,7 @@
 declare global {
   interface Window {
     dataLayer?: Record<string, unknown>[];
+    gtag?: (...args: unknown[]) => void;
   }
 }
 
@@ -75,5 +76,16 @@ export function pushHomepageReservationComplete(opts: {
     currency: 'KRW',
     transaction_id: transactionId,
   });
+
+  // 주차벅스 — 완료 화면에서도 Ads 전환(페이지 로드 방식). 제출 시점과 중복될 수 있어 txn 단위로만 1회.
+  if (vendor === 'bucks' && typeof window.gtag === 'function') {
+    window.gtag('event', 'conversion', {
+      send_to: 'AW-18564457511/iYQuCIb-6LQdEKfInJRF',
+      value: value > 0 ? value : 1.0,
+      currency: 'KRW',
+      transaction_id: transactionId,
+    });
+  }
+
   return true;
 }
