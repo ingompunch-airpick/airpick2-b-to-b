@@ -562,6 +562,18 @@ service cloud.firestore {
     // ── members (카카오 로그인 회원. 문서 ID = Firebase uid) ─────────────
     // B2C 내 예약 저장. 배포는 이 저장소에서만 한다.
 
+    function memberMarketingTimestampOk(field) {
+      let data = request.resource.data;
+      return !(field in data)
+        || data[field] == null
+        || data[field] == request.time
+        || (
+          request.method == 'update'
+          && field in resource.data
+          && data[field] == resource.data[field]
+        );
+    }
+
     function kakaoMemberWriteValid(uid) {
       let data = request.resource.data;
       return isSignedIn()
@@ -573,8 +585,10 @@ service cloud.firestore {
         && data.name.size() > 0
         && data.name.size() <= 40
         && data.phone is string
-        && data.phone.size() >= 10
-        && data.phone.size() <= 20
+        && (
+          data.phone.size() == 0
+          || (data.phone.size() >= 10 && data.phone.size() <= 20)
+        )
         && data.carNumber is string
         && data.carNumber.size() <= 20
         && (!('carModel' in data) || (data.carModel is string && data.carModel.size() <= 40))
@@ -582,7 +596,25 @@ service cloud.firestore {
         && data.reservationIds.size() <= 20
         && (!('guestPhoneClaimed' in data) || (data.guestPhoneClaimed is string && data.guestPhoneClaimed.size() <= 11))
         && (!('guestPhoneClaimedAt' in data) || (data.guestPhoneClaimedAt is string && data.guestPhoneClaimedAt.size() <= 40))
-        && (!('marketingOptIn' in data) || data.marketingOptIn is bool)
+        && data.marketingOptIn is bool
+        && memberMarketingTimestampOk('marketingAgreedAt')
+        && memberMarketingTimestampOk('marketingWithdrawnAt')
+        && (!('marketingSource' in data) || data.marketingSource in ['booking', 'mypage'])
+        && (
+          !('marketingChannels' in data)
+          || (
+            data.marketingChannels is list
+            && data.marketingChannels.size() <= 2
+            && data.marketingChannels.hasOnly(['sms', 'kakao'])
+          )
+        )
+        && (
+          !('marketingTextVersion' in data)
+          || (
+            data.marketingTextVersion is string
+            && data.marketingTextVersion.size() <= 20
+          )
+        )
         && data.createdAt is string
         && data.createdAt.size() > 0
         && data.createdAt.size() <= 40
@@ -616,6 +648,30 @@ service cloud.firestore {
         && request.resource.data.createdAt == resource.data.createdAt
         && memberClaimFieldsUnchanged();
       allow delete: if isSignedIn() && request.auth.uid == uid;
+
+      // 광고성 정보 수신 감사 로그 (클라이언트 create만)
+      match /consentLogs/{logId} {
+        allow read: if isSignedIn() && request.auth.uid == uid;
+        allow create: if isSignedIn()
+          && request.auth.uid == uid
+          && request.auth.token.firebase.sign_in_provider == 'oidc.kakao'
+          && request.resource.data.keys().hasOnly([
+            'action',
+            'at',
+            'source',
+            'channels',
+            'textVersion'
+          ])
+          && request.resource.data.action in ['agree', 'withdraw']
+          && request.resource.data.at == request.time
+          && request.resource.data.source in ['booking', 'mypage']
+          && request.resource.data.channels is list
+          && request.resource.data.channels.size() <= 2
+          && request.resource.data.channels.hasOnly(['sms', 'kakao'])
+          && request.resource.data.textVersion is string
+          && request.resource.data.textVersion.size() <= 20;
+        allow update, delete: if false;
+      }
     }
 
     // 포인트 잔액 — 손님은 자기 잔액만 읽고, 적립·사용은 Functions만 쓴다.
