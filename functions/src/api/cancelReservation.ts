@@ -4,6 +4,7 @@ import { logger } from 'firebase-functions';
 
 import { reservationPasswordMatches } from '../reservations/publicReservation';
 import { resolveReservationPassword } from '../reservations/reservationSecrets';
+import { readSlotsForReleaseInTx } from '../parkingSlotCapacity';
 
 /** 셀프 취소 가능한 상태 (입고 전) — B2C `reservationCancel.ts` 와 동일 */
 const CANCELLABLE_STATUSES = new Set(['pending', 'scheduled', 'pending_in']);
@@ -36,7 +37,7 @@ async function resolveCancelCutoffHours(companyId: unknown): Promise<number> {
 
 /**
  * 고객 셀프 취소 — 서버에서 비밀번호·상태·취소 마감을 모두 검증하고 status: cancelled 로 변경.
- * 클라이언트 화면만 막으면 API 직접 호출로 입고 완료된 차량까지 취소되므로 서버에서 다시 본다.
+ * 정원 슬롯이 있으면 같은 트랜잭션에서 복구한다.
  */
 export const cancelReservation = onRequest(
   { region: 'asia-northeast3', cors: true },
@@ -64,7 +65,8 @@ export const cancelReservation = onRequest(
     }
 
     try {
-      const ref = admin.firestore().doc(`reservations/${id}`);
+      const db = admin.firestore();
+      const ref = db.doc(`reservations/${id}`);
       const snap = await ref.get();
       if (!snap.exists) {
         res.status(404).json({ error: 'not_found' });
@@ -97,15 +99,66 @@ export const cancelReservation = onRequest(
         }
       }
 
-      await ref.update({
-        status: 'cancelled',
-        cancelledAt: new Date().toISOString(),
-        cancelledBy: 'customer',
+      await db.runTransaction(async (tx) => {
+        const fresh = await tx.get(ref);
+        if (!fresh.exists) {
+          throw new Error('not_found');
+        }
+        const current = fresh.data() || {};
+        const st = String(current.status ?? '');
+        if (st === 'cancelled') {
+          throw new Error('already_cancelled');
+        }
+        if (!CANCELLABLE_STATUSES.has(st)) {
+          throw new Error('not_cancellable_status');
+        }
+
+        // 모든 읽기 먼저 (슬롯) → 이후 쓰기
+        const prepared = await readSlotsForReleaseInTx(tx, db, current);
+
+        if (prepared) {
+          for (const snap of prepared.snaps) {
+            if (!snap.exists) continue;
+            const row = snap.data() || {};
+            const booked = Math.max(0, Math.floor(Number(row.booked) || 0));
+            tx.set(
+              snap.ref,
+              {
+                ...row,
+                booked: Math.max(0, booked - 1),
+                updatedAt: new Date().toISOString(),
+              },
+              { merge: true }
+            );
+          }
+          tx.update(ref, {
+            status: 'cancelled',
+            cancelledAt: new Date().toISOString(),
+            cancelledBy: 'customer',
+            parkingSlotsReleased: true,
+            parkingSlotHolds: admin.firestore.FieldValue.delete(),
+          });
+        } else {
+          tx.update(ref, {
+            status: 'cancelled',
+            cancelledAt: new Date().toISOString(),
+            cancelledBy: 'customer',
+          });
+        }
       });
 
       res.set('Cache-Control', 'private, no-store');
       res.json({ ok: true });
     } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (
+        message === 'not_found' ||
+        message === 'already_cancelled' ||
+        message === 'not_cancellable_status'
+      ) {
+        res.status(message === 'not_found' ? 404 : 409).json({ error: message });
+        return;
+      }
       logger.error('cancelReservation_failed', { id, err });
       res.status(500).json({ error: 'internal' });
     }

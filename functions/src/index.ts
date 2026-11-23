@@ -27,6 +27,7 @@ import { getAffiliateStats } from './api/getAffiliateStats';
 import { affiliateLogin } from './api/affiliateLogin';
 import { lookupReservation } from './api/lookupReservation';
 import { cancelReservation } from './api/cancelReservation';
+import { createReservation } from './api/createReservation';
 import { submitReview } from './api/submitReview';
 import { listAdminReviews, moderateReview } from './api/moderateReview';
 import { getIcnShuttle } from './api/icnShuttle';
@@ -53,6 +54,7 @@ export {
   affiliateLogin,
   lookupReservation,
   cancelReservation,
+  createReservation,
   submitReview,
   listAdminReviews,
   moderateReview,

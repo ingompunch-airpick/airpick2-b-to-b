@@ -303,6 +303,12 @@ service cloud.firestore {
       allow write: if false;
     }
 
+    // 원자 정원 슬롯 (partner+date+indoor|outdoor). 생성·취소는 Cloud Functions만.
+    match /parkingSlots/{slotId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     // 홈에 보여줄 후기 건수·평균·최근 6건. 개인 연락처는 넣지 않는다.
     match /reviewSummaries/{companyId} {
       allow read: if true;

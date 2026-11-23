@@ -26,6 +26,16 @@ const FACILITY_OPTIONS: { value: FacilityType; label: string; desc: string }[] =
   { value: 'mixed', label: '실내+실외', desc: '실내·야외 모두 운영' },
 ];
 
+const AIRPICK_INDOOR_CTA_OPTIONS: {
+  value: PartnerProfileInput['airpickIndoorCta'];
+  label: string;
+  desc: string;
+}[] = [
+  { value: 'auto', label: '자동', desc: '실외 전용일 때만' },
+  { value: 'on', label: '노출', desc: '홈에 실내 대안 링크' },
+  { value: 'off', label: '숨김', desc: '링크 안 보이기' },
+];
+
 function photosFromProfile(profile: PartnerProfileInput): string[] {
   if (profile.imageUrls.length > 0) return normalizeCompanyParkingPhotos(profile.imageUrls);
   if (profile.imageUrl.trim()) return [profile.imageUrl.trim()];
@@ -258,6 +268,32 @@ export default function PartnerProfileFormFields({
                   key={opt.value}
                   type="button"
                   onClick={() => set('facilityType', opt.value)}
+                  className={`px-2 py-2 rounded-xl text-left border transition-all ${
+                    active ? facilityActiveCls : facilityIdleCls
+                  }`}
+                >
+                  <span className="block text-[12px] font-black">{opt.label}</span>
+                  <span className="block text-[10px] font-medium mt-0.5 opacity-80">{opt.desc}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div>
+          <label className={labelCls}>업체 홈 · 에어픽 실내 대안</label>
+          <p className={hintCls}>
+            실외만 받을 때 손님에게 「실내 보관도 가능해요」 링크를 보여줄지 정합니다. 유입은
+            업체 id(gayu·hi·season…)로 추적됩니다.
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            {AIRPICK_INDOOR_CTA_OPTIONS.map((opt) => {
+              const active = profile.airpickIndoorCta === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  type="button"
+                  onClick={() => set('airpickIndoorCta', opt.value)}
                   className={`px-2 py-2 rounded-xl text-left border transition-all ${
                     active ? facilityActiveCls : facilityIdleCls
                   }`}

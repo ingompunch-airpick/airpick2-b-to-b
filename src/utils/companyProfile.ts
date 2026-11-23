@@ -21,6 +21,11 @@ export interface PartnerParkingLotForm {
 
 export interface PartnerProfileInput {
   facilityType: FacilityType;
+  /**
+   * 업체 홈 실내(에어픽) 대안 링크.
+   * 'auto' = 실외 전용일 때만, 'on' = 항상, 'off' = 숨김
+   */
+  airpickIndoorCta: 'auto' | 'on' | 'off';
   /** 운영 공항 — HQ만 설정. 기본 ICN */
   airport: 'ICN' | 'GMP';
   /** 실내·야외 주차장 (여러 개) */
@@ -81,6 +86,7 @@ export function nextParkingLotName(
 
 export const DEFAULT_PARTNER_PROFILE: PartnerProfileInput = {
   facilityType: 'mixed',
+  airpickIndoorCta: 'auto',
   airport: 'ICN',
   parkingLots: [],
   imageUrl: '',
@@ -266,8 +272,16 @@ export function readPartnerProfileFromCompany(company?: Company): PartnerProfile
 
   const verificationDocuments = raw.verificationDocuments as CompanyVerificationDocuments | undefined;
 
+  const airpickIndoorCta: PartnerProfileInput['airpickIndoorCta'] =
+    raw.showAirpickIndoorCta === true
+      ? 'on'
+      : raw.showAirpickIndoorCta === false
+        ? 'off'
+        : 'auto';
+
   return {
     facilityType,
+    airpickIndoorCta,
     airport: normalizeAirportId(company.airport),
     parkingLots: readLotsFromCompany(company),
     imageUrl: imageUrls[0] || primaryImage || '',
@@ -441,11 +455,19 @@ export function applyPartnerProfileToCompany(
     .filter(Boolean);
   const image_url = imageUrls[0] || '';
 
+  const showAirpickIndoorCta =
+    input.airpickIndoorCta === 'on'
+      ? true
+      : input.airpickIndoorCta === 'off'
+        ? false
+        : undefined;
+
   return {
     ...company,
     airport: normalizeAirportId(input.airport),
     terminals: airportTerminalCodes(input.airport),
     facilityType,
+    showAirpickIndoorCta,
     is_indoor: facilityType === 'indoor' || facilityType === 'mixed',
     supports_indoor: facilityType === 'indoor' || facilityType === 'mixed',
     supports_outdoor: facilityType === 'outdoor' || facilityType === 'mixed',
@@ -495,6 +517,12 @@ export function profileExtrasForFirestore(input: PartnerProfileInput): Record<st
     airport: company.airport ?? 'ICN',
     terminals: company.terminals ?? [],
     facilityType: company.facilityType,
+    showAirpickIndoorCta:
+      company.showAirpickIndoorCta === true
+        ? true
+        : company.showAirpickIndoorCta === false
+          ? false
+          : null,
     is_indoor: company.is_indoor,
     supports_indoor: company.supports_indoor,
     supports_outdoor: company.supports_outdoor,
