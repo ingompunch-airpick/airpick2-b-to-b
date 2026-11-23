@@ -15,7 +15,13 @@ import {
 } from '../utils/carNumber';
 import { normalizeKoreanPhone } from '../utils/phone';
 
-type LookupMode = 'carNumber' | 'phone';
+type LookupMode = 'carNumber' | 'phone' | 'bookingNo';
+
+const BOOKING_NO_RE = /^AP-\d{4}-[23456789ABCDEFGHJKLMNPQRSTUVWXYZ]{4}$/;
+
+function normalizeBookingNo(value: string): string {
+  return value.trim().toUpperCase().replace(/\s+/g, '');
+}
 
 function phoneLookupNeedles(value: string): string[] {
   const trimmed = value.trim();
@@ -51,7 +57,7 @@ export const lookupReservation = onRequest(
     const value = String(body.value ?? '').trim();
     const password = String(body.password ?? '').trim();
 
-    if (mode !== 'carNumber' && mode !== 'phone') {
+    if (mode !== 'carNumber' && mode !== 'phone' && mode !== 'bookingNo') {
       res.status(400).json({ error: 'invalid_mode' });
       return;
     }
@@ -73,7 +79,14 @@ export const lookupReservation = onRequest(
         }
       };
 
-      if (mode === 'phone') {
+      if (mode === 'bookingNo') {
+        const bookingNo = normalizeBookingNo(value);
+        if (!BOOKING_NO_RE.test(bookingNo)) {
+          res.status(400).json({ error: 'invalid_booking_no' });
+          return;
+        }
+        await addSnap('bookingNo', bookingNo);
+      } else if (mode === 'phone') {
         for (const needle of phoneLookupNeedles(value)) {
           await addSnap('phone', needle);
         }
