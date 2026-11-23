@@ -191,10 +191,15 @@ export function useReservations({
     reservationsBootstrappedRef.current = false;
     reservationsPrevRef.current = [];
 
+    // 범위는 reservationSyncScopeKey 로만 재구독. companies 문서 갱신으로 배열 참조가
+    // 바뀌어도 키가 같으면 연결을 유지한다 (설정 저장 시 타임라인·알림 끊김 방지).
+    const scopeIds =
+      operatorCompanyIdsRef.current.length > 0
+        ? operatorCompanyIdsRef.current
+        : [currentCompanyIdRef.current].filter(Boolean);
     const syncScope = {
-      isHqScope: isAirpickHeadquarters(currentCompanyId),
-      operatorCompanyIds:
-        operatorCompanyIds.length > 0 ? operatorCompanyIds : [currentCompanyId],
+      isHqScope: reservationSyncScopeKey === 'hq',
+      operatorCompanyIds: scopeIds.length ? scopeIds : [currentCompanyIdRef.current || ''],
     };
 
     const failSync = (
@@ -306,7 +311,7 @@ export function useReservations({
       cancelled = true;
       unsub?.();
     };
-  }, [isLoggedIn, reservationSyncScopeKey, currentCompanyId, operatorCompanyIds, reservationSyncRetryKey]);
+  }, [isLoggedIn, reservationSyncScopeKey, reservationSyncRetryKey]);
 
   /** 범위 구독 정리 — 로그인·업체 범위가 바뀌면 모두 해제 */
   useEffect(() => {

@@ -2,6 +2,9 @@ import * as admin from 'firebase-admin';
 
 type DayCount = { indoor: number; outdoor: number };
 
+const WAWA_OCCUPANCY_IDS = ['wawa', 'wawa_valet', '와와', '와와발렛'] as const;
+const WAWA_CANONICAL_ID = 'wawa';
+
 function kstToday(): string {
   return new Intl.DateTimeFormat('en-CA', {
     timeZone: 'Asia/Seoul',
@@ -40,20 +43,48 @@ function occupies(status: unknown): boolean {
   return true;
 }
 
-/** 한 업체의 날짜별 실내/야외 주차 대수를 다시 센다. 손님은 이 문서 한 장만 읽는다. */
+function isWawaAlias(companyId: string): boolean {
+  return (WAWA_OCCUPANCY_IDS as readonly string[]).includes(companyId);
+}
+
+/** 와와 별칭은 companies/wawa 의 parkingCapEnabled 를 본다. */
+export function parkingCapCompanyDocId(companyId: string): string {
+  const id = companyId.trim();
+  if (!id) return '';
+  return isWawaAlias(id) ? WAWA_CANONICAL_ID : id;
+}
+
+export async function isParkingCapEnabledForCompany(companyId: string): Promise<boolean> {
+  const capId = parkingCapCompanyDocId(companyId);
+  if (!capId) return false;
+  const snap = await admin.firestore().collection('companies').doc(capId).get();
+  return snap.exists && snap.data()?.parkingCapEnabled === true;
+}
+
+/** 재집계 대상 ID — 와와면 별칭 문서 전부. */
+export function occupancyRecomputeIds(companyId: string): string[] {
+  const id = companyId.trim();
+  if (!id) return [];
+  if (isWawaAlias(id)) return [...WAWA_OCCUPANCY_IDS];
+  return [id];
+}
+
+/**
+ * 한 업체의 날짜별 실내/야외 주차 대수를 다시 센다.
+ * arrivalDate >= 어제 인 예약만 읽어 아직 주차 중·앞으로 들어올 건만 포함.
+ */
 export async function recomputeParkingOccupancy(companyId: string): Promise<void> {
   const id = companyId.trim();
   if (!id) return;
   const today = kstToday();
   const windowStart = shiftYmd(today, -1);
   const windowEnd = shiftYmd(today, 400);
-  const lookback = shiftYmd(today, -200);
 
   const snap = await admin
     .firestore()
     .collection('reservations')
     .where('companyId', '==', id)
-    .where('departureDate', '>=', lookback)
+    .where('arrivalDate', '>=', windowStart)
     .get();
 
   const days: Record<string, DayCount> = {};
@@ -106,7 +137,10 @@ function occupancyKey(row: FirebaseFirestore.DocumentData | null | undefined): s
   ].join('|');
 }
 
-/** 업체·날짜·상태·실내외가 바뀐 쓰기만 다시 센다. 사진·메모 저장은 건너뛴다. */
+/**
+ * 업체·날짜·상태·실내외가 바뀐 쓰기만 다시 센다.
+ * parkingCapEnabled 업체가 아니면 건너뛴다 (와와는 대표 문서 기준).
+ */
 export async function syncParkingOccupancy(
   before: FirebaseFirestore.DocumentData | null | undefined,
   after: FirebaseFirestore.DocumentData | null | undefined
@@ -117,10 +151,15 @@ export async function syncParkingOccupancy(
     const id = String(row?.companyId || '').trim();
     if (id) ids.add(id);
   }
-  await Promise.all(Array.from(ids).map((id) => recomputeParkingOccupancy(id)));
-}
 
-const WAWA_OCCUPANCY_IDS = ['wawa', 'wawa_valet', '와와', '와와발렛'];
+  const toRecompute = new Set<string>();
+  for (const id of ids) {
+    if (!(await isParkingCapEnabledForCompany(id))) continue;
+    for (const target of occupancyRecomputeIds(id)) toRecompute.add(target);
+  }
+  if (!toRecompute.size) return;
+  await Promise.all(Array.from(toRecompute).map((id) => recomputeParkingOccupancy(id)));
+}
 
 /** 만차를 쓰는 업체만 하루 한 번 다시 센다. 와와 별칭 문서도 같이 맞춘다. */
 export async function refreshAllParkingOccupancy(): Promise<number> {
@@ -129,10 +168,31 @@ export async function refreshAllParkingOccupancy(): Promise<number> {
   for (const docSnap of snap.docs) {
     if (docSnap.data().parkingCapEnabled !== true) continue;
     ids.add(docSnap.id);
-    if (WAWA_OCCUPANCY_IDS.includes(docSnap.id)) {
+    if (isWawaAlias(docSnap.id)) {
       for (const alias of WAWA_OCCUPANCY_IDS) ids.add(alias);
     }
   }
   for (const id of ids) await recomputeParkingOccupancy(id);
   return ids.size;
+}
+
+/**
+ * parkingCapEnabled false→true 전환 시 즉시 한 번 재집계.
+ * @returns 재집계한 occupancy 문서 수
+ */
+export async function recomputeParkingOccupancyIfCapEnabled(
+  companyId: string,
+  before: FirebaseFirestore.DocumentData | null | undefined,
+  after: FirebaseFirestore.DocumentData | null | undefined
+): Promise<number> {
+  const id = companyId.trim();
+  if (!id || !after) return 0;
+  const wasOn = before?.parkingCapEnabled === true;
+  const nowOn = after.parkingCapEnabled === true;
+  if (wasOn || !nowOn) return 0;
+
+  const targets = occupancyRecomputeIds(id);
+  // 와와 별칭 문서에 플래그만 켠 경우에도 대표 기준으로 허용된 것과 동일하게 별칭 전부 맞춤
+  await Promise.all(targets.map((target) => recomputeParkingOccupancy(target)));
+  return targets.length;
 }

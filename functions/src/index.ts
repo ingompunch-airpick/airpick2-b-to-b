@@ -4,6 +4,7 @@ import { defineSecret, defineString } from 'firebase-functions/params';
 import { sheetsServiceAccountJson } from './sheets/params';
 import { onReservationSync } from './onReservationWrite';
 import { onCompanySheet } from './onCompanySheet';
+import { onCompanySync } from './onCompanyWrite';
 import { runRetentionCleanup } from './retentionCleanup';
 import { sweepReservationPasswords } from './reservations/reservationSecrets';
 import { backfillUpcomingCapacity } from './capacityAggregate';
@@ -41,6 +42,7 @@ export {
   reportClientError,
   onReservationSync,
   onCompanySheet,
+  onCompanySync,
   adminUpsertCompany,
   adminSetCompanyStatus,
   adminDeleteCompany,
