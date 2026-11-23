@@ -11,6 +11,7 @@ export type B2cShortPathDayStat = {
   date: string;
   pageViews: number;
   sources: Record<string, number>;
+  nQueries: Record<string, number>;
 };
 
 function countFromUnknown(value: unknown): number {
@@ -42,11 +43,16 @@ export async function fetchB2cShortPathDays(
     )
   );
   return snap.docs.map((item) => {
-    const data = item.data() as { pageViews?: unknown; sources?: unknown };
+    const data = item.data() as {
+      pageViews?: unknown;
+      sources?: unknown;
+      nQueries?: unknown;
+    };
     return {
       date: item.id,
       pageViews: countFromUnknown(data.pageViews),
       sources: sourcesFromUnknown(data.sources),
+      nQueries: sourcesFromUnknown(data.nQueries),
     };
   });
 }
@@ -56,9 +62,14 @@ export function sumB2cShortPathVisits(
   period: ShortPathPeriod,
   monthPrefix: string,
   todayYmd = getKSTDateOnlyString()
-): { pageViews: number; bySource: Record<string, number> } {
+): {
+  pageViews: number;
+  bySource: Record<string, number>;
+  byNQuery: Record<string, number>;
+} {
   const { fromYmd, toYmd } = shortPathRange(period, monthPrefix, todayYmd);
   const bySource: Record<string, number> = {};
+  const byNQuery: Record<string, number> = {};
   let pageViews = 0;
   for (const day of days) {
     if (day.date < fromYmd || day.date > toYmd) continue;
@@ -66,6 +77,9 @@ export function sumB2cShortPathVisits(
     for (const [key, n] of Object.entries(day.sources)) {
       bySource[key] = (bySource[key] || 0) + n;
     }
+    for (const [key, n] of Object.entries(day.nQueries || {})) {
+      byNQuery[key] = (byNQuery[key] || 0) + n;
+    }
   }
-  return { pageViews, bySource };
+  return { pageViews, bySource, byNQuery };
 }

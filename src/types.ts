@@ -122,6 +122,11 @@ export interface Company {
   pickupLocation?: string;
   /** B2B 마스터 — 시설 유형 */
   facilityType?: 'indoor' | 'outdoor' | 'mixed';
+  /**
+   * 입점업체 홈 — 에어픽 실내 대안 CTA 노출.
+   * true=노출, false=숨김, 없으면 facilityType===outdoor 일 때만.
+   */
+  showAirpickIndoorCta?: boolean;
   /** B2C 손님 MY · 실내 주차장 도로명 주소 */
   indoorParkingAddress?: string;
   /** B2C 손님 MY · 실외 주차장 도로명 주소 */
@@ -487,6 +492,21 @@ export interface Reservation {
   acquisitionMedium?: string;
   acquisitionCampaign?: string;
   acquisitionClickId?: string;
+  acquisitionLastSource?: string;
+  acquisitionLastMedium?: string;
+  acquisitionLastCampaign?: string;
+  acquisitionLastClickId?: string;
+  acquisitionReferrerHost?: string;
+  acquisitionLandingPath?: string;
+  acquisitionInApp?: string;
+  acquisitionNMedia?: string;
+  acquisitionNQuery?: string;
+  acquisitionNKeyword?: string;
+  acquisitionNRank?: string;
+  acquisitionNCampaignType?: string;
+  acquisitionNAdGroup?: string;
+  /** 예약 폼 「어떻게 알게 되셨나요」(선택) */
+  heardFrom?: string;
 
   /**
    * B2C(에어픽.kr) 제휴·추천 코드.

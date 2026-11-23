@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import type { Reservation } from '../types';
 import {
   aggregateAirpickShortPaths,
+  aggregatePowerLinkQueries,
   type ShortPathPeriod,
 } from '../utils/airpickShortPathStats';
 import { getKSTDateOnlyString } from '../utils/kstDate';
@@ -71,13 +72,24 @@ export default function HqAirpickShortPaths({
     [reservations, period, monthPrefix, todayYmd, visitSum]
   );
 
+  const powerLinkRows = useMemo(
+    () =>
+      aggregatePowerLinkQueries(reservations, {
+        period,
+        monthPrefix,
+        todayYmd,
+        visitByQuery: visitSum.byNQuery,
+      }),
+    [reservations, period, monthPrefix, todayYmd, visitSum]
+  );
+
   return (
     <div className="bg-[#121214] border border-fuchsia-500/20 rounded-[22px] p-4 space-y-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <p className="text-xs font-black text-fuchsia-300 tracking-wider">에어픽 짧은 경로</p>
           <p className="text-[11px] text-zinc-500 font-bold mt-1 leading-relaxed">
-            방문 + 예약 · /long1·?src= · 최초유입 30일 · 접수일·방문일(KST)
+            방문 + 예약 · /long1·?src=·검색·referrer 분류 · 최초유입 30일 · 접수일·방문일(KST)
           </p>
         </div>
         {!hidePeriodToggle ? (
@@ -178,6 +190,43 @@ export default function HqAirpickShortPaths({
           ))}
         </div>
       )}
+
+      {powerLinkRows.length > 0 ? (
+        <div className="space-y-2 pt-2 border-t border-neutral-800">
+          <p className="text-[10px] text-fuchsia-300/80 font-black tracking-wider">
+            파워링크 검색어 (n_query)
+          </p>
+          <div className="grid grid-cols-[1fr_3.25rem_3.25rem] gap-1 px-0.5">
+            <span className="text-[10px] text-zinc-600 font-bold">검색어</span>
+            <span className="text-[10px] text-zinc-600 font-bold text-right">방문</span>
+            <span className="text-[10px] text-zinc-600 font-bold text-right">예약</span>
+          </div>
+          {powerLinkRows.map((row) => (
+            <div
+              key={row.query}
+              className="grid grid-cols-[1fr_3.25rem_3.25rem] gap-1 items-center"
+            >
+              <span className="text-[11px] text-zinc-300 font-bold truncate min-w-0">
+                {row.query}
+              </span>
+              <span
+                className={`text-[11px] font-mono font-black text-right ${
+                  row.visits > 0 ? 'text-amber-400' : 'text-zinc-700'
+                }`}
+              >
+                {row.visits > 0 ? row.visits : '—'}
+              </span>
+              <span
+                className={`text-[11px] font-mono font-black text-right ${
+                  row.bookings > 0 ? 'text-fuchsia-300' : 'text-zinc-700'
+                }`}
+              >
+                {row.bookings > 0 ? row.bookings : '—'}
+              </span>
+            </div>
+          ))}
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -31,8 +31,24 @@ export type ShortPathStats = {
   toYmd: string;
 };
 
+const ORGANIC_SOURCE_LABELS: Record<string, string> = {
+  naver_ad: '네이버 광고',
+  naver_search: '네이버 검색',
+  naver_blog: '네이버 블로그',
+  naver_cafe: '네이버 카페',
+  google: '구글',
+  chatgpt: 'ChatGPT',
+  perplexity: 'Perplexity',
+  youtube: '유튜브',
+  kakao: '카카오',
+  direct: '직접 방문',
+};
+
 export function shortPathLabel(source: string): string {
   if (!source || source === SHORT_PATH_NONE) return '경로 없음';
+  if (ORGANIC_SOURCE_LABELS[source]) return ORGANIC_SOURCE_LABELS[source];
+  if (source.startsWith('heard_')) return `알게된 경로 · ${source.slice(6)}`;
+  if (source.startsWith('ref_')) return `유입 · ${source.slice(4).replace(/_/g, '.')}`;
   return source;
 }
 
@@ -81,10 +97,11 @@ export function aggregateAirpickShortPaths(
     const ymd = toKSTDateOnlyString(r.createdAt);
     if (!ymd || ymd < fromYmd || ymd > toYmd) continue;
     const raw = String(r.acquisitionSource || '').trim();
-    const key = raw || SHORT_PATH_NONE;
+    const heard = String(r.heardFrom || '').trim();
+    const key = raw || (heard ? `heard_${heard}` : SHORT_PATH_NONE);
     counts.set(key, (counts.get(key) || 0) + 1);
     total += 1;
-    if (raw) withPath += 1;
+    if (raw || heard) withPath += 1;
     else withoutPath += 1;
   }
 
@@ -120,4 +137,51 @@ export function aggregateAirpickShortPaths(
     });
 
   return { total, withPath, withoutPath, visitTotal, rows, fromYmd, toYmd };
+}
+
+export type PowerLinkQueryRow = {
+  query: string;
+  visits: number;
+  bookings: number;
+};
+
+/** 파워링크(n_campaign_type) · n_query별 방문·예약 */
+export function aggregatePowerLinkQueries(
+  reservations: Reservation[],
+  opts: {
+    period: ShortPathPeriod;
+    monthPrefix: string;
+    todayYmd?: string;
+    visitByQuery?: Record<string, number>;
+  }
+): PowerLinkQueryRow[] {
+  const todayYmd = opts.todayYmd || getKSTDateOnlyString();
+  const { fromYmd, toYmd } = shortPathRange(opts.period, opts.monthPrefix, todayYmd);
+  const visitByQuery = opts.visitByQuery || {};
+  const bookings = new Map<string, number>();
+
+  for (const r of reservations) {
+    if (isCancelled(r.status)) continue;
+    if (!isAirpickB2CBooking(r.createdBy)) continue;
+    const ymd = toKSTDateOnlyString(r.createdAt);
+    if (!ymd || ymd < fromYmd || ymd > toYmd) continue;
+    if (!r.acquisitionNCampaignType) continue;
+    const q = String(r.acquisitionNQuery || '').trim() || '(검색어 없음)';
+    bookings.set(q, (bookings.get(q) || 0) + 1);
+  }
+
+  const keys = new Set<string>([...bookings.keys(), ...Object.keys(visitByQuery)]);
+  return [...keys]
+    .map((query) => ({
+      query,
+      visits: visitByQuery[query] || visitByQuery[query.replace(/\./g, '_')] || 0,
+      bookings: bookings.get(query) || 0,
+    }))
+    .filter((row) => row.visits > 0 || row.bookings > 0)
+    .sort(
+      (a, b) =>
+        b.visits + b.bookings - (a.visits + a.bookings) ||
+        b.bookings - a.bookings ||
+        a.query.localeCompare(b.query, 'ko')
+    );
 }
