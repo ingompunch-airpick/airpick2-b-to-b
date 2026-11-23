@@ -109,7 +109,12 @@ export const submitReview = onRequest(
       }
 
       const status = String(data.status ?? '');
-      if (!REVIEWABLE_STATUSES.has(status)) {
+      const checkedOutAt = String(data.checkedOutAt ?? '').trim();
+      const checkedOutBy = String(data.checkedOutBy ?? '').trim();
+      if (
+        !REVIEWABLE_STATUSES.has(status) ||
+        (!checkedOutAt && !checkedOutBy)
+      ) {
         res.status(409).json({ error: 'not_reviewable' });
         return;
       }

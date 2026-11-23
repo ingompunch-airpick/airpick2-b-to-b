@@ -256,10 +256,23 @@ service cloud.firestore {
       allow get: if canGetReservation();
       allow list: if canListReservation();
 
+      // 손님 생성: pending 만 · 입고/출고/후기 처리 필드 금지. 본사·파트너는 기존과 동일.
       allow create: if isSignedIn()
         && isValidReservationId(reservationId)
         && validReservationWrite()
-        && !('priceCheck' in request.resource.data);
+        && !('priceCheck' in request.resource.data)
+        && (
+          isPlatformAdmin()
+          || isPartner()
+          || (
+            request.resource.data.status == 'pending'
+            && !('checkedInAt' in request.resource.data)
+            && !('checkedInBy' in request.resource.data)
+            && !('checkedOutAt' in request.resource.data)
+            && !('checkedOutBy' in request.resource.data)
+            && !('hasReview' in request.resource.data)
+          )
+        );
 
       /**
      * B2C 예약 완료 화면 — heardFrom 만 한 번 채울 수 있음.
@@ -310,6 +323,11 @@ service cloud.firestore {
     }
 
     match /storage_retention/{reservationId} {
+      allow read, write: if false;
+    }
+
+    // 조회·취소 비밀번호 시도 제한 — Cloud Functions(Admin)만
+    match /passwordAttemptLimits/{limitId} {
       allow read, write: if false;
     }
 

@@ -14,6 +14,13 @@ import {
   normalizeCarNumber,
 } from '../utils/carNumber';
 import { normalizeKoreanPhone } from '../utils/phone';
+import {
+  assertPasswordAttemptAllowed,
+  clientIpFromRequest,
+  RateLimitedError,
+  recordPasswordFailure,
+  sendRateLimited,
+} from './passwordAttemptLimit';
 
 type LookupMode = 'carNumber' | 'phone' | 'bookingNo';
 
@@ -66,6 +73,19 @@ export const lookupReservation = onRequest(
       return;
     }
 
+    const ip = clientIpFromRequest(req);
+    const valueKey = mode === 'bookingNo' ? normalizeBookingNo(value) : value;
+
+    try {
+      await assertPasswordAttemptAllowed({ action: 'lookup', ip, valueKey });
+    } catch (err) {
+      if (err instanceof RateLimitedError) {
+        sendRateLimited(res, err);
+        return;
+      }
+      throw err;
+    }
+
     try {
       const db = admin.firestore();
       const seen = new Map<string, Record<string, unknown>>();
@@ -107,6 +127,19 @@ export const lookupReservation = onRequest(
       for (const [id, data] of seen) {
         const stored = await resolveReservationPassword(id, data);
         if (reservationPasswordMatches(stored, password)) matched.push([id, data]);
+      }
+
+      // 후보가 있는데 비밀번호가 하나도 안 맞으면 실패로 집계 (존재 여부는 빈 배열로 유지)
+      if (seen.size > 0 && matched.length === 0) {
+        try {
+          await recordPasswordFailure({ action: 'lookup', ip, valueKey });
+        } catch (limitErr) {
+          if (limitErr instanceof RateLimitedError) {
+            sendRateLimited(res, limitErr);
+            return;
+          }
+          logger.warn('lookupReservation_rate_record_failed', { err: limitErr });
+        }
       }
 
       const reservations = await Promise.all(

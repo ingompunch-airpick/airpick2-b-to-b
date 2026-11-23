@@ -4,6 +4,13 @@ import { logger } from 'firebase-functions';
 
 import { reservationPasswordMatches } from '../reservations/publicReservation';
 import { resolveReservationPassword } from '../reservations/reservationSecrets';
+import {
+  assertPasswordAttemptAllowed,
+  clientIpFromRequest,
+  RateLimitedError,
+  recordPasswordFailure,
+  sendRateLimited,
+} from './passwordAttemptLimit';
 
 /** 셀프 취소 가능한 상태 (입고 전) — B2C `reservationCancel.ts` 와 동일 */
 const CANCELLABLE_STATUSES = new Set(['pending', 'scheduled', 'pending_in']);
@@ -63,6 +70,17 @@ export const cancelReservation = onRequest(
       return;
     }
 
+    const ip = clientIpFromRequest(req);
+    try {
+      await assertPasswordAttemptAllowed({ action: 'cancel', ip, valueKey: id });
+    } catch (err) {
+      if (err instanceof RateLimitedError) {
+        sendRateLimited(res, err);
+        return;
+      }
+      throw err;
+    }
+
     try {
       const ref = admin.firestore().doc(`reservations/${id}`);
       const snap = await ref.get();
@@ -74,6 +92,15 @@ export const cancelReservation = onRequest(
       const data = snap.data() as Record<string, unknown>;
       const storedPassword = await resolveReservationPassword(id, data);
       if (!reservationPasswordMatches(storedPassword, password)) {
+        try {
+          await recordPasswordFailure({ action: 'cancel', ip, valueKey: id });
+        } catch (limitErr) {
+          if (limitErr instanceof RateLimitedError) {
+            sendRateLimited(res, limitErr);
+            return;
+          }
+          logger.warn('cancelReservation_rate_record_failed', { err: limitErr });
+        }
         res.status(403).json({ error: 'invalid_password' });
         return;
       }
