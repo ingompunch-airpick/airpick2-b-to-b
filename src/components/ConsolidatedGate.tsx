@@ -9,6 +9,7 @@ import {
 } from '../lib/firebaseAuth';
 import { verifyPartnerLogin } from '../lib/partnerLoginApi';
 import { airportRegionLabel } from '../utils/airport';
+import { alertHqWebOnly, shouldBlockHqOnThisPlatform } from '../utils/hqWebOnly';
 
 interface ConsolidatedGateProps {
   onLoginSuccess: (roles: {
@@ -75,8 +76,13 @@ export default function ConsolidatedGate({ onLoginSuccess, partners, companies }
       localStorage.removeItem('saved_id');
     }
 
-    // 1. 본사 — Firebase Auth 관리자 이메일 + Auth 비밀번호
+    // 1. 본사 — Firebase Auth 관리자 이메일 + Auth 비밀번호 (웹만)
     if (isPlatformAdminEmail(cleanUsername)) {
+      if (shouldBlockHqOnThisPlatform()) {
+        alertHqWebOnly();
+        setError('본사 화면은 웹에서만 이용할 수 있습니다.');
+        return;
+      }
       setLoggingIn(true);
       try {
         const user = await signInPlatformAdminWithPassword(cleanUsername, cleanPassword);

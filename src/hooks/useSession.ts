@@ -15,6 +15,7 @@ import {
   waitForAuthReady,
 } from '../lib/firebaseAuth';
 import { verifyPartnerLogin } from '../lib/partnerLoginApi';
+import { alertHqWebOnly, shouldBlockHqOnThisPlatform } from '../utils/hqWebOnly';
 
 const EMPTY_COMPANY_INFO: CompanyInfo = {
   id: '',
@@ -206,6 +207,36 @@ export function useSession({ companiesRef, setCurrentView }: UseSessionParams) {
     setCurrentView('timeline');
   }, [setCurrentView]);
 
+  /** 네이티브 앱에 남은 본사 세션 정리 — 웹에서만 HQ 허용 */
+  useEffect(() => {
+    if (!shouldBlockHqOnThisPlatform()) return;
+    let cancelled = false;
+    void (async () => {
+      await waitForAuthReady();
+      if (cancelled) return;
+      const hqFlag = localStorage.getItem('local_is_super_admin') === 'true';
+      const hqUser = isPlatformAdminUser(auth.currentUser);
+      if (!hqFlag && !hqUser) return;
+
+      alertHqWebOnly();
+      resetSessionState();
+      clearSessionLocalStorage();
+      try {
+        await signOut(auth);
+      } catch {
+        /* ignore */
+      }
+      try {
+        await signInAnonymously(auth);
+      } catch (anonErr) {
+        console.warn('Anonymous auth after HQ native block:', anonErr);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [clearSessionLocalStorage, resetSessionState]);
+
   /** 파트너 UI 세션인데 partnerCompanyId claim이 없으면 강제 Gate (빈 대시보드 방지) */
   useEffect(() => {
     let cancelled = false;
@@ -247,8 +278,13 @@ export function useSession({ companiesRef, setCurrentView }: UseSessionParams) {
       const inputEmailClean = loginEmail.trim().toLowerCase();
 
       if (isPlatformAdminEmail(inputEmailClean)) {
+        if (shouldBlockHqOnThisPlatform()) {
+          alertHqWebOnly();
+          setLoginError('본사 화면은 웹에서만 이용할 수 있습니다.');
+          return;
+        }
         try {
-          const signedIn = await signInPlatformAdminWithPassword(inputEmailClean, loginPassword);
+          await signInPlatformAdminWithPassword(inputEmailClean, loginPassword);
           setIsSuperAdmin(true);
           setIsLocalAdmin(true);
           setIsMasterAdmin(false);
@@ -325,6 +361,11 @@ export function useSession({ companiesRef, setCurrentView }: UseSessionParams) {
 
   const handleGateLoginSuccess = useCallback(
     (roles: GateLoginRoles) => {
+      if (roles.isSuperAdmin && shouldBlockHqOnThisPlatform()) {
+        alertHqWebOnly();
+        void signOut(auth).catch(() => undefined);
+        return;
+      }
       setIsLoggedIn(true);
       setIsSuperAdmin(roles.isSuperAdmin);
       setIsLocalAdmin(roles.isLocalAdmin);

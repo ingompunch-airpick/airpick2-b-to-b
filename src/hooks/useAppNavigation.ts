@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useState, type Dispatch, type SetStateAction } from 'react';
 import type { AppView } from '../types';
 import { isAirpickHeadquarters } from '../constants/platform';
+import {
+  alertHqWebOnly,
+  isHqExclusiveView,
+  shouldBlockHqOnThisPlatform,
+} from '../utils/hqWebOnly';
 
 /** 관리자 모드 전용 화면 — 기사 모드에서 진입 시 timeline으로 보냄 */
 export const ADMIN_ONLY_VIEWS: AppView[] = [
@@ -19,6 +24,7 @@ export const DRIVER_ONLY_VIEWS: AppView[] = [
   'parking_departure',
   'cancelled_list',
 ];
+/** 본사(HQ) 허용 화면 — 웹만. 네이티브에서는 세션·메뉴와 함께 차단 */
 export const HQ_ADMIN_VIEWS: AppView[] = [
   'statistics',
   'master_settings',
@@ -26,6 +32,7 @@ export const HQ_ADMIN_VIEWS: AppView[] = [
   'hq_customers',
   'acquisition_funnel',
   'affiliate_admin',
+  'hq_partner_applications',
 ];
 // HQ는 배차표 불필요 — 파트너 관리자만 dispatch_board 사용
 
@@ -123,6 +130,18 @@ export function useAppNavigation({
       return;
     }
 
+    // 네이티브 앱: 본사 화면·본사 세션 UI 차단 (웹은 그대로)
+    if (shouldBlockHqOnThisPlatform()) {
+      if (isHqExclusiveView(currentView)) {
+        setCurrentView('timeline');
+        return;
+      }
+      if (isSuperAdmin && isAirpickHeadquarters(currentCompanyId)) {
+        setCurrentView('timeline');
+        return;
+      }
+    }
+
     if (isSuperAdmin && isAirpickHeadquarters(currentCompanyId)) {
       if (!isAdminModeActive) {
         setIsAdminModeActive(true);
@@ -157,6 +176,16 @@ export function useAppNavigation({
 
   const handleNavigate = useCallback(
     (view: AppView) => {
+      if (shouldBlockHqOnThisPlatform()) {
+        if (
+          isHqExclusiveView(view) ||
+          (isSuperAdmin && isAirpickHeadquarters(currentCompanyId) && HQ_ADMIN_VIEWS.includes(view))
+        ) {
+          alertHqWebOnly();
+          return;
+        }
+      }
+
       if (isSuperAdmin && isAirpickHeadquarters(currentCompanyId)) {
         if (HQ_ADMIN_VIEWS.includes(view)) {
           setCurrentView(view);

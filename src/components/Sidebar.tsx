@@ -23,6 +23,7 @@ import {
 import { AppView } from '../types';
 import { isAirpickHeadquarters } from '../constants/platform';
 import { airportRegionLabel } from '../utils/airport';
+import { shouldBlockHqOnThisPlatform } from '../utils/hqWebOnly';
 import {
   areReservationAlertsEnabled,
   setRuntimeReservationAlertCopy,
@@ -81,7 +82,10 @@ export default function Sidebar({
   const [alertsEnabled, setAlertsEnabled] = React.useState(() => areReservationAlertsEnabled());
   const [alertSettingsOpen, setAlertSettingsOpen] = React.useState(false);
 
-  const isHq = isAirpickHeadquarters(currentCompanyId);
+  const isHq =
+    isAirpickHeadquarters(currentCompanyId) &&
+    isSuperAdmin &&
+    !shouldBlockHqOnThisPlatform();
   const [newApplications, setNewApplications] = React.useState(0);
   React.useEffect(() => {
     if (!isOpen || !isHq || !isSuperAdmin) return;
