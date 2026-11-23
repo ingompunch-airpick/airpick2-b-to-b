@@ -261,18 +261,42 @@ service cloud.firestore {
         && validReservationWrite()
         && !('priceCheck' in request.resource.data);
 
-      // 파트너는 자기 업체만 수정. 손님 클라이언트 수정은 CF(취소 등)로 이전됨.
+      /**
+     * B2C 예약 완료 화면 — heardFrom 만 한 번 채울 수 있음.
+     * 생성자 uid 일치 · 기존 값 비어 있음 · 다른 필드 변경 불가.
+     */
+    function guestHeardFromOnlyUpdate() {
+      return request.auth != null
+        && resource.data.userId is string
+        && request.auth.uid == resource.data.userId
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['heardFrom'])
+        && (
+          !('heardFrom' in resource.data)
+          || resource.data.heardFrom == null
+          || resource.data.heardFrom == ''
+        )
+        && request.resource.data.heardFrom is string
+        && request.resource.data.heardFrom.size() > 0
+        && request.resource.data.heardFrom.size() <= 80;
+    }
+
+    // 파트너는 자기 업체만 수정. 손님 클라이언트 수정은 CF(취소 등)·heardFrom 예외.
       allow update: if isSignedIn()
         && isValidReservationId(reservationId)
-        && validReservationWrite()
-        && reservationProtectedFieldsUnchanged()
         && (
-          isPlatformAdmin()
+          guestHeardFromOnlyUpdate()
           || (
-            isPartner()
-            && resource.data.companyId is string
-            && partnerCanAccessCompany(resource.data.companyId)
-            && request.resource.data.companyId == resource.data.companyId
+            validReservationWrite()
+            && reservationProtectedFieldsUnchanged()
+            && (
+              isPlatformAdmin()
+              || (
+                isPartner()
+                && resource.data.companyId is string
+                && partnerCanAccessCompany(resource.data.companyId)
+                && request.resource.data.companyId == resource.data.companyId
+              )
+            )
           )
         );
 
