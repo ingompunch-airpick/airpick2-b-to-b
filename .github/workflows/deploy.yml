@@ -30,6 +30,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
       - name: Build for GitHub Pages
+        env:
+          # 네이버 지도 Client ID — 공개 값(브라우저 스크립트 주소에 그대로 노출됨). CI엔 .env가 없어서 여기서 넣는다.
+          VITE_NAVER_MAP_CLIENT_ID: yh3p8p4yje
         run: npm run build:pages
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

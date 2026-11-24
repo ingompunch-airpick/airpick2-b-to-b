@@ -43,6 +43,8 @@ jobs:
         if: env.HAS_FIREBASE_SA == 'true'
         env:
           VITE_APP_BUILD: ${{ github.sha }}
+          # 네이버 지도 Client ID — 공개 값(브라우저 스크립트 주소에 그대로 노출됨). CI엔 .env가 없어서 여기서 넣는다.
+          VITE_NAVER_MAP_CLIENT_ID: yh3p8p4yje
         # server.cjs(개발용 서버 번들)가 공개 폴더에 섞이지 않게 vite 만 빌드
         run: npx vite build
 
