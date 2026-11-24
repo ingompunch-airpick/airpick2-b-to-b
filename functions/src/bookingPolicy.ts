@@ -74,6 +74,78 @@ function resolveDepartureDate(data: FirebaseFirestore.DocumentData): string {
   return normalizeYmd(data.departureDate) || normalizeYmd(data.entryDate) || '';
 }
 
+const AIRPICK_B2C_CREATED_BY = 'airpick-b2c';
+/** Rules와 동일 근사 — 달력 6개월 ≈ 184일 */
+const B2C_MAX_ADVANCE_DAYS = 184;
+/** 출고 − 입고 달력 일수 상한 */
+const B2C_MAX_STAY_DAY_DIFF = 90;
+
+function ymdUtcMs(ymd: string): number | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
+  if (!m) return null;
+  return Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+}
+
+/**
+ * B2C(airpick-b2c)만: 입고 6개월(184일 근사)·주차 90일.
+ * 홈페이지·B2B createdBy는 건드리지 않음.
+ * @returns true면 거절(문서 삭제)됨
+ */
+async function enforceAirpickB2cBookingWindow(
+  reservationId: string,
+  data: FirebaseFirestore.DocumentData
+): Promise<boolean> {
+  if (String(data.createdBy || '').trim() !== AIRPICK_B2C_CREATED_BY) return false;
+
+  const departureDate = resolveDepartureDate(data);
+  const arrivalDate = normalizeYmd(data.arrivalDate);
+  if (!departureDate || !arrivalDate) {
+    await rejectNewReservation(reservationId, 'bookingWindow', 'missing dates');
+    return true;
+  }
+  if (arrivalDate < departureDate) {
+    await rejectNewReservation(
+      reservationId,
+      'bookingWindow',
+      `order dep=${departureDate} arr=${arrivalDate}`
+    );
+    return true;
+  }
+
+  const depMs = ymdUtcMs(departureDate);
+  const arrMs = ymdUtcMs(arrivalDate);
+  if (depMs == null || arrMs == null) {
+    await rejectNewReservation(reservationId, 'bookingWindow', 'bad ymd');
+    return true;
+  }
+
+  const todayYmd = kstTodayYmd();
+  const todayMs = ymdUtcMs(todayYmd);
+  if (todayMs == null) return false;
+
+  const advanceDays = Math.round((depMs - todayMs) / (24 * 60 * 60 * 1000));
+  if (advanceDays > B2C_MAX_ADVANCE_DAYS) {
+    await rejectNewReservation(
+      reservationId,
+      'bookingWindow',
+      `advance dep=${departureDate} days=${advanceDays}`
+    );
+    return true;
+  }
+
+  const stayDiff = Math.round((arrMs - depMs) / (24 * 60 * 60 * 1000));
+  if (stayDiff > B2C_MAX_STAY_DAY_DIFF) {
+    await rejectNewReservation(
+      reservationId,
+      'bookingWindow',
+      `stay dep=${departureDate} arr=${arrivalDate} diff=${stayDiff}`
+    );
+    return true;
+  }
+
+  return false;
+}
+
 /**
  * 신규 예약이 업체 마감·입고일 blockedDates·당일차단에 걸리면 문서를 지운다.
  * 홈페이지/B2C 클라이언트가 검사를 빼먹어도 서버 백스톱.
@@ -85,6 +157,8 @@ export async function enforceBookingPolicyOnCreate(
   data: FirebaseFirestore.DocumentData
 ): Promise<boolean> {
   if (statusIsCancelled(data.status)) return false;
+
+  if (await enforceAirpickB2cBookingWindow(reservationId, data)) return true;
 
   const companyId = String(data.companyId || '').trim();
   if (!companyId) return false;
