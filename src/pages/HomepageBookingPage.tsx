@@ -45,6 +45,7 @@ import {
   resolveCompanyAirportId,
 } from '../utils/airport';
 import TerminalPicker from '../components/TerminalPicker';
+import { flightNumberHint, icnTerminalHintForAirline, suggestedIcnTerminalForAirline } from '../utils/icnAirlineHints';
 import { buildReceiptUrl } from '../utils/receipt';
 import { createReceiptToken } from '../utils/receiptToken';
 import {
@@ -467,6 +468,10 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
     if (!dep.date || !arr.date || !dep.time || !arr.time) {
       return '입고·출고 일정을 선택해 주세요.';
     }
+    // 기본값이 「지금」이라 입력하는 몇 분 사이에 지나는 건 봐준다 (10분)
+    if (depLocal < getKSTDateTimeLocalString(-10 * 60 * 1000)) {
+      return '입고 시간이 이미 지났어요. 시간을 다시 골라 주세요.';
+    }
     if (arrLocal <= depLocal) return '출고 일시는 입고 일시 이후여야 합니다.';
     if (!departureAirline.trim()) return '출국 항공사를 선택해 주세요.';
     if (!departureFlight.trim()) return '출국 편명을 입력해 주세요.';
@@ -742,6 +747,18 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
   }
 
   const minDep = `${getKSTDateOnlyString()}T00:00`;
+  const isIcn = company ? resolveCompanyAirportId(company) === 'ICN' : false;
+  /** 고른 터미널이 항공사 터미널과 다를 때만 안내 (인천공항만) */
+  const terminalHint = (airline: string, terminal: string, dateYmd: string): string | null => {
+    if (!isIcn || !airline.trim()) return null;
+    const suggested = suggestedIcnTerminalForAirline(airline, dateYmd);
+    if (!suggested || suggested === String(terminal || '').trim().toUpperCase()) return null;
+    return icnTerminalHintForAirline(airline, dateYmd);
+  };
+  const departureTerminalHint = terminalHint(departureAirline, departureTerminal, depLocal.slice(0, 10));
+  const arrivalTerminalHint = terminalHint(arrivalAirline, arrivalTerminal, arrLocal.slice(0, 10));
+  const departureFlightHint = flightNumberHint(departureAirline, departureFlight);
+  const arrivalFlightNumberHint = flightNumberHint(arrivalAirline, arrivalFlight);
   const inputClass =
     'w-full min-h-12 rounded-lg border border-stone-200 bg-white px-3.5 py-3 text-base text-stone-900 outline-none transition placeholder:text-stone-400 focus:border-stone-400';
 
@@ -863,15 +880,21 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
                 required
                 emptyLabel="::: 항공사 선택 :::"
               />
+              {departureTerminalHint ? (
+                <p className="mt-1.5 text-[12px] font-semibold leading-snug text-amber-700">{departureTerminalHint}</p>
+              ) : null}
             </FormRow>
             <FormRow label="출국 항공편" required>
               <input
                 value={departureFlight}
-                onChange={(e) => setDepartureFlight(e.target.value.toUpperCase())}
+                onChange={(e) => setDepartureFlight(e.target.value.toUpperCase().replace(/\s+/g, ''))}
                 placeholder="예) A123"
                 className={inputClass}
                 required
               />
+              {departureFlightHint ? (
+                <p className="mt-1.5 text-[12px] font-semibold leading-snug text-amber-700">{departureFlightHint}</p>
+              ) : null}
             </FormRow>
             <FormRow
               label={
@@ -914,15 +937,21 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
                 required
                 emptyLabel="::: 항공사 선택 :::"
               />
+              {arrivalTerminalHint ? (
+                <p className="mt-1.5 text-[12px] font-semibold leading-snug text-amber-700">{arrivalTerminalHint}</p>
+              ) : null}
             </FormRow>
             <FormRow label="입국 항공편" required>
               <input
                 value={arrivalFlight}
-                onChange={(e) => setArrivalFlight(e.target.value.toUpperCase())}
+                onChange={(e) => setArrivalFlight(e.target.value.toUpperCase().replace(/\s+/g, ''))}
                 placeholder="예) 7C1704"
                 className={inputClass}
                 required
               />
+              {arrivalFlightNumberHint ? (
+                <p className="mt-1.5 text-[12px] font-semibold leading-snug text-amber-700">{arrivalFlightNumberHint}</p>
+              ) : null}
               {arrivalFlightLooking ? (
                 <p className="mt-1.5 text-[12px] font-semibold text-stone-500">
                   공항 도착 시각 조회 중…
