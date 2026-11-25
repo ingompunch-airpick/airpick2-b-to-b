@@ -123,27 +123,103 @@ function terminalDisplay(raw: string): string {
   return raw.trim() || '-';
 }
 
+/**
+ * 예약 완료 화면을 잠깐 기억해 둔다 — 접수증을 보고 뒤로 오거나 새로고침해도
+ * 빈 예약 폼이 다시 나와 「접수가 안 됐나?」 하고 또 예약하는 일을 막는다.
+ */
+const DONE_TTL_MS = 6 * 60 * 60 * 1000;
+
+type DoneSnapshot = {
+  id: string;
+  receiptUrl: string;
+  value: number;
+  depLocal: string;
+  arrLocal: string;
+  departureTerminal: string;
+  arrivalTerminal: string;
+  carNumber: string;
+  isIndoor: boolean;
+  phone: string;
+  savedAt: number;
+};
+
+function doneKey(companyId: string): string {
+  return `airpick.h.done.${companyId}`;
+}
+
+function readDoneSnapshot(companyId: string): DoneSnapshot | null {
+  try {
+    const raw = sessionStorage.getItem(doneKey(companyId));
+    if (!raw) return null;
+    const snap = JSON.parse(raw) as DoneSnapshot;
+    if (!snap?.id || Date.now() - Number(snap.savedAt || 0) > DONE_TTL_MS) {
+      sessionStorage.removeItem(doneKey(companyId));
+      return null;
+    }
+    return snap;
+  } catch {
+    return null;
+  }
+}
+
+function saveDoneSnapshot(companyId: string, snap: DoneSnapshot): void {
+  try {
+    sessionStorage.setItem(doneKey(companyId), JSON.stringify(snap));
+  } catch {
+    /* 저장 못 해도 완료 화면은 보인다 */
+  }
+}
+
+function clearDoneSnapshot(companyId: string): void {
+  try {
+    sessionStorage.removeItem(doneKey(companyId));
+  } catch {
+    /* 무시 */
+  }
+}
+
+/** 업체 홈 등 다른 페이지에서 들어왔으면 그 주소 (돌아가기 버튼용). 첫 진입 때 한 번 기억 */
+function readEntryReferrer(companyId: string): string | null {
+  const key = `airpick.h.ref.${companyId}`;
+  try {
+    const ref = document.referrer;
+    if (ref) {
+      const u = new URL(ref);
+      const sameBookingPage = u.origin === window.location.origin && u.pathname === window.location.pathname;
+      if (!sameBookingPage) {
+        sessionStorage.setItem(key, ref);
+        return ref;
+      }
+    }
+    return sessionStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
 interface HomepageBookingPageProps {
   companyId: string;
 }
 
 export default function HomepageBookingPage({ companyId }: HomepageBookingPageProps) {
+  const [restored] = useState(() => readDoneSnapshot(companyId));
+  const [entryReferrer] = useState(() => readEntryReferrer(companyId));
   const [company, setCompany] = useState<Company | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
-  const [depLocal, setDepLocal] = useState(() => getKSTDateTimeLocalString(0));
+  const [depLocal, setDepLocal] = useState(() => restored?.depLocal || getKSTDateTimeLocalString(0));
   const [arrLocal, setArrLocal] = useState(() =>
-    getKSTDateTimeLocalString(3 * 24 * 60 * 60 * 1000)
+    restored?.arrLocal || getKSTDateTimeLocalString(3 * 24 * 60 * 60 * 1000)
   );
-  const [departureTerminal, setDepartureTerminal] = useState<Terminal>('');
-  const [arrivalTerminal, setArrivalTerminal] = useState<Terminal>('');
-  const [isIndoor, setIsIndoor] = useState(true);
+  const [departureTerminal, setDepartureTerminal] = useState<Terminal>(() => restored?.departureTerminal || '');
+  const [arrivalTerminal, setArrivalTerminal] = useState<Terminal>(() => restored?.arrivalTerminal || '');
+  const [isIndoor, setIsIndoor] = useState(() => restored?.isIndoor ?? true);
 
   const [userName, setUserName] = useState('');
-  const [phone, setPhone] = useState('');
+  const [phone, setPhone] = useState(() => restored?.phone || '');
   const [carModel, setCarModel] = useState('');
-  const [carNumber, setCarNumber] = useState('');
+  const [carNumber, setCarNumber] = useState(() => restored?.carNumber || '');
   const [departureAirline, setDepartureAirline] = useState('');
   const [departureFlight, setDepartureFlight] = useState('');
   const [arrivalAirline, setArrivalAirline] = useState('');
@@ -157,7 +233,9 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
     id: string;
     receiptUrl: string;
     value: number;
-  } | null>(null);
+  } | null>(() =>
+    restored ? { id: restored.id, receiptUrl: restored.receiptUrl, value: restored.value } : null
+  );
   const [hourlyHint, setHourlyHint] = useState<HourlyCapacityResult | null>(null);
   const [dailyHint, setDailyHint] = useState<DailyIntakeResult | null>(null);
   const [parkingHint, setParkingHint] = useState<ParkingCapacityResult | null>(null);
@@ -231,11 +309,13 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
           return;
         }
         setCompany(data);
-        const airportId = resolveCompanyAirportId(data);
-        const def = getDefaultTerminal(airportId);
-        setDepartureTerminal(def);
-        setArrivalTerminal(def);
-        setIsIndoor(companyParkingTypeAvailability(data).indoor);
+        if (!restored) {
+          const airportId = resolveCompanyAirportId(data);
+          const def = getDefaultTerminal(airportId);
+          setDepartureTerminal(def);
+          setArrivalTerminal(def);
+          setIsIndoor(companyParkingTypeAvailability(data).indoor);
+        }
       } catch (err) {
         if (!cancelled) {
           setLoadError(err instanceof Error ? err.message : '업체 정보를 불러오지 못했습니다.');
@@ -635,6 +715,19 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
         bookingMethod: 'vendor_form',
       });
       const receiptUrl = buildReceiptUrl({ id, receiptToken, receiptCode: undefined });
+      saveDoneSnapshot(company.id, {
+        id,
+        receiptUrl,
+        value: price,
+        depLocal,
+        arrLocal,
+        departureTerminal,
+        arrivalTerminal,
+        carNumber: carNumber.trim(),
+        isIndoor,
+        phone: phone.trim(),
+        savedAt: Date.now(),
+      });
       setDone({ id, receiptUrl, value: price });
     } catch (submitErr) {
       setFormError(
@@ -658,6 +751,23 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
       <div className="min-h-dvh bg-[#f4f0ea] flex flex-col items-center justify-center gap-2 px-6 text-center">
         <p className="text-lg font-bold text-stone-900">예약을 열 수 없습니다</p>
         <p className="text-sm text-stone-500">{loadError || '업체 정보가 없습니다.'}</p>
+        <div className="mt-4 flex gap-2">
+          <button
+            type="button"
+            onClick={() => window.location.reload()}
+            className="min-h-11 rounded-xl bg-stone-900 px-5 text-sm font-bold text-white"
+          >
+            다시 불러오기
+          </button>
+          {entryReferrer ? (
+            <a
+              href={entryReferrer}
+              className="flex min-h-11 items-center rounded-xl bg-white px-5 text-sm font-bold text-stone-800 ring-1 ring-stone-200"
+            >
+              이전 페이지로
+            </a>
+          ) : null}
+        </div>
       </div>
     );
   }
@@ -687,7 +797,7 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
                 <div className="text-right">
                   <p className="text-xs font-medium text-stone-400">예상 요금</p>
                   <p className="mt-1 text-2xl font-bold tabular-nums tracking-tight">
-                    {totalPrice.toLocaleString('ko-KR')}
+                    {done.value.toLocaleString('ko-KR')}
                     <span className="ml-0.5 text-base font-semibold">원</span>
                   </p>
                 </div>
@@ -734,10 +844,40 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
                   접수증 보기
                 </a>
               ) : null}
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    // 같은 화면에서 한 건 더 예약 — 완료 기록만 지우고 새 폼
+                    clearDoneSnapshot(company.id);
+                    window.location.reload();
+                  }}
+                  className="min-h-11 rounded-2xl bg-stone-100 text-sm font-bold text-stone-800"
+                >
+                  새 예약하기
+                </button>
+                {entryReferrer ? (
+                  <a
+                    href={entryReferrer}
+                    className="flex min-h-11 items-center justify-center rounded-2xl bg-stone-100 text-sm font-bold text-stone-800"
+                  >
+                    업체 홈으로
+                  </a>
+                ) : (
+                  <span />
+                )}
+              </div>
               <p className="text-center text-xs text-stone-400">
                 자세한 내용은 접수증에서 확인할 수 있습니다.
                 <br />
-                문의 {company.phone || '업체 고객센터'}
+                문의{' '}
+                {company.phone ? (
+                  <a href={`tel:${company.phone.replace(/[^\d+]/g, '')}`} className="font-semibold text-stone-600 underline">
+                    {company.phone}
+                  </a>
+                ) : (
+                  '업체 고객센터'
+                )}
               </p>
             </div>
           </div>
@@ -770,6 +910,21 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
           className="rounded-[1.75rem] bg-white shadow-[0_20px_50px_-28px_rgba(28,25,23,0.35)]"
         >
           <header className="rounded-t-[1.75rem] bg-gradient-to-br from-stone-900 via-stone-800 to-stone-700 px-6 pb-7 pt-8 text-white">
+            {entryReferrer ? (
+              <a
+                href={entryReferrer}
+                onClick={(e) => {
+                  // 업체 홈에서 왔으면 뒤로가기(스크롤 위치 유지), 아니면 주소로 이동
+                  if (window.history.length > 1) {
+                    e.preventDefault();
+                    window.history.back();
+                  }
+                }}
+                className="mb-3 inline-flex items-center gap-1 text-xs font-semibold text-stone-300 hover:text-white"
+              >
+                ‹ 업체 홈으로
+              </a>
+            ) : null}
             <p className="text-xs font-semibold tracking-[0.18em] text-stone-300">
               주차 예약
             </p>
