@@ -85,9 +85,14 @@ async function sendPartnerMulticast(params: {
     return;
   }
 
+  // 기기별 받을 종류(alertTypes) — 없으면 전부. 기사 폰은 ['request_out'] 라 새 예약 푸시를 받지 않는다.
+  const docs = snap.docs.filter((d) => {
+    const types = d.data().alertTypes;
+    return !Array.isArray(types) || types.includes(type);
+  });
   const tokens = Array.from(
     new Set(
-      snap.docs
+      docs
         .map((d) => String(d.data().token || '').trim())
         .filter(Boolean)
     )

@@ -283,6 +283,7 @@ export default function App() {
     selectedDate,
     isEmployee,
     employeeName,
+    employeeRole,
     isSuperAdmin,
   });
 

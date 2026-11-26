@@ -43,6 +43,8 @@ async function persistFcmToken(params: {
       scopeCompanyIds: scopes,
       platform,
       enabled: true,
+      // 이 기기가 받을 푸시 종류 — 기사(직원) 폰은 새 예약 소리 없이 출고요청만
+      alertTypes: deviceAlertTypes,
       updatedAt: new Date().toISOString(),
       uid: user.uid,
     },
@@ -132,10 +134,17 @@ function ensurePushListeners(): void {
  * 파트너 앱(안드로이드) FCM 토큰 등록.
  * 웹 브라우저는 no-op — 기존 브라우저 Notification 유지.
  */
+/** functions/src/partnerPush.ts 의 type 값과 같다 */
+export type PartnerAlertType = 'new_reservation' | 'request_out';
+let deviceAlertTypes: PartnerAlertType[] = ['new_reservation', 'request_out'];
+
 export async function registerPartnerPushDevice(params: {
   companyId: string;
   scopeCompanyIds?: string[];
+  /** 없으면 전부. 기사(직원)는 ['request_out'] */
+  alertTypes?: PartnerAlertType[];
 }): Promise<boolean> {
+  if (params.alertTypes) deviceAlertTypes = params.alertTypes;
   const companyId = String(params.companyId || '').trim();
   if (!companyId || isAirpickHeadquarters(companyId)) return false;
   if (!Capacitor.isNativePlatform()) return false;

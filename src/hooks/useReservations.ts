@@ -43,7 +43,7 @@ import {
   setRuntimeReservationAlertCopy,
   wasNotificationPermissionAsked,
 } from '../utils/reservationNotifications';
-import { registerPartnerPushDevice } from '../lib/partnerPush';
+import { registerPartnerPushDevice, type PartnerAlertType } from '../lib/partnerPush';
 import { fetchReservationAlertCopy } from '../lib/reservationAlertCopyFirestore';
 export interface UseReservationsParams {
   isLoggedIn: boolean;
@@ -53,6 +53,8 @@ export interface UseReservationsParams {
   selectedDate: string;
   isEmployee: boolean;
   employeeName: string;
+  /** 기사(driver)는 새 예약 소리·푸시를 받지 않는다 (출고요청만) */
+  employeeRole?: 'admin' | 'driver';
   isSuperAdmin: boolean;
 }
 
@@ -88,8 +90,16 @@ export function useReservations({
   selectedDate,
   isEmployee,
   employeeName,
+  employeeRole,
   isSuperAdmin,
 }: UseReservationsParams) {
+  const isDriverDevice = isEmployee && employeeRole !== 'admin';
+  const isDriverDeviceRef = useRef(isDriverDevice);
+  isDriverDeviceRef.current = isDriverDevice;
+  const pushAlertTypes = useMemo<PartnerAlertType[]>(
+    () => (isDriverDevice ? ['request_out'] : ['new_reservation', 'request_out']),
+    [isDriverDevice]
+  );
   /** 현장 실시간 창(입고·출고 -3~+14일 + 미처리) */
   const [reservations, setReservations] = useState<Reservation[]>([]);
   /** 화면이 요청한 기간 구독 결과 (통계·장부 등, 화면을 닫으면 해제) */
@@ -236,7 +246,8 @@ export function useReservations({
         );
         for (const res of incoming) {
           if (!res.id) continue;
-          notifyNewReservation(res, companyAlertLabelRef.current);
+          // 기사 폰은 새 예약 소리·알림창 없이 화면 안내만
+          if (!isDriverDeviceRef.current) notifyNewReservation(res, companyAlertLabelRef.current);
           setIncomingReservationToast({
             id: res.id,
             carNumber: res.carNumber || '차량미상',
@@ -561,8 +572,9 @@ export function useReservations({
     void registerPartnerPushDevice({
       companyId: currentCompanyId,
       scopeCompanyIds: scopes,
+      alertTypes: pushAlertTypes,
     });
-  }, [currentCompanyId, operatorCompanyIds]);
+  }, [currentCompanyId, operatorCompanyIds, pushAlertTypes]);
 
   /** 배너만 닫음 — 알림 ON/OFF 설정은 바꾸지 않음 */
   const dismissReservationAlertsBanner = useCallback(() => {
@@ -585,8 +597,9 @@ export function useReservations({
     void registerPartnerPushDevice({
       companyId: currentCompanyId,
       scopeCompanyIds: scopes,
+      alertTypes: pushAlertTypes,
     });
-  }, [isLoggedIn, currentCompanyId, operatorCompanyIds]);
+  }, [isLoggedIn, currentCompanyId, operatorCompanyIds, pushAlertTypes]);
 
   // 알림 문구(에어픽/홈·현장) 로드
   useEffect(() => {

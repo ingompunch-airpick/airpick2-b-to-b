@@ -6,6 +6,9 @@ const config: CapacitorConfig = {
   webDir: 'dist',
   android: {
     allowMixedContent: true,
+    // 안드로이드 15+ 전체 화면(edge-to-edge)에서 하단 버튼이 시스템 내비게이션 바에 가리지 않게
+    // WebView 바깥에 여백(margin)을 준다. WebView padding 은 화면 안 고정 버튼에 적용되지 않는다.
+    adjustMarginsForEdgeToEdge: 'force',
   },
   server: {
     androidScheme: 'https',

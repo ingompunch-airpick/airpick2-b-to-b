@@ -113,8 +113,14 @@ export function newReservationAlertTitle(
   return copy.titleReserve;
 }
 
-/** 앱 안 알림창용 — 소리 없음(LOW). 소리는 음성 한 번만 */
-const IN_APP_CHANNEL_ID = 'reservation_inapp';
+/**
+ * 앱을 보고 있을 때 쓰는 알림창 채널 — 시스템 기본 알림음이 울린다 (sound 비움 = 기본음).
+ * 예전 'reservation_inapp'(LOW, 무음)는 소리를 음성(웹 speechSynthesis)에만 맡겼는데,
+ * 안드로이드 앱(WebView)에서는 음성이 안 나오는 기기가 많아 완전히 무음이었다.
+ * 채널 소리는 만든 뒤 못 바꾸므로 새 id 를 쓰고 옛 채널은 지운다.
+ */
+const IN_APP_CHANNEL_ID = 'reservation_inapp_sound';
+const OLD_IN_APP_CHANNEL_ID = 'reservation_inapp';
 let inAppChannelReady: Promise<void> | null = null;
 
 function ensureInAppChannel(): Promise<void> {
@@ -122,10 +128,13 @@ function ensureInAppChannel(): Promise<void> {
     inAppChannelReady = LocalNotifications.createChannel({
       id: IN_APP_CHANNEL_ID,
       name: '예약 알림 (앱 사용 중)',
-      description: '앱을 보고 있을 때 들어온 예약을 알림창에 남깁니다. 소리는 음성으로만 납니다.',
-      importance: 2,
+      description: '앱을 보고 있을 때 들어온 예약·출고요청을 알림음과 함께 알려줍니다.',
+      importance: 4,
       visibility: 1,
-    }).catch(() => undefined);
+      vibration: true,
+    })
+      .then(() => LocalNotifications.deleteChannel({ id: OLD_IN_APP_CHANNEL_ID }))
+      .catch(() => undefined);
   }
   return inAppChannelReady;
 }
@@ -136,18 +145,29 @@ function notificationIdFromTag(tag: string): number {
   return Math.abs(h) || 1;
 }
 
-/** 알림창(안드로이드)·윈도우 알림(PC)에 남긴다 */
-async function showTrayNotification(title: string, tag: string): Promise<void> {
+/**
+ * 알림창(안드로이드)·윈도우 알림(PC)에 남긴다.
+ * autoClearMs: 소리만 내고 알림창에서는 지울 때 (출고요청)
+ */
+async function showTrayNotification(
+  title: string,
+  tag: string,
+  opts: { autoClearMs?: number } = {}
+): Promise<void> {
   if (Capacitor.isNativePlatform()) {
     try {
       const perm = await LocalNotifications.checkPermissions();
       if (perm.display !== 'granted') return;
       await ensureInAppChannel();
+      const id = notificationIdFromTag(tag);
       await LocalNotifications.schedule({
-        notifications: [
-          { id: notificationIdFromTag(tag), title, body: '', channelId: IN_APP_CHANNEL_ID },
-        ],
+        notifications: [{ id, title, body: '', channelId: IN_APP_CHANNEL_ID }],
       });
+      if (opts.autoClearMs) {
+        window.setTimeout(() => {
+          void LocalNotifications.cancel({ notifications: [{ id }] }).catch(() => undefined);
+        }, opts.autoClearMs);
+      }
     } catch {
       // 권한·플러그인 없음
     }
@@ -175,10 +195,17 @@ function shouldAlertInApp(): boolean {
   return typeof document === 'undefined' || document.visibilityState === 'visible';
 }
 
-function alertInApp(title: string, tag: string, opts: { tray: boolean }): void {
+function alertInApp(
+  title: string,
+  tag: string,
+  opts: { tray: boolean; autoClearMs?: number }
+): void {
   if (!shouldAlertInApp()) return;
   speakReservationAlertPreview({ title, kind: 'other' });
-  if (opts.tray) void showTrayNotification(title, tag);
+  // 안드로이드 앱은 음성이 안 나오는 기기가 있어, 알림창(기본 알림음)을 항상 같이 띄운다
+  if (opts.tray || Capacitor.isNativePlatform()) {
+    void showTrayNotification(title, tag, { autoClearMs: opts.tray ? undefined : opts.autoClearMs });
+  }
 }
 
 /** 알림 화면 「테스트」 — 실제 예약 알림과 같은 소리·알림창 */
@@ -201,8 +228,8 @@ export function checkoutAlertTitle(): string {
 export function notifyRequestOut(res: Reservation): void {
   if (!areReservationAlertsEnabled()) return;
 
-  /** 출고요청은 소리만. 알림창에는 예약만 남긴다 */
-  alertInApp(checkoutAlertTitle(), `out-${res.id}`, { tray: false });
+  /** 출고요청은 소리만. 앱에서는 알림음을 위해 잠깐 띄웠다가 알림창에서 지운다 */
+  alertInApp(checkoutAlertTitle(), `out-${res.id}`, { tray: false, autoClearMs: 8000 });
 }
 
 export function findRequestOutReservations(
