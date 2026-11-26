@@ -69,9 +69,18 @@ function resolveCompanyFields(r: Record<string, unknown>): { companyId: string; 
     companyName: rawName,
   };
 }
+/**
+ * 에어픽 온라인 결제가 아직 안 된 예약(결제 대기 15분 · 시간 초과)은 업체 화면·통계에 넣지 않는다.
+ * 자리 계산은 서버가 따로 하므로 화면에서 빼도 마감은 그대로 지켜진다. 결제되면 새 예약으로 나타난다.
+ */
+function isUnpaidOnlineHold(raw: unknown): boolean {
+  const p = (raw as { payment?: { status?: unknown } } | null)?.payment;
+  return p?.status === 'awaiting' || p?.status === 'expired';
+}
+
 export function normalizeDocsArray(items: unknown[]): Reservation[] {
   if (!items || !Array.isArray(items)) return [];
-  return items.map((raw): Reservation => {
+  return items.filter((raw) => !isUnpaidOnlineHold(raw)).map((raw): Reservation => {
     const r = raw as Record<string, unknown>;
     const finalName = String(r.name || r.userName || '미지정');
     const finalDate = normalizeDateString(String(r.entryDate || r.departureDate || ''));

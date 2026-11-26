@@ -281,8 +281,10 @@ export function findNewIncomingReservations(
     if (prevIds.has(r.id)) return false;
     if (!isPending(r.status)) return false;
     // 재구독·부트스트랩 시 오래된 건 신규 알림으로 오인하지 않음 (2분 이내만)
-    if (r.createdAt) {
-      const createdMs = new Date(r.createdAt).getTime();
+    // 온라인 결제 예약은 결제 확인 시각 기준 (결제 대기 중엔 목록에 없다가 결제되면 나타남)
+    const freshAt = r.payment?.paidAt || r.createdAt;
+    if (freshAt) {
+      const createdMs = new Date(freshAt).getTime();
       if (Number.isFinite(createdMs) && Date.now() - createdMs > 2 * 60 * 1000) {
         return false;
       }
