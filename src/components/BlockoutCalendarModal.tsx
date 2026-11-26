@@ -480,7 +480,6 @@ export default function BlockoutCalendarModal({
                 onValue={(n) => setLocalMaxCarsPerHour(normalizeMaxCarsPerHour(n) || 1)}
                 onText={localHourlyCapEnabled ? `한 시간 ${localMaxCarsPerHour}대까지` : '대수 제한 없음'}
                 unit="대 / 시간"
-                max={99}
               />
               {offersBoth ? (
                 <div className="rounded-xl border border-neutral-800 bg-neutral-900/40 p-3 space-y-2">

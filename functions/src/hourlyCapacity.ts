@@ -11,7 +11,7 @@ type CapCompany = {
 function normalizeMaxCarsPerHour(value: unknown): number {
   const n = typeof value === 'number' ? value : Number(value);
   if (!Number.isFinite(n)) return 0;
-  return Math.max(0, Math.min(99, Math.floor(n)));
+  return Math.max(0, Math.min(999, Math.floor(n)));
 }
 
 function isHourlyCapActive(company: CapCompany | undefined): boolean {

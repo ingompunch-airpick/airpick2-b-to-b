@@ -64,7 +64,7 @@ export interface Company {
    * 홈페이지·에어픽·현장 접수 모두 같은 reservations 카운트를 씀.
    */
   hourlyCapEnabled?: boolean;
-  /** 시간당 최대 대수 (1–99). hourlyCapEnabled일 때만 적용 */
+  /** 시간당 최대 대수 (1–999). hourlyCapEnabled일 때만 적용 */
   maxCarsPerHour?: number;
   /**
    * 동시 주차 대수 한도 (기본 OFF).
