@@ -14,9 +14,7 @@ export function resolveReceiptPathCode(
 
   const token = String(reservation.receiptToken || '').trim();
   if (token && token.length <= 14) return token;
-
-  const code = String(reservation.receiptCode || '').trim();
-  if (code && code.length <= 14) return code;
+  // receiptCode(화면 접수번호)는 추측 가능해 링크 키로 쓰지 않는다
 
   // 구형 긴 토큰 — 호출측에서 receiptLinkCode 부여 후 재호출
   return '';
@@ -27,7 +25,7 @@ export function resolveReceiptLookupCode(
 ): string {
   return (
     resolveReceiptPathCode(reservation) ||
-    String(reservation.receiptToken || reservation.receiptCode || reservation.id || '').trim()
+    String(reservation.receiptToken || reservation.id || '').trim()
   );
 }
 
@@ -51,10 +49,8 @@ export function buildReceiptUrl(
   }
 
   const id = String(reservation.id || '').trim();
-  const code = String(reservation.receiptCode || '').trim();
-  const pathId = id || code;
-  if (!pathId) return '';
-  return `${base}/r/${encodeURIComponent(pathId)}`;
+  if (!id) return '';
+  return `${base}/r/${encodeURIComponent(id)}`;
 }
 
 /** 출고 후기 — B2C 에어픽.kr `/my?review=` */

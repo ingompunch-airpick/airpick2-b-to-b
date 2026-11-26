@@ -275,9 +275,26 @@ service cloud.firestore {
         );
     }
 
-    /** 단건 get — B2C MY·영수증(문서 ID)·접수 직후. 비밀번호는 secrets. list 는 막음. */
+    /**
+     * 단건 get — 본사 · 그 업체(와와 별칭·하위 업체 포함) · 예약한 본인(익명 uid 포함).
+     * 문서 ID만 안다고 남의 예약을 열 수 없게 한다. 비회원은 조회 API·접수증 토큰으로 찾는다.
+     * 없는 문서 확인(서버가 마감으로 지웠는지)은 허용 — 보여 줄 내용이 없다.
+     */
     function canGetReservation() {
-      return isSignedIn();
+      return isSignedIn()
+        && (
+          resource == null
+          || isPlatformAdmin()
+          || (
+            isPartner()
+            && resource.data.companyId is string
+            && partnerCanAccessCompany(resource.data.companyId)
+          )
+          || (
+            resource.data.userId is string
+            && resource.data.userId == request.auth.uid
+          )
+        );
     }
 
     // ── reservations ───────────────────────────────────────────────────────
@@ -297,7 +314,12 @@ service cloud.firestore {
         && !('priceCheck' in request.resource.data)
         && (
           isPlatformAdmin()
-          || isPartner()
+          // 업체는 자기 업체(와와 별칭·하위 업체 포함) 예약만 만든다
+          || (
+            isPartner()
+            && request.resource.data.companyId is string
+            && partnerCanAccessCompany(request.resource.data.companyId)
+          )
           || (
             request.resource.data.status == 'pending'
             && !('checkedInAt' in request.resource.data)

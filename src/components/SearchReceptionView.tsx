@@ -10,6 +10,7 @@ import {
   Settings
 } from 'lucide-react';
 import { createReservationId, persistReservation, patchReservation } from '../lib/reservationFirestore';
+import { createReceiptToken } from '../utils/receiptToken';
 import { assertHourlyCapacityAvailable } from '../lib/hourlyCapacityFirestore';
 import { assertParkingCapacityAvailable } from '../lib/parkingCapacityFirestore';
 import { companyParkingTypeAvailability } from '../utils/companyProfile';
@@ -480,6 +481,8 @@ export default function SearchReceptionView({
     const id = createReservationId();
     const targetUserId = user ? user.uid : 'anonymous_guest';
     const randReceipt = `177020${Math.floor(1000 + Math.random() * 9000)}_BEIAKF`;
+    // 접수증 링크는 추측할 수 없는 토큰으로 연다 (receiptCode 는 화면 표시용 접수번호)
+    const receiptToken = createReceiptToken();
 
     const bookingPayload: Reservation = {
       userId: targetUserId,
@@ -515,6 +518,7 @@ export default function SearchReceptionView({
       ...(scheduleBlockOverride ? { scheduleBlockOverride: true } : {}),
       paymentMethod: 'unpaid',
       receiptCode: randReceipt,
+      receiptToken,
       scratchPhotos: { synced: false },
       isIndoor,
       startDate: intakeStartDate.replace('T', ' '),

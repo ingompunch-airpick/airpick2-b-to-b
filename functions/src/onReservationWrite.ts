@@ -17,6 +17,7 @@ import { bumpCustomerVisitOnCheckout } from './customerVisit';
 import { settlePointSpendOnCreate, syncPointsOnReservationUpdate } from './points/ledger';
 import { checkB2cReservationPrice, recordPriceCheckIssue } from './reservations/priceCheck';
 import { isUnownedUserId, mergeMemberReservationId, stampKakaoOwner } from './members/reservationIds';
+import { ensureReceiptLinkCode, isReceiptLinkStampOnlyChange } from './reservations/receiptLink';
 import {
   notifyPartnersNewReservation,
   notifyPartnersValetStatusChange,
@@ -63,6 +64,7 @@ export const onReservationSync = onDocumentWritten(
     let afterData = event.data?.after.data();
 
     if (isPasswordStripOnlyChange(beforeData, afterData)) return;
+    if (isReceiptLinkStampOnlyChange(beforeData, afterData)) return;
 
     // 손님 화면이 예약 목록 대신 읽는 시간당 집계 — 삭제·자동취소도 반영되도록 먼저 갱신
     try {
@@ -102,6 +104,15 @@ export const onReservationSync = onDocumentWritten(
 
       const dailyRejected = await enforceDailyIntakeOnCreate(reservationId, afterData);
       if (dailyRejected) return;
+      // 손님 접수증 링크는 비밀 코드로만 열린다 — 코드 없는 예약엔 붙인다
+      try {
+        afterData = await ensureReceiptLinkCode(reservationId, afterData);
+      } catch (err) {
+        console.error('[receiptLink] stamp failed', {
+          reservationId,
+          err: err instanceof Error ? err.message : String(err),
+        });
+      }
       try {
         const stamped = await stampKakaoOwner(reservationId, afterData);
         if (stamped) afterData = stamped;

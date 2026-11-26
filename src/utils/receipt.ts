@@ -25,9 +25,8 @@ export function resolveReceiptLookupCode(
 ): string {
   const link = String(reservation.receiptLinkCode || '').trim();
   if (link) return link;
-  return String(
-    reservation.receiptToken || reservation.receiptCode || reservation.id || ''
-  ).trim();
+  // receiptCode(177020xxxx 형식)는 추측 가능해 링크 키로 쓰지 않는다. 토큰이 없으면 문서 ID(업체·본인만 열림)
+  return String(reservation.receiptToken || reservation.id || '').trim();
 }
 
 /** B2B Hosting(`airpick-reservation`)용 — `/r/{token|code|id}` */

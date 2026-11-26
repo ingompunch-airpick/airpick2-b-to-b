@@ -72,10 +72,15 @@ export async function fetchReservationByLookupCode(code: string): Promise<Reserv
 
   await ensureFirestoreAuth();
 
-  const direct = await getDoc(doc(db, 'reservations', lookup));
-  if (direct.exists()) {
-    const normalized = normalizeDocsArray([{ id: direct.id, ...direct.data() }]);
-    return normalized[0] ?? null;
+  // 예약 문서 직접 읽기는 본사·그 업체·예약한 본인만 된다. 손님은 아래 토큰 조회(getReceipt)로 연다.
+  try {
+    const direct = await getDoc(doc(db, 'reservations', lookup));
+    if (direct.exists()) {
+      const normalized = normalizeDocsArray([{ id: direct.id, ...direct.data() }]);
+      return normalized[0] ?? null;
+    }
+  } catch {
+    // 권한 없음 — 토큰 조회로 넘어간다
   }
 
   return fetchViaReceiptApi(lookup);

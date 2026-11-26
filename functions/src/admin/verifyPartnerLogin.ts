@@ -5,6 +5,12 @@ import {
   resolveEmployeeForVerify,
   resolveLoginPasswordForVerify,
 } from './companySecrets';
+import {
+  assertPasswordAttemptAllowed,
+  clientIpFromRequest,
+  RateLimitedError,
+  recordPasswordFailure,
+} from '../api/passwordAttemptLimit';
 
 function isPlatformAdminToken(request: CallableRequest): boolean {
   const email =
@@ -73,6 +79,29 @@ export const verifyPartnerLogin = onCall(
       throw new HttpsError('invalid-argument', '아이디와 비밀번호를 입력하세요.');
     }
 
+    // 비밀번호 대입 막기 — IP·아이디별 10회 실패 시 5분 잠금 (손님 조회와 같은 규칙)
+    const ip = clientIpFromRequest(
+      (request.rawRequest ?? {}) as Parameters<typeof clientIpFromRequest>[0]
+    );
+    try {
+      await assertPasswordAttemptAllowed({ action: 'partner_login', ip, valueKey: loginId });
+    } catch (err) {
+      if (err instanceof RateLimitedError) {
+        const minutes = Math.max(1, Math.ceil(err.retryAfterSec / 60));
+        throw new HttpsError(
+          'resource-exhausted',
+          `로그인 시도가 너무 많습니다. ${minutes}분 뒤 다시 시도해 주세요.`
+        );
+      }
+      throw err;
+    }
+    const failLogin = async (error: HttpsError): Promise<never> => {
+      await recordPasswordFailure({ action: 'partner_login', ip, valueKey: loginId }).catch(
+        (e) => console.warn('[verifyPartnerLogin] failure record skipped', e)
+      );
+      throw error;
+    };
+
     const db = admin.firestore();
 
     // 1) 업체 마스터 (companyId 또는 업체명)
@@ -110,10 +139,8 @@ export const verifyPartnerLogin = onCall(
         );
       }
       const expected = await resolveLoginPasswordForVerify(companyId);
-      // Play 심사: demo 는 안내 문구·폼 필드 혼선 대비 구비번(1234)도 잠시 허용
-      const demoPlayFallback =
-        companyId === 'demo' && (password === '1234' || password === 'demo1234');
-      if ((expected && expected === password) || demoPlayFallback) {
+      // 심사용 demo 도 저장된 비밀번호로만 들어온다 (예전 고정 1234·demo1234 허용은 제거)
+      if (expected && expected === password) {
         const customToken = await tryIssueCustomToken({
           uid: `partner_${companyId}`,
           companyId,
@@ -144,7 +171,7 @@ export const verifyPartnerLogin = onCall(
       const emp = await resolveEmployeeForVerify(cid, loginId);
       if (!emp) continue;
       if (emp.password !== password) {
-        throw new HttpsError('permission-denied', '보안 비밀번호가 일치하지 않습니다.');
+        return failLogin(new HttpsError('permission-denied', '보안 비밀번호가 일치하지 않습니다.'));
       }
 
       const customToken = await tryIssueCustomToken({
@@ -170,7 +197,7 @@ export const verifyPartnerLogin = onCall(
       loginId,
       passwordLen: password.length,
     });
-    throw new HttpsError('not-found', '일치하는 업체가 없거나 비밀번호가 다릅니다.');
+    return failLogin(new HttpsError('not-found', '일치하는 업체가 없거나 비밀번호가 다릅니다.'));
   }
 );
 

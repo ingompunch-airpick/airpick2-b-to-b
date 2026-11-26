@@ -63,14 +63,7 @@ export const getReceipt = onRequest(
             .limit(1)
             .get();
         }
-        if (q.empty) {
-          q = await admin
-            .firestore()
-            .collection('reservations')
-            .where('receiptCode', '==', token)
-            .limit(1)
-            .get();
-        }
+        // receiptCode(화면 접수번호)는 9천 가지뿐이라 대입하면 손님 정보가 열린다 — 링크 키로 쓰지 않는다
         if (q.empty) {
           res.status(404).json({ error: 'not_found' });
           return;

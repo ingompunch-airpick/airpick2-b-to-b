@@ -10,8 +10,15 @@ export { ensureFirestoreAuth, ensurePlatformAdminAuth } from './firebaseAuth';
 /** B2B·홈페이지 공통 업체 ID (와와) */
 export const WAWA_COMPANY_ID = 'wawa';
 
+/**
+ * 예약 문서 ID — 시각 + 추측 불가 난수(16자).
+ * 예전 `res_{밀리초}` 는 같은 밀리초에 덮어쓰이고, 시각만 알면 ID를 맞힐 수 있었다.
+ */
 export function createReservationId(): string {
-  return `res_${Date.now()}`;
+  const bytes = new Uint8Array(8);
+  crypto.getRandomValues(bytes);
+  const rand = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+  return `res_${Date.now()}_${rand}`;
 }
 
 /** Firestore는 undefined 필드 값을 거부함 — 빈 항공·메모 등 미입력 시 setDoc 실패 원인 */

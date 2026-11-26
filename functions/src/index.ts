@@ -9,6 +9,7 @@ import { runRetentionCleanup } from './retentionCleanup';
 import { sweepReservationPasswords } from './reservations/reservationSecrets';
 import { backfillUpcomingCapacity } from './capacityAggregate';
 import { refreshAllParkingOccupancy } from './parkingOccupancy';
+import { backfillActiveReceiptLinkCodes } from './reservations/receiptLink';
 import { runFlightDelayCheck } from './flightDelay/checkFlightDelays';
 import { adminUpsertCompany } from './admin/upsertCompany';
 import { adminSetCompanyStatus } from './admin/setCompanyStatus';
@@ -129,6 +130,9 @@ export const purgeExpiredReservationData = onSchedule(
 
     const parkingDocs = await refreshAllParkingOccupancy();
     console.log('[purgeExpiredReservationData] parking occupancy refreshed', parkingDocs);
+
+    const linkCodes = await backfillActiveReceiptLinkCodes();
+    console.log('[purgeExpiredReservationData] receipt link codes stamped', linkCodes);
   }
 );
 

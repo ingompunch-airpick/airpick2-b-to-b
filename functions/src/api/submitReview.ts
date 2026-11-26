@@ -49,6 +49,66 @@ function maskAuthorName(name: string): string {
  * 고객 업체 후기 작성 — 출고 완료 예약 + 비밀번호 검증 후 reviews/{reservationId} 생성.
  * 사진(선택, 최대 3장)은 data URL로 받아 Storage에 올린 뒤 photoUrls에 저장.
  */
+function maskName(raw: unknown): string {
+  const name = String(raw ?? '').trim();
+  if (!name) return '';
+  return `${name.slice(0, 1)}${'*'.repeat(Math.max(1, name.length - 1))}`;
+}
+
+/**
+ * 출고 알림톡 후기 링크(`/my?review={id}`) — 다른 브라우저에서 열어도 후기 카드를 띄울 수 있게
+ * 가린 정보만 내려준다. 전화번호·이름 전체·비밀번호는 주지 않는다. 후기 저장은 POST 에서 비밀번호로 확인.
+ */
+async function sendReviewTarget(
+  req: { query: Record<string, unknown> },
+  res: {
+    set: (k: string, v: string) => unknown;
+    status: (n: number) => { json: (b: unknown) => unknown };
+  }
+): Promise<void> {
+  res.set('Cache-Control', 'private, no-store');
+  const id = String(req.query.id ?? '').trim();
+  if (!id || id.length > 120 || id.includes('/')) {
+    res.status(400).json({ error: 'missing_id' });
+    return;
+  }
+  try {
+    const db = admin.firestore();
+    const [snap, review] = await Promise.all([
+      db.doc(`reservations/${id}`).get(),
+      db.doc(`reviews/${id}`).get(),
+    ]);
+    if (!snap.exists) {
+      res.status(404).json({ error: 'not_found' });
+      return;
+    }
+    const d = snap.data() as Record<string, unknown>;
+    const pick = (k: string) => (typeof d[k] === 'string' ? (d[k] as string) : '');
+    res.status(200).json({
+      reservation: {
+        companyId: pick('companyId'),
+        companyName: pick('companyName'),
+        status: pick('status'),
+        userName: maskName(d.userName),
+        carNumber: maskCarNumber(pick('carNumber')),
+        carModel: pick('carModel'),
+        departureDate: pick('departureDate'),
+        departureTime: pick('departureTime'),
+        arrivalDate: pick('arrivalDate'),
+        arrivalTime: pick('arrivalTime'),
+        departureTerminal: pick('departureTerminal'),
+        arrivalTerminal: pick('arrivalTerminal'),
+        isIndoor: d.isIndoor !== false,
+        checkedOutAt: pick('checkedOutAt'),
+        hasReview: review.exists || d.hasReview === true,
+      },
+    });
+  } catch (err) {
+    logger.error('[submitReview] review target failed', err);
+    res.status(500).json({ error: 'internal' });
+  }
+}
+
 export const submitReview = onRequest(
   {
     region: 'asia-northeast3',
@@ -59,6 +119,10 @@ export const submitReview = onRequest(
   async (req, res) => {
     if (req.method === 'OPTIONS') {
       res.status(204).send('');
+      return;
+    }
+    if (req.method === 'GET') {
+      await sendReviewTarget(req, res);
       return;
     }
     if (req.method !== 'POST') {

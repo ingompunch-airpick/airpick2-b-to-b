@@ -7,6 +7,9 @@ const COLLECTION = 'passwordAttemptLimits';
 const MAX_FAILS = 10;
 const BLOCK_MS = 5 * 60 * 1000;
 
+/** lookup·cancel: 손님 / partner_login: 업체 앱 로그인 */
+export type PasswordAttemptAction = 'lookup' | 'cancel' | 'partner_login';
+
 export class RateLimitedError extends Error {
   readonly code = RATE_LIMITED;
   readonly retryAfterSec: number;
@@ -62,7 +65,7 @@ function remainingBlockSec(blockedUntilMs: number, now: number): number {
  * 차단이 아니면 통과 (실패 기록은 recordPasswordFailure 에서).
  */
 export async function assertPasswordAttemptAllowed(args: {
-  action: 'lookup' | 'cancel';
+  action: PasswordAttemptAction;
   ip: string;
   valueKey: string;
 }): Promise<void> {
@@ -91,7 +94,7 @@ export async function assertPasswordAttemptAllowed(args: {
 
 /** 비밀번호 실패 1회 기록. 10회 도달 시 5분 차단. */
 export async function recordPasswordFailure(args: {
-  action: 'lookup' | 'cancel';
+  action: PasswordAttemptAction;
   ip: string;
   valueKey: string;
 }): Promise<void> {
