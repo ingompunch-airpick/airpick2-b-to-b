@@ -1,6 +1,6 @@
 # Plan: 구글 시트 동기화 — 예약마다 즉시 쓰기 → 10분마다 모아서 쓰기
 
-작성 2026-11-27 · **승인 전 구현 금지**
+작성 2026-11-27 · 승인·구현 2026-11-27 (켜기 전까지는 기존 즉시 방식)
 
 ## 지금 구조 (문제)
 - 예약 문서가 바뀔 때마다(`onReservationSync`) 그 예약 1건을 시트에 바로 씀
@@ -37,3 +37,19 @@
 - 2차: 파일을 업체·연도별로 나누고 공용 파일은 본사만(보고서 권장) — 업체 시트 주소가 바뀌므로 업체 공지 후
 - `SHEETS_SYNC_MODE` 파라미터, 기존 즉시 방식은 그대로 남김
 - 테스트: 탭별 묶음·중복 행·새 탭 생성·실패 재시도 단위 테스트
+
+## 구현 (2026-11-27)
+- `functions/src/sheets/batchPlan.ts` — 시트 파일 1개 계획·실행(Firestore 모름). 파일당 시트 API: 탭 목록 1 + (새 탭 1) + 읽기 1 + 고치기 1 + 탭별 추가 1 + (지우기 1)
+- `functions/src/sheets/batchSync.ts` — 대기열 `sheetSync/{예약ID}` `{pending, queuedAt, attempts, lastTarget, syncedAt, lastError, lastErrorAt}`
+  - 꺼낸 뒤 예약이 또 바뀌면(문서 시각 다름) 완료 표시를 안 함 → 다음 차례에 최신 상태로 다시
+  - 3번 연속 실패 → 본사 오류 보고(`errorReports`, 「서버 작업」) 후 1시간마다 재시도
+  - 예전 위치는 `lastTarget`(없으면 예약의 `sheetsArchive`)로 알고, 탭·파일이 바뀌면 예전 줄을 지움
+  - 묶음 방식은 예약 문서에 `sheetsArchive`·잠금을 쓰지 않음
+- `drainSheetsQueue` (asia-northeast3, 10분, 동시 1개). instant로 되돌려도 남은 대기열은 계속 비움
+- 즉시 방식 수정: 시트에서 예약ID를 못 찾으면 예전에 저장한 행 번호에 덮어쓰지 않고 새 줄로 추가(다른 예약 줄 덮어쓰기 방지)
+- 테스트: `cd functions && npm test` (메모리 가짜 시트, 7개)
+
+## 켜는 법
+1. 함수 배포: `npx firebase-tools deploy --only functions:onReservationSync,functions:drainSheetsQueue,functions:dispatchErrorReportsDaily`
+2. `functions/.env`에 `SHEETS_SYNC_MODE=batch` 추가 → `functions:onReservationSync`만 다시 배포
+3. 1주 동안 매일 시트 줄 수와 예약 수 대조. 문제 → `SHEETS_SYNC_MODE=instant`로 바꾸고 `onReservationSync` 재배포

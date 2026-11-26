@@ -3,12 +3,14 @@ import {
   sheetsArchiveEnabled,
   sheetsServiceAccountJson,
   sheetsSpreadsheetId,
+  sheetsSyncMode,
   sheetsWawaSpreadsheetId,
 } from './sheets/params';
 import { applyAlimtalkRuntimeEnv } from './alimtalk/params';
 import { buildNhnConfigFromEnv, processReservationAlimtalk } from './alimtalk/sendReservationAlimtalk';
 import { buildSheetsConfigFromEnv } from './sheets/syncReservation';
 import { processReservationSheetsArchive } from './sheets/processReservationSheets';
+import { enqueueSheetSync } from './sheets/batchSync';
 import { enforceHourlyCapacityOnCreate } from './hourlyCapacity';
 import { enforceDailyIntakeOnCreate } from './dailyIntakeCapacity';
 import { enforceParkingCapacityOnCreate } from './parkingCapacity';
@@ -249,11 +251,20 @@ export const onReservationSync = onDocumentWritten(
       );
     }
 
-    await processReservationSheetsArchive(
-      reservationId,
-      beforeData,
-      afterData,
-      buildSheetsConfigFromEnv()
-    );
+    const sheetsConfig = buildSheetsConfigFromEnv();
+    if (sheetsSyncMode.value() === 'batch') {
+      // 10분 묶음 쓰기: 표시만 하고 drainSheetsQueue가 모아서 쓴다
+      if (sheetsConfig) {
+        await enqueueSheetSync(reservationId, beforeData, afterData).catch((err) =>
+          console.warn('[sheets-batch] enqueue failed', {
+            reservationId,
+            err: err instanceof Error ? err.message : String(err),
+          })
+        );
+      }
+      return;
+    }
+
+    await processReservationSheetsArchive(reservationId, beforeData, afterData, sheetsConfig);
   }
 );

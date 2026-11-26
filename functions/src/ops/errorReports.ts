@@ -15,6 +15,8 @@ const MAIL_DOC = 'opsSecrets/errorMail';
 
 const KINDS = new Set(['crash', 'error', 'report']);
 const APPS = new Set(['b2b', 'b2c', 'home']);
+/** 서버 예약 작업(시트 동기화 등). 클라이언트는 이 값을 쓸 수 없다. */
+const SERVER_APP = 'server';
 const MESSAGE_MAX = 300;
 const STACK_MAX = 1500;
 const NOTE_MAX = 500;
@@ -131,6 +133,45 @@ export const reportClientError = onCall(
   }
 );
 
+/**
+ * 서버 작업 오류를 남긴다. 같은 작업·같은 오류는 한 문서로 묶고, 다음 평일 09시 메일에 실린다.
+ * message는 전화번호·이메일처럼 보이는 값을 지운 뒤 저장한다.
+ */
+export async function recordServerError(
+  area: string,
+  message: string,
+  companyIds: string[] = []
+): Promise<void> {
+  const app = SERVER_APP;
+  const kind = 'error';
+  const msg = clip(message, MESSAGE_MAX) || 'unknown';
+  const screen = clip(area, 60);
+  const now = new Date().toISOString();
+  const db = admin.firestore();
+  const ref = db.collection(COLLECTION).doc(fingerprint(app, kind, msg, '', screen));
+  const ids = companyIds.map(cleanCompanyId).filter(Boolean);
+  await db.runTransaction(async (tx) => {
+    const snap = await tx.get(ref);
+    const prev = snap.data() || {};
+    const merged = Array.isArray(prev.companyIds) ? prev.companyIds.map(String) : [];
+    for (const id of ids) if (!merged.includes(id) && merged.length < 20) merged.push(id);
+    tx.set(ref, {
+      app,
+      kind,
+      message: msg,
+      screen,
+      platform: 'functions',
+      companyIds: merged,
+      count: Number(prev.count || 0) + 1,
+      pendingCount: Number(prev.pendingCount || 0) + 1,
+      firstAt: prev.firstAt || now,
+      lastAt: now,
+      status: 'open',
+      ...(prev.sentAt ? { sentAt: prev.sentAt } : {}),
+    });
+  });
+}
+
 type OpenReport = {
   id: string;
   app: string;
@@ -149,6 +190,7 @@ type OpenReport = {
 };
 
 function shouldSend(report: OpenReport): boolean {
+  if (report.app === SERVER_APP) return true;
   if (report.kind === 'crash' || report.kind === 'report') return true;
   return report.pendingCount >= ERROR_SEND_THRESHOLD;
 }
@@ -163,6 +205,7 @@ const APP_LABEL: Record<string, string> = {
   b2b: '직원 앱',
   b2c: '손님 앱',
   home: '업체 홈',
+  [SERVER_APP]: '서버 작업',
 };
 
 function appLabel(app?: string): string {
@@ -197,7 +240,7 @@ function mailBody(due: OpenReport[]): string {
     return lines.join('\n');
   });
   return [
-    '직원 앱, 손님 앱, 업체 홈에서 아래 오류가 모였습니다.',
+    '직원 앱, 손님 앱, 업체 홈, 서버 작업에서 아래 오류가 모였습니다.',
     '고칠 것이 있으면 이 메일 내용을 Cursor 채팅에 붙여 넣고 고쳐 달라고 하시면 됩니다.',
     '',
     ...blocks,
@@ -217,7 +260,7 @@ export async function dispatchErrorReports(): Promise<{ open: number; sent: numb
     const d = doc.data();
     return {
       id: doc.id,
-      app: cleanApp(d.app),
+      app: d.app === SERVER_APP ? SERVER_APP : cleanApp(d.app),
       kind: String(d.kind || ''),
       message: String(d.message || ''),
       note: d.note ? String(d.note) : undefined,

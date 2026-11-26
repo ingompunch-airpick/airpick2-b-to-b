@@ -2,6 +2,9 @@ import * as admin from 'firebase-admin';
 import { onSchedule } from 'firebase-functions/v2/scheduler';
 import { defineSecret, defineString } from 'firebase-functions/params';
 import { sheetsServiceAccountJson } from './sheets/params';
+import { applySheetsRuntimeEnv } from './sheets/runtimeEnv';
+import { buildSheetsConfigFromEnv } from './sheets/syncReservation';
+import { drainSheetSyncQueue } from './sheets/batchSync';
 import { onReservationSync } from './onReservationWrite';
 import { onCompanySheet } from './onCompanySheet';
 import { onCompanySync } from './onCompanyWrite';
@@ -143,6 +146,31 @@ export const purgeExpiredReservationData = onSchedule(
 
     const visitDocs = await backfillCustomerCompanyVisits();
     console.log('[purgeExpiredReservationData] customer company visits moved', visitDocs);
+  }
+);
+
+/**
+ * 10분마다 — 시트 묶음 쓰기 대기열(sheetSync)을 모아 구글 시트에 한 번에 쓴다.
+ * SHEETS_SYNC_MODE=batch 일 때 쌓인다. instant로 되돌려도 남은 대기열은 계속 비운다.
+ * 동시에 1개만 돈다. 대기열이 비면 조회 1번으로 끝난다.
+ */
+export const drainSheetsQueue = onSchedule(
+  {
+    schedule: 'every 10 minutes',
+    timeZone: 'Asia/Seoul',
+    region: 'asia-northeast3',
+    memory: '512MiB',
+    timeoutSeconds: 300,
+    maxInstances: 1,
+    retryCount: 0,
+    secrets: [sheetsServiceAccountJson],
+  },
+  async () => {
+    applySheetsRuntimeEnv();
+    const result = await drainSheetSyncQueue(buildSheetsConfigFromEnv());
+    if (result.queued || result.skipped) {
+      console.log('[drainSheetsQueue]', JSON.stringify(result));
+    }
   }
 );
 

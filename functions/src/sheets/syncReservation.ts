@@ -33,7 +33,7 @@ function parseServiceAccount(json: string): Record<string, unknown> {
   return JSON.parse(trimmed) as Record<string, unknown>;
 }
 
-function createSheetsClient(serviceAccountJson?: string): sheets_v4.Sheets {
+export function createSheetsClient(serviceAccountJson?: string): sheets_v4.Sheets {
   const auth = serviceAccountJson
     ? new google.auth.GoogleAuth({
         credentials: parseServiceAccount(serviceAccountJson),
@@ -215,7 +215,10 @@ async function deleteSheetRows(
   });
 }
 
-async function fetchCustomerVisitCount(phone: unknown, companyId: unknown): Promise<number | null> {
+export async function fetchCustomerVisitCount(
+  phone: unknown,
+  companyId: unknown
+): Promise<number | null> {
   const phoneKey = normalizePhoneDigits(phone);
   const company = String(companyId || '').trim().toLowerCase();
   if (!phoneKey || phoneKey.length < 10 || !company) return null;
@@ -338,6 +341,33 @@ export function buildSheetsConfigFromEnv(): SheetsArchiveConfig | null {
   };
 }
 
+export interface SheetTarget {
+  spreadsheetId: string;
+  tab: string;
+}
+
+/**
+ * 예약이 들어갈 시트 위치.
+ * - primary: 대표 위치(업체 파일, 에어픽 손님 예약은 에어픽 공용 장부의 업체 탭)
+ * - owned: 업체 장부. primary와 다르면 한 줄 더 복사한다
+ */
+export async function resolveReservationSheetTargets(
+  data: Record<string, unknown>
+): Promise<{ primary: SheetTarget; owned: SheetTarget | null }> {
+  const sharedId =
+    process.env.GOOGLE_SHEETS_SPREADSHEET_ID?.trim() || DEFAULT_SPREADSHEET_ID;
+  const owned = await ledgerTargetForReservation(data);
+  const source = resolveBookingSource(
+    typeof data.createdBy === 'string' ? data.createdBy : null,
+    data
+  );
+  const primary =
+    owned && source !== 'airpick-b2c'
+      ? { spreadsheetId: owned.spreadsheetId, tab: owned.tab }
+      : { spreadsheetId: sharedId, tab: resolveSheetTabName(data) };
+  return { primary, owned };
+}
+
 /**
  * 예약 1건 = 시트 1행.
  * - 예약ID로 기존 행 검색 후 있으면 업데이트
@@ -350,26 +380,13 @@ export async function syncReservationToSheets(
   config: SheetsArchiveConfig
 ): Promise<SheetsArchiveMeta | null> {
   const sheets = createSheetsClient(config.serviceAccountJson || undefined);
-  const sharedId =
-    process.env.GOOGLE_SHEETS_SPREADSHEET_ID?.trim() || DEFAULT_SPREADSHEET_ID;
-  const owned = await ledgerTargetForReservation(data);
-  const source = resolveBookingSource(
-    typeof data.createdBy === 'string' ? data.createdBy : null,
-    data
-  );
-  const spreadsheetId = owned && source !== 'airpick-b2c' ? owned.spreadsheetId : sharedId;
-  const tabName =
-    owned && source !== 'airpick-b2c' ? owned.tab : resolveSheetTabName(data);
+  const { primary, owned } = await resolveReservationSheetTargets(data);
+  const { spreadsheetId, tab: tabName } = primary;
   const visitCount = await fetchCustomerVisitCount(data.phone, data.companyId);
   const rowValues = buildReservationSheetRow(reservationId, data, { visitCount });
   const sheetId = await ensureTabWithHeaders(sheets, spreadsheetId, tabName);
 
   const existing = data.sheetsArchive as SheetsArchiveMeta | undefined;
-  const sameSpreadsheet =
-    existing?.spreadsheetId === spreadsheetId &&
-    existing?.tab === tabName &&
-    typeof existing?.row === 'number' &&
-    existing.row > 0;
 
   // 1) 시트에서 예약ID로 실제 행 찾기 (레이스로 중복 append된 경우 대비)
   let matchedRows = await findRowsByReservationId(
@@ -398,10 +415,9 @@ export async function syncReservationToSheets(
       rowNumber = matchedRows[0] || rowNumber;
       await updateReservationRow(sheets, spreadsheetId, tabName, rowNumber, rowValues);
     }
-  } else if (sameSpreadsheet) {
-    rowNumber = existing!.row;
-    await updateReservationRow(sheets, spreadsheetId, tabName, rowNumber, rowValues);
   } else {
+    // 예약ID가 시트에 없으면 새 줄로 추가한다. 예전에 저장한 행 번호는 줄이 지워지거나
+    // 밀리면 다른 예약 줄을 덮어쓸 수 있어 쓰지 않는다.
     rowNumber = await appendReservationRow(sheets, spreadsheetId, tabName, rowValues);
 
     // append 직후 레이스로 또 들어갔는지 한 번 더 정리
