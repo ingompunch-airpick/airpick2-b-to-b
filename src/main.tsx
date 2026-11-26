@@ -12,6 +12,7 @@ import { parseReceiptCodeFromPath } from './utils/receipt.ts';
 import { parseAffiliateStatsPortal } from './utils/affiliate.ts';
 import { installGlobalErrorReporting, reportError } from './lib/errorReport.ts';
 import './index.css';
+import AppDialogHost from './components/AppDialogHost';
 
 async function dismissNativeSplash(): Promise<void> {
   if (!Capacitor.isNativePlatform()) return;
@@ -53,6 +54,7 @@ function Root() {
   return (
     <ErrorBoundary>
       <App />
+      <AppDialogHost />
     </ErrorBoundary>
   );
 }

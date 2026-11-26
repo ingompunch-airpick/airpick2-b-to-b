@@ -45,6 +45,7 @@ import {
 } from '../utils/reservationNotifications';
 import { registerPartnerPushDevice, type PartnerAlertType } from '../lib/partnerPush';
 import { fetchReservationAlertCopy } from '../lib/reservationAlertCopyFirestore';
+import { appAlert, appConfirm, appPrompt } from '../components/AppDialogHost';
 export interface UseReservationsParams {
   isLoggedIn: boolean;
   currentCompanyId: string;
@@ -399,8 +400,9 @@ export function useReservations({
       const paidTarget = allReservations.find((r) => r.id === resId);
       if (nextStatus === 'cancelled' && paidTarget?.payment?.status === 'paid') {
         const amount = Number(paidTarget.payment.amount) || 0;
-        const ok = window.confirm(
-          `에어픽에서 결제한 예약입니다.\n취소하면 손님에게 ${amount.toLocaleString()}원이 전액 환불됩니다.\n취소할까요?`
+        const ok = await appConfirm(
+          `에어픽에서 결제한 예약입니다.\n취소하면 손님에게 ${amount.toLocaleString()}원이 전액 환불됩니다.`,
+          { okLabel: '취소하고 환불', danger: true }
         );
         if (!ok) return;
       }
@@ -410,7 +412,7 @@ export function useReservations({
         nextStatus !== 'cancelled' &&
         paidTarget.paymentRefund
       ) {
-        window.alert('결제가 환불된 예약이라 되살릴 수 없습니다. 손님이 새로 예약해야 합니다.');
+        await appAlert('결제가 환불된 예약이라 되살릴 수 없습니다. 손님이 새로 예약해야 합니다.');
         return;
       }
       statusUpdateInFlightRef.current.add(resId);
@@ -489,7 +491,7 @@ export function useReservations({
       } catch (err: unknown) {
         console.warn('Firestore status update failed:', err);
         const msg = err instanceof Error ? err.message : String(err);
-        window.alert(
+        await appAlert(
           `상태 저장에 실패했습니다. 화면은 바꾸지 않았습니다.\n인터넷 연결 후 다시 시도해 주세요.\n\n${msg}`
         );
       } finally {
@@ -514,7 +516,7 @@ export function useReservations({
         );
       } catch (err: unknown) {
         console.warn('Payment method update failed:', err);
-        window.alert('결제 상태 저장에 실패했습니다. 다시 시도해 주세요.');
+        await appAlert('결제 상태 저장에 실패했습니다. 다시 시도해 주세요.');
       }
     },
     [isEmployee, employeeName, isSuperAdmin]
@@ -573,7 +575,7 @@ export function useReservations({
       } catch (err) {
         console.warn('Reservation patch failed/offline:', err);
         const msg = err instanceof Error ? err.message : String(err);
-        window.alert(
+        await appAlert(
           `예약 정보 저장에 실패했습니다. 화면은 바꾸지 않았습니다.\n\n${msg}`
         );
         throw err;

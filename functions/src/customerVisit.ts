@@ -58,6 +58,8 @@ export async function bumpCustomerVisitOnCheckout(
   const now = new Date().toISOString();
   const resRef = admin.firestore().doc(`reservations/${reservationId}`);
   const custRef = admin.firestore().collection('customers').doc(phoneKey);
+  // 업체는 이 하위 문서(자기 업체 것)만 읽는다 — 다른 업체 방문 기록·손님 이름은 못 본다
+  const companyVisitRef = companyId ? custRef.collection('companyVisits').doc(companyId) : null;
 
   if (afterOut && !beforeOut) {
     await admin.firestore().runTransaction(async (tx) => {
@@ -98,6 +100,13 @@ export async function bumpCustomerVisitOnCheckout(
         });
       }
 
+      if (companyVisitRef) {
+        tx.set(
+          companyVisitRef,
+          { count: admin.firestore.FieldValue.increment(1), lastAt: now, updatedAt: now },
+          { merge: true }
+        );
+      }
       tx.update(resRef, { visitBumpedAt: now });
     });
     console.log('[customerVisit] bumped on checkout', { reservationId, phoneKey });
@@ -120,9 +129,45 @@ export async function bumpCustomerVisitOnCheckout(
         updatedAt: now,
       });
     }
+    if (companyVisitRef) {
+      tx.set(
+        companyVisitRef,
+        { count: admin.firestore.FieldValue.increment(-1), updatedAt: now },
+        { merge: true }
+      );
+    }
     tx.update(resRef, {
       visitBumpedAt: admin.firestore.FieldValue.delete(),
     });
   });
   console.log('[customerVisit] reverted on undo checkout', { reservationId, phoneKey });
+}
+
+/**
+ * 예전 customers 문서의 visits 맵 → 업체별 하위 문서(companyVisits/{companyId})로 옮겨 둔다.
+ * 매일 새벽 작업에서 조금씩. 옮긴 문서엔 companyVisitsSynced 표시.
+ */
+export async function backfillCustomerCompanyVisits(budget = 400): Promise<number> {
+  const db = admin.firestore();
+  const snap = await db.collection('customers').limit(2000).get();
+  let done = 0;
+  for (const doc of snap.docs) {
+    if (done >= budget) break;
+    const data = doc.data() || {};
+    if (data.companyVisitsSynced === true) continue;
+    const visits = data.visits && typeof data.visits === 'object' ? (data.visits as Record<string, unknown>) : {};
+    const batch = db.batch();
+    for (const [companyId, n] of Object.entries(visits)) {
+      if (!companyId || typeof n !== 'number') continue;
+      batch.set(
+        doc.ref.collection('companyVisits').doc(companyId),
+        { count: Math.max(0, Math.floor(n)), lastAt: data.lastAt || null, updatedAt: new Date().toISOString() },
+        { merge: false }
+      );
+    }
+    batch.update(doc.ref, { companyVisitsSynced: true });
+    await batch.commit();
+    done += 1;
+  }
+  return done;
 }

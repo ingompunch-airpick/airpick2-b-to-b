@@ -138,13 +138,17 @@ export async function fetchCustomerVisitCount(
   const cached = visitCountCache.get(cacheKey);
   if (cached) return cached;
   const pending = (async () => {
+    if (!company) return null;
     await ensureFirestoreAuth();
-    const snap = await getDoc(doc(db, 'customers', id));
-    if (!snap.exists()) return null;
-    const visits = snap.data()?.visits;
-    if (!company || !visits || typeof visits !== 'object') return null;
-    const n = (visits as Record<string, unknown>)[company];
-    return typeof n === 'number' && n >= 0 ? n : 0;
+    // 업체별 하위 문서만 읽는다 (다른 업체 방문 기록은 권한 없음). 아직 옮기기 전이면 null → 화면 목록으로 센다
+    try {
+      const snap = await getDoc(doc(db, 'customers', id, 'companyVisits', company));
+      if (!snap.exists()) return null;
+      const n = snap.data()?.count;
+      return typeof n === 'number' && n >= 0 ? n : 0;
+    } catch {
+      return null;
+    }
   })();
   visitCountCache.set(cacheKey, pending);
   pending.catch(() => {

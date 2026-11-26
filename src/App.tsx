@@ -48,6 +48,7 @@ import EditModal from './components/EditModal';
 import SearchReceptionView from './components/SearchReceptionView';
 import TimelineView from './components/TimelineView';
 import AdminReservationEditModal from './components/AdminReservationEditModal';
+import { appAlert, appConfirm, appPrompt } from './components/AppDialogHost';
 
 // --- Safe Storage Fallback for Sandboxed Web Views & Private Browsing Mode ---
 const safeStorage = (() => {
@@ -391,25 +392,25 @@ export default function App() {
     const id = driverDetailRes.id;
 
     if (st === 'pending_in') {
-      if (!window.confirm('「입고」를 취소하고 예약완료로 되돌릴까요?')) return;
+      if (!await appConfirm('「입고」를 취소하고 예약완료로 되돌릴까요?')) return;
       await handleUpdateValetStatus(id, 'pending');
     } else if (st === 'request_out') {
-      if (!window.confirm('「출고」를 취소하고 출고예정으로 되돌릴까요?')) return;
+      if (!await appConfirm('「출고」를 취소하고 출고예정으로 되돌릴까요?')) return;
       await handleUpdateValetStatus(id, 'completed_in');
     } else if (st === 'completed_in') {
       if (!isAdmin) {
-        window.alert('입고완료 되돌리기는 담당자만 할 수 있습니다.');
+        await appAlert('입고완료 되돌리기는 담당자만 할 수 있습니다.');
         return;
       }
-      if (!window.confirm('「입고완료」를 취소하고 입고(입고요청)로 되돌릴까요?')) return;
+      if (!await appConfirm('「입고완료」를 취소하고 입고(입고요청)로 되돌릴까요?')) return;
       await handleUpdateValetStatus(id, 'pending_in');
     } else if (st === 'completed_out') {
       if (!isAdmin) {
-        window.alert('출고완료 되돌리기는 담당자만 할 수 있습니다.');
+        await appAlert('출고완료 되돌리기는 담당자만 할 수 있습니다.');
         return;
       }
       if (
-        !window.confirm(
+        !await appConfirm(
           '「출고완료(반납)」를 취소하고 다시 출고로 되돌릴까요?\n(잘못 반납완료·테스트 정리용)'
         )
       ) {
@@ -428,7 +429,7 @@ export default function App() {
     const isTestHint =
       /test|테스트/i.test(driverDetailRes.userName || '') ||
       /test|테스트/i.test(driverDetailRes.carNumber || '');
-    const reason = window.prompt(
+    const reason = await appPrompt(
       '취소·무효 사유를 입력하세요\n(테스트 등록 / 잘못 출고 / 고객 취소 등)',
       isTestHint ? '테스트 예약 무효' : '현장 취소 처리'
     );

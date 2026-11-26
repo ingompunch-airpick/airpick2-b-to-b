@@ -26,6 +26,7 @@ import MetaField from './MetaField';
 import {
   resolveOperatorBrandLabel,
 } from '../utils/operatorBrandLabel';
+import { appAlert, appConfirm, appPrompt } from './AppDialogHost';
 
 function cn(...classes: (string | boolean | undefined | null)[]) {
   return classes.filter(Boolean).join(' ');
@@ -34,6 +35,11 @@ function cn(...classes: (string | boolean | undefined | null)[]) {
 /** 카드 뱃지 공통 틀. 색만 달라지고 크기·모서리는 같다. */
 const CARD_CHIP =
   'text-[12px] px-1.5 py-0.5 rounded-md font-semibold border shrink-0';
+/**
+ * 정보 칸은 같은 회색. 색은 구분이 필요한 것만:
+ * 에어픽(보라) · 터미널 T1(하늘)/할증 T2(노랑) · 미납(빨강)
+ */
+const CHIP_NEUTRAL = 'bg-white/[0.06] text-zinc-300 border-white/10';
 
 /** 타임라인 상태 버튼. 탭 글자만 다르고 모양·색은 같다. */
 const CARD_ACTION =
@@ -170,19 +176,11 @@ export default function ReservationCard({
             </span>
           )}
 
-          {facilityBadge.isIndoor ? (
-            <span className={cn(CARD_CHIP, 'bg-[#A855F7]/16 text-[#C084FC] border-[#A855F7]/35')}>
-              {facilityBadge.text}
-            </span>
-          ) : (
-            <span className={cn(CARD_CHIP, 'bg-[#22C55E]/14 text-[#4ADE80] border-[#22C55E]/32')}>
-              {facilityBadge.text}
-            </span>
-          )}
+          <span className={cn(CARD_CHIP, CHIP_NEUTRAL)}>{facilityBadge.text}</span>
 
           {/* 결제 칸 하나만: 에어픽 온라인 결제면 「에어픽 결제」(바꿀 수 없음), 아니면 미납·완납 */}
           {isOnlinePaid(res) ? (
-            <span className={cn(CARD_CHIP, 'bg-emerald-500/14 text-emerald-400 border-emerald-500/30')}>
+            <span className={cn(CARD_CHIP, CHIP_NEUTRAL)}>
               {res.payment?.status === 'refunded'
                 ? '환불됨'
                 : res.payment?.status === 'partial_refunded'
@@ -192,19 +190,17 @@ export default function ReservationCard({
           ) : onUpdatePayment && res.id ? (
             <button
               type="button"
-              onClick={(e) => {
+              onClick={async (e) => {
                 e.stopPropagation();
                 const next = showUnpaidBadge ? 'paid' : 'unpaid';
                 const label = next === 'paid' ? '완납' : '미납';
-                if (!window.confirm(`결제 상태를 「${label}」으로 바꿀까요?`)) return;
+                if (!await appConfirm(`결제 상태를 「${label}」으로 바꿀까요?`)) return;
                 void onUpdatePayment(res.id!, next);
               }}
               className={cn(
                 CARD_CHIP,
                 'cursor-pointer active:scale-95 transition-transform',
-                showUnpaidBadge
-                  ? 'bg-rose-500/14 text-rose-400 border-rose-500/30'
-                  : 'bg-emerald-500/14 text-emerald-400 border-emerald-500/30'
+                showUnpaidBadge ? 'bg-rose-500/14 text-rose-400 border-rose-500/30' : CHIP_NEUTRAL
               )}
               title={showUnpaidBadge ? '탭하면 완납으로 변경' : '탭하면 미납으로 변경'}
             >
@@ -217,11 +213,14 @@ export default function ReservationCard({
               </span>
             )
           )}
-          <CustomerVisitBadge
-            reservation={res}
-            pool={visitPool}
-            className={cn(CARD_CHIP, 'bg-emerald-500/14 text-emerald-400 border-emerald-500/30')}
-          />
+          {/* 방문 횟수는 관리자 화면에서만 (기사 화면은 칸 줄이기) */}
+          {isAdminModeActive ? (
+            <CustomerVisitBadge
+              reservation={res}
+              pool={visitPool}
+              className={cn(CARD_CHIP, CHIP_NEUTRAL)}
+            />
+          ) : null}
         </div>
 
         {/* 2nd Row: Plate + model (always together). Time on its own line to avoid wrap on narrow phones. */}
@@ -312,9 +311,9 @@ export default function ReservationCard({
               <button
                 type="button"
                 disabled={actionBusy}
-                onClick={() => {
+                onClick={async () => {
                   if (
-                    !window.confirm(
+                    !await appConfirm(
                       `반납완료 처리할까요?\n출차 후 차량 사진은 14일 뒤 삭제됩니다.`
                     )
                   ) {

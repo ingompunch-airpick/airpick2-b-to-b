@@ -13,6 +13,7 @@ import {
   isMultiOperatorScope,
   resolveOperatorBrandLabel,
 } from '../utils/operatorBrandLabel';
+import { appAlert, appConfirm, appPrompt } from './AppDialogHost';
 function cn(...classes: (string | boolean | undefined)[]) {
   return classes.filter(Boolean).join(' ');
 }
@@ -106,7 +107,7 @@ export default function AdminReservationEditModal({
 
   const handleSaveAdminReservationEdit = async () => {
     if (hasManualBreakdown && saveTotalPrice <= 0) {
-      if (!window.confirm('최종 합계가 0원입니다. 그대로 저장할까요?')) return;
+      if (!await appConfirm('최종 합계가 0원입니다. 그대로 저장할까요?')) return;
     }
 
     const updatePayload = {
@@ -315,7 +316,7 @@ export default function AdminReservationEditModal({
                 <button
                   type="button"
                   onClick={async () => {
-                    if (window.confirm("차량 상태를 출고요청으로 변경하시겠습니까? 즉시 반영됩니다.")) {
+                    if (await appConfirm("차량 상태를 출고요청으로 변경하시겠습니까? 즉시 반영됩니다.")) {
                       await handleUpdateValetStatus(targetReservationForEdit.id || '', 'request_out');
                     }
                   }}
@@ -328,7 +329,7 @@ export default function AdminReservationEditModal({
                 <button
                   type="button"
                   onClick={async () => {
-                    if (window.confirm("차량 상태를 출고완료로 변경하시겠습니까? 즉시 반영됩니다.")) {
+                    if (await appConfirm("차량 상태를 출고완료로 변경하시겠습니까? 즉시 반영됩니다.")) {
                       await handleUpdateValetStatus(targetReservationForEdit.id || '', 'completed_out', {
                         actualExitTime: getKSTDateTimeString()
                       });
@@ -359,8 +360,8 @@ export default function AdminReservationEditModal({
           </button>
           <button 
             type="button"
-            onClick={() => {
-              const reason = window.prompt("취소 사유를 입력해 주세요 (예: 고객 취소 요청)", "관리자 취소 처리");
+            onClick={async () => {
+              const reason = await appPrompt("취소 사유를 입력해 주세요 (예: 고객 취소 요청)", "관리자 취소 처리");
               if (reason !== null) {
                 handleUpdateValetStatus(targetReservationForEdit.id || '', 'cancelled', {
                   cancelReason: reason || "관리자 취소 처리",

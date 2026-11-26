@@ -533,10 +533,14 @@ service cloud.firestore {
     // ── customers (방문 횟수 — 전화 숫자 키) ───────────────────────────────
 
     match /customers/{phoneKey} {
-      // 전화번호 1건 조회(get)만 업체 허용. 전체 목록(list)은 본사만 — 업체끼리 고객 목록 열람 방지.
-      allow get: if isPlatformAdmin() || isPartner();
-      allow list: if isPlatformAdmin();
+      // 손님 문서(이름·전 업체 방문 기록)는 본사만. 업체는 아래 자기 업체 방문 수만 읽는다.
+      allow get, list: if isPlatformAdmin();
       allow create, update, delete: if false;
+
+      match /companyVisits/{companyId} {
+        allow get: if isPlatformAdmin() || partnerCanAccessCompany(companyId);
+        allow list, create, update, delete: if false;
+      }
     }
 
     // ── companies ──────────────────────────────────────────────────────────

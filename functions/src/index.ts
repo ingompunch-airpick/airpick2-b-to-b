@@ -10,6 +10,7 @@ import { sweepReservationPasswords } from './reservations/reservationSecrets';
 import { backfillUpcomingCapacity } from './capacityAggregate';
 import { refreshAllParkingOccupancy } from './parkingOccupancy';
 import { backfillActiveReceiptLinkCodes } from './reservations/receiptLink';
+import { backfillCustomerCompanyVisits } from './customerVisit';
 export {
   reservationPayment,
   portoneWebhook,
@@ -139,6 +140,9 @@ export const purgeExpiredReservationData = onSchedule(
 
     const linkCodes = await backfillActiveReceiptLinkCodes();
     console.log('[purgeExpiredReservationData] receipt link codes stamped', linkCodes);
+
+    const visitDocs = await backfillCustomerCompanyVisits();
+    console.log('[purgeExpiredReservationData] customer company visits moved', visitDocs);
   }
 );
 
