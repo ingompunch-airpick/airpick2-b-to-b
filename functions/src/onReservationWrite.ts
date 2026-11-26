@@ -18,6 +18,8 @@ import { settlePointSpendOnCreate, syncPointsOnReservationUpdate } from './point
 import { checkB2cReservationPrice, recordPriceCheckIssue } from './reservations/priceCheck';
 import { isUnownedUserId, mergeMemberReservationId, stampKakaoOwner } from './members/reservationIds';
 import { ensureReceiptLinkCode, isReceiptLinkStampOnlyChange } from './reservations/receiptLink';
+import { isAwaitingPayment } from './payments/config';
+import { ensureAwaitingPayment } from './payments/reservationPayment';
 import {
   notifyPartnersNewReservation,
   notifyPartnersValetStatusChange,
@@ -113,6 +115,15 @@ export const onReservationSync = onDocumentWritten(
           err: err instanceof Error ? err.message : String(err),
         });
       }
+      // 온라인 결제 예약은 결제 대기(15분)로 잡고, 알림은 결제 확인 뒤에 보낸다
+      try {
+        afterData = await ensureAwaitingPayment(reservationId, afterData);
+      } catch (err) {
+        console.error('[payment] awaiting stamp failed', {
+          reservationId,
+          err: err instanceof Error ? err.message : String(err),
+        });
+      }
       try {
         const stamped = await stampKakaoOwner(reservationId, afterData);
         if (stamped) afterData = stamped;
@@ -142,13 +153,15 @@ export const onReservationSync = onDocumentWritten(
           err: err instanceof Error ? err.message : String(err),
         });
       }
-      try {
-        await notifyPartnersNewReservation(reservationId, afterData);
-      } catch (err) {
-        console.error('[partnerPush] failed', {
-          reservationId,
-          err: err instanceof Error ? err.message : String(err),
-        });
+      if (!isAwaitingPayment(afterData)) {
+        try {
+          await notifyPartnersNewReservation(reservationId, afterData);
+        } catch (err) {
+          console.error('[partnerPush] failed', {
+            reservationId,
+            err: err instanceof Error ? err.message : String(err),
+          });
+        }
       }
       if (!isUnownedUserId(afterData.userId) && afterData.memberProvider === 'kakao') {
         try {
@@ -205,13 +218,36 @@ export const onReservationSync = onDocumentWritten(
       }
     }
 
+    // 결제 확인 순간 = 손님 입장에선 예약 완료 → 업체 알림·예약 알림톡을 이때 보낸다
+    const paidStatus = (d: FirebaseFirestore.DocumentData | undefined) =>
+      (d?.payment as { status?: string } | undefined)?.status;
+    const justPaid =
+      !!beforeData &&
+      paidStatus(beforeData) !== 'paid' &&
+      paidStatus(afterData) === 'paid' &&
+      String(afterData.status || '') !== 'cancelled';
+    if (justPaid) {
+      try {
+        await notifyPartnersNewReservation(reservationId, afterData);
+      } catch (err) {
+        console.error('[partnerPush] paid notify failed', {
+          reservationId,
+          err: err instanceof Error ? err.message : String(err),
+        });
+      }
+    }
+
     // 알림톡 우선 — 시트 잠금/지연에 카톡이 묶이지 않게
-    await processReservationAlimtalk(
-      reservationId,
-      beforeData,
-      afterData,
-      buildNhnConfigFromEnv()
-    );
+    if (justPaid) {
+      await processReservationAlimtalk(reservationId, undefined, afterData, buildNhnConfigFromEnv());
+    } else if (!isAwaitingPayment(afterData)) {
+      await processReservationAlimtalk(
+        reservationId,
+        beforeData,
+        afterData,
+        buildNhnConfigFromEnv()
+      );
+    }
 
     await processReservationSheetsArchive(
       reservationId,

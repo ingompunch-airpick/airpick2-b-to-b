@@ -266,8 +266,19 @@ export function findNewIncomingReservations(
       ? filterReservationsForOperatorGroup(next, operatorCompanyIds)
       : next.filter((r) => reservationBelongsToCompany(r, companyId));
 
+  const prevById = new Map(prev.filter((r) => r.id).map((r) => [r.id as string, r]));
   return scoped.filter((r) => {
-    if (!r.id || prevIds.has(r.id)) return false;
+    if (!r.id) return false;
+    // 온라인 결제 대기 중엔 알리지 않고, 결제가 확인되는 순간 새 예약으로 알린다
+    if (r.payment?.status === 'awaiting') return false;
+    const before = prevById.get(r.id);
+    if (before) {
+      const justPaid = before.payment?.status === 'awaiting' && r.payment?.status === 'paid';
+      if (!justPaid || !isPending(r.status)) return false;
+      const paidMs = r.payment?.paidAt ? new Date(r.payment.paidAt).getTime() : NaN;
+      return !Number.isFinite(paidMs) || Date.now() - paidMs <= 2 * 60 * 1000;
+    }
+    if (prevIds.has(r.id)) return false;
     if (!isPending(r.status)) return false;
     // 재구독·부트스트랩 시 오래된 건 신규 알림으로 오인하지 않음 (2분 이내만)
     if (r.createdAt) {

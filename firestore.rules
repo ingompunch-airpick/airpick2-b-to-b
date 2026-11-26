@@ -260,6 +260,12 @@ service cloud.firestore {
           'pointSpendWon',
           'pointSpentWon',
           'pointsEarnedWon',
+          // 온라인 결제·환불 — 서버(Functions)만
+          'payment',
+          'paymentRequested',
+          'paymentRefund',
+          'paymentRefundClaim',
+          'paymentRefundError',
           'pointRefunded',
           'pointSpendSettled',
           'priceCheck',
@@ -312,6 +318,7 @@ service cloud.firestore {
         && validReservationWrite()
         && airpickB2cBookingWindowOk(request.resource.data)
         && !('priceCheck' in request.resource.data)
+        && !request.resource.data.keys().hasAny(['payment', 'paymentRefund', 'paymentRefundClaim', 'paymentRefundError'])
         && (
           isPlatformAdmin()
           // 업체는 자기 업체(와와 별칭·하위 업체 포함) 예약만 만든다
@@ -357,6 +364,12 @@ service cloud.firestore {
           || (
             validReservationWrite()
             && reservationProtectedFieldsUnchanged()
+            // 환불까지 끝난 취소 예약은 되살리지 않는다 (돈은 이미 돌려줌)
+            && !(
+              resource.data.get('paymentRefund', null) != null
+              && resource.data.status == 'cancelled'
+              && request.resource.data.status != 'cancelled'
+            )
             && (
               isPlatformAdmin()
               || (

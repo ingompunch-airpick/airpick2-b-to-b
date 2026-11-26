@@ -171,7 +171,12 @@ async function refundSpend(reservationId: string): Promise<void> {
     if (!data || String(data.status || '') !== 'cancelled') return;
     if (data.pointRefunded === true) return;
 
-    const spent = Math.floor(Number(data.pointSpentWon) || 0);
+    // 결제 예약을 부분 환불했으면 포인트도 같은 비율만 (대표 결정 2026-11-27)
+    const refundRatio =
+      typeof data.paymentRefund?.ratio === 'number'
+        ? Math.max(0, Math.min(1, data.paymentRefund.ratio))
+        : 1;
+    const spent = Math.floor((Math.floor(Number(data.pointSpentWon) || 0) * refundRatio));
     const uid = kakaoUid(data);
     if (uid && spent > 0) {
       const accRef = accountRef(uid);
@@ -188,7 +193,7 @@ async function refundSpend(reservationId: string): Promise<void> {
         at: now,
       });
     }
-    if (spent > 0) tx.update(ref, { pointRefunded: true });
+    if (spent > 0 || Number(data.pointSpentWon) > 0) tx.update(ref, { pointRefunded: true });
   });
 }
 

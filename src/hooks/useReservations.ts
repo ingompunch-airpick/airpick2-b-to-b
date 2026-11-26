@@ -394,6 +394,25 @@ export function useReservations({
     ) => {
       if (!resId) return;
       if (statusUpdateInFlightRef.current.has(resId)) return;
+
+      // 에어픽에서 결제한 예약을 취소하면 서버가 손님에게 전액 환불한다 — 한 번 더 확인
+      const paidTarget = allReservations.find((r) => r.id === resId);
+      if (nextStatus === 'cancelled' && paidTarget?.payment?.status === 'paid') {
+        const amount = Number(paidTarget.payment.amount) || 0;
+        const ok = window.confirm(
+          `에어픽에서 결제한 예약입니다.\n취소하면 손님에게 ${amount.toLocaleString()}원이 전액 환불됩니다.\n취소할까요?`
+        );
+        if (!ok) return;
+      }
+      // 환불까지 끝난 취소 예약은 되살릴 수 없다 (서버 규칙도 막음)
+      if (
+        paidTarget?.status === 'cancelled' &&
+        nextStatus !== 'cancelled' &&
+        paidTarget.paymentRefund
+      ) {
+        window.alert('결제가 환불된 예약이라 되살릴 수 없습니다. 손님이 새로 예약해야 합니다.');
+        return;
+      }
       statusUpdateInFlightRef.current.add(resId);
 
       const operatorName = resolveOperatorLabel({ isEmployee, employeeName, isSuperAdmin });

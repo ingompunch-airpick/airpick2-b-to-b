@@ -395,6 +395,10 @@ export interface Reservation {
   
   // Custom driver-focused fields
   paymentMethod?: PaymentMethod;
+  /** 에어픽 온라인 결제 (서버만 씀) — awaiting(결제 대기 15분) · paid · refunded · partial_refunded · expired */
+  payment?: { status?: string; amount?: number; paidAt?: string };
+  /** 온라인 결제 환불 기록 */
+  paymentRefund?: { won?: number; ratio?: number; source?: string; at?: string };
   paymentAmount?: number;
   paymentNotes?: string;
   scratchPhotos?: ScratchPhotoSet;

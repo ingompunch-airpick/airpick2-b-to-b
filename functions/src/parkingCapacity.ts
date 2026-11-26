@@ -110,7 +110,9 @@ function occupiesDay(
  */
 export async function enforceParkingCapacityOnCreate(
   reservationId: string,
-  data: FirebaseFirestore.DocumentData
+  data: FirebaseFirestore.DocumentData,
+  /** dryRun: 넘치는지만 보고 문서는 지우지 않는다 (늦게 들어온 결제 되살리기용) */
+  opts: { dryRun?: boolean } = {}
 ): Promise<boolean> {
   const companyId = String(data.companyId || '').trim();
   const departureDate =
@@ -172,6 +174,7 @@ export async function enforceParkingCapacityOnCreate(
 
   if (!fullDate) return false;
 
+  if (opts.dryRun) return true;
   await rejectNewReservation(
     reservationId,
     'parkingCapacity',

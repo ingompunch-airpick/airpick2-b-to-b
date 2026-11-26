@@ -10,6 +10,12 @@ import { sweepReservationPasswords } from './reservations/reservationSecrets';
 import { backfillUpcomingCapacity } from './capacityAggregate';
 import { refreshAllParkingOccupancy } from './parkingOccupancy';
 import { backfillActiveReceiptLinkCodes } from './reservations/receiptLink';
+export {
+  reservationPayment,
+  portoneWebhook,
+  expireAwaitingPaymentsJob,
+  refundOnPartnerCancel,
+} from './payments/functions';
 import { runFlightDelayCheck } from './flightDelay/checkFlightDelays';
 import { adminUpsertCompany } from './admin/upsertCompany';
 import { adminSetCompanyStatus } from './admin/setCompanyStatus';

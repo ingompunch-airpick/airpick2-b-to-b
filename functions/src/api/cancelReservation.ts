@@ -3,6 +3,8 @@ import { onRequest } from 'firebase-functions/v2/https';
 import { logger } from 'firebase-functions';
 
 import { reservationPasswordMatches } from '../reservations/publicReservation';
+import { portoneApiSecret } from '../payments/config';
+import { customerRefundRatio, refundReservationPayment } from '../payments/reservationPayment';
 import { resolveReservationPassword } from '../reservations/reservationSecrets';
 import {
   assertPasswordAttemptAllowed,
@@ -46,7 +48,7 @@ async function resolveCancelCutoffHours(companyId: unknown): Promise<number> {
  * 클라이언트 화면만 막으면 API 직접 호출로 입고 완료된 차량까지 취소되므로 서버에서 다시 본다.
  */
 export const cancelReservation = onRequest(
-  { region: 'asia-northeast3', cors: true },
+  { region: 'asia-northeast3', cors: true, secrets: [portoneApiSecret] },
   async (req, res) => {
     if (req.method === 'OPTIONS') {
       res.status(204).send('');
@@ -115,6 +117,42 @@ export const cancelReservation = onRequest(
       }
 
       const checkIn = parseKstCheckIn(data.departureDate, data.departureTime);
+      const payment = (data.payment || {}) as { status?: string };
+
+      // 결제한 예약 — 환불 규정대로 바로 환불 (24시간 전 100% · 맡기기 전 50% · 그 뒤 셀프 취소 불가)
+      if (payment.status === 'paid') {
+        const ratio = checkIn ? customerRefundRatio(checkIn) : null;
+        if (ratio === null) {
+          res.status(409).json({ error: 'cancel_deadline_passed', cutoffHours: 0 });
+          return;
+        }
+        const refund = await refundReservationPayment(
+          id,
+          { ratio, reason: ratio >= 1 ? '손님 취소 전액 환불' : '손님 취소 50% 환불', source: 'customer' },
+          portoneApiSecret.value()
+        );
+        await ref.update({
+          status: 'cancelled',
+          cancelledAt: new Date().toISOString(),
+          cancelledBy: 'customer',
+        });
+        res.set('Cache-Control', 'private, no-store');
+        res.json({ ok: true, refundWon: refund?.won ?? 0, refundRatio: ratio });
+        return;
+      }
+      // 결제 전(결제 대기) — 돈이 안 나갔으니 그냥 취소
+      if (payment.status === 'awaiting') {
+        await ref.update({
+          status: 'cancelled',
+          cancelledAt: new Date().toISOString(),
+          cancelledBy: 'customer',
+          'payment.status': 'cancelled',
+        });
+        res.set('Cache-Control', 'private, no-store');
+        res.json({ ok: true, refundWon: 0 });
+        return;
+      }
+
       if (checkIn) {
         const cutoffHours = await resolveCancelCutoffHours(data.companyId);
         const deadline = checkIn.getTime() - cutoffHours * 60 * 60 * 1000;

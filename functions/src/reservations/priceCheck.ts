@@ -299,7 +299,8 @@ export async function checkB2cReservationPrice(
         (d) =>
           d.id !== reservationId &&
           won(d.data().signupCouponWon) > 0 &&
-          !/cancel/i.test(String(d.data().status || ''))
+          (!/cancel/i.test(String(d.data().status || '')) ||
+            (typeof d.data().paymentRefund?.ratio === 'number' && d.data().paymentRefund.ratio < 1))
       );
       if (used) issues.push('가입 쿠폰을 이미 쓴 회원의 재사용');
       else couponAllowedWon = Math.min(coupon, SIGNUP_COUPON_WON);

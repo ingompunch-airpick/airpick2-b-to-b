@@ -49,7 +49,9 @@ function statusIsCancelled(status: unknown): boolean {
  */
 export async function enforceHourlyCapacityOnCreate(
   reservationId: string,
-  data: FirebaseFirestore.DocumentData
+  data: FirebaseFirestore.DocumentData,
+  /** dryRun: 넘치는지만 보고 문서는 지우지 않는다 (늦게 들어온 결제 되살리기용) */
+  opts: { dryRun?: boolean } = {}
 ): Promise<boolean> {
   const companyId = String(data.companyId || '').trim();
   const departureDate = String(data.departureDate || '').trim();
@@ -95,6 +97,7 @@ export async function enforceHourlyCapacityOnCreate(
   // 이번 예약 포함 used — 한도 이하면 OK
   if (used <= max) return false;
 
+  if (opts.dryRun) return true;
   await rejectNewReservation(
     reservationId,
     'hourlyCapacity',

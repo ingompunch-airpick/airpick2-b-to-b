@@ -38,7 +38,9 @@ function statusIsCancelled(status: unknown): boolean {
  */
 export async function enforceDailyIntakeOnCreate(
   reservationId: string,
-  data: FirebaseFirestore.DocumentData
+  data: FirebaseFirestore.DocumentData,
+  /** dryRun: 넘치는지만 보고 문서는 지우지 않는다 (늦게 들어온 결제 되살리기용) */
+  opts: { dryRun?: boolean } = {}
 ): Promise<boolean> {
   const companyId = String(data.companyId || '').trim();
   const departureDate = String(data.departureDate || '').trim().slice(0, 10);
@@ -73,6 +75,7 @@ export async function enforceDailyIntakeOnCreate(
 
   if (used <= max) return false;
 
+  if (opts.dryRun) return true;
   await rejectNewReservation(
     reservationId,
     'dailyIntake',

@@ -160,6 +160,21 @@ export default function ReservationCard({
             </span>
           )}
 
+          {/* 에어픽 온라인 결제 — 결제 대기(15분 안에 안 내면 자동 취소) / 결제 완료 */}
+          {res.payment?.status === 'awaiting' ? (
+            <span className={cn(CARD_CHIP, 'bg-neutral-700/40 text-zinc-300 border-neutral-600')}>
+              결제 대기
+            </span>
+          ) : res.payment?.status === 'paid' ? (
+            <span className={cn(CARD_CHIP, 'bg-emerald-500/12 text-emerald-400 border-emerald-500/30')}>
+              결제 완료
+            </span>
+          ) : res.payment?.status === 'refunded' || res.payment?.status === 'partial_refunded' ? (
+            <span className={cn(CARD_CHIP, 'bg-rose-500/10 text-rose-300 border-rose-500/25')}>
+              {res.payment.status === 'refunded' ? '환불 완료' : '부분 환불'}
+            </span>
+          ) : null}
+
           {isSurchargeTerminal ? (
             <span className={cn(CARD_CHIP, 'bg-[#FFB800]/14 text-[#FFB800] border-[#FFB800]/30')}>
               {terminalBadgeText}
