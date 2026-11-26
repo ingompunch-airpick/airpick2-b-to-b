@@ -330,7 +330,8 @@ export type ReservationStatus =
   | 'completed_out' // 출차완료 (Returned to client / Completed)
   | 'cancelled';    // 취소
 
-export type PaymentMethod = 'cash' | 'account' | 'card' | 'prepaid' | 'unpaid' | 'paid';
+/** online·points = 에어픽 사이트에서 결제(서버가 기록) */
+export type PaymentMethod = 'cash' | 'account' | 'card' | 'prepaid' | 'unpaid' | 'paid' | 'online' | 'points';
 
 export interface ScratchPhotoSet {
   /** 스크래치·손상 사진 URL 목록 (장수 제한 없음) */

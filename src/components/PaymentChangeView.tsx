@@ -55,6 +55,9 @@ export default function PaymentChangeView({ onBack, reservations, onUpdatePaymen
         return { text: '계좌 이체', color: 'text-emerald-450/90 bg-emerald-500/5 border-emerald-500/15', icon: Landmark };
       case 'card':
         return { text: '카드 수납', color: 'text-sky-400/95 bg-sky-505/5 border-sky-500/15', icon: CreditCard };
+      case 'online':
+      case 'points':
+        return { text: '에어픽 결제', color: 'text-emerald-400/95 bg-emerald-500/5 border-emerald-500/15', icon: CheckCircle2 };
       case 'paid':
         return { text: '완납', color: 'text-emerald-400/95 bg-emerald-500/5 border-emerald-500/15', icon: CheckCircle2 };
       case 'unpaid':

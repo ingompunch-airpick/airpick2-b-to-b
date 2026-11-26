@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Reservation, ReservationStatus, PaymentMethod, type Company } from '../types';
-import { isReservationUnpaid } from '../utils/paymentStatus';
+import { isOnlinePaid, isReservationUnpaid } from '../utils/paymentStatus';
 import { isNotYetAdmitted, isPending, statusBadgeColorClass, statusToLabel } from '../utils/reservationStatus';
 import {
   bookingSourceBadgeClass,
@@ -160,21 +160,6 @@ export default function ReservationCard({
             </span>
           )}
 
-          {/* 에어픽 온라인 결제 — 결제 대기(15분 안에 안 내면 자동 취소) / 결제 완료 */}
-          {res.payment?.status === 'awaiting' ? (
-            <span className={cn(CARD_CHIP, 'bg-neutral-700/40 text-zinc-300 border-neutral-600')}>
-              결제 대기
-            </span>
-          ) : res.payment?.status === 'paid' ? (
-            <span className={cn(CARD_CHIP, 'bg-emerald-500/12 text-emerald-400 border-emerald-500/30')}>
-              결제 완료
-            </span>
-          ) : res.payment?.status === 'refunded' || res.payment?.status === 'partial_refunded' ? (
-            <span className={cn(CARD_CHIP, 'bg-rose-500/10 text-rose-300 border-rose-500/25')}>
-              {res.payment.status === 'refunded' ? '환불 완료' : '부분 환불'}
-            </span>
-          ) : null}
-
           {isSurchargeTerminal ? (
             <span className={cn(CARD_CHIP, 'bg-[#FFB800]/14 text-[#FFB800] border-[#FFB800]/30')}>
               {terminalBadgeText}
@@ -195,7 +180,16 @@ export default function ReservationCard({
             </span>
           )}
 
-          {onUpdatePayment && res.id ? (
+          {/* 결제 칸 하나만: 에어픽 온라인 결제면 「에어픽 결제」(바꿀 수 없음), 아니면 미납·완납 */}
+          {isOnlinePaid(res) ? (
+            <span className={cn(CARD_CHIP, 'bg-emerald-500/14 text-emerald-400 border-emerald-500/30')}>
+              {res.payment?.status === 'refunded'
+                ? '환불됨'
+                : res.payment?.status === 'partial_refunded'
+                  ? '부분 환불'
+                  : '에어픽 결제'}
+            </span>
+          ) : onUpdatePayment && res.id ? (
             <button
               type="button"
               onClick={(e) => {

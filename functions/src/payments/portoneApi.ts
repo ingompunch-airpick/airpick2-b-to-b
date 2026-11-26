@@ -30,7 +30,8 @@ async function call<T>(secret: string, path: string, init: RequestInit = {}): Pr
   const res = await fetch(`${BASE}${path}`, {
     ...init,
     headers: {
-      Authorization: `PortOne ${secret}`,
+      // 복사할 때 딸려 온 줄바꿈·공백이 있으면 포트원이 401 을 준다
+      Authorization: `PortOne ${secret.trim()}`,
       'Content-Type': 'application/json',
       ...(init.headers || {}),
     },
