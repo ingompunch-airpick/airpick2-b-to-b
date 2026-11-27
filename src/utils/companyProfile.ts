@@ -40,6 +40,9 @@ export interface PartnerProfileInput {
   insurancePeriodStart: string;
   /** 보험기간 만기 YYYY-MM-DD */
   insurancePeriodEnd: string;
+  /** 화면에 안 보이는 값 — 서류에서 읽은 피보험자·증권번호 (저장할 때 지워지지 않게 들고 다님) */
+  insuranceInsuredName: string;
+  insurancePolicyNumber: string;
   /** 사업자등록증 — http(s) 또는 data URL(저장 시 업로드) */
   businessRegistrationUrl: string;
   /** 주차장 계약서 — http(s) 또는 data URL(저장 시 업로드) */
@@ -96,6 +99,8 @@ export const DEFAULT_PARTNER_PROFILE: PartnerProfileInput = {
   insuranceCertificateUrl: '',
   insurancePeriodStart: '',
   insurancePeriodEnd: '',
+  insuranceInsuredName: '',
+  insurancePolicyNumber: '',
   businessRegistrationUrl: '',
   parkingContractUrl: '',
 };
@@ -257,6 +262,8 @@ export function readPartnerProfileFromCompany(company?: Company): PartnerProfile
   let insuranceCertificateUrl = '';
   let insurancePeriodStart = '';
   let insurancePeriodEnd = '';
+  let insuranceInsuredName = '';
+  let insurancePolicyNumber = '';
 
   if (raw.insurance && typeof raw.insurance === 'object') {
     const ins = raw.insurance as CompanyInsurance;
@@ -267,6 +274,8 @@ export function readPartnerProfileFromCompany(company?: Company): PartnerProfile
     insuranceCertificateUrl = ins.certificateUrl?.trim() || '';
     insurancePeriodStart = normalizeIsoDate(ins.periodStart);
     insurancePeriodEnd = normalizeIsoDate(ins.periodEnd);
+    insuranceInsuredName = String(ins.insuredName || '').trim();
+    insurancePolicyNumber = String(ins.policyNumber || '').trim();
   } else if (raw.hasInsurance === false) {
     insuranceEnrolled = false;
   } else if (raw.insuranceProvider || raw.insuranceLimit) {
@@ -297,6 +306,8 @@ export function readPartnerProfileFromCompany(company?: Company): PartnerProfile
     insuranceCertificateUrl,
     insurancePeriodStart,
     insurancePeriodEnd,
+    insuranceInsuredName,
+    insurancePolicyNumber,
     businessRegistrationUrl: verificationDocuments?.businessRegistrationUrl?.trim() || '',
     // 주차장 계약서는 2026-11-14부터 받지 않음 (화면 제거). 기존 값은 읽지 않는다.
     parkingContractUrl: '',
@@ -343,6 +354,8 @@ export function buildInsurancePayload(input: PartnerProfileInput): {
     certificateUrl,
     periodStart,
     periodEnd,
+    insuredName: input.insuranceInsuredName.trim() || undefined,
+    policyNumber: input.insurancePolicyNumber.trim() || undefined,
     updatedAt: new Date().toISOString(),
   };
 

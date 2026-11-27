@@ -81,6 +81,8 @@ export default function DocumentAutoImport({
         insurancePeriodStart: s.periodStart || cur.insurancePeriodStart,
         insurancePeriodEnd: s.periodEnd || cur.insurancePeriodEnd,
         insuranceCertificateUrl: r.publicUrl || cur.insuranceCertificateUrl,
+        insuranceInsuredName: r.insurance?.insuredName || cur.insuranceInsuredName,
+        insurancePolicyNumber: r.insurance?.policyNumber || cur.insurancePolicyNumber,
       });
     } else {
       return;

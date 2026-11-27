@@ -145,6 +145,8 @@ export interface Company {
   insurance?: CompanyInsurance;
   /** 본사가 직접 확인한 기록 — 본사만 쓴다(규칙). 손님 앱·업체 페이지 「에어픽 확인」 */
   verification?: CompanyVerification;
+  /** 사업자등록증에서 읽은 상호·번호·대표 (서류함이 저장) */
+  businessRegistration?: CompanyBusinessRegistration;
   hasInsurance?: boolean;
   insuranceProvider?: string;
   insuranceLimit?: number;
@@ -289,6 +291,19 @@ export interface CompanyInsurance {
   periodStart?: string;
   /** 보험기간 만기 YYYY-MM-DD — 지나면 손님 앱에 「갱신 확인 중」 */
   periodEnd?: string;
+  /** 증권의 피보험자 상호 — 서류함이 갱신 서류를 같은 업체에 붙일 때 */
+  insuredName?: string;
+  /** 증권번호 */
+  policyNumber?: string;
+  updatedAt?: string;
+}
+
+/** 사업자등록증에서 읽은 값 (서류함) */
+export interface CompanyBusinessRegistration {
+  name?: string;
+  /** 123-45-67890 */
+  number?: string;
+  representative?: string;
   updatedAt?: string;
 }
 

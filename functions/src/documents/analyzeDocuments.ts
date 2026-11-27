@@ -33,6 +33,8 @@ const GEMINI_LOCATION = 'asia-northeast1';
 const MAX_FILES = 8;
 const MAX_BYTES = 15 * 1024 * 1024;
 const MAX_EDGE = 2400;
+/** 서류함 — 업체를 아직 모르는 서류를 두는 곳 (companyDocuments/_inbox/…) */
+export const INBOX_ID = '_inbox';
 
 const auth = new GoogleAuth({ scopes: ['https://www.googleapis.com/auth/cloud-platform'] });
 
@@ -118,11 +120,12 @@ const PROMPT = `이 파일은 인천공항 주차대행 업체가 플랫폼 입�
 - docTitle: 서류 맨 위 제목 그대로
 - business: name(상호), registrationNumber(등록번호), representative(대표자), address(사업장 소재지)
 - insurance: insurer(보험회사), productName(보험종목·상품명), insuredName(피보험자),
-  insuredBusinessNumber(피보험자 사업자번호), periodStart·periodEnd(보험기간 시작·끝, YYYY-MM-DD),
+  insuredBusinessNumber(피보험자 사업자번호), policyNumber(증권번호·계약번호), periodStart·periodEnd(보험기간 시작·끝, YYYY-MM-DD),
   coverageEnd(담보별 유효기간 중 가장 이른 끝 날짜. 보험기간 끝과 같으면 빈 문자열),
   limitSummary(보상한도 요약을 「대인 무한 · 대물 2억 · 자차 1천만」처럼 짧게. 1인당/1사고당이 나뉘면 1사고당)
 - unmaskedRrnCount: 뒷자리가 가려지지 않은 주민등록번호·외국인등록번호 개수 (예: 900101-1234567).
-  뒷자리가 *로 가려진 번호(710210-*******)는 세지 않는다.`;
+  뒷자리가 *로 가려진 번호(900101-*******)는 세지 않는다.
+- relatedNames: 서류에 나온 상호와 사람 이름을 모두(계약자·피보험자·운전자·대표자). 주민번호·전화번호는 넣지 않는다.`;
 
 const SCHEMA = {
   type: 'OBJECT',
@@ -148,6 +151,7 @@ const SCHEMA = {
         productName: { type: 'STRING' },
         insuredName: { type: 'STRING' },
         insuredBusinessNumber: { type: 'STRING' },
+        policyNumber: { type: 'STRING' },
         periodStart: { type: 'STRING' },
         periodEnd: { type: 'STRING' },
         coverageEnd: { type: 'STRING' },
@@ -155,6 +159,7 @@ const SCHEMA = {
       },
     },
     unmaskedRrnCount: { type: 'INTEGER' },
+    relatedNames: { type: 'ARRAY', items: { type: 'STRING' } },
   },
   required: ['docType', 'docTitle', 'unmaskedRrnCount'],
 };
@@ -183,14 +188,14 @@ async function extractWithGemini(file: Buffer, mimeType: string, ocrText: string
 
 // ── 저장 ────────────────────────────────────────────────────────────────
 
-const PUBLIC_STEM: Record<DocType, string> = {
+export const PUBLIC_STEM: Record<DocType, string> = {
   business_registration: 'documents/business_registration',
   insurance_certificate: 'insurance/certificate',
   insurance_other: 'insurance/other',
   other: 'documents/other',
 };
 
-async function savePublicCopy(
+export async function savePublicCopy(
   companyId: string,
   docType: DocType,
   body: Buffer,
@@ -214,21 +219,21 @@ async function savePublicCopy(
 
 // ── 한 장 처리 ───────────────────────────────────────────────────────────
 
-interface FileResult {
+interface ReadResult {
   path: string;
   ok: boolean;
   error?: string;
-  docType?: DocType;
-  docTypeLabel?: string;
   extracted?: ExtractedDoc;
   rrnMasked: number;
   isPdf: boolean;
-  /** 가린 사본(사진) 또는 공개해도 되는 PDF — 손님 「원본 보기」 */
-  publicUrl?: string;
+  /** 손님에게 보여도 되는 몸통 — 사진은 주민번호를 가린 JPEG, PDF는 번호가 없을 때만 원본 */
+  body?: Buffer;
+  bodyType?: string;
 }
 
-async function processFile(companyId: string, path: string, index: number): Promise<FileResult> {
-  const base: FileResult = { path, ok: false, rrnMasked: 0, isPdf: false };
+/** 파일 하나 읽기 — 글자 위치로 주민번호를 가리고, AI로 종류·값을 읽는다. 저장은 하지 않는다. */
+export async function readDocument(path: string): Promise<ReadResult> {
+  const base: ReadResult = { path, ok: false, rrnMasked: 0, isPdf: false };
   try {
     const file = admin.storage().bucket().file(path);
     const [meta] = await file.getMetadata();
@@ -246,11 +251,14 @@ async function processFile(companyId: string, path: string, index: number): Prom
       );
       const extracted = await extractWithGemini(raw, 'application/pdf', ocrText);
       extracted.unmaskedRrnCount = Math.max(extracted.unmaskedRrnCount, rrnFound);
-      const publicUrl =
-        extracted.unmaskedRrnCount === 0 && extracted.docType !== 'other'
-          ? await savePublicCopy(companyId, extracted.docType, raw, 'application/pdf', index)
-          : undefined;
-      return { ...base, ok: true, isPdf: true, extracted, docType: extracted.docType, publicUrl };
+      const shareable = extracted.unmaskedRrnCount === 0 && extracted.docType !== 'other';
+      return {
+        ...base,
+        ok: true,
+        isPdf: true,
+        extracted,
+        ...(shareable ? { body: raw, bodyType: 'application/pdf' } : {}),
+      };
     }
 
     if (!contentType.startsWith('image/')) {
@@ -275,26 +283,50 @@ async function processFile(companyId: string, path: string, index: number): Prom
       : jpeg;
 
     const extracted = await extractWithGemini(jpeg, 'image/jpeg', ocr.text || '');
-    const publicUrl =
-      extracted.docType !== 'other'
-        ? await savePublicCopy(companyId, extracted.docType, masked, 'image/jpeg', index)
-        : undefined;
     return {
       ...base,
       ok: true,
       extracted,
-      docType: extracted.docType,
       rrnMasked: hits.length,
-      publicUrl,
+      ...(extracted.docType !== 'other' ? { body: masked, bodyType: 'image/jpeg' } : {}),
     };
   } catch (err) {
-    logger.warn('[analyzeCompanyDocuments] file failed', { path, err: String(err) });
+    logger.warn('[documents] read failed', { path, err: String(err) });
     const msg = String((err as { message?: string })?.message || err);
     const hint = /SERVICE_DISABLED|has not been used|is disabled/i.test(msg)
       ? 'Vision·Vertex AI API가 꺼져 있어요. 구글 클라우드에서 사용 설정해 주세요.'
       : '이 파일을 읽지 못했어요. 더 밝고 반듯하게 찍어서 다시 올려 주세요.';
     return { ...base, error: hint };
   }
+}
+
+export function responseFields(r: ReadResult, review?: DocReview) {
+  const docType = r.extracted?.docType;
+  return {
+    path: r.path,
+    ok: r.ok,
+    error: r.error,
+    docType,
+    docTypeLabel: docType ? DOC_TYPE_LABEL[docType] : undefined,
+    docTitle: r.extracted?.docTitle,
+    business: r.extracted?.business,
+    insurance: r.extracted?.insurance,
+    rrnMasked: r.rrnMasked,
+    warnings: review?.warnings || [],
+    notes: review?.notes || [],
+    suggestion: review?.suggestion || {},
+  };
+}
+
+export function checkPaths(raw: unknown, prefix: string): string[] {
+  const paths = (Array.isArray(raw) ? raw : [])
+    .map((p) => String(p || ''))
+    .filter((p) => p.startsWith(prefix) && !p.includes('..'));
+  if (!paths.length) throw new HttpsError('invalid-argument', '올린 파일이 없어요.');
+  if (paths.length > MAX_FILES) {
+    throw new HttpsError('invalid-argument', `한 번에 ${MAX_FILES}장까지 올릴 수 있어요.`);
+  }
+  return paths;
 }
 
 // ── 호출 ────────────────────────────────────────────────────────────────
@@ -304,24 +336,16 @@ export const analyzeCompanyDocuments = onCall(
   async (request) => {
     const data = (request.data || {}) as { companyId?: unknown; paths?: unknown };
     const companyId = String(data.companyId || '').trim();
-    if (!/^[a-z0-9_]{1,64}$/.test(companyId)) {
+    if (!/^[a-z0-9_]{1,64}$/.test(companyId) || companyId === INBOX_ID) {
       throw new HttpsError('invalid-argument', '업체 아이디가 올바르지 않아요.');
     }
     await assertCompanyAccess(request, companyId);
-
-    const prefix = `companyDocuments/${companyId}/`;
-    const paths = (Array.isArray(data.paths) ? data.paths : [])
-      .map((p) => String(p || ''))
-      .filter((p) => p.startsWith(prefix) && !p.includes('..'));
-    if (!paths.length) throw new HttpsError('invalid-argument', '올린 파일이 없어요.');
-    if (paths.length > MAX_FILES) {
-      throw new HttpsError('invalid-argument', `한 번에 ${MAX_FILES}장까지 올릴 수 있어요.`);
-    }
+    const paths = checkPaths(data.paths, `companyDocuments/${companyId}/`);
 
     const companySnap = await admin.firestore().doc(`companies/${companyId}`).get();
     const companyName = String(companySnap.get('name') || '').trim() || undefined;
 
-    const files = await Promise.all(paths.map((p, i) => processFile(companyId, p, i)));
+    const files = await Promise.all(paths.map((p) => readDocument(p)));
     const okFiles = files.filter((f) => f.ok && f.extracted);
     const reviews = reviewDocuments(
       okFiles.map((f) => ({ extracted: f.extracted!, rrnMasked: f.rrnMasked, isPdf: f.isPdf })),
@@ -330,26 +354,19 @@ export const analyzeCompanyDocuments = onCall(
     );
     const reviewByPath = new Map<string, DocReview>(okFiles.map((f, i) => [f.path, reviews[i]]));
 
-    return {
-      results: files.map((f) => {
-        const review = reviewByPath.get(f.path);
-        return {
-          path: f.path,
-          ok: f.ok,
-          error: f.error,
-          docType: f.docType,
-          docTypeLabel: f.docType ? DOC_TYPE_LABEL[f.docType] : undefined,
-          docTitle: f.extracted?.docTitle,
-          business: f.extracted?.business,
-          insurance: f.extracted?.insurance,
-          rrnMasked: f.rrnMasked,
-          publicUrl: f.publicUrl,
-          publishable: review ? review.publishable && !!f.publicUrl : false,
-          warnings: review?.warnings || [],
-          notes: review?.notes || [],
-          suggestion: review?.suggestion || {},
-        };
-      }),
-    };
+    const results = [];
+    for (const [i, f] of files.entries()) {
+      const review = reviewByPath.get(f.path);
+      const publicUrl =
+        f.body && f.bodyType && f.extracted
+          ? await savePublicCopy(companyId, f.extracted.docType, f.body, f.bodyType, i)
+          : undefined;
+      results.push({
+        ...responseFields(f, review),
+        publicUrl,
+        publishable: review ? review.publishable && !!publicUrl : false,
+      });
+    }
+    return { results };
   }
 );

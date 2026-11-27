@@ -158,3 +158,53 @@ test('경고 — 증권 아님·만기 지남·상호 다름·분납 만기·PDF
   assert.equal(reviews[2].suggestion.insurance, undefined); // 증권 아님 → 입력칸에 안 넣음
   assert.equal(reviews[3].publishable, false); // PDF에 주민번호
 });
+
+const { matchCompanies } = require('../lib/documents/match.js');
+
+const COMPANIES = [
+  { id: 'alpha', name: '알파 발렛', representative: '김하나' },
+  { id: 'beta', name: '베타 주차대행', representative: '이두리', businessNumber: '123-45-67890' },
+  { id: 'gamma', name: '감마 주차대행', representative: '박세찌' },
+  { id: 'gamma_sub', name: '감마투 주차대행', representative: '박세찌', parentCompanyId: 'gamma' },
+  { id: 'delta', name: '델타 주차대행', representative: '최네리', insuredName: '(주)델타모빌리티' },
+];
+
+const extracted = (over) => ({ docType: 'insurance_certificate', docTitle: '증권', unmaskedRrnCount: 0, relatedNames: [], ...over });
+
+test('업체 찾기 — 사업자번호가 가장 확실', () => {
+  const c = matchCompanies(
+    extracted({ docType: 'business_registration', business: { name: '전혀다른상호', registrationNumber: '123-45-67890' } }),
+    COMPANIES
+  );
+  assert.equal(c[0].companyId, 'beta');
+  assert.equal(c[0].selected, true);
+});
+
+test('업체 찾기 — 대표자 이름 하나만 맞으면 그 업체', () => {
+  const c = matchCompanies(extracted({ relatedNames: ['김하나', '홍길동'] }), COMPANIES);
+  assert.deepEqual(c.filter((x) => x.selected).map((x) => x.companyId), ['alpha']);
+});
+
+test('업체 찾기 — 대표가 같은 업체가 여럿이면 고르지 않고 후보만', () => {
+  const c = matchCompanies(extracted({ relatedNames: ['박세찌'] }), COMPANIES);
+  assert.equal(c.filter((x) => x.selected).length, 0);
+  assert.deepEqual(c.map((x) => x.companyId).sort(), ['gamma', 'gamma_sub']);
+});
+
+test('업체 찾기 — 상호가 맞으면 고르고, 같은 운영자 업체는 후보로', () => {
+  const c = matchCompanies(extracted({ insurance: { insuredName: '감마 주차대행' } }), COMPANIES);
+  const gamma = c.find((x) => x.companyId === 'gamma');
+  const sub = c.find((x) => x.companyId === 'gamma_sub');
+  assert.equal(gamma.selected, true);
+  assert.equal(sub.selected, false);
+  assert.ok(sub.reasons.includes('같은 운영자'));
+});
+
+test('업체 찾기 — 지난번 저장한 피보험자 상호로 갱신 서류를 붙인다', () => {
+  const c = matchCompanies(extracted({ insurance: { insuredName: '㈜델타모빌리티' } }), COMPANIES);
+  assert.deepEqual(c.filter((x) => x.selected).map((x) => x.companyId), ['delta']);
+});
+
+test('업체 찾기 — 아무것도 안 맞으면 빈 목록', () => {
+  assert.equal(matchCompanies(extracted({ relatedNames: ['아무개'] }), COMPANIES).length, 0);
+});

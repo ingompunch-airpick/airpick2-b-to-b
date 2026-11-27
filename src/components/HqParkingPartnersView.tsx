@@ -1,3 +1,4 @@
+import HqDocumentInbox from './HqDocumentInbox';
 import { useState, type ReactNode } from 'react';
 import type { AppView, Company, PartnerCompany, Reservation } from '../types';
 import AdminDashboard from './AdminDashboard';
@@ -6,7 +7,7 @@ import AcquisitionFunnelView from './AcquisitionFunnelView';
 import { writePartnersToStorage } from '../utils/partnerSync';
 import { AIRPICK_HQ_ID } from '../constants/platform';
 
-type TabId = 'board' | 'edit' | 'qr';
+type TabId = 'board' | 'inbox' | 'edit' | 'qr';
 
 type Props = {
   reservations: Reservation[];
@@ -38,7 +39,7 @@ function cn(...parts: Array<string | false | null | undefined>) {
 }
 
 /**
- * 본사 「주차 업체」 — 상태 · 등록·편집 · 명함 QR.
+ * 본사 「주차 업체」 — 상태 · 서류함 · 등록·편집 · 명함 QR.
  * 매출·예약 대시보드와 역할을 겹치지 않게 유지.
  */
 export default function HqParkingPartnersView({
@@ -75,6 +76,7 @@ export default function HqParkingPartnersView({
           {(
             [
               { id: 'board' as const, label: '상태' },
+              { id: 'inbox' as const, label: '서류함' },
               { id: 'edit' as const, label: '등록·편집' },
               { id: 'qr' as const, label: '명함 QR · B2C' },
             ] as const
@@ -114,6 +116,8 @@ export default function HqParkingPartnersView({
           }}
           onOpenReviews={onOpenReviews}
         />
+      ) : tab === 'inbox' ? (
+        <HqDocumentInbox companies={companies} />
       ) : tab === 'edit' ? (
         <div className="px-4 pt-3 pb-20">
           <AdminDashboard

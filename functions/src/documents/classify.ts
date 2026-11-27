@@ -30,6 +30,8 @@ export interface ExtractedInsurance {
   productName?: string;
   insuredName?: string;
   insuredBusinessNumber?: string;
+  /** 증권번호·계약번호 — 갱신 서류를 같은 업체에 붙일 때 */
+  policyNumber?: string;
   periodStart?: string;
   periodEnd?: string;
   /** 담보 유효기간 끝 — 분납 등으로 보험기간보다 짧을 때 */
@@ -46,6 +48,8 @@ export interface ExtractedDoc {
   insurance?: ExtractedInsurance;
   /** AI가 본 「가려지지 않은 주민등록번호」 개수 */
   unmaskedRrnCount: number;
+  /** 서류에 나온 상호·사람 이름(계약자·피보험자·운전자·대표자) — 업체 찾기용 */
+  relatedNames: string[];
 }
 
 /** 업체 정보 입력칸에 넣을 값 */
@@ -109,18 +113,27 @@ export function parseExtraction(text: string): ExtractedDoc {
     productName: str(i.productName, 80),
     insuredName: str(i.insuredName, 80),
     insuredBusinessNumber: businessNumber(i.insuredBusinessNumber),
+    policyNumber: str(i.policyNumber, 60),
     periodStart: normalizeDate(i.periodStart),
     periodEnd: normalizeDate(i.periodEnd),
     coverageEnd: normalizeDate(i.coverageEnd),
     limitSummary: str(i.limitSummary, 120),
   };
   const count = Number(raw.unmaskedRrnCount);
+  const relatedNames = Array.from(
+    new Set(
+      (Array.isArray(raw.relatedNames) ? raw.relatedNames : [])
+        .map((n) => str(n, 60))
+        .filter((n): n is string => !!n)
+    )
+  ).slice(0, 12);
   return {
     docType,
     docTitle: str(raw.docTitle, 60) || DOC_TYPE_LABEL[docType],
     ...(Object.values(business).some(Boolean) ? { business } : {}),
     ...(Object.values(insurance).some(Boolean) ? { insurance } : {}),
     unmaskedRrnCount: Number.isFinite(count) && count > 0 ? Math.floor(count) : 0,
+    relatedNames,
   };
 }
 

@@ -1,5 +1,5 @@
 import { httpsCallable } from 'firebase/functions';
-import { ref, uploadBytes } from 'firebase/storage';
+import { getDownloadURL, ref, uploadBytes } from 'firebase/storage';
 import { functionsSeoul, storage } from '../firebase';
 import { ensureFirestoreAuth } from './firebaseAuth';
 
@@ -23,6 +23,7 @@ export interface ImportedDocResult {
     productName?: string;
     insuredName?: string;
     insuredBusinessNumber?: string;
+    policyNumber?: string;
     periodStart?: string;
     periodEnd?: string;
     coverageEnd?: string;
@@ -86,4 +87,66 @@ export async function importCompanyDocuments(
     const msg = err instanceof Error ? err.message : String(err);
     throw new Error(msg || '서류를 읽지 못했어요.');
   }
+}
+
+// ── 본사 서류함 ──────────────────────────────────────────────────────────
+
+export interface InboxCandidate {
+  companyId: string;
+  name: string;
+  score: number;
+  reasons: string[];
+  selected: boolean;
+}
+
+export interface InboxDocResult extends Omit<ImportedDocResult, 'publicUrl'> {
+  /** 가린 사본 (본사만 열람) */
+  maskedPath?: string;
+  candidates: InboxCandidate[];
+}
+
+export interface InboxApplyItem {
+  maskedPath: string;
+  docType: 'business_registration' | 'insurance_certificate';
+  companyIds: string[];
+  business?: { name?: string; registrationNumber?: string; representative?: string };
+  insurance?: {
+    provider?: string;
+    productName?: string;
+    coverageLimitText?: string;
+    periodStart?: string;
+    periodEnd?: string;
+    insuredName?: string;
+    policyNumber?: string;
+  };
+}
+
+/** 서류함 — 업체 상관없이 올리고 읽기 (본사만) */
+export async function analyzeInboxDocuments(files: File[]): Promise<InboxDocResult[]> {
+  await ensureFirestoreAuth();
+  const list = files.slice(0, MAX_IMPORT_FILES);
+  const paths = await Promise.all(list.map((f, i) => uploadOriginal('_inbox', f, i)));
+  const call = httpsCallable<{ paths: string[] }, { results: InboxDocResult[] }>(
+    functionsSeoul,
+    'analyzeDocumentInbox',
+    { timeout: 300_000 }
+  );
+  return (await call({ paths })).data.results;
+}
+
+export async function applyInboxDocuments(
+  items: InboxApplyItem[]
+): Promise<Array<{ companyId: string; docType: string; ok: boolean; error?: string }>> {
+  await ensureFirestoreAuth();
+  const call = httpsCallable<
+    { items: InboxApplyItem[] },
+    { results: Array<{ companyId: string; docType: string; ok: boolean; error?: string }> }
+  >(functionsSeoul, 'applyInboxDocuments', { timeout: 120_000 });
+  return (await call({ items })).data.results;
+}
+
+/** 본사가 가린 사본을 미리 보기 */
+export async function inboxPreviewUrl(maskedPath: string): Promise<string> {
+  await ensureFirestoreAuth();
+  return getDownloadURL(ref(storage, maskedPath));
 }
