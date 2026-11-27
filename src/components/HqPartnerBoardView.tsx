@@ -8,6 +8,7 @@ import {
   type HqPartnerBoardFilter,
   type HqPartnerBoardRow,
 } from '../utils/hqPartnerBoard';
+import HqVerificationModal from './HqVerificationModal';
 
 function cn(...parts: Array<string | false | null | undefined>) {
   return parts.filter(Boolean).join(' ');
@@ -154,6 +155,29 @@ function ProfileChips({ row }: { row: HqPartnerBoardRow }) {
   );
 }
 
+const VERIFY_TONE: Record<HqPartnerBoardRow['verification']['tone'], string> = {
+  ok: 'bg-emerald-500/15 text-emerald-300',
+  warn: 'bg-amber-500/15 text-amber-300',
+  bad: 'bg-red-500/15 text-red-300',
+  muted: 'bg-neutral-800 text-zinc-300',
+};
+
+function VerificationChip({ row, onClick }: { row: HqPartnerBoardRow; onClick: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      title="사업자·보험·주차장·CCTV 확인"
+      className={cn(
+        'inline-flex whitespace-nowrap px-2.5 py-1 rounded-full text-[13px] font-black',
+        VERIFY_TONE[row.verification.tone]
+      )}
+    >
+      {row.verification.label}
+    </button>
+  );
+}
+
 function subLine(row: HqPartnerBoardRow): string {
   const parts = [row.id, row.airportLabel];
   if (row.parentCompanyName) parts.push(`${withParticle(row.parentCompanyName, '이', '가')} 운영`);
@@ -186,6 +210,8 @@ export default function HqPartnerBoardView({
   const [busyId, setBusyId] = useState<string | null>(null);
   const [filter, setFilter] = useState<HqPartnerBoardFilter>('all');
   const [pending, setPending] = useState<PendingChange | null>(null);
+  const [verifyId, setVerifyId] = useState<string | null>(null);
+  const verifyCompany = verifyId ? companies.find((c) => c.id === verifyId) || null : null;
   const allRows = useMemo(() => buildHqPartnerBoardRows(companies), [companies]);
   const summary = useMemo(() => summarizeHqPartnerBoard(allRows), [allRows]);
   const rows = useMemo(() => filterHqPartnerBoardRows(allRows, filter, ''), [allRows, filter]);
@@ -326,6 +352,7 @@ export default function HqPartnerBoardView({
                 <th className="py-3 pr-3 font-bold">마감 · 블락</th>
                 <th className="py-3 pr-3 font-bold">알림톡</th>
                 <th className="py-3 pr-3 font-bold">프로필</th>
+                <th className="py-3 pr-3 font-bold">에어픽 확인</th>
                 <th className="py-3" />
               </tr>
             </thead>
@@ -358,6 +385,9 @@ export default function HqPartnerBoardView({
                         <ProfileState row={row} />
                       )}
                     </td>
+                    <td className="py-4 pr-3">
+                      <VerificationChip row={row} onClick={() => setVerifyId(row.id)} />
+                    </td>
                     <td className="py-4 text-right">{remoteButton(row)}</td>
                   </tr>
                 );
@@ -385,6 +415,7 @@ export default function HqPartnerBoardView({
                     {rating(row)}
                     <span>{capLine(row)}</span>
                     <span>알림톡 {row.alimtalk.label}</span>
+                    <VerificationChip row={row} onClick={() => setVerifyId(row.id)} />
                   </div>
                   <div className="mt-2.5 flex items-center gap-2">
                     <ProfileChips row={row} />
@@ -408,6 +439,10 @@ export default function HqPartnerBoardView({
           </ul>
         </>
       )}
+
+      {verifyCompany ? (
+        <HqVerificationModal company={verifyCompany} onClose={() => setVerifyId(null)} />
+      ) : null}
 
       {pending && copy ? (
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 p-4">

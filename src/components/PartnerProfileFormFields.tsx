@@ -436,6 +436,37 @@ export default function PartnerProfileFormFields({
                 />
               </div>
             </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label htmlFor="insurance-period-start" className={labelCls}>
+                  보험 시작일
+                </label>
+                <input
+                  id="insurance-period-start"
+                  type="date"
+                  value={profile.insurancePeriodStart}
+                  onChange={(e) => set('insurancePeriodStart', e.target.value)}
+                  className={inputCls}
+                />
+              </div>
+              <div>
+                <label htmlFor="insurance-period-end" className={labelCls}>
+                  보험 만기일
+                </label>
+                <input
+                  id="insurance-period-end"
+                  type="date"
+                  value={profile.insurancePeriodEnd}
+                  min={profile.insurancePeriodStart || undefined}
+                  onChange={(e) => set('insurancePeriodEnd', e.target.value)}
+                  className={inputCls}
+                />
+              </div>
+            </div>
+            <p className={`-mt-1 text-[13px] font-medium ${hintCls}`}>
+              증권에 적힌 보험기간을 그대로 적어 주세요. 만기가 지나면 손님 앱에 「보험 갱신 확인 중」으로
+              바뀌어요.
+            </p>
             <div>
               <label className={labelCls}>보상 한도 · 손님 앱 노출</label>
               <input

@@ -134,9 +134,17 @@ service cloud.firestore {
         'insuranceProvider',
         'insuranceLimit',
         'verificationDocuments',
+        // 본사 「에어픽 확인」 — verificationOnlyHq()
+        'verification',
         'listingApproved',
         'updatedAt'
       ]);
+    }
+
+    /** 에어픽 확인 기록은 본사만 — 업체가 스스로 「확인 완료」를 달 수 없게 */
+    function verificationOnlyHq() {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(['verification'])
+        || isPlatformAdmin();
     }
 
     function listingApprovalOnlyHq() {
@@ -557,6 +565,7 @@ service cloud.firestore {
         && onlyPartnerOperationalFieldsChanged()
         && bookingSettingsShapeValid()
         && listingApprovalOnlyHq()
+        && verificationOnlyHq()
         && (
           isPlatformAdmin()
           || partnerCanAccessCompany(companyId)

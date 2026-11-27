@@ -14,6 +14,7 @@ import { backfillUpcomingCapacity } from './capacityAggregate';
 import { refreshAllParkingOccupancy } from './parkingOccupancy';
 import { backfillActiveReceiptLinkCodes } from './reservations/receiptLink';
 import { backfillCustomerCompanyVisits } from './customerVisit';
+import { runInsuranceExpiryCheck } from './ops/insuranceExpiry';
 export {
   reservationPayment,
   portoneWebhook,
@@ -171,6 +172,23 @@ export const drainSheetsQueue = onSchedule(
     if (result.queued || result.skipped) {
       console.log('[drainSheetsQueue]', JSON.stringify(result));
     }
+  }
+);
+
+/** 매일 08:47 KST — 입점업체 보험 만기 30·7·1일 전·당일·지남을 본사 메일 대기열에 남긴다. */
+export const checkInsuranceExpiryDaily = onSchedule(
+  {
+    schedule: '47 8 * * *',
+    timeZone: 'Asia/Seoul',
+    region: 'asia-northeast3',
+    memory: '256MiB',
+    timeoutSeconds: 60,
+    maxInstances: 1,
+    retryCount: 0,
+  },
+  async () => {
+    const result = await runInsuranceExpiryCheck();
+    if (result.notices) console.log('[checkInsuranceExpiry]', JSON.stringify(result));
   }
 );
 

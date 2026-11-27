@@ -36,6 +36,10 @@ export interface PartnerProfileInput {
   insuranceCoverageLimitText: string;
   /** 보험증권 이미지 — http(s) 또는 data URL(저장 시 업로드) */
   insuranceCertificateUrl: string;
+  /** 보험기간 시작 YYYY-MM-DD (비우면 미입력) */
+  insurancePeriodStart: string;
+  /** 보험기간 만기 YYYY-MM-DD */
+  insurancePeriodEnd: string;
   /** 사업자등록증 — http(s) 또는 data URL(저장 시 업로드) */
   businessRegistrationUrl: string;
   /** 주차장 계약서 — http(s) 또는 data URL(저장 시 업로드) */
@@ -90,9 +94,19 @@ export const DEFAULT_PARTNER_PROFILE: PartnerProfileInput = {
   insuranceProductName: '',
   insuranceCoverageLimitText: '',
   insuranceCertificateUrl: '',
+  insurancePeriodStart: '',
+  insurancePeriodEnd: '',
   businessRegistrationUrl: '',
   parkingContractUrl: '',
 };
+
+/** YYYY-MM-DD 만 통과. 그 밖의 값은 빈 문자열 */
+export function normalizeIsoDate(raw: unknown): string {
+  const s = String(raw ?? '').trim();
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return '';
+  const d = new Date(`${s}T00:00:00Z`);
+  return Number.isNaN(d.getTime()) || d.toISOString().slice(0, 10) !== s ? '' : s;
+}
 
 /** 폼·표시용 한도 문구. 텍스트 우선, 없으면 예전 숫자. */
 export function formatInsuranceCoverageLimit(
@@ -241,6 +255,8 @@ export function readPartnerProfileFromCompany(company?: Company): PartnerProfile
   let insuranceProductName = '';
   let insuranceCoverageLimitText = '';
   let insuranceCertificateUrl = '';
+  let insurancePeriodStart = '';
+  let insurancePeriodEnd = '';
 
   if (raw.insurance && typeof raw.insurance === 'object') {
     const ins = raw.insurance as CompanyInsurance;
@@ -249,6 +265,8 @@ export function readPartnerProfileFromCompany(company?: Company): PartnerProfile
     insuranceProductName = normalizeInsuranceProductName(ins.productName) || ins.productName || '';
     insuranceCoverageLimitText = formatInsuranceCoverageLimit(ins, raw.insuranceLimit as number | undefined);
     insuranceCertificateUrl = ins.certificateUrl?.trim() || '';
+    insurancePeriodStart = normalizeIsoDate(ins.periodStart);
+    insurancePeriodEnd = normalizeIsoDate(ins.periodEnd);
   } else if (raw.hasInsurance === false) {
     insuranceEnrolled = false;
   } else if (raw.insuranceProvider || raw.insuranceLimit) {
@@ -277,6 +295,8 @@ export function readPartnerProfileFromCompany(company?: Company): PartnerProfile
     insuranceProductName,
     insuranceCoverageLimitText,
     insuranceCertificateUrl,
+    insurancePeriodStart,
+    insurancePeriodEnd,
     businessRegistrationUrl: verificationDocuments?.businessRegistrationUrl?.trim() || '',
     // 주차장 계약서는 2026-11-14부터 받지 않음 (화면 제거). 기존 값은 읽지 않는다.
     parkingContractUrl: '',
@@ -309,6 +329,8 @@ export function buildInsurancePayload(input: PartnerProfileInput): {
   const asNumber =
     digitsOnly && /^\d+$/.test(digitsOnly) ? Number(digitsOnly) : undefined;
   const certificateUrl = input.insuranceCertificateUrl.trim() || undefined;
+  const periodStart = normalizeIsoDate(input.insurancePeriodStart) || undefined;
+  const periodEnd = normalizeIsoDate(input.insurancePeriodEnd) || undefined;
 
   const insurance: CompanyInsurance = {
     enrolled: true,
@@ -319,6 +341,8 @@ export function buildInsurancePayload(input: PartnerProfileInput): {
     coverageLimitWon:
       asNumber !== undefined && Number.isFinite(asNumber) ? asNumber : null,
     certificateUrl,
+    periodStart,
+    periodEnd,
     updatedAt: new Date().toISOString(),
   };
 
@@ -364,9 +388,21 @@ export function partnerOnboardingError(
   if (!input.insuranceProvider.trim()) return '보험사를 입력해 주세요.';
   if (!input.insuranceProductName.trim()) return '보험 종류를 입력해 주세요.';
   if (!input.insuranceCertificateUrl.trim()) return '보험 증권을 올려 주세요.';
+  const periodError = insurancePeriodError(input);
+  if (periodError) return periodError;
   const photos = input.imageUrls.length > 0 ? input.imageUrls : input.imageUrl ? [input.imageUrl] : [];
   if (photos.length === 0) return '주차장 사진을 1장 이상 올려 주세요.';
   return validatePartnerParkingLots({ ...input, insuranceEnrolled: true });
+}
+
+/** 보험기간 — 비워도 되지만, 적었다면 시작 ≤ 만기 */
+export function insurancePeriodError(input: PartnerProfileInput): string | null {
+  const start = normalizeIsoDate(input.insurancePeriodStart);
+  const end = normalizeIsoDate(input.insurancePeriodEnd);
+  if (input.insurancePeriodStart.trim() && !start) return '보험 시작일을 다시 골라 주세요.';
+  if (input.insurancePeriodEnd.trim() && !end) return '보험 만기일을 다시 골라 주세요.';
+  if (start && end && start > end) return '보험 만기일이 시작일보다 빨라요.';
+  return null;
 }
 
 export function validatePartnerParkingLots(input: PartnerProfileInput): string | null {

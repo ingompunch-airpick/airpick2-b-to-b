@@ -143,6 +143,8 @@ export interface Company {
   /** 사업자등록증·주차장 계약서 등 내부 심사용 서류 */
   verificationDocuments?: CompanyVerificationDocuments;
   insurance?: CompanyInsurance;
+  /** 본사가 직접 확인한 기록 — 본사만 쓴다(규칙). 손님 앱·업체 페이지 「에어픽 확인」 */
+  verification?: CompanyVerification;
   hasInsurance?: boolean;
   insuranceProvider?: string;
   insuranceLimit?: number;
@@ -283,7 +285,30 @@ export interface CompanyInsurance {
   coverageLimitWon?: number | null;
   /** 보험증권 이미지 URL (B2C 손님 상세에서 확인) */
   certificateUrl?: string;
+  /** 보험기간 시작 YYYY-MM-DD */
+  periodStart?: string;
+  /** 보험기간 만기 YYYY-MM-DD — 지나면 손님 앱에 「갱신 확인 중」 */
+  periodEnd?: string;
   updatedAt?: string;
+}
+
+/** 본사가 한 항목을 확인한 기록 */
+export interface VerificationCheck {
+  /** 확인한 시각 ISO */
+  verifiedAt: string;
+  /**
+   * 확인할 때 본 내용의 지문(서류 URL·보험기간·주차장 주소).
+   * 업체가 바꾸면 지문이 달라져 「다시 확인」이 된다.
+   */
+  basis?: string;
+}
+
+export interface CompanyVerification {
+  business?: VerificationCheck;
+  insurance?: VerificationCheck & { periodStart?: string; periodEnd?: string };
+  parking?: VerificationCheck;
+  /** CCTV — 운영 여부만 확인. 설치 위치는 공개하지 않는다 */
+  cctv?: VerificationCheck;
 }
 
 /** 입점 심사·내부 확인용 증명서류 (사업자등록증·주차장 계약서) */

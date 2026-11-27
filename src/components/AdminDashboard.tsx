@@ -54,6 +54,7 @@ import {
   profileExtrasForFirestore,
   readPartnerProfileFromCompany,
   validatePartnerParkingLots,
+  insurancePeriodError,
   type PartnerProfileInput,
 } from '../utils/companyProfile';
 import { preparePartnerProfileUploads } from '../lib/companyPhotos';
@@ -242,7 +243,7 @@ export default function AdminDashboard({
       return;
     }
 
-    const parkingErr = validatePartnerParkingLots(editSubProfile);
+    const parkingErr = validatePartnerParkingLots(editSubProfile) || insurancePeriodError(editSubProfile);
     if (parkingErr) {
       alert(parkingErr);
       return;
@@ -374,7 +375,7 @@ export default function AdminDashboard({
         return;
       }
 
-      const parkingErr = validatePartnerParkingLots(editProfile);
+      const parkingErr = validatePartnerParkingLots(editProfile) || insurancePeriodError(editProfile);
       if (parkingErr) {
         setSaveEditError(parkingErr);
         return;
@@ -638,7 +639,7 @@ export default function AdminDashboard({
       return;
     }
 
-    const parkingErr = validatePartnerParkingLots(newProfile);
+    const parkingErr = validatePartnerParkingLots(newProfile) || insurancePeriodError(newProfile);
     if (parkingErr) {
       alert(parkingErr);
       return;
@@ -731,7 +732,7 @@ export default function AdminDashboard({
       return;
     }
 
-    const parkingErr = validatePartnerParkingLots(newProfile);
+    const parkingErr = validatePartnerParkingLots(newProfile) || insurancePeriodError(newProfile);
     if (parkingErr) {
       alert(parkingErr);
       return;

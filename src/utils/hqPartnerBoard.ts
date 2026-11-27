@@ -2,6 +2,7 @@ import type { Company } from '../types';
 import { isAirpickHeadquarters } from '../constants/platform';
 import { readPartnerProfileFromCompany } from './companyProfile';
 import { getAirport, normalizeAirportId } from './airport';
+import { summarizeVerification, type VerificationSummary } from './verification';
 import {
   summarizeCompanyAlimtalkForBoard,
   type CompanyAlimtalkBoardSummary,
@@ -43,6 +44,8 @@ export interface HqPartnerBoardRow {
   /** 심사·시연용 업체 — 목록 맨 아래, 흐리게 */
   isDemo: boolean;
   alimtalk: CompanyAlimtalkBoardSummary;
+  /** 본사 「에어픽 확인」 요약 */
+  verification: VerificationSummary;
 }
 
 /** 심사·시연용 업체 (실제 영업 아님) */
@@ -133,6 +136,7 @@ export function buildHqPartnerBoardRows(companies: Company[]): HqPartnerBoardRow
         isDemo: isDemoCompanyId(company.id),
         isOperatorPrimary: company.isOperatorPrimary,
         alimtalk: summarizeCompanyAlimtalkForBoard(company.alimtalk),
+        verification: summarizeVerification(company),
       };
     })
     .sort((a, b) => Number(a.isDemo) - Number(b.isDemo) || a.name.localeCompare(b.name, 'ko'));
