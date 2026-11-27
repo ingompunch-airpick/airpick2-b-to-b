@@ -158,3 +158,6 @@ functions/lib/
 
 # Local store listing screenshots / marketing exports
 store-assets/
+
+# firebase 파라미터 값 (배포 때 자동 생성)
+functions/.env.airpick-reservation

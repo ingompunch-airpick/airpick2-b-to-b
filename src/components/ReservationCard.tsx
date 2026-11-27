@@ -36,10 +36,13 @@ function cn(...classes: (string | boolean | undefined | null)[]) {
 const CARD_CHIP =
   'text-[12px] px-1.5 py-0.5 rounded-md font-semibold border shrink-0';
 /**
- * 정보 칸은 같은 회색. 색은 구분이 필요한 것만:
- * 에어픽(보라) · 터미널 T1(하늘)/할증 T2(노랑) · 미납(빨강)
+ * 칩은 옅은 바탕 + 색 글자(입고 버튼보다 튀지 않게).
+ * T1 하늘 · T2 노랑 · 실내 연보라 · 야외 연초록 · 완납/에어픽 결제 연파랑 · 미납 빨강
  */
 const CHIP_NEUTRAL = 'bg-white/[0.06] text-zinc-300 border-white/10';
+const CHIP_INDOOR = 'bg-violet-400/10 text-violet-300 border-violet-400/25';
+const CHIP_OUTDOOR = 'bg-emerald-400/10 text-emerald-300 border-emerald-400/25';
+const CHIP_PAID = 'bg-blue-400/10 text-blue-300 border-blue-400/25';
 
 /** 타임라인 상태 버튼. 탭 글자만 다르고 모양·색은 같다. */
 const CARD_ACTION =
@@ -176,11 +179,11 @@ export default function ReservationCard({
             </span>
           )}
 
-          <span className={cn(CARD_CHIP, CHIP_NEUTRAL)}>{facilityBadge.text}</span>
+          <span className={cn(CARD_CHIP, facilityBadge.isIndoor ? CHIP_INDOOR : CHIP_OUTDOOR)}>{facilityBadge.text}</span>
 
           {/* 결제 칸 하나만: 에어픽 온라인 결제면 「에어픽 결제」(바꿀 수 없음), 아니면 미납·완납 */}
           {isOnlinePaid(res) ? (
-            <span className={cn(CARD_CHIP, CHIP_NEUTRAL)}>
+            <span className={cn(CARD_CHIP, CHIP_PAID)}>
               {res.payment?.status === 'refunded'
                 ? '환불됨'
                 : res.payment?.status === 'partial_refunded'
@@ -200,7 +203,7 @@ export default function ReservationCard({
               className={cn(
                 CARD_CHIP,
                 'cursor-pointer active:scale-95 transition-transform',
-                showUnpaidBadge ? 'bg-rose-500/14 text-rose-400 border-rose-500/30' : CHIP_NEUTRAL
+                showUnpaidBadge ? 'bg-rose-500/14 text-rose-400 border-rose-500/30' : CHIP_PAID
               )}
               title={showUnpaidBadge ? '탭하면 완납으로 변경' : '탭하면 미납으로 변경'}
             >
