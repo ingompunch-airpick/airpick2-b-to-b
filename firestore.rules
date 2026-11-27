@@ -90,6 +90,7 @@ service cloud.firestore {
         'parkingProducts',
         // employees 는 upsertCompanyEmployees (Admin SDK) 만
         'pickupLocation',
+        'driverPriceVisibility',
         'isOpen',
         'blockedDates',
         'blockedDatesIndoor',

@@ -120,6 +120,8 @@ export interface Company {
    * 예: T1 3번 출구, 실외 단기주차장 앞. 비우면 접수증에 연락 안내 표시.
    */
   pickupLocation?: string;
+  /** 기사 화면 금액: unpaid=미납일 때만(기본) · always=항상 · hidden=숨김. 관리자 화면은 항상 보임 */
+  driverPriceVisibility?: 'unpaid' | 'always' | 'hidden';
   /** B2B 마스터 — 시설 유형 */
   facilityType?: 'indoor' | 'outdoor' | 'mixed';
   /**

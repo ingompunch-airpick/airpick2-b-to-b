@@ -8,7 +8,7 @@ import {
   ChevronUp,
   ChevronDown
 } from 'lucide-react';
-import { doc, setDoc, deleteField } from 'firebase/firestore';
+import { doc, setDoc, updateDoc, deleteField } from 'firebase/firestore';
 import { db, handleFirestoreError, OperationType } from '../firebase';
 import TimePickerModal from './TimePickerModal';
 import ParkingProductsEditor from './ParkingProductsEditor';
@@ -281,6 +281,16 @@ const PARTNER_SETTINGS_TABS: { id: PartnerSettingsTab; label: string }[] = [
   { id: 'staff', label: '직원' },
 ];
 
+const DRIVER_PRICE_OPTIONS: {
+  value: NonNullable<Company['driverPriceVisibility']>;
+  label: string;
+  hint: string;
+}[] = [
+  { value: 'unpaid', label: '미납일 때만', hint: '현장에서 받아야 할 예약만 금액이 보여요.' },
+  { value: 'always', label: '항상', hint: '모든 예약 금액이 기사에게 보여요.' },
+  { value: 'hidden', label: '숨김', hint: '기사에게 금액이 안 보여요.' },
+];
+
 export default function MasterSettingsView({ 
   companyInfo, 
   onUpdateCompany,
@@ -545,6 +555,37 @@ export default function MasterSettingsView({
     () => (companies || []).find((c) => c.id === companyInfo.id),
     [companies, companyInfo.id]
   );
+  const [driverPriceOverride, setDriverPriceOverride] =
+    useState<Company['driverPriceVisibility']>(undefined);
+  const [driverPriceSaving, setDriverPriceSaving] = useState(false);
+  const driverPriceVisibility =
+    driverPriceOverride || currentCompany?.driverPriceVisibility || 'unpaid';
+  useEffect(() => setDriverPriceOverride(undefined), [companyInfo.id]);
+
+  const saveDriverPriceVisibility = async (
+    value: NonNullable<Company['driverPriceVisibility']>
+  ) => {
+    if (driverPriceSaving || value === driverPriceVisibility) return;
+    const prev = driverPriceVisibility;
+    setDriverPriceOverride(value);
+    setDriverPriceSaving(true);
+    try {
+      await ensureFirestoreAuth();
+      await updateDoc(doc(db, 'companies', companyInfo.id), { driverPriceVisibility: value });
+      if (onUpdateCompanies && companies) {
+        onUpdateCompanies(
+          companies.map((c) => (c.id === companyInfo.id ? { ...c, driverPriceVisibility: value } : c))
+        );
+      }
+    } catch (err: any) {
+      setDriverPriceOverride(prev);
+      handleFirestoreError(err, OperationType.WRITE, `companies/${companyInfo.id}`);
+      alert(`저장하지 못했습니다. 다시 눌러 주세요.\n오류: ${err?.message || String(err)}`);
+    } finally {
+      setDriverPriceSaving(false);
+    }
+  };
+
   const airportId = resolveCompanyAirportId(currentCompany);
   const airportShort = airportShortName(airportId);
   const airportTerminals = getAirportTerminals(airportId);
@@ -1189,6 +1230,33 @@ export default function MasterSettingsView({
               <p className="text-[12px] text-white/70 leading-relaxed">
                 직원 로그인 시 기사 모드로 진입합니다. 추가·삭제는 바로 저장됩니다.
               </p>
+
+              <div className="p-4 bg-[#131315] border border-neutral-850 rounded-2xl space-y-2.5">
+                <div className="text-[13px] font-bold text-white">기사 화면 금액</div>
+                <div className="grid grid-cols-3 gap-2">
+                  {DRIVER_PRICE_OPTIONS.map((opt) => {
+                    const on = driverPriceVisibility === opt.value;
+                    return (
+                      <button
+                        key={opt.value}
+                        type="button"
+                        disabled={driverPriceSaving}
+                        onClick={() => void saveDriverPriceVisibility(opt.value)}
+                        className={`rounded-xl border px-2 py-2.5 text-[13px] font-semibold transition-colors disabled:opacity-60 ${
+                          on
+                            ? 'bg-amber-500 text-neutral-950 border-amber-500'
+                            : 'bg-neutral-900 text-white/80 border-neutral-800'
+                        }`}
+                      >
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-[12px] text-white/60 leading-relaxed">
+                  {DRIVER_PRICE_OPTIONS.find((o) => o.value === driverPriceVisibility)?.hint} 관리자 화면에는 항상 보여요. 누르면 바로 저장돼요.
+                </p>
+              </div>
 
               <form onSubmit={handleAddEmployee} className="p-4 bg-[#131315] border border-neutral-850 rounded-2xl space-y-3.5">
                 <div className="text-[12.5px] font-bold text-white">신규 직원 등록</div>

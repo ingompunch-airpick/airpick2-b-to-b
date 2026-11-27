@@ -37,10 +37,10 @@ const CARD_CHIP =
   'text-[12px] px-1.5 py-0.5 rounded-md font-semibold border shrink-0';
 /**
  * 칩은 옅은 바탕 + 색 글자(입고 버튼보다 튀지 않게).
- * T1 하늘 · T2 노랑 · 실내 연보라 · 야외 연초록 · 완납/에어픽 결제 연파랑 · 미납 빨강
+ * T1 하늘 · T2 노랑 · 실내 연청록 · 야외 연초록 · 완납/에어픽 결제 연파랑 · 미납 빨강
  */
 const CHIP_NEUTRAL = 'bg-white/[0.06] text-zinc-300 border-white/10';
-const CHIP_INDOOR = 'bg-violet-400/10 text-violet-300 border-violet-400/25';
+const CHIP_INDOOR = 'bg-teal-400/10 text-teal-300 border-teal-400/25';
 const CHIP_OUTDOOR = 'bg-emerald-400/10 text-emerald-300 border-emerald-400/25';
 const CHIP_PAID = 'bg-blue-400/10 text-blue-300 border-blue-400/25';
 
@@ -99,6 +99,15 @@ export default function ReservationCard({
       setActionBusy(false);
     }
   };
+
+  // 기사 화면 금액: 업체 설정(하위 업체는 대표 업체 설정). 관리자 화면은 항상 보임
+  const priceVisibility = (() => {
+    const id = String(res.companyId || '').trim().toLowerCase();
+    const own = companies.find((c) => c.id.trim().toLowerCase() === id);
+    const parentId = String(own?.parentCompanyId || '').trim().toLowerCase();
+    const parent = parentId ? companies.find((c) => c.id.trim().toLowerCase() === parentId) : undefined;
+    return own?.driverPriceVisibility || parent?.driverPriceVisibility || 'unpaid';
+  })();
 
   // 실제 배정된 자리만 표시(없으면 생략). 실내/야외·lot 이름은 뱃지로
   const spaceRaw = (res.parkingSpace || '').trim();
@@ -339,6 +348,9 @@ export default function ReservationCard({
         )}
 
         {/* Quiet price — 하위 업체명은 뱃지 대신 가격 왼쪽 텍스트 */}
+        {(isAdminModeActive ||
+          priceVisibility === 'always' ||
+          (priceVisibility === 'unpaid' && showUnpaidBadge)) && (
         <div className={cn(
           'flex items-baseline justify-end gap-1.5 min-w-0',
           isExitScheduleNotAdmitted && 'opacity-40'
@@ -362,6 +374,7 @@ export default function ReservationCard({
             ) : null}
           </span>
         </div>
+        )}
       </div>
     </div>
   );
