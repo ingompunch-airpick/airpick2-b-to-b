@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useReservationRange, rangeAroundToday, monthRange } from '../contexts/ReservationRangeContext';
 import { 
   Coins, 
@@ -28,7 +28,7 @@ import {
   statusToLabel,
 } from '../utils/reservationStatus';
 import { normalizeDateString } from '../utils/reservationNormalize';
-import { getKSTDateOnlyString, toKSTDateOnlyString } from '../utils/kstDate';
+import { getKSTDateOnlyString, kstBusinessDay, shiftYmd, toKSTDateOnlyString } from '../utils/kstDate';
 import {
   fetchHqMonthSnapshot,
   monthStillInApp,
@@ -214,6 +214,9 @@ export default function StatisticsView({
   const [todayStr, setTodayStr] = useState(() => getKSTDateString());
   /** CRM 조회일 — 기본 오늘, 사용자가 다른 날 선택 가능 */
   const [crmDate, setCrmDate] = useState(() => getKSTDateString());
+  /** 본사 「일별」 탭이 보는 날 — 새벽 5시 전에는 전날. ◀ ▶로 지난 날도 본다 */
+  const [hqDay, setHqDay] = useState(() => kstBusinessDay());
+  const hqDayDefaultRef = useRef(hqDay);
   // 실시간 창 밖 날짜를 고르면 그 기간만 불러옴 (docs/work/reservation-load-plan.md)
   {
     const [cf, ct] = rangeAroundToday(crmDate, 30, 1);
@@ -222,7 +225,21 @@ export default function StatisticsView({
     useReservationRange(sf, st);
     const [hf, ht] = monthRange(hqMonthPrefix);
     useReservationRange(hf, ht);
+    const [df, dt] = rangeAroundToday(hqDay, 1, 1);
+    useReservationRange(df, dt);
   }
+
+  // 본사 일별: 기본 날짜(영업일)가 바뀌면, 그 날을 보고 있을 때만 따라간다 — 지난 날을 보는 중이면 유지
+  useEffect(() => {
+    const id = setInterval(() => {
+      const next = kstBusinessDay();
+      const prevDefault = hqDayDefaultRef.current;
+      if (next === prevDefault) return;
+      hqDayDefaultRef.current = next;
+      setHqDay((cur) => (cur === prevDefault ? next : cur));
+    }, 30_000);
+    return () => clearInterval(id);
+  }, []);
   const currentMonthPrefix = todayStr.substring(0, 7); // "2026-05"
 
   const multiOperatorScope = useMemo(
@@ -422,19 +439,27 @@ export default function StatisticsView({
 
     // Sum today's total revenue
     const masterTodaySales = masterActiveRes
-      .filter(r => reservationDepartureOn(r, todayStr))
+      .filter(r => reservationDepartureOn(r, hqDay))
       .reduce((sum, r) => sum + (r.totalPrice || 0), 0);
 
     // Sum today's total check-in count
     const masterTodayAdmitted = masterActiveRes.filter(r =>
-      reservationDepartureOn(r, todayStr) && isAdmitted(r.status)
+      reservationDepartureOn(r, hqDay) && isAdmitted(r.status)
     ).length;
 
     // Sum today's total check-out count
     const masterTodayExited = masterActiveRes.filter(r =>
-      reservationExitOn(r, todayStr) && r.status === 'completed_out'
+      reservationExitOn(r, hqDay) && r.status === 'completed_out'
     ).length;
 
+    /** 지금 영업일(또는 달력상 오늘)을 볼 때만 「주차중」 같은 현재 숫자를 보여준다 */
+    const hqDayIsLive = hqDay === hqDayDefaultRef.current || hqDay === todayStr;
+    const hqDayLabel =
+      hqDay === todayStr
+        ? '오늘'
+        : hqDay === shiftYmd(todayStr, -1)
+          ? '어제'
+          : `${Number(hqDay.slice(5, 7))}/${Number(hqDay.slice(8, 10))}`;
     const masterParkedNow = masterActiveRes.filter((r) => isParked(r.status)).length;
 
     const hqMonthMax = todayStr.substring(0, 7);
@@ -456,17 +481,17 @@ export default function StatisticsView({
         ? buildB2cCommissionRows(masterActiveRes, hqMonthPrefix, companies)
         : [];
     const hqCommissionSum = sumB2cCommissionRows(hqCommissionRows);
-    const hqTodayCompanyRows = buildHqTodayCompanyRows(masterActiveRes, todayStr, companies);
+    const hqTodayCompanyRows = buildHqTodayCompanyRows(masterActiveRes, hqDay, companies);
     const hqTodayFocusRows =
       hqTodayFocusId == null
         ? []
         : masterActiveRes.filter((r) => {
             if (!reservationMatchesCompanyId(r, hqTodayFocusId)) return false;
             return (
-              toKSTDateOnlyString(r.createdAt) === todayStr ||
-              normalizeDateString(r.departureDate) === todayStr ||
-              (exitDateYmd(r) === todayStr && r.status === 'completed_out') ||
-              isParked(r.status)
+              toKSTDateOnlyString(r.createdAt) === hqDay ||
+              normalizeDateString(r.departureDate) === hqDay ||
+              (exitDateYmd(r) === hqDay && r.status === 'completed_out') ||
+              (hqDayIsLive && isParked(r.status))
             );
           });
     // 상단 접수 = 업체별 접수 합 (집계 기준 불일치로 4 vs 3 나는 것 방지)
@@ -538,11 +563,55 @@ export default function StatisticsView({
 
     const hqTodaySourceMetrics = aggregateBookingSourceMetrics(
       masterActiveRes,
-      (r) => toKSTDateOnlyString(r.createdAt) === todayStr
+      (r) => toKSTDateOnlyString(r.createdAt) === hqDay
+    );
+
+    const hqDayPicker = (
+      <div className="flex items-center gap-2">
+        <div className="flex flex-1 items-center gap-1.5 bg-[#1C1C1E] border border-neutral-800/50 rounded-xl p-1">
+          <button
+            type="button"
+            onClick={() => setHqDay((d) => shiftYmd(d, -1))}
+            className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-neutral-800 transition-colors"
+            aria-label="전날"
+          >
+            <ChevronLeft size={18} />
+          </button>
+          <input
+            type="date"
+            value={hqDay}
+            max={todayStr}
+            onChange={(e) => {
+              const v = e.target.value;
+              if (v) setHqDay(v > todayStr ? todayStr : v);
+            }}
+            aria-label="볼 날짜"
+            className="flex-1 bg-transparent text-[15px] font-black text-amber-400 font-mono text-center outline-none [color-scheme:dark]"
+          />
+          <button
+            type="button"
+            disabled={hqDay >= todayStr}
+            onClick={() => setHqDay((d) => (d >= todayStr ? d : shiftYmd(d, 1)))}
+            className="p-1.5 rounded-lg text-zinc-400 hover:text-white hover:bg-neutral-800 transition-colors disabled:opacity-30 disabled:pointer-events-none"
+            aria-label="다음 날"
+          >
+            <ChevronRight size={18} />
+          </button>
+        </div>
+        {hqDay !== hqDayDefaultRef.current ? (
+          <button
+            type="button"
+            onClick={() => setHqDay(hqDayDefaultRef.current)}
+            className="shrink-0 rounded-xl border border-neutral-800 bg-[#1C1C1E] px-3 py-2.5 text-[14px] font-black text-zinc-200 hover:text-white"
+          >
+            지금
+          </button>
+        ) : null}
+      </div>
     );
 
     const hqTabs = [
-      { id: 'today' as const, label: '오늘' },
+      { id: 'today' as const, label: '일별' },
       { id: 'month' as const, label: '월간' },
       { id: 'acquisition' as const, label: '유입' },
       { id: 'settlement' as const, label: '정산' },
@@ -576,12 +645,18 @@ export default function StatisticsView({
 
         {hqTab === 'today' && (
           <div className="space-y-3">
+            {hqDayPicker}
+            {hqDay === shiftYmd(todayStr, -1) && hqDayIsLive ? (
+              <p className="px-1 text-[13px] font-bold text-zinc-500">
+                새벽 5시 전이라 어제 영업을 보여줘요. 5시가 지나면 오늘로 넘어가요.
+              </p>
+            ) : null}
             <div className="grid grid-cols-2 gap-2.5">
               {[
                 { label: '당일 예약', value: `${masterTodayReservations}건` },
                 { label: '입차', value: `${masterTodayAdmitted}대` },
                 { label: '출차', value: `${masterTodayExited}대` },
-                { label: '주차중', value: `${masterParkedNow}대` },
+                { label: '주차중 (지금)', value: hqDayIsLive ? `${masterParkedNow}대` : '—' },
               ].map((item) => (
                 <div
                   key={item.label}
@@ -595,13 +670,13 @@ export default function StatisticsView({
               ))}
             </div>
             <div className="bg-[#121214] border border-neutral-800/80 rounded-2xl px-4 py-3.5 flex items-center justify-between">
-              <span className="text-[13px] text-zinc-500 font-bold">오늘 매출</span>
+              <span className="text-[13px] text-zinc-500 font-bold">{hqDayLabel} 매출 · 입고일 기준</span>
               <span className="text-lg font-black text-white font-mono">
                 {masterTodaySales.toLocaleString()}원
               </span>
             </div>
             <div className="bg-[#121214] border border-neutral-800/80 rounded-2xl px-4 py-3 flex flex-wrap items-center gap-x-3 gap-y-1">
-              <span className="text-[13px] text-zinc-500 font-bold">오늘 접수</span>
+              <span className="text-[13px] text-zinc-500 font-bold">{hqDayLabel} 접수</span>
               {(
                 [
                   ['airpick-b2c', 'text-fuchsia-300'],
@@ -633,7 +708,7 @@ export default function StatisticsView({
                     { label: '당일 예약', value: row.received },
                     { label: '입차', value: row.admitted },
                     { label: '출차', value: row.exited },
-                    { label: '주차중', value: row.parked },
+                    { label: '주차중', value: hqDayIsLive ? row.parked : null },
                   ];
                   return (
                     <div
@@ -672,10 +747,10 @@ export default function StatisticsView({
                             <span className="text-[13px] text-zinc-500 font-bold block">{m.label}</span>
                             <span
                               className={`text-base font-black font-mono tracking-tight ${
-                                m.value > 0 ? 'text-amber-400' : 'text-zinc-600'
+                                m.value != null && m.value > 0 ? 'text-amber-400' : 'text-zinc-600'
                               }`}
                             >
-                              {m.value}
+                              {m.value ?? '—'}
                             </span>
                           </div>
                         ))}
@@ -684,7 +759,7 @@ export default function StatisticsView({
                         <div className="space-y-1.5 pt-1 border-t border-neutral-800">
                           {hqTodayFocusRows.length === 0 ? (
                             <p className="text-[13px] text-zinc-500 font-bold py-2">
-                              오늘 관련 예약이 없습니다.
+                              {hqDayLabel} 관련 예약이 없습니다.
                             </p>
                           ) : (
                             hqTodayFocusRows.map((r) => (

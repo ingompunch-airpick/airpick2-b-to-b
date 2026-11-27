@@ -31,3 +31,13 @@ export function shiftYmd(ymd: string, deltaDays: number): string {
   const next = new Date(Date.UTC(y, m - 1, d + deltaDays));
   return next.toISOString().slice(0, 10);
 }
+
+/**
+ * 본사 대시보드 「일별」 기본 날짜 — 새벽 5시 전에는 전날을 보여준다.
+ * 야간 운영(19:00~04:55)이 자정을 넘기 때문에, 0시가 지나도 그날 장사 숫자가 사라지지 않게. (2026-11-28)
+ */
+export const HQ_DAY_CUTOFF_HOUR = 5;
+
+export function kstBusinessDay(now: number = Date.now(), cutoffHour = HQ_DAY_CUTOFF_HOUR): string {
+  return new Date(now + (9 - cutoffHour) * 60 * 60 * 1000).toISOString().slice(0, 10);
+}
