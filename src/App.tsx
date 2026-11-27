@@ -271,6 +271,7 @@ export default function App() {
     handleUpdateValetStatus,
     handleUpdatePaymentMethod,
     handleUpdateReservationImages,
+    handleRemoveReservationPhoto,
     handlePatchReservationFields,
     countPending,
     countPendingIn,
@@ -910,6 +911,11 @@ export default function App() {
                     onBack={() => handleNavigate('timeline')}
                     reservations={visibleReservations}
                     onUpdateImages={handleUpdateReservationImages}
+                    onRemovePhoto={
+                      isSuperAdmin || (isAdmin && (!isEmployee || employeeRole === 'admin'))
+                        ? handleRemoveReservationPhoto
+                        : undefined
+                    }
                   />
                 </motion.div>
               )}

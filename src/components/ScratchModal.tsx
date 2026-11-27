@@ -451,9 +451,10 @@ export default function ScratchModal({
                         <button
                           type="button"
                           onClick={() => handleRemovePhoto(idx)}
-                          className="absolute top-1 right-1 bg-rose-600 hover:bg-rose-500 text-white p-1 rounded-full shadow-lg transition-all active:scale-90"
+                          className="absolute top-1 right-1 bg-rose-600 hover:bg-rose-500 text-white p-1.5 rounded-full shadow-lg transition-all active:scale-90"
+                          aria-label={`${idx + 1}번 사진 빼기`}
                         >
-                          <X size={8} className="stroke-[3.5]" />
+                          <X size={16} className="stroke-[3]" />
                         </button>
                       </div>
                     ))}

@@ -12,9 +12,11 @@ interface Props {
   onBack: () => void;
   reservations: Reservation[];
   onUpdateImages: (resId: string, imageUrls: string[]) => Promise<void>;
+  /** 대표·부관리자·본사만 — 입고 뒤 잘못 넣은 사진 빼기 */
+  onRemovePhoto?: (resId: string, url: string) => Promise<string[]>;
 }
 
-export default function VehiclePhotosView({ onBack, reservations, onUpdateImages }: Props) {
+export default function VehiclePhotosView({ onBack, reservations, onUpdateImages, onRemovePhoto }: Props) {
   const [tab, setTab] = useState<PhotoTab>('register');
 
   return (
@@ -73,7 +75,7 @@ export default function VehiclePhotosView({ onBack, reservations, onUpdateImages
             onUpdateImages={onUpdateImages}
           />
         ) : (
-          <PhotoSearchView reservations={reservations} />
+          <PhotoSearchView reservations={reservations} onRemovePhoto={onRemovePhoto} />
         )}
       </div>
     </div>

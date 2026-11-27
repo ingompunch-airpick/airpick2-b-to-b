@@ -1,7 +1,8 @@
 import { useMemo, useState } from 'react';
 import { getKSTDateOnlyString } from '../utils/kstDate';
 import { useReservationRange, rangeAroundToday } from '../contexts/ReservationRangeContext';
-import { Search, X, ImageIcon, Download, Loader2 } from 'lucide-react';
+import { Search, X, ImageIcon, Download, Loader2, Trash2 } from 'lucide-react';
+import { appAlert, appConfirm } from './AppDialogHost';
 import type { Reservation } from '../types';
 import { getReservationPhotoUrls } from '../utils/reservationPhotoDisplay';
 import { statusToLabel, normalizeReservationStatus } from '../utils/reservationStatus';
@@ -56,15 +57,39 @@ function matchesQuery(res: Reservation, query: string): boolean {
 
 function GalleryModal({
   res,
-  urls,
+  urls: initialUrls,
   onClose,
+  onRemovePhoto,
 }: {
   res: Reservation;
   urls: string[];
   onClose: () => void;
+  /** 관리자만 넘긴다. 없으면 삭제 버튼을 안 보인다 */
+  onRemovePhoto?: (resId: string, url: string) => Promise<string[]>;
 }) {
   const status = normalizeReservationStatus(res.status);
   const [downloading, setDownloading] = useState<'all' | number | null>(null);
+  const [urls, setUrls] = useState(initialUrls);
+  const [removing, setRemoving] = useState<number | null>(null);
+
+  const handleRemove = async (url: string, idx: number) => {
+    if (!onRemovePhoto || !res.id || removing !== null) return;
+    const ok = await appConfirm(
+      `${idx + 1}번 사진을 지울까요?\n손님 「내 예약」에서도 바로 빠지고, 되돌릴 수 없어요.\n(누가 언제 지웠는지는 기록됩니다)`,
+      { okLabel: '사진 지우기', danger: true }
+    );
+    if (!ok) return;
+    setRemoving(idx);
+    try {
+      const next = await onRemovePhoto(res.id, url);
+      setUrls(next);
+      if (next.length === 0) onClose();
+    } catch (err) {
+      await appAlert(`사진을 지우지 못했어요. 다시 시도해 주세요.\n${err instanceof Error ? err.message : ''}`);
+    } finally {
+      setRemoving(null);
+    }
+  };
 
   const carLabel = res.carNumber || '미등록';
 
@@ -152,6 +177,18 @@ function GalleryModal({
                 )}
                 저장
               </button>
+              {onRemovePhoto ? (
+                <button
+                  type="button"
+                  disabled={removing !== null}
+                  onClick={() => void handleRemove(url, idx)}
+                  className="absolute top-1.5 right-1.5 flex items-center gap-1 rounded-lg bg-rose-600/90 px-2.5 py-1.5 text-[13px] font-bold text-white disabled:opacity-50"
+                  aria-label={`${idx + 1}번 사진 지우기`}
+                >
+                  {removing === idx ? <Loader2 size={13} className="animate-spin" /> : <Trash2 size={13} />}
+                  지우기
+                </button>
+              ) : null}
             </div>
           ))}
         </div>
@@ -160,7 +197,13 @@ function GalleryModal({
   );
 }
 
-export default function PhotoSearchView({ reservations }: { reservations: Reservation[] }) {
+export default function PhotoSearchView({
+  reservations,
+  onRemovePhoto,
+}: {
+  reservations: Reservation[];
+  onRemovePhoto?: (resId: string, url: string) => Promise<string[]>;
+}) {
   const [query, setQuery] = useState('');
   const [dateRange, setDateRange] = useState<DateRange>('30d');
   {
@@ -268,7 +311,13 @@ export default function PhotoSearchView({ reservations }: { reservations: Reserv
       )}
 
       {selected && (
-        <GalleryModal res={selected.res} urls={selected.urls} onClose={() => setSelected(null)} />
+        <GalleryModal
+          key={selected.res.id}
+          res={selected.res}
+          urls={selected.urls}
+          onClose={() => setSelected(null)}
+          onRemovePhoto={onRemovePhoto}
+        />
       )}
     </div>
   );

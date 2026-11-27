@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { doc, updateDoc } from 'firebase/firestore';
-import { db, handleFirestoreError, OperationType, auth } from '../firebase';
+import { arrayUnion, doc, getDoc, updateDoc } from 'firebase/firestore';
+import { deleteObject, ref as storageRef } from 'firebase/storage';
+import { db, handleFirestoreError, OperationType, auth, storage } from '../firebase';
 import type { Company, CompanyInfo, PaymentMethod, Reservation, ReservationStatus } from '../types';
 import {
   filterReservationsForOperatorGroup,
@@ -18,6 +19,7 @@ import {
 import { buildCheckoutRetentionFields } from '../lib/reservationRetention';
 import { mergeReservationImageUrls } from '../lib/reservationPhotos';
 import { buildScratchPhotoSet } from '../lib/scratchPhotos';
+import { getReservationPhotoUrls } from '../utils/reservationPhotoDisplay';
 import { isAirpickHeadquarters } from '../constants/platform';
 import {
   ensureFirestoreAuth,
@@ -559,6 +561,42 @@ export function useReservations({
     [isEmployee, employeeName, isSuperAdmin]
   );
 
+  /**
+   * 잘못 넣은 차량 사진 1장 빼기 (관리자만 — 화면에서 막음).
+   * 예약의 사진 목록에서 빼고, 저장소 파일도 지우고, 누가 언제 뺐는지 photoDeletions 에 남긴다.
+   */
+  const handleRemoveReservationPhoto = useCallback(
+    async (resId: string, url: string) => {
+      const operatorName = resolveOperatorLabel({ isEmployee, employeeName, isSuperAdmin });
+      await ensureFirestoreAuth();
+      const resRef = doc(db, 'reservations', resId);
+      const snap = await getDoc(resRef);
+      if (!snap.exists()) throw new Error('예약을 찾지 못했습니다.');
+      const current = { ...(snap.data() as Reservation), id: resId };
+      const remaining = getReservationPhotoUrls(current).filter((u) => u !== url);
+      const now = new Date().toISOString();
+      const stamp = {
+        images: remaining,
+        scratchPhotos: buildScratchPhotoSet(remaining, true),
+        updatedBy: operatorName,
+        updatedAt: now,
+      };
+      await updateDoc(resRef, {
+        ...stamp,
+        // 주소의 열쇠(token)는 남기지 않는다
+        photoDeletions: arrayUnion({ path: url.split('?')[0], by: operatorName, at: now }),
+      });
+      try {
+        await deleteObject(storageRef(storage, url));
+      } catch (err) {
+        console.warn('[photo] storage delete failed', err);
+      }
+      setReservations((prev) => prev.map((r) => (r.id === resId ? { ...r, ...stamp } : r)));
+      return remaining;
+    },
+    [isEmployee, employeeName, isSuperAdmin]
+  );
+
   const handlePatchReservationFields = useCallback(
     async (resId: string, updateData: Partial<Reservation>) => {
       const current = allReservations.find((r) => r.id === resId);
@@ -695,6 +733,7 @@ export function useReservations({
     handleUpdateValetStatus,
     handleUpdatePaymentMethod,
     handleUpdateReservationImages,
+    handleRemoveReservationPhoto,
     handlePatchReservationFields,
     countPending,
     countPendingIn,
