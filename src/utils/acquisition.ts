@@ -31,6 +31,7 @@ export const ACQUISITION_SOURCE_LABELS: Record<string, string> = {
   kakao: '카카오톡',
   chatgpt: 'ChatGPT 광고',
   openai: 'ChatGPT 광고',
+  ai_agent: 'AI 비서·에이전트',
   other: '기타',
 };
 

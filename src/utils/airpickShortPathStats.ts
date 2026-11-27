@@ -38,6 +38,7 @@ const ORGANIC_SOURCE_LABELS: Record<string, string> = {
   naver_cafe: '네이버 카페',
   google: '구글',
   chatgpt: 'ChatGPT',
+  ai_agent: 'AI 비서·에이전트',
   perplexity: 'Perplexity',
   youtube: '유튜브',
   kakao: '카카오',

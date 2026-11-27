@@ -183,7 +183,7 @@ export default function ParkingProductsEditor({
             <div className="flex items-center justify-between gap-2">
               <span className="text-[13px] font-black text-white">
                 상품 {index + 1}
-                {p.hidden ? <span className="ml-2 text-[13px] text-zinc-500">비노출</span> : null}
+                {p.hidden ? <span className="ml-2 text-[13px] text-zinc-500">에어픽 앱에서 숨김</span> : null}
               </span>
               <div className="flex items-center gap-1.5">
                 <button
@@ -192,7 +192,7 @@ export default function ParkingProductsEditor({
                   className={`${chipBase} ${p.hidden ? chipOn : chipOff} inline-flex items-center gap-1`}
                 >
                   <EyeOff size={12} />
-                  {p.hidden ? '비노출 중' : '비노출'}
+                  {p.hidden ? '에어픽 앱에서 숨김 중' : '에어픽 앱에서 숨김'}
                 </button>
                 <button
                   type="button"
