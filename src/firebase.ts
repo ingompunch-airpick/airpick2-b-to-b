@@ -74,6 +74,8 @@ export const auth = getAuth(app);
 export const storage = getStorage(app, firebaseConfig.storageBucket);
 /** Callable — 기본 리전 us-central1 (Functions v2 기본과 동일) */
 export const functions = getFunctions(app);
+/** 서울 리전 Callable (서류 분석 등) */
+export const functionsSeoul = getFunctions(app, 'asia-northeast3');
 
 // --- Firestore Error Handling Enums and Interfaces ---
 export enum OperationType {

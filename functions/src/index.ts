@@ -15,6 +15,7 @@ import { refreshAllParkingOccupancy } from './parkingOccupancy';
 import { backfillActiveReceiptLinkCodes } from './reservations/receiptLink';
 import { backfillCustomerCompanyVisits } from './customerVisit';
 import { runInsuranceExpiryCheck } from './ops/insuranceExpiry';
+export { analyzeCompanyDocuments } from './documents/analyzeDocuments';
 export {
   reservationPayment,
   portoneWebhook,

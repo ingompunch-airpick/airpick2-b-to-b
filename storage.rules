@@ -73,6 +73,18 @@ service firebase.storage {
         && (isPlatformAdmin() || partnerCanWriteCompanyFiles(companyId));
     }
 
+    // 서류 원본(사업자등록증·보험증권 등) — 「서류 한 번에 올리기」. 본사와 해당 업체만 보고 올린다.
+    // 손님에게는 서버가 주민등록번호를 가린 사본(companies/{id}/…)만 나간다.
+    match /companyDocuments/{companyId}/{allPaths=**} {
+      allow read: if isPlatformAdmin() || partnerCanWriteCompanyFiles(companyId);
+      allow create: if isValidCompanyId(companyId)
+        && request.resource.size < 15 * 1024 * 1024
+        && (request.resource.contentType.matches('image/.*')
+          || request.resource.contentType == 'application/pdf')
+        && (isPlatformAdmin() || partnerCanWriteCompanyFiles(companyId));
+      allow update, delete: if isPlatformAdmin();
+    }
+
     // 후기 사진: reviews/{reservationId}/… — 공개 읽기(B2C), 쓰기는 Admin SDK만
     match /reviews/{reservationId}/{allPaths=**} {
       allow read: if true;

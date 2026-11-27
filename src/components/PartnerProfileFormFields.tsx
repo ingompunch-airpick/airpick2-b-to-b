@@ -3,6 +3,7 @@ import { ImagePlus, Loader2, X } from 'lucide-react';
 import type { FacilityType } from '../types';
 import type { PartnerProfileInput } from '../utils/companyProfile';
 import ParkingLotsFields from './ParkingLotsFields';
+import DocumentAutoImport from './DocumentAutoImport';
 import {
   MAX_PARKING_PHOTOS,
   normalizeCompanyParkingPhotos,
@@ -39,6 +40,14 @@ function withPhotos(profile: PartnerProfileInput, urls: string[]): PartnerProfil
     imageUrls,
     imageUrl: imageUrls[0] || '',
   };
+}
+
+function isPdfUrl(url: string): boolean {
+  try {
+    return /\.pdf(\?|$)/i.test(decodeURIComponent(url));
+  } catch {
+    return false;
+  }
 }
 
 type VerificationDocKey =
@@ -80,7 +89,18 @@ function VerificationDocumentSlot({
       <p className={labelCls}>{label}</p>
       {url ? (
         <div className="relative overflow-hidden rounded-lg ring-1 ring-slate-200 dark:ring-neutral-700">
-          <img src={url} alt={label} className="max-h-28 w-full object-contain bg-slate-50 dark:bg-neutral-900" />
+          {isPdfUrl(url) ? (
+            <a
+              href={url}
+              target="_blank"
+              rel="noreferrer"
+              className="flex min-h-[5.5rem] items-center justify-center text-[13px] font-bold underline underline-offset-2 text-sky-300"
+            >
+              PDF 열기
+            </a>
+          ) : (
+            <img src={url} alt={label} className="max-h-28 w-full object-contain bg-slate-50 dark:bg-neutral-900" />
+          )}
           <button
             type="button"
             onClick={onClear}
@@ -116,6 +136,7 @@ function VerificationDocumentSlot({
 export default function PartnerProfileFormFields({
   profile,
   onChange,
+  companyId,
   variant = 'light',
   insuranceRequired = false,
 }: Props) {
@@ -336,6 +357,13 @@ export default function PartnerProfileFormFields({
             parkingLots,
           })
         }
+        variant={variant}
+      />
+
+      <DocumentAutoImport
+        companyId={companyId}
+        profile={profile}
+        onChange={onChange}
         variant={variant}
       />
 
