@@ -28,8 +28,8 @@ import {
  */
 
 /** Gemini 3.5 Flash — 서울 리전에는 없어서 가장 가까운 도쿄에서 처리 (2026-11 기준) */
-const GEMINI_MODEL = 'gemini-3.5-flash';
-const GEMINI_LOCATION = 'asia-northeast1';
+export const GEMINI_MODEL = 'gemini-3.5-flash';
+export const GEMINI_LOCATION = 'asia-northeast1';
 const MAX_FILES = 8;
 const MAX_BYTES = 15 * 1024 * 1024;
 const MAX_EDGE = 2400;
@@ -38,7 +38,7 @@ export const INBOX_ID = '_inbox';
 
 const auth = new GoogleAuth({ scopes: ['https://www.googleapis.com/auth/cloud-platform'] });
 
-function projectId(): string {
+export function projectId(): string {
   return (
     process.env.GCLOUD_PROJECT ||
     process.env.GOOGLE_CLOUD_PROJECT ||
@@ -47,7 +47,7 @@ function projectId(): string {
   );
 }
 
-async function googlePost<T>(url: string, data: unknown): Promise<T> {
+export async function googlePost<T>(url: string, data: unknown): Promise<T> {
   const client = await auth.getClient();
   const res = await client.request<T>({ url, method: 'POST', data, timeout: 90_000 });
   return res.data;

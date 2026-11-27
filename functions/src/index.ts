@@ -17,6 +17,7 @@ import { backfillCustomerCompanyVisits } from './customerVisit';
 import { runInsuranceExpiryCheck } from './ops/insuranceExpiry';
 export { analyzeCompanyDocuments } from './documents/analyzeDocuments';
 export { analyzeDocumentInbox, applyInboxDocuments } from './documents/inbox';
+export { readItinerary } from './documents/itinerary';
 export {
   reservationPayment,
   portoneWebhook,
