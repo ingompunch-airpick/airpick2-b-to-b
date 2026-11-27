@@ -48,12 +48,12 @@ export default function AirlinePicker({
   const selectClass =
     tone === 'light'
       ? 'w-full min-h-12 rounded-lg border border-stone-200 bg-white px-3.5 py-3 text-base text-stone-900 outline-none focus:border-stone-400'
-      : 'w-full px-3 py-2 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-100 text-xs font-bold outline-none focus:border-amber-500';
+      : 'w-full px-3 py-2 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-100 text-[13px] font-bold outline-none focus:border-amber-500';
 
   const inputClass =
     tone === 'light'
       ? 'mt-2 w-full min-h-12 rounded-lg border border-stone-200 bg-white px-3.5 py-3 text-base text-stone-900 outline-none focus:border-stone-400'
-      : 'mt-2 w-full px-3 py-2 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-100 text-xs font-bold outline-none focus:border-amber-500';
+      : 'mt-2 w-full px-3 py-2 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-100 text-[13px] font-bold outline-none focus:border-amber-500';
 
   const selectValue = mode === 'other' ? OTHER_AIRLINE_VALUE : value;
 

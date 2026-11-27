@@ -740,7 +740,7 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
 
   if (loading) {
     return (
-      <div className="min-h-dvh bg-[#f4f0ea] flex items-center justify-center text-sm text-stone-500">
+      <div className="min-h-dvh bg-[#f4f0ea] flex items-center justify-center text-[15px] text-stone-500">
         예약 페이지 불러오는 중…
       </div>
     );
@@ -750,19 +750,19 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
     return (
       <div className="min-h-dvh bg-[#f4f0ea] flex flex-col items-center justify-center gap-2 px-6 text-center">
         <p className="text-lg font-bold text-stone-900">예약을 열 수 없습니다</p>
-        <p className="text-sm text-stone-500">{loadError || '업체 정보가 없습니다.'}</p>
+        <p className="text-[15px] text-stone-500">{loadError || '업체 정보가 없습니다.'}</p>
         <div className="mt-4 flex gap-2">
           <button
             type="button"
             onClick={() => window.location.reload()}
-            className="min-h-11 rounded-xl bg-stone-900 px-5 text-sm font-bold text-white"
+            className="min-h-11 rounded-xl bg-stone-900 px-5 text-[15px] font-bold text-white"
           >
             다시 불러오기
           </button>
           {entryReferrer ? (
             <a
               href={entryReferrer}
-              className="flex min-h-11 items-center rounded-xl bg-white px-5 text-sm font-bold text-stone-800 ring-1 ring-stone-200"
+              className="flex min-h-11 items-center rounded-xl bg-white px-5 text-[15px] font-bold text-stone-800 ring-1 ring-stone-200"
             >
               이전 페이지로
             </a>
@@ -780,22 +780,22 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
         <div className="mx-auto max-w-lg px-4 pb-16 pt-10 sm:px-5">
           <div className="overflow-hidden rounded-[1.75rem] bg-white shadow-[0_20px_50px_-28px_rgba(28,25,23,0.35)]">
             <div className="bg-gradient-to-br from-stone-900 via-stone-800 to-stone-700 px-6 pb-8 pt-8 text-white">
-              <p className="text-[11px] font-semibold tracking-[0.2em] text-stone-300">
+              <p className="text-[13px] font-semibold tracking-[0.2em] text-stone-300">
                 예약 완료
               </p>
               <h1 className="mt-2 text-3xl font-bold tracking-tight">{displayName}</h1>
-              <p className="mt-2 text-sm leading-relaxed text-stone-300">
+              <p className="mt-2 text-[15px] leading-relaxed text-stone-300">
                 예약이 접수되었습니다.
               </p>
             </div>
             <div className="space-y-5 px-6 py-6">
               <div className="flex items-end justify-between gap-4">
                 <div>
-                  <p className="text-xs font-medium text-stone-400">예약번호</p>
-                  <p className="mt-1 font-mono text-sm font-semibold text-stone-800">{done.id}</p>
+                  <p className="text-[13px] font-medium text-stone-400">예약번호</p>
+                  <p className="mt-1 font-mono text-[15px] font-semibold text-stone-800">{done.id}</p>
                 </div>
                 <div className="text-right">
-                  <p className="text-xs font-medium text-stone-400">예상 요금</p>
+                  <p className="text-[13px] font-medium text-stone-400">예상 요금</p>
                   <p className="mt-1 text-2xl font-bold tabular-nums tracking-tight">
                     {done.value.toLocaleString('ko-KR')}
                     <span className="ml-0.5 text-base font-semibold">원</span>
@@ -803,12 +803,12 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
                 </div>
               </div>
 
-              <dl className="space-y-3 border-t border-stone-100 pt-5 text-sm">
+              <dl className="space-y-3 border-t border-stone-100 pt-5 text-[15px]">
                 <div className="flex justify-between gap-4">
                   <dt className="shrink-0 text-stone-400">출국</dt>
                   <dd className="text-right font-medium text-stone-800">
                     {formatLocalDisplay(depLocal)}
-                    <span className="mt-0.5 block text-xs font-normal text-stone-500">
+                    <span className="mt-0.5 block text-[13px] font-normal text-stone-500">
                       {terminalDisplay(departureTerminal)}
                     </span>
                   </dd>
@@ -817,7 +817,7 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
                   <dt className="shrink-0 text-stone-400">입국</dt>
                   <dd className="text-right font-medium text-stone-800">
                     {formatLocalDisplay(arrLocal)}
-                    <span className="mt-0.5 block text-xs font-normal text-stone-500">
+                    <span className="mt-0.5 block text-[13px] font-normal text-stone-500">
                       {terminalDisplay(arrivalTerminal)}
                     </span>
                   </dd>
@@ -839,7 +839,7 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
               {done.receiptUrl ? (
                 <a
                   href={done.receiptUrl}
-                  className="flex min-h-12 items-center justify-center rounded-2xl bg-stone-900 text-sm font-bold text-white transition hover:bg-stone-800"
+                  className="flex min-h-12 items-center justify-center rounded-2xl bg-stone-900 text-[15px] font-bold text-white transition hover:bg-stone-800"
                 >
                   접수증 보기
                 </a>
@@ -852,14 +852,14 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
                     clearDoneSnapshot(company.id);
                     window.location.reload();
                   }}
-                  className="min-h-11 rounded-2xl bg-stone-100 text-sm font-bold text-stone-800"
+                  className="min-h-11 rounded-2xl bg-stone-100 text-[15px] font-bold text-stone-800"
                 >
                   새 예약하기
                 </button>
                 {entryReferrer ? (
                   <a
                     href={entryReferrer}
-                    className="flex min-h-11 items-center justify-center rounded-2xl bg-stone-100 text-sm font-bold text-stone-800"
+                    className="flex min-h-11 items-center justify-center rounded-2xl bg-stone-100 text-[15px] font-bold text-stone-800"
                   >
                     업체 홈으로
                   </a>
@@ -867,7 +867,7 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
                   <span />
                 )}
               </div>
-              <p className="text-center text-xs text-stone-400">
+              <p className="text-center text-[13px] text-stone-400">
                 자세한 내용은 접수증에서 확인할 수 있습니다.
                 <br />
                 문의{' '}
@@ -920,12 +920,12 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
                     window.history.back();
                   }
                 }}
-                className="mb-3 inline-flex items-center gap-1 text-xs font-semibold text-stone-300 hover:text-white"
+                className="mb-3 inline-flex items-center gap-1 text-[13px] font-semibold text-stone-300 hover:text-white"
               >
                 ‹ 업체 홈으로
               </a>
             ) : null}
-            <p className="text-xs font-semibold tracking-[0.18em] text-stone-300">
+            <p className="text-[13px] font-semibold tracking-[0.18em] text-stone-300">
               주차 예약
             </p>
             <h1 className="mt-2 text-[2rem] font-bold leading-tight tracking-tight sm:text-[2.15rem]">
@@ -975,7 +975,7 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
                   className={inputClass}
                   required
                 />
-                <p className="text-[13px] leading-relaxed text-stone-400">
+                <p className="text-[14px] leading-relaxed text-stone-400">
                   ※ 숫자만 입력해 주세요. · 통화 가능한 번호를 입력해 주세요.
                 </p>
               </div>
@@ -1010,7 +1010,7 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
                   )}
                 </div>
                 {showIndoor && showOutdoor && indoorClosed !== outdoorClosed ? (
-                  <p className="mt-2 text-[13px] font-medium text-stone-500">
+                  <p className="mt-2 text-[14px] font-medium text-stone-500">
                     {parkingSideClosedLabel(indoorClosed ? 'indoor' : 'outdoor')}
                   </p>
                 ) : null}
@@ -1036,7 +1036,7 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
                 emptyLabel="::: 항공사 선택 :::"
               />
               {departureTerminalHint ? (
-                <p className="mt-1.5 text-[12px] font-semibold leading-snug text-amber-700">{departureTerminalHint}</p>
+                <p className="mt-1.5 text-[13px] font-semibold leading-snug text-amber-700">{departureTerminalHint}</p>
               ) : null}
             </FormRow>
             <FormRow label="출국 항공편" required>
@@ -1048,14 +1048,14 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
                 required
               />
               {departureFlightHint ? (
-                <p className="mt-1.5 text-[12px] font-semibold leading-snug text-amber-700">{departureFlightHint}</p>
+                <p className="mt-1.5 text-[13px] font-semibold leading-snug text-amber-700">{departureFlightHint}</p>
               ) : null}
             </FormRow>
             <FormRow
               label={
                 <>
                   출국
-                  <span className="mt-0.5 block text-xs font-medium text-stone-400">
+                  <span className="mt-0.5 block text-[13px] font-medium text-stone-400">
                     공항도착예정
                   </span>
                 </>
@@ -1065,7 +1065,7 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
               <HomepageDateTimeField value={depLocal} min={minDep} onChange={setDepLocal} />
               {departureCapacity ? (
                 <p
-                  className={`mt-1.5 text-[12px] font-semibold ${
+                  className={`mt-1.5 text-[13px] font-semibold ${
                     departureCapacity.error ? 'text-red-600' : 'text-stone-500'
                   }`}
                 >
@@ -1093,7 +1093,7 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
                 emptyLabel="::: 항공사 선택 :::"
               />
               {arrivalTerminalHint ? (
-                <p className="mt-1.5 text-[12px] font-semibold leading-snug text-amber-700">{arrivalTerminalHint}</p>
+                <p className="mt-1.5 text-[13px] font-semibold leading-snug text-amber-700">{arrivalTerminalHint}</p>
               ) : null}
             </FormRow>
             <FormRow label="입국 항공편" required>
@@ -1105,14 +1105,14 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
                 required
               />
               {arrivalFlightNumberHint ? (
-                <p className="mt-1.5 text-[12px] font-semibold leading-snug text-amber-700">{arrivalFlightNumberHint}</p>
+                <p className="mt-1.5 text-[13px] font-semibold leading-snug text-amber-700">{arrivalFlightNumberHint}</p>
               ) : null}
               {arrivalFlightLooking ? (
-                <p className="mt-1.5 text-[12px] font-semibold text-stone-500">
+                <p className="mt-1.5 text-[13px] font-semibold text-stone-500">
                   공항 도착 시각 조회 중…
                 </p>
               ) : arrivalFlightHint ? (
-                <p className="mt-1.5 text-[12px] font-semibold text-stone-500">
+                <p className="mt-1.5 text-[13px] font-semibold text-stone-500">
                   {arrivalFlightHint}
                 </p>
               ) : null}
@@ -1121,7 +1121,7 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
               label={
                 <>
                   입국
-                  <span className="mt-0.5 block text-xs font-medium text-stone-400">
+                  <span className="mt-0.5 block text-[13px] font-medium text-stone-400">
                     비행기도착
                   </span>
                 </>
@@ -1135,7 +1135,7 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
               />
               {parkingCapacity ? (
                 <p
-                  className={`mt-1.5 text-[12px] font-semibold ${
+                  className={`mt-1.5 text-[13px] font-semibold ${
                     parkingCapacity.error ? 'text-red-600' : 'text-stone-500'
                   }`}
                 >
@@ -1167,7 +1167,7 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
             policyError === 'blocked' &&
             (isIndoor ? showOutdoor && !outdoorClosed : showIndoor && !indoorClosed)
           ) ? (
-            <p className="mx-5 mb-2 rounded-xl bg-red-50 px-3 py-2.5 text-xs font-semibold text-red-700 sm:mx-6">
+            <p className="mx-5 mb-2 rounded-xl bg-red-50 px-3 py-2.5 text-[13px] font-semibold text-red-700 sm:mx-6">
               {BOOKING_CLOSED_MESSAGE}
             </p>
           ) : null}
@@ -1180,7 +1180,7 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
             ) : null}
             <div className="flex items-center gap-3">
               <div className="min-w-0 flex-1">
-                <p className="text-xs font-medium text-stone-400">결제 예정</p>
+                <p className="text-[13px] font-medium text-stone-400">결제 예정</p>
                 <p className="truncate text-xl font-bold tabular-nums tracking-tight">
                   {totalPrice.toLocaleString('ko-KR')}원
                 </p>
@@ -1212,7 +1212,7 @@ export default function HomepageBookingPage({ companyId }: HomepageBookingPagePr
 function SectionMark({ children }: { children: string }) {
   return (
     <div className="flex items-center gap-3 border-y border-stone-300 bg-stone-100 px-4 py-2.5">
-      <span className="text-[12px] font-black tracking-[0.14em] text-stone-600">{children}</span>
+      <span className="text-[13px] font-black tracking-[0.14em] text-stone-600">{children}</span>
       <span className="h-px flex-1 bg-stone-300" />
     </div>
   );

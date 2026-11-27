@@ -29,8 +29,8 @@ export default function VehiclePhotosView({ onBack, reservations, onUpdateImages
             <ArrowLeft size={16} />
           </button>
           <div>
-            <h2 className="text-sm font-black tracking-tight text-white">차량 사진</h2>
-            <p className="text-[12px] font-bold text-zinc-500">
+            <h2 className="text-[15px] font-black tracking-tight text-white">차량 사진</h2>
+            <p className="text-[13px] font-bold text-zinc-500">
               등록 · 조회 · 출차 후 {PHOTO_STORAGE_RETENTION_DAYS}일까지 사진 보관
             </p>
           </div>
@@ -42,7 +42,7 @@ export default function VehiclePhotosView({ onBack, reservations, onUpdateImages
             type="button"
             onClick={() => setTab('register')}
             className={cn(
-              'rounded-xl py-2.5 text-xs font-black transition-all',
+              'rounded-xl py-2.5 text-[13px] font-black transition-all',
               tab === 'register'
                 ? 'bg-amber-500 text-neutral-950 shadow-sm'
                 : 'text-zinc-500 hover:text-zinc-300'
@@ -54,7 +54,7 @@ export default function VehiclePhotosView({ onBack, reservations, onUpdateImages
             type="button"
             onClick={() => setTab('search')}
             className={cn(
-              'rounded-xl py-2.5 text-xs font-black transition-all',
+              'rounded-xl py-2.5 text-[13px] font-black transition-all',
               tab === 'search'
                 ? 'bg-amber-500 text-neutral-950 shadow-sm'
                 : 'text-zinc-500 hover:text-zinc-300'

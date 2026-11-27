@@ -163,7 +163,7 @@ export default function TimelineView({
                 placeholder="고객명, 차량번호, 모델, 연락처, 대행사 통합 검색"
                 value={searchKeyword}
                 onChange={(e) => setSearchKeyword(e.target.value)}
-                className="w-full bg-[#2C2C2E] border-0 text-sm rounded-[16px] pl-10 pr-9 py-3 text-white placeholder-[#8E8E93] outline-none focus:ring-1 focus:ring-amber-500/20 transition-all font-semibold"
+                className="w-full bg-[#2C2C2E] border-0 text-[15px] rounded-[16px] pl-10 pr-9 py-3 text-white placeholder-[#8E8E93] outline-none focus:ring-1 focus:ring-amber-500/20 transition-all font-semibold"
               />
               {searchKeyword && (
                 <button
@@ -197,7 +197,7 @@ export default function TimelineView({
                     type="button"
                     onClick={() => setFilterType(type)}
                     className={cn(
-                      "flex-1 text-[11.5px] font-bold py-1.5 rounded-[12px] transition-all text-center cursor-pointer",
+                      "flex-1 text-[12px] font-bold py-1.5 rounded-[12px] transition-all text-center cursor-pointer",
                       isSelected 
                         ? "bg-amber-500/15 text-amber-500 shadow-sm font-extrabold" 
                         : "text-[#8E8E93] hover:text-white"
@@ -268,7 +268,7 @@ export default function TimelineView({
               setReceptionSubMode('search');
               onNavigate('search_reception');
             }}
-            className="flex-1 py-4 bg-[#1C1C1E] border border-neutral-800 hover:border-neutral-700 text-amber-500 rounded-[22px] text-center text-sm font-black tracking-tight shadow-md hover:bg-neutral-900 active:scale-[0.98] duration-100 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+            className="flex-1 py-4 bg-[#1C1C1E] border border-neutral-800 hover:border-neutral-700 text-amber-500 rounded-[22px] text-center text-[15px] font-black tracking-tight shadow-md hover:bg-neutral-900 active:scale-[0.98] duration-100 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
             id="bottom-search-edit-button"
           >
             <Search size={13} />
@@ -280,7 +280,7 @@ export default function TimelineView({
               setReceptionSubMode('new_contract');
               onNavigate('search_reception');
             }}
-            className="flex-1 py-4 bg-amber-500 text-neutral-950 rounded-[22px] text-center text-sm font-black tracking-tight shadow-lg shadow-amber-500/10 hover:bg-amber-440 active:scale-[0.98] duration-100 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+            className="flex-1 py-4 bg-amber-500 text-neutral-950 rounded-[22px] text-center text-[15px] font-black tracking-tight shadow-lg shadow-amber-500/10 hover:bg-amber-440 active:scale-[0.98] duration-100 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
             id="bottom-new-contract-button"
           >
             <FileText size={13} />

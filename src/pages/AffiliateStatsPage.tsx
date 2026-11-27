@@ -18,9 +18,9 @@ type Props = {
 function Metric({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div className="rounded-2xl border border-neutral-800 bg-[#141416] px-4 py-4">
-      <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">{label}</p>
+      <p className="text-[13px] font-black uppercase tracking-wide text-zinc-500">{label}</p>
       <p className="mt-1 text-2xl font-black text-zinc-100 tabular-nums">{value}</p>
-      {sub ? <p className="mt-0.5 text-[11px] font-semibold text-zinc-500">{sub}</p> : null}
+      {sub ? <p className="mt-0.5 text-[13px] font-semibold text-zinc-500">{sub}</p> : null}
     </div>
   );
 }
@@ -128,11 +128,11 @@ export default function AffiliateStatsPage({ initialCode }: Props) {
       <div className="min-h-screen bg-black text-zinc-100 font-sans antialiased">
         <div className="mx-auto max-w-md px-4 py-10 space-y-6">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-amber-500/90">
+            <p className="text-[13px] font-black uppercase tracking-widest text-amber-500/90">
               Airpick · 제휴 실적
             </p>
             <h1 className="mt-1 text-xl font-black tracking-tight">로그인</h1>
-            <p className="mt-2 text-[12px] text-zinc-500 font-semibold leading-relaxed">
+            <p className="mt-2 text-[13px] text-zinc-500 font-semibold leading-relaxed">
               본사에서 받은 제휴 코드와 비밀번호로 실적을 확인합니다. 주차 업체 Gate와는
               별도입니다.
             </p>
@@ -140,32 +140,32 @@ export default function AffiliateStatsPage({ initialCode }: Props) {
 
           <form onSubmit={(e) => void handleLogin(e)} className="space-y-3">
             <label className="block space-y-1">
-              <span className="text-[10px] font-black text-zinc-500 uppercase">제휴 코드</span>
+              <span className="text-[13px] font-black text-zinc-500 uppercase">제휴 코드</span>
               <input
                 value={codeInput}
                 onChange={(e) => setCodeInput(e.target.value.toLowerCase())}
                 autoComplete="username"
                 placeholder="kim01"
-                className="w-full px-3 py-2.5 rounded-xl bg-[#1C1C1E] border border-neutral-800 text-sm font-mono font-bold"
+                className="w-full px-3 py-2.5 rounded-xl bg-[#1C1C1E] border border-neutral-800 text-[15px] font-mono font-bold"
               />
             </label>
             <label className="block space-y-1">
-              <span className="text-[10px] font-black text-zinc-500 uppercase">비밀번호</span>
+              <span className="text-[13px] font-black text-zinc-500 uppercase">비밀번호</span>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 autoComplete="current-password"
-                className="w-full px-3 py-2.5 rounded-xl bg-[#1C1C1E] border border-neutral-800 text-sm font-bold"
+                className="w-full px-3 py-2.5 rounded-xl bg-[#1C1C1E] border border-neutral-800 text-[15px] font-bold"
               />
             </label>
             {error ? (
-              <p className="text-[12px] text-rose-300 font-semibold leading-relaxed">{error}</p>
+              <p className="text-[13px] text-rose-300 font-semibold leading-relaxed">{error}</p>
             ) : null}
             <button
               type="submit"
               disabled={loggingIn || !codeInput.trim() || !password}
-              className="w-full py-2.5 rounded-xl bg-amber-500 text-neutral-950 text-sm font-black disabled:opacity-40"
+              className="w-full py-2.5 rounded-xl bg-amber-500 text-neutral-950 text-[15px] font-black disabled:opacity-40"
             >
               {loggingIn ? '로그인 중…' : '실적 보기'}
             </button>
@@ -180,35 +180,35 @@ export default function AffiliateStatsPage({ initialCode }: Props) {
       <div className="mx-auto max-w-md px-4 py-8 space-y-5">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-[10px] font-black uppercase tracking-widest text-amber-500/90">
+            <p className="text-[13px] font-black uppercase tracking-widest text-amber-500/90">
               Airpick · 제휴 실적
             </p>
             <h1 className="mt-1 text-xl font-black tracking-tight">
               {displayName || authedCode}
             </h1>
-            <p className="mt-1 text-[12px] text-zinc-500 font-semibold">
+            <p className="mt-1 text-[13px] text-zinc-500 font-semibold">
               코드 <span className="font-mono text-zinc-300">{authedCode}</span>
             </p>
           </div>
           <button
             type="button"
             onClick={() => void handleLogout()}
-            className="shrink-0 text-[11px] font-black text-zinc-500 hover:text-zinc-300"
+            className="shrink-0 text-[13px] font-black text-zinc-500 hover:text-zinc-300"
           >
             로그아웃
           </button>
         </div>
 
-        <p className="text-[11px] text-zinc-600 font-semibold leading-relaxed rounded-xl border border-neutral-800 bg-[#141416] px-3 py-2">
+        <p className="text-[13px] text-zinc-600 font-semibold leading-relaxed rounded-xl border border-neutral-800 bg-[#141416] px-3 py-2">
           실적 확인용입니다. 고객 이름·전화·차량번호는 표시하지 않습니다.
         </p>
 
         <label className="block space-y-1">
-          <span className="text-[10px] font-black text-zinc-500 uppercase">기간</span>
+          <span className="text-[13px] font-black text-zinc-500 uppercase">기간</span>
           <select
             value={days}
             onChange={(e) => setDays(Number(e.target.value))}
-            className="w-full px-3 py-2.5 rounded-xl bg-[#1C1C1E] border border-neutral-800 text-sm font-bold"
+            className="w-full px-3 py-2.5 rounded-xl bg-[#1C1C1E] border border-neutral-800 text-[15px] font-bold"
           >
             <option value={30}>최근 30일</option>
             <option value={90}>최근 90일</option>
@@ -217,11 +217,11 @@ export default function AffiliateStatsPage({ initialCode }: Props) {
         </label>
 
         {loading ? (
-          <p className="text-sm text-zinc-500 font-semibold">불러오는 중…</p>
+          <p className="text-[15px] text-zinc-500 font-semibold">불러오는 중…</p>
         ) : error ? (
           <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 space-y-1">
-            <p className="text-sm text-rose-300 font-black">열 수 없습니다</p>
-            <p className="text-[12px] text-rose-200/90 font-semibold leading-relaxed">{error}</p>
+            <p className="text-[15px] text-rose-300 font-black">열 수 없습니다</p>
+            <p className="text-[13px] text-rose-200/90 font-semibold leading-relaxed">{error}</p>
           </div>
         ) : data ? (
           <>

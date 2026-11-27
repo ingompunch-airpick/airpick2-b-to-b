@@ -103,14 +103,14 @@ export default function PaymentChangeView({ onBack, reservations, onUpdatePaymen
           <ArrowLeft size={16} />
         </button>
         <div>
-          <h2 className="text-sm font-black tracking-tight text-white">결제 사후 수정</h2>
-          <p className="text-[12px] text-zinc-500 font-bold">결제 수단을 나중에 변경합니다</p>
+          <h2 className="text-[15px] font-black tracking-tight text-white">결제 사후 수정</h2>
+          <p className="text-[13px] text-zinc-500 font-bold">결제 수단을 나중에 변경합니다</p>
         </div>
       </div>
 
       {/* Digits Display Panel (Reference Image 5 styling) */}
       <div className="mb-6 space-y-2.5">
-        <label className="text-[13px] font-black tracking-wide text-zinc-400 block text-center uppercase">
+        <label className="text-[14px] font-black tracking-wide text-zinc-400 block text-center uppercase">
           차량 번호 4자리를 아래 패드로 입력해 주십시오
         </label>
         
@@ -138,7 +138,7 @@ export default function PaymentChangeView({ onBack, reservations, onUpdatePaymen
 
       {/* Match Status alerts */}
       {statusMsg && (
-        <div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-xs text-emerald-400 font-bold flex items-start gap-2.5">
+        <div className="mb-6 p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-2xl text-[13px] text-emerald-400 font-bold flex items-start gap-2.5">
           <CheckCircle2 size={16} className="shrink-0 mt-0.5" />
           <span>{statusMsg}</span>
         </div>
@@ -160,11 +160,11 @@ export default function PaymentChangeView({ onBack, reservations, onUpdatePaymen
                 key={index}
                 type="button"
                 onClick={action}
-                className={`h-12 rounded-xl flex items-center justify-center font-bold tracking-tight text-sm font-mono transition-all border outline-none ${
+                className={`h-12 rounded-xl flex items-center justify-center font-bold tracking-tight text-[15px] font-mono transition-all border outline-none ${
                   isSpecial
                     ? btn === '전체삭제'
-                      ? 'bg-red-550/10 border-red-500/20 text-red-500 hover:bg-neutral-800 text-[13px]'
-                      : 'bg-neutral-800 border-neutral-700 text-zinc-300 hover:bg-neutral-750 text-xs'
+                      ? 'bg-red-550/10 border-red-500/20 text-red-500 hover:bg-neutral-800 text-[14px]'
+                      : 'bg-neutral-800 border-neutral-700 text-zinc-300 hover:bg-neutral-750 text-[13px]'
                     : 'bg-neutral-950 border-neutral-850 hover:bg-neutral-800 text-white hover:border-neutral-700 active:scale-95'
                 }`}
               >
@@ -178,13 +178,13 @@ export default function PaymentChangeView({ onBack, reservations, onUpdatePaymen
       {/* Search results list in real-time */}
       <div className="space-y-3.5">
         <div className="flex justify-between items-center px-1">
-          <span className="text-[12px] uppercase font-black text-zinc-500 tracking-wider">
+          <span className="text-[13px] uppercase font-black text-zinc-500 tracking-wider">
             검색 결과 ({matchedReservations.length}건)
           </span>
           {typedDigits && (
             <button 
               onClick={handleClearAll}
-              className="text-[11px] font-black text-amber-505 bg-amber-500/10 hover:bg-amber-500/20 px-2 py-1 rounded text-amber-500"
+              className="text-[12px] font-black text-amber-505 bg-amber-500/10 hover:bg-amber-500/20 px-2 py-1 rounded text-amber-500"
             >
               초기화
             </button>
@@ -194,7 +194,7 @@ export default function PaymentChangeView({ onBack, reservations, onUpdatePaymen
         {typedDigits === '' ? (
           <div className="p-8 text-center bg-neutral-900/40 border border-dashed border-neutral-800 rounded-2xl">
             <Search className="mx-auto text-neutral-700 mb-2.5 animate-pulse" size={24} />
-            <p className="text-xs text-neutral-500">조회할 차량번호 4자리를 눌러주십시오</p>
+            <p className="text-[13px] text-neutral-500">조회할 차량번호 4자리를 눌러주십시오</p>
           </div>
         ) : matchedReservations.length > 0 ? (
           <div className="space-y-2.5 max-h-[180px] overflow-y-auto no-scrollbar pb-3">
@@ -215,21 +215,21 @@ export default function PaymentChangeView({ onBack, reservations, onUpdatePaymen
                 >
                   <div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-medium text-white">{res.userName}</span>
+                      <span className="text-[13px] font-medium text-white">{res.userName}</span>
                       <span className="text-[12px] bg-neutral-950 text-zinc-400 font-medium px-2.5 py-1 rounded-md border border-neutral-800/80">
                         {res.carModel}
                       </span>
                     </div>
                     <div className="mt-1.5 flex items-center gap-2">
-                      <p className="text-xs font-medium text-amber-500/90 select-all tracking-wide">{res.carNumber}</p>
-                      <p className="text-[12px] text-zinc-500">
+                      <p className="text-[13px] font-medium text-amber-500/90 select-all tracking-wide">{res.carNumber}</p>
+                      <p className="text-[13px] text-zinc-500">
                         {airportShortName(res.airport)} {terminalShortLabel(res.airport, res.departureTerminal)}
                       </p>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <span className={`text-[11.5px] font-medium px-3.5 py-1.5 rounded-lg border uppercase tracking-tight flex items-center gap-1 ${payment.color}`}>
+                    <span className={`text-[12px] font-medium px-3.5 py-1.5 rounded-lg border uppercase tracking-tight flex items-center gap-1 ${payment.color}`}>
                       <PaymentIcon size={10} />
                       {payment.text}
                     </span>
@@ -241,8 +241,8 @@ export default function PaymentChangeView({ onBack, reservations, onUpdatePaymen
           </div>
         ) : (
           <div className="p-8 text-center bg-neutral-900 border border-neutral-800 rounded-2xl">
-            <p className="text-xs text-neutral-500 font-bold">일치하는 예약 차량 조회가 없습니다</p>
-            <p className="text-[12px] text-zinc-650 mt-1">입력하신 "{typedDigits}" 번호를 다시 확인바랍니다.</p>
+            <p className="text-[13px] text-neutral-500 font-bold">일치하는 예약 차량 조회가 없습니다</p>
+            <p className="text-[13px] text-zinc-650 mt-1">입력하신 "{typedDigits}" 번호를 다시 확인바랍니다.</p>
           </div>
         )}
       </div>
@@ -251,20 +251,20 @@ export default function PaymentChangeView({ onBack, reservations, onUpdatePaymen
       {selectedRes && (
         <div className="mt-6 border-t border-neutral-800/80 pt-5 space-y-4 animate-in fade-in slide-in-from-bottom-3 duration-250">
           <div className="bg-neutral-900/60 border border-neutral-800 p-4 rounded-2xl">
-            <p className="text-[12px] text-zinc-450 font-black tracking-wider">변경할 예약</p>
-            <p className="text-xs font-black text-white mt-1.5 flex items-center gap-2">
+            <p className="text-[13px] text-zinc-450 font-black tracking-wider">변경할 예약</p>
+            <p className="text-[13px] font-black text-white mt-1.5 flex items-center gap-2">
               <span>{selectedRes.carNumber}</span>
               <span className="text-zinc-500">|</span>
               <span>{selectedRes.userName}</span>
               <span className="text-zinc-500">|</span>
               <span className="text-amber-550 font-mono text-amber-500">{selectedRes.totalPrice?.toLocaleString()}원 계산</span>
             </p>
-            <span className="text-[12px] text-zinc-500 font-bold inline-block mt-1">
+            <span className="text-[13px] text-zinc-500 font-bold inline-block mt-1">
               현재 결제 수단: <strong className="text-zinc-300 font-black">{getMethodDetails(selectedRes.paymentMethod).text}</strong>
             </span>
           </div>
 
-          <p className="text-[12px] font-black text-zinc-500 tracking-wider">변경할 결제 수단 선택</p>
+          <p className="text-[13px] font-black text-zinc-500 tracking-wider">변경할 결제 수단 선택</p>
           
           <div className="grid grid-cols-3 gap-2.5">
             {[
@@ -280,7 +280,7 @@ export default function PaymentChangeView({ onBack, reservations, onUpdatePaymen
                   type="button"
                   disabled={isUpdating}
                   onClick={() => handleApplyChange(picker.id)}
-                  className={`py-3.5 px-2 rounded-2xl text-xs font-black flex flex-col items-center justify-center gap-2 border transition-all ${
+                  className={`py-3.5 px-2 rounded-2xl text-[13px] font-black flex flex-col items-center justify-center gap-2 border transition-all ${
                     isCurrent 
                       ? 'bg-amber-500 text-neutral-950 border-amber-500 shadow-md shadow-amber-500/10 font-bold scale-[1.02]' 
                       : `bg-neutral-900 border-neutral-800 text-zinc-300 ${picker.color}`

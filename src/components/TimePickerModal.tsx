@@ -99,8 +99,8 @@ export default function TimePickerModal({
             <div className="flex items-center gap-2">
               <Clock size={16} className="text-amber-500" />
               <div>
-                <h3 className="text-[14px] font-black text-white">{title}</h3>
-                <p className="text-[11px] text-zinc-400 font-bold tracking-tight">시·분을 선택해 주세요</p>
+                <h3 className="text-[15px] font-black text-white">{title}</h3>
+                <p className="text-[13px] text-zinc-400 font-bold tracking-tight">시·분을 선택해 주세요</p>
               </div>
             </div>
             <button 
@@ -119,7 +119,7 @@ export default function TimePickerModal({
               <button
                 type="button"
                 onClick={() => setAmpm('AM')}
-                className={`flex-1 py-2 text-xs font-black rounded-xl transition-all ${
+                className={`flex-1 py-2 text-[13px] font-black rounded-xl transition-all ${
                   ampm === 'AM' 
                     ? 'bg-amber-500 text-neutral-950 shadow-md shadow-amber-500/10' 
                     : 'text-zinc-300 hover:text-white'
@@ -130,7 +130,7 @@ export default function TimePickerModal({
               <button
                 type="button"
                 onClick={() => setAmpm('PM')}
-                className={`flex-1 py-2 text-xs font-black rounded-xl transition-all ${
+                className={`flex-1 py-2 text-[13px] font-black rounded-xl transition-all ${
                   ampm === 'PM' 
                     ? 'bg-amber-500 text-neutral-950 shadow-md shadow-amber-500/10' 
                     : 'text-zinc-300 hover:text-white'
@@ -142,7 +142,7 @@ export default function TimePickerModal({
 
             {/* Hours Selector Grid */}
             <div>
-              <span className="text-[12px] text-[#FFFFFF] font-extrabold block mb-2">시간 선택 (Hour)</span>
+              <span className="text-[13px] text-[#FFFFFF] font-extrabold block mb-2">시간 선택 (Hour)</span>
               <div className="grid grid-cols-4 gap-1.5">
                 {hours.map((hr) => {
                   const isSelected = selectedHour === hr;
@@ -151,7 +151,7 @@ export default function TimePickerModal({
                       key={hr}
                       type="button"
                       onClick={() => setSelectedHour(hr)}
-                      className={`py-2 text-[13px] font-bold rounded-xl transition-all border ${
+                      className={`py-2 text-[14px] font-bold rounded-xl transition-all border ${
                         isSelected 
                           ? 'bg-amber-500 text-zinc-950 font-black' 
                           : 'bg-[#141416]/50 border-neutral-850 text-white hover:text-zinc-200 hover:border-neutral-700'
@@ -166,7 +166,7 @@ export default function TimePickerModal({
 
             {/* Minutes Selector Grid */}
             <div>
-              <span className="text-[12px] text-[#FFFFFF] font-extrabold block mb-2">분 선택 (Minute - 5분 단위)</span>
+              <span className="text-[13px] text-[#FFFFFF] font-extrabold block mb-2">분 선택 (Minute - 5분 단위)</span>
               <div className="grid grid-cols-4 gap-1.5">
                 {minutes.map((min) => {
                   const isSelected = selectedMinute === min;
@@ -175,7 +175,7 @@ export default function TimePickerModal({
                       key={min}
                       type="button"
                       onClick={() => setSelectedMinute(min)}
-                      className={`py-2 text-[13px] font-bold rounded-xl transition-all border ${
+                      className={`py-2 text-[14px] font-bold rounded-xl transition-all border ${
                         isSelected 
                           ? 'bg-amber-500 text-zinc-950 font-black' 
                           : 'bg-[#141416]/50 border-neutral-850 text-white hover:text-zinc-200 hover:border-neutral-700'
@@ -190,9 +190,9 @@ export default function TimePickerModal({
 
             {/* Currently Selected Preview block */}
             <div className="p-3 bg-[#141416] border border-neutral-850 rounded-xl flex items-center justify-between">
-              <span className="text-[12px] text-zinc-300 font-black">선택한 시간</span>
+              <span className="text-[13px] text-zinc-300 font-black">선택한 시간</span>
               <div className="flex items-baseline gap-1">
-                <span className="text-xs text-amber-500 font-bold">{ampm === 'AM' ? '오전' : '오후'}</span>
+                <span className="text-[13px] text-amber-500 font-bold">{ampm === 'AM' ? '오전' : '오후'}</span>
                 <span className="text-base text-white font-black font-mono">
                   {selectedHour.toString().padStart(2, '0')}:{selectedMinute.toString().padStart(2, '0')}
                 </span>
@@ -205,14 +205,14 @@ export default function TimePickerModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-3 text-xs bg-[#2C2C2E] hover:bg-[#3C3C3E] text-zinc-200 hover:text-white rounded-xl font-bold transition-all border border-neutral-800"
+              className="flex-1 py-3 text-[13px] bg-[#2C2C2E] hover:bg-[#3C3C3E] text-zinc-200 hover:text-white rounded-xl font-bold transition-all border border-neutral-800"
             >
               취소
             </button>
             <button
               type="button"
               onClick={handleConfirm}
-              className="flex-[2] py-3 text-xs bg-amber-500 hover:bg-amber-600 active:scale-[0.98] text-zinc-950 rounded-xl font-black transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-amber-500/10"
+              className="flex-[2] py-3 text-[13px] bg-amber-500 hover:bg-amber-600 active:scale-[0.98] text-zinc-950 rounded-xl font-black transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-amber-500/10"
             >
               <Check size={14} className="stroke-[2.5]" />
               확인

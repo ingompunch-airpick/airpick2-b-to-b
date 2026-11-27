@@ -118,7 +118,7 @@ function PriceInput({
 
   return (
     <div className={className}>
-      <label className={`text-[11px] text-white/80 font-bold block ${isXl ? 'mb-1.5' : 'mb-1'}`}>{label}</label>
+      <label className={`text-[13px] text-white/80 font-bold block ${isXl ? 'mb-1.5' : 'mb-1'}`}>{label}</label>
       <div 
         className={`relative w-full flex items-center pr-8 overflow-hidden transition-all duration-200 ${wrapperRound} ${wrapperPadding} border border-neutral-800 focus-within:ring-1 focus-within:ring-amber-500/30 ${focusColorClass}`}
       >
@@ -129,7 +129,7 @@ function PriceInput({
           onKeyDown={handleKeyDown}
           onWheel={handleWheel}
           placeholder={placeholder}
-          className={`w-full bg-transparent ${inputPadding} text-xs text-white focus:outline-none font-mono font-bold`} 
+          className={`w-full bg-transparent ${inputPadding} text-[13px] text-white focus:outline-none font-mono font-bold`} 
         />
         <div className="absolute right-0 top-0 bottom-0 w-8 border-l border-neutral-800/80 flex flex-col divide-y divide-neutral-800/80 bg-neutral-900/10">
           <button
@@ -868,15 +868,15 @@ export default function MasterSettingsView({
             <Sliders size={18} />
           </div>
           <div className="min-w-0">
-            <h2 className="text-sm font-black tracking-tight text-white">업체 정보 설정</h2>
-            <p className="text-[12px] text-white/50 font-bold truncate">
+            <h2 className="text-[15px] font-black tracking-tight text-white">업체 정보 설정</h2>
+            <p className="text-[13px] text-white/50 font-bold truncate">
               {companyInfo.name || companyInfo.id}
               {isSuperAdmin ? ' · 원격 지원' : ''}
             </p>
           </div>
         </div>
 
-        <p className="text-[11px] text-zinc-400 font-semibold px-1 mb-3 leading-relaxed">
+        <p className="text-[13px] text-zinc-400 font-semibold px-1 mb-3 leading-relaxed">
           {settingsSummary}
         </p>
 
@@ -886,7 +886,7 @@ export default function MasterSettingsView({
               key={tab.id}
               type="button"
               onClick={() => setSettingsTab(tab.id)}
-              className={`py-2.5 rounded-lg text-[12px] font-black transition-all ${
+              className={`py-2.5 rounded-lg text-[13px] font-black transition-all ${
                 settingsTab === tab.id
                   ? 'bg-amber-500 text-neutral-950'
                   : 'text-zinc-400 hover:text-zinc-200'
@@ -902,10 +902,10 @@ export default function MasterSettingsView({
             <>
               <div className="bg-neutral-900/40 p-4.5 rounded-2xl border border-neutral-850 flex items-center justify-between">
                 <div>
-                  <span className="text-[11px] text-white/60 font-black tracking-wider block mb-0.5">
+                  <span className="text-[13px] text-white/60 font-black tracking-wider block mb-0.5">
                     로그인 업체
                   </span>
-                  <span className="text-xs font-black text-white">{partnerName || companyInfo.name}</span>
+                  <span className="text-[13px] font-black text-white">{partnerName || companyInfo.name}</span>
                 </div>
                 <span className="text-[12px] bg-neutral-950 border border-neutral-850 text-white/80 px-3 py-1 rounded-xl font-mono font-bold">
                   ID: {companyInfo.id}
@@ -913,9 +913,9 @@ export default function MasterSettingsView({
               </div>
 
               <div className="bg-neutral-900/40 p-5 rounded-3xl border border-neutral-850 space-y-3">
-                <p className="text-xs font-black text-amber-500 tracking-wider">업체 정보</p>
+                <p className="text-[13px] font-black text-amber-500 tracking-wider">업체 정보</p>
                 <div>
-                  <label className="text-[11px] text-white/80 font-bold block mb-1">상호</label>
+                  <label className="text-[13px] text-white/80 font-bold block mb-1">상호</label>
                   <input
                     type="text"
                     value={partnerName}
@@ -924,11 +924,11 @@ export default function MasterSettingsView({
                       profileDirtyRef.current = true;
                       setPartnerName(e.target.value);
                     }}
-                    className="w-full px-3 py-2.5 bg-[#131315] border border-neutral-850 rounded-xl text-sm text-white"
+                    className="w-full px-3 py-2.5 bg-[#131315] border border-neutral-850 rounded-xl text-[15px] text-white"
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] text-white/80 font-bold block mb-1">대표</label>
+                  <label className="text-[13px] text-white/80 font-bold block mb-1">대표</label>
                   <input
                     type="text"
                     value={partnerRepresentative}
@@ -937,11 +937,11 @@ export default function MasterSettingsView({
                       profileDirtyRef.current = true;
                       setPartnerRepresentative(e.target.value);
                     }}
-                    className="w-full px-3 py-2.5 bg-[#131315] border border-neutral-850 rounded-xl text-sm text-white"
+                    className="w-full px-3 py-2.5 bg-[#131315] border border-neutral-850 rounded-xl text-[15px] text-white"
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] text-white/80 font-bold block mb-1">전화</label>
+                  <label className="text-[13px] text-white/80 font-bold block mb-1">전화</label>
                   <input
                     type="tel"
                     value={partnerPhone}
@@ -950,11 +950,11 @@ export default function MasterSettingsView({
                       profileDirtyRef.current = true;
                       setPartnerPhone(e.target.value);
                     }}
-                    className="w-full px-3 py-2.5 bg-[#131315] border border-neutral-850 rounded-xl text-sm text-white"
+                    className="w-full px-3 py-2.5 bg-[#131315] border border-neutral-850 rounded-xl text-[15px] text-white"
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] text-white/80 font-bold block mb-1">픽업지 안내</label>
+                  <label className="text-[13px] text-white/80 font-bold block mb-1">픽업지 안내</label>
                   <input
                     type="text"
                     value={pickupLocation}
@@ -964,7 +964,7 @@ export default function MasterSettingsView({
                     }}
                     placeholder="예: T1 3번 출구 앞"
                     maxLength={120}
-                    className="w-full px-3 py-2.5 bg-[#131315] border border-neutral-850 rounded-xl text-sm text-white placeholder:text-white/30"
+                    className="w-full px-3 py-2.5 bg-[#131315] border border-neutral-850 rounded-xl text-[15px] text-white placeholder:text-white/30"
                   />
                 </div>
               </div>
@@ -1014,18 +1014,18 @@ export default function MasterSettingsView({
           {settingsTab === 'pricing' && (
             <>
               <div className="bg-neutral-900/40 p-5 rounded-3xl border border-neutral-850 space-y-4">
-                <div className="flex items-center gap-2 text-xs font-black text-amber-500 tracking-wider">
+                <div className="flex items-center gap-2 text-[13px] font-black text-amber-500 tracking-wider">
                   <FileSpreadsheet size={14} className="text-amber-500" />
                   <span>{airportShort} 주차 요금</span>
                 </div>
-                <p className="text-[12px] text-white/70 leading-relaxed">
+                <p className="text-[13px] text-white/70 leading-relaxed">
                   시설: {facilityTypeLabel}
                 </p>
 
                 <div className="space-y-4">
                   {showOutdoorMatrix && (
                   <div className="p-3 bg-[#131315] border border-neutral-850 rounded-xl space-y-3">
-                    <span className="text-[12px] text-white font-bold block">실외 주차 요금</span>
+                    <span className="text-[13px] text-white font-bold block">실외 주차 요금</span>
                     <div className="grid grid-cols-3 gap-2">
                       <PriceInput
                         label="기본요금 (원)"
@@ -1037,7 +1037,7 @@ export default function MasterSettingsView({
                         focusColorClass="focus-within:border-neutral-600"
                       />
                       <div>
-                        <label className="text-[11px] text-white/80 font-bold block mb-1">기본 일수</label>
+                        <label className="text-[13px] text-white/80 font-bold block mb-1">기본 일수</label>
                         <input
                           type="number"
                           value={outdoorBaseDays}
@@ -1063,7 +1063,7 @@ export default function MasterSettingsView({
 
                   {showIndoorMatrix && (
                   <div className="p-3 bg-[#131315] border border-neutral-850 rounded-xl space-y-3">
-                    <span className="text-[12px] text-white font-bold block">실내 주차 요금</span>
+                    <span className="text-[13px] text-white font-bold block">실내 주차 요금</span>
                     <div className="grid grid-cols-3 gap-2">
                       <PriceInput
                         label="기본요금 (원)"
@@ -1075,7 +1075,7 @@ export default function MasterSettingsView({
                         focusColorClass="focus-within:border-neutral-600"
                       />
                       <div>
-                        <label className="text-[11px] text-white/80 font-bold block mb-1">기본 일수</label>
+                        <label className="text-[13px] text-white/80 font-bold block mb-1">기본 일수</label>
                         <input
                           type="number"
                           value={indoorBaseDays}
@@ -1100,24 +1100,24 @@ export default function MasterSettingsView({
                   )}
 
                   <div className="p-3 bg-[#131315] border border-neutral-850 rounded-xl space-y-3">
-                    <span className="text-[12px] text-white font-bold block">야간/새벽 할증</span>
+                    <span className="text-[13px] text-white font-bold block">야간/새벽 할증</span>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div className="flex flex-col items-center justify-center p-2.5 bg-neutral-900 border border-neutral-850 rounded-2xl shadow-sm">
-                        <span className="text-[12px] text-white/80 font-extrabold mb-2">시작</span>
+                        <span className="text-[13px] text-white/80 font-extrabold mb-2">시작</span>
                         <button
                           type="button"
                           onClick={() => setActivePickerTarget('surchargeStart')}
-                          className="w-full bg-[#1C1C1E] border border-neutral-800 hover:border-neutral-600 rounded-xl px-2.5 h-[42px] text-xs font-bold text-white flex items-center justify-center"
+                          className="w-full bg-[#1C1C1E] border border-neutral-800 hover:border-neutral-600 rounded-xl px-2.5 h-[42px] text-[13px] font-bold text-white flex items-center justify-center"
                         >
                           {surchargeStartTime || '시간 선택'}
                         </button>
                       </div>
                       <div className="flex flex-col items-center justify-center p-2.5 bg-neutral-900 border border-neutral-850 rounded-2xl shadow-sm">
-                        <span className="text-[12px] text-white/80 font-extrabold mb-2">종료</span>
+                        <span className="text-[13px] text-white/80 font-extrabold mb-2">종료</span>
                         <button
                           type="button"
                           onClick={() => setActivePickerTarget('surchargeEnd')}
-                          className="w-full bg-[#1C1C1E] border border-neutral-800 hover:border-neutral-600 rounded-xl px-2.5 h-[42px] text-xs font-bold text-white flex items-center justify-center"
+                          className="w-full bg-[#1C1C1E] border border-neutral-800 hover:border-neutral-600 rounded-xl px-2.5 h-[42px] text-[13px] font-bold text-white flex items-center justify-center"
                         >
                           {surchargeEndTime || '시간 선택'}
                         </button>
@@ -1136,7 +1136,7 @@ export default function MasterSettingsView({
                   </div>
 
                   <div className="p-3 bg-[#131315] border border-neutral-850 rounded-xl space-y-3">
-                    <span className="text-[12px] text-white font-bold block">
+                    <span className="text-[13px] text-white font-bold block">
                       {surchargeTerminal?.label || '터미널'} 이동 추가요금
                     </span>
                     <PriceInput
@@ -1152,11 +1152,11 @@ export default function MasterSettingsView({
                   </div>
 
                   <div className="p-3 bg-[#131315] border border-neutral-850 rounded-xl space-y-3">
-                    <span className="text-[12px] text-white font-bold block">성수기 할증</span>
-                    <p className="text-[11px] text-white/60 font-semibold">날짜 형식 MM-DD</p>
+                    <span className="text-[13px] text-white font-bold block">성수기 할증</span>
+                    <p className="text-[13px] text-white/60 font-semibold">날짜 형식 MM-DD</p>
                     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                       <div>
-                        <label className="text-[11px] text-white/80 font-bold block mb-1.5">시작일</label>
+                        <label className="text-[13px] text-white/80 font-bold block mb-1.5">시작일</label>
                         <input
                           type="text"
                           placeholder="07-15"
@@ -1165,11 +1165,11 @@ export default function MasterSettingsView({
                             markFormDirty();
                             setPeakStartTime(e.target.value);
                           }}
-                          className="w-full bg-[#1C1C1E] border border-neutral-800 rounded-xl px-2.5 py-2 text-xs text-white focus:outline-none focus:border-amber-500 font-mono font-bold text-center"
+                          className="w-full bg-[#1C1C1E] border border-neutral-800 rounded-xl px-2.5 py-2 text-[13px] text-white focus:outline-none focus:border-amber-500 font-mono font-bold text-center"
                         />
                       </div>
                       <div>
-                        <label className="text-[11px] text-white/80 font-bold block mb-1.5">종료일</label>
+                        <label className="text-[13px] text-white/80 font-bold block mb-1.5">종료일</label>
                         <input
                           type="text"
                           placeholder="08-31"
@@ -1178,7 +1178,7 @@ export default function MasterSettingsView({
                             markFormDirty();
                             setPeakEndTime(e.target.value);
                           }}
-                          className="w-full bg-[#1C1C1E] border border-neutral-800 rounded-xl px-2.5 py-2 text-xs text-white focus:outline-none focus:border-amber-500 font-mono font-bold text-center"
+                          className="w-full bg-[#1C1C1E] border border-neutral-800 rounded-xl px-2.5 py-2 text-[13px] text-white focus:outline-none focus:border-amber-500 font-mono font-bold text-center"
                         />
                       </div>
                       <PriceInput
@@ -1197,7 +1197,7 @@ export default function MasterSettingsView({
                 </div>
               </div>
 
-              <p className="text-[11px] text-zinc-500 font-semibold px-1">
+              <p className="text-[13px] text-zinc-500 font-semibold px-1">
                 커브·밋앤그릿·드랍 추가요금은 「상품」 탭에서 받는 방식을 체크한 뒤 적습니다.
               </p>
             </>
@@ -1223,16 +1223,16 @@ export default function MasterSettingsView({
 
           {settingsTab === 'staff' && (
             <div className="bg-neutral-900/40 p-5 rounded-3xl border border-neutral-850 space-y-4">
-              <div className="flex items-center gap-2 text-xs font-black text-amber-500 tracking-wider">
+              <div className="flex items-center gap-2 text-[13px] font-black text-amber-500 tracking-wider">
                 <Users size={14} className="text-amber-500" />
                 <span>직원 계정</span>
               </div>
-              <p className="text-[12px] text-white/70 leading-relaxed">
+              <p className="text-[13px] text-white/70 leading-relaxed">
                 직원 로그인 시 기사 모드로 진입합니다. 추가·삭제는 바로 저장됩니다.
               </p>
 
               <div className="p-4 bg-[#131315] border border-neutral-850 rounded-2xl space-y-2.5">
-                <div className="text-[13px] font-bold text-white">기사 화면 금액</div>
+                <div className="text-[14px] font-bold text-white">기사 화면 금액</div>
                 <div className="grid grid-cols-3 gap-2">
                   {DRIVER_PRICE_OPTIONS.map((opt) => {
                     const on = driverPriceVisibility === opt.value;
@@ -1242,7 +1242,7 @@ export default function MasterSettingsView({
                         type="button"
                         disabled={driverPriceSaving}
                         onClick={() => void saveDriverPriceVisibility(opt.value)}
-                        className={`rounded-xl border px-2 py-2.5 text-[13px] font-semibold transition-colors disabled:opacity-60 ${
+                        className={`rounded-xl border px-2 py-2.5 text-[14px] font-semibold transition-colors disabled:opacity-60 ${
                           on
                             ? 'bg-amber-500 text-neutral-950 border-amber-500'
                             : 'bg-neutral-900 text-white/80 border-neutral-800'
@@ -1253,16 +1253,16 @@ export default function MasterSettingsView({
                     );
                   })}
                 </div>
-                <p className="text-[12px] text-white/60 leading-relaxed">
+                <p className="text-[13px] text-white/60 leading-relaxed">
                   {DRIVER_PRICE_OPTIONS.find((o) => o.value === driverPriceVisibility)?.hint} 관리자 화면에는 항상 보여요. 누르면 바로 저장돼요.
                 </p>
               </div>
 
               <form onSubmit={handleAddEmployee} className="p-4 bg-[#131315] border border-neutral-850 rounded-2xl space-y-3.5">
-                <div className="text-[12.5px] font-bold text-white">신규 직원 등록</div>
+                <div className="text-[13px] font-bold text-white">신규 직원 등록</div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                   <div>
-                    <label className="text-[11px] text-white/80 font-bold block mb-1">이름</label>
+                    <label className="text-[13px] text-white/80 font-bold block mb-1">이름</label>
                     <input
                       type="text"
                       placeholder="홍길동"
@@ -1272,7 +1272,7 @@ export default function MasterSettingsView({
                     />
                   </div>
                   <div>
-                    <label className="text-[11px] text-white/80 font-bold block mb-1">로그인 ID</label>
+                    <label className="text-[13px] text-white/80 font-bold block mb-1">로그인 ID</label>
                     <input
                       type="text"
                       placeholder="wawa_hong"
@@ -1282,7 +1282,7 @@ export default function MasterSettingsView({
                     />
                   </div>
                   <div>
-                    <label className="text-[11px] text-white/80 font-bold block mb-1">비밀번호</label>
+                    <label className="text-[13px] text-white/80 font-bold block mb-1">비밀번호</label>
                     <input
                       type="password"
                       placeholder="••••••"
@@ -1300,31 +1300,31 @@ export default function MasterSettingsView({
                     onChange={(e) => setEmpIsAdmin(e.target.checked)}
                     className="w-4 h-4 rounded border-neutral-800 text-amber-500 focus:ring-amber-500 bg-[#1C1C1E] cursor-pointer"
                   />
-                  <label htmlFor="emp-is-admin-checkbox" className="text-[12px] text-white font-bold cursor-pointer select-none">
+                  <label htmlFor="emp-is-admin-checkbox" className="text-[13px] text-white font-bold cursor-pointer select-none">
                     부관리자 권한 (요금·직원 관리)
                   </label>
                 </div>
                 <button
                   type="submit"
-                  className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-neutral-950 font-black rounded-xl text-xs transition-all"
+                  className="w-full py-2.5 bg-amber-500 hover:bg-amber-600 text-neutral-950 font-black rounded-xl text-[13px] transition-all"
                 >
                   직원 등록
                 </button>
               </form>
 
               <div className="space-y-2 mt-2">
-                <div className="text-[12.5px] font-bold text-white flex items-center justify-between px-1">
+                <div className="text-[13px] font-bold text-white flex items-center justify-between px-1">
                   <span>등록된 직원</span>
-                  <span className="text-[12px] text-white/70 font-mono">{employeeList.length}명</span>
+                  <span className="text-[13px] text-white/70 font-mono">{employeeList.length}명</span>
                 </div>
 
                 {employeeList.length === 0 ? (
-                  <div className="text-center py-6 bg-neutral-950/20 border border-neutral-850/50 rounded-2xl text-white/50 text-[12.5px]">
+                  <div className="text-center py-6 bg-neutral-950/20 border border-neutral-850/50 rounded-2xl text-white/50 text-[13px]">
                     등록된 직원이 없습니다.
                   </div>
                 ) : (
                   <div className="overflow-x-auto border border-neutral-850 rounded-2xl bg-[#0F0F11]">
-                    <table className="w-full text-left text-[13px] border-collapse">
+                    <table className="w-full text-left text-[14px] border-collapse">
                       <thead>
                         <tr className="border-b border-neutral-850 bg-neutral-900/60 text-white/80 font-bold">
                           <th className="p-3">이름/권한</th>
@@ -1340,9 +1340,9 @@ export default function MasterSettingsView({
                               <div className="flex items-center gap-2">
                                 <span>{emp.name}</span>
                                 {emp.role === 'admin' ? (
-                                  <span className="text-[11px] text-white bg-neutral-800 px-1.5 py-0.5 rounded font-black border border-neutral-700 shrink-0">부관리자</span>
+                                  <span className="text-[12px] text-white bg-neutral-800 px-1.5 py-0.5 rounded font-black border border-neutral-700 shrink-0">부관리자</span>
                                 ) : (
-                                  <span className="text-[11px] text-white/70 bg-neutral-900 px-1.5 py-0.5 rounded font-bold border border-neutral-800 shrink-0">기사</span>
+                                  <span className="text-[12px] text-white/70 bg-neutral-900 px-1.5 py-0.5 rounded font-bold border border-neutral-800 shrink-0">기사</span>
                                 )}
                               </div>
                             </td>
@@ -1376,13 +1376,13 @@ export default function MasterSettingsView({
             <button
               type="button"
               onClick={handleSavePartnerSelf}
-              className="w-full py-4 bg-gradient-to-r from-amber-500 to-amber-600 text-neutral-950 font-black rounded-2xl border border-amber-400/30 hover:brightness-110 shadow-lg shadow-amber-500/10 transition-all flex items-center justify-center gap-2 text-xs"
+              className="w-full py-4 bg-gradient-to-r from-amber-500 to-amber-600 text-neutral-950 font-black rounded-2xl border border-amber-400/30 hover:brightness-110 shadow-lg shadow-amber-500/10 transition-all flex items-center justify-center gap-2 text-[13px]"
               id="save-partner-rates-btn"
             >
               <Save size={14} />
               <span>저장하기</span>
             </button>
-            <p className="text-[10px] text-zinc-500 text-center mt-2 font-semibold">
+            <p className="text-[13px] text-zinc-500 text-center mt-2 font-semibold">
               {settingsTab === 'staff'
                 ? '직원 추가·삭제는 즉시 반영 · 저장은 입점·상품·요금용'
                 : settingsTab === 'onboard'

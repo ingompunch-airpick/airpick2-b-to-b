@@ -116,13 +116,13 @@ export default function InlineVehicleCamera({
     <div className="fixed inset-0 z-[145] bg-black flex flex-col select-none">
       {error ? (
         <div className="flex-1 flex flex-col items-center justify-center p-6 text-center gap-4">
-          <p className="text-sm text-zinc-300 leading-relaxed">{error}</p>
+          <p className="text-[15px] text-zinc-300 leading-relaxed">{error}</p>
           <div className="flex flex-col gap-2 w-full max-w-xs">
             {onFallbackNativeCamera && (
               <button
                 type="button"
                 onClick={onFallbackNativeCamera}
-                className="py-3 rounded-xl bg-amber-500 text-neutral-950 text-xs font-black"
+                className="py-3 rounded-xl bg-amber-500 text-neutral-950 text-[13px] font-black"
               >
                 기본 카메라로 촬영
               </button>
@@ -130,7 +130,7 @@ export default function InlineVehicleCamera({
             <button
               type="button"
               onClick={onClose}
-              className="py-3 rounded-xl bg-neutral-800 text-zinc-300 text-xs font-bold border border-neutral-700"
+              className="py-3 rounded-xl bg-neutral-800 text-zinc-300 text-[13px] font-bold border border-neutral-700"
             >
               돌아가기
             </button>
@@ -147,7 +147,7 @@ export default function InlineVehicleCamera({
               className="absolute inset-0 w-full h-full object-cover"
             />
             {starting && (
-              <div className="absolute inset-0 flex items-center justify-center bg-black/60 text-xs font-bold text-zinc-300">
+              <div className="absolute inset-0 flex items-center justify-center bg-black/60 text-[13px] font-bold text-zinc-300">
                 카메라 준비 중…
               </div>
             )}
@@ -156,7 +156,7 @@ export default function InlineVehicleCamera({
             )}
 
             <div className="absolute top-0 inset-x-0 p-4 flex items-center justify-between bg-gradient-to-b from-black/70 to-transparent">
-              <div className="text-xs font-black text-white">
+              <div className="text-[13px] font-black text-white">
                 촬영 · {sessionPhotos.length}장
               </div>
               <button
@@ -189,7 +189,7 @@ export default function InlineVehicleCamera({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-3 rounded-xl bg-neutral-800 text-zinc-200 text-xs font-black border border-neutral-700 min-w-[88px]"
+              className="px-4 py-3 rounded-xl bg-neutral-800 text-zinc-200 text-[13px] font-black border border-neutral-700 min-w-[88px]"
             >
               촬영 완료
             </button>

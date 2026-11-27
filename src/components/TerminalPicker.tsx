@@ -45,14 +45,14 @@ export default function TerminalPicker({
               onClick={() => onChange(t.code)}
               className={cn(
                 'rounded-xl border px-3 py-2.5 text-left transition-all',
-                size === 'sm' ? 'text-xs' : 'text-sm',
+                size === 'sm' ? 'text-[13px]' : 'text-[15px]',
                 selected
                   ? 'border-neutral-900 bg-neutral-900 text-white'
                   : 'border-neutral-200 bg-white text-neutral-700 hover:border-neutral-400'
               )}
             >
               <span className="font-bold block">{t.shortLabel}</span>
-              <span className={cn('text-[11px]', selected ? 'text-white/70' : 'text-neutral-400')}>
+              <span className={cn('text-[13px]', selected ? 'text-white/70' : 'text-neutral-400')}>
                 {t.label.replace(` (${t.code})`, '')}
               </span>
             </button>
@@ -72,7 +72,7 @@ export default function TerminalPicker({
             onClick={() => onChange(t.code)}
             className={cn(
               'py-1.5 px-2.5 rounded-lg font-bold transition-all cursor-pointer',
-              size === 'sm' ? 'text-[12px]' : 'text-[12.5px]',
+              size === 'sm' ? 'text-[13px]' : 'text-[13px]',
               selected ? activeCls : idleCls
             )}
           >

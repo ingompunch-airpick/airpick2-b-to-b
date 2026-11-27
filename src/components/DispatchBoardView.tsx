@@ -425,7 +425,7 @@ export default function DispatchBoardView({
     }
     if (id === 'flightOut' || id === 'flightIn') {
       return (
-        <td key={id} className={cn(pad, 'font-mono text-[11px]')}>
+        <td key={id} className={cn(pad, 'font-mono text-[13px]')}>
           {text}
         </td>
       );
@@ -448,7 +448,7 @@ export default function DispatchBoardView({
       const printPhone = cellText(id, row, idx, { forPrint: true });
       const tel = phoneTelHref(r.phone || '');
       return (
-        <td key={id} className={cn(pad, 'tabular-nums text-[11px]')}>
+        <td key={id} className={cn(pad, 'tabular-nums text-[13px]')}>
           <span className="print:hidden">
             {prefs.features.telLink && tel ? (
               <a
@@ -468,7 +468,7 @@ export default function DispatchBoardView({
     }
     if (id === 'userRequest' || id === 'adminMemo' || id === 'destination') {
       return (
-        <td key={id} className={cn(pad, 'max-w-[140px] truncate text-[11px]')} title={text}>
+        <td key={id} className={cn(pad, 'max-w-[140px] truncate text-[13px]')} title={text}>
           {text}
         </td>
       );
@@ -512,7 +512,7 @@ export default function DispatchBoardView({
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
             <h2 className="text-lg font-black text-white tracking-tight">입출차 배차표</h2>
-            <p className="text-[11px] text-zinc-500 font-semibold mt-0.5">
+            <p className="text-[13px] text-zinc-500 font-semibold mt-0.5">
               목록·시간표 전환 · 표시 항목은 「표시 설정」에서 선택
             </p>
           </div>
@@ -521,7 +521,7 @@ export default function DispatchBoardView({
               type="button"
               onClick={() => setSettingsOpen((v) => !v)}
               className={cn(
-                'inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-bold border',
+                'inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[13px] font-bold border',
                 settingsOpen
                   ? 'bg-amber-500 text-neutral-950 border-amber-500'
                   : 'bg-[#2C2C2E] text-zinc-200 border-neutral-700 hover:bg-neutral-700'
@@ -533,7 +533,7 @@ export default function DispatchBoardView({
             <button
               type="button"
               onClick={handleCsv}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#2C2C2E] text-zinc-200 text-xs font-bold border border-neutral-700 hover:bg-neutral-700"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#2C2C2E] text-zinc-200 text-[13px] font-bold border border-neutral-700 hover:bg-neutral-700"
             >
               <Download size={14} />
               CSV
@@ -541,7 +541,7 @@ export default function DispatchBoardView({
             <button
               type="button"
               onClick={handlePrint}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-sky-600 text-white text-xs font-black hover:bg-sky-500"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-sky-600 text-white text-[13px] font-black hover:bg-sky-500"
             >
               <Printer size={14} />
               A4 출력
@@ -552,7 +552,7 @@ export default function DispatchBoardView({
         {settingsOpen && (
           <div className="rounded-2xl border border-neutral-700 bg-[#1C1C1E] p-4 space-y-4">
             <div className="space-y-2">
-              <p className="text-xs font-black text-zinc-200">보기 방식</p>
+              <p className="text-[13px] font-black text-zinc-200">보기 방식</p>
               <div className="flex flex-wrap gap-2">
                 {(
                   [
@@ -565,7 +565,7 @@ export default function DispatchBoardView({
                     type="button"
                     onClick={() => setLayout(t.id)}
                     className={cn(
-                      'px-3 py-1.5 rounded-full text-[11px] font-black border transition-colors',
+                      'px-3 py-1.5 rounded-full text-[12px] font-black border transition-colors',
                       prefs.layout === t.id
                         ? 'bg-amber-500 text-neutral-950 border-amber-500'
                         : 'bg-transparent text-zinc-400 border-neutral-700 hover:text-zinc-200'
@@ -575,21 +575,21 @@ export default function DispatchBoardView({
                   </button>
                 ))}
               </div>
-              <p className="text-[10px] text-zinc-500 font-semibold">
+              <p className="text-[13px] text-zinc-500 font-semibold">
                 시간표는 화면용입니다. 인쇄·CSV는 항상 목록 형식으로 나갑니다.
               </p>
             </div>
             <div className="flex flex-wrap items-center justify-between gap-2 border-t border-neutral-800 pt-3">
               <div>
-                <p className="text-xs font-black text-zinc-200">표시할 컬럼 · 순서</p>
-                <p className="text-[10px] text-zinc-500 font-semibold mt-0.5">
+                <p className="text-[13px] font-black text-zinc-200">표시할 컬럼 · 순서</p>
+                <p className="text-[13px] text-zinc-500 font-semibold mt-0.5">
                   위↓아래 버튼으로 좌→우 순서를 바꿉니다. 이 기기 브라우저에 저장됩니다.
                 </p>
               </div>
               <button
                 type="button"
                 onClick={() => updatePrefs(defaultDispatchBoardPrefs())}
-                className="text-[11px] font-bold text-amber-500 hover:text-amber-400"
+                className="text-[13px] font-bold text-amber-500 hover:text-amber-400"
               >
                 기본값으로
               </button>
@@ -603,7 +603,7 @@ export default function DispatchBoardView({
                     key={id}
                     className="flex items-center gap-2 rounded-lg border border-neutral-800 bg-neutral-950/40 px-2 py-1.5"
                   >
-                    <label className="flex min-w-0 flex-1 items-center gap-2 text-[11px] text-zinc-300 font-semibold cursor-pointer select-none">
+                    <label className="flex min-w-0 flex-1 items-center gap-2 text-[13px] text-zinc-300 font-semibold cursor-pointer select-none">
                       <input
                         type="checkbox"
                         checked={prefs.columns[id]}
@@ -652,12 +652,12 @@ export default function DispatchBoardView({
               })}
             </div>
             <div className="border-t border-neutral-800 pt-3 space-y-2">
-              <p className="text-xs font-black text-zinc-200">보조 기능</p>
+              <p className="text-[13px] font-black text-zinc-200">보조 기능</p>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {DISPATCH_FEATURE_META.map((f) => (
                   <label
                     key={f.id}
-                    className="flex items-center gap-2 text-[11px] text-zinc-300 font-semibold cursor-pointer select-none"
+                    className="flex items-center gap-2 text-[13px] text-zinc-300 font-semibold cursor-pointer select-none"
                   >
                     <input
                       type="checkbox"
@@ -702,7 +702,7 @@ export default function DispatchBoardView({
               type="button"
               onClick={() => setLayout(t.id)}
               className={cn(
-                'px-3 py-1.5 rounded-full text-[11px] font-black border transition-colors',
+                'px-3 py-1.5 rounded-full text-[12px] font-black border transition-colors',
                 prefs.layout === t.id
                   ? 'bg-sky-500 text-neutral-950 border-sky-500'
                   : 'bg-transparent text-zinc-400 border-neutral-700 hover:text-zinc-200'
@@ -724,7 +724,7 @@ export default function DispatchBoardView({
               type="button"
               onClick={() => setFocus(t.id)}
               className={cn(
-                'px-3 py-1.5 rounded-full text-[11px] font-black border transition-colors',
+                'px-3 py-1.5 rounded-full text-[12px] font-black border transition-colors',
                 focus === t.id
                   ? 'bg-amber-500 text-neutral-950 border-amber-500'
                   : 'bg-transparent text-zinc-400 border-neutral-700 hover:text-zinc-200'
@@ -738,7 +738,7 @@ export default function DispatchBoardView({
 
       <div className="dispatch-print-root">
         <div className="hidden print:block mb-2">
-          <p className="text-sm font-black">
+          <p className="text-[15px] font-black">
             {companyName || '에어픽 파트너'} · 입출차 배차표 · {selectedDate}
           </p>
         </div>
@@ -748,7 +748,7 @@ export default function DispatchBoardView({
           <div className="overflow-x-auto rounded-2xl border border-neutral-800 print:hidden">
             <table className="w-full min-w-[960px] text-left border-collapse">
               <thead>
-                <tr className="bg-[#1C1C1E] text-[10px] text-zinc-400 font-black uppercase tracking-wide">
+                <tr className="bg-[#1C1C1E] text-[13px] text-zinc-400 font-black uppercase tracking-wide">
                   <th className="px-2 py-2 whitespace-nowrap sticky left-0 z-[1] bg-[#1C1C1E]">
                     시간대
                   </th>
@@ -774,7 +774,7 @@ export default function DispatchBoardView({
                         >
                           <td
                             className={cn(
-                              'px-2 py-0.5 text-[11px] font-mono tabular-nums font-bold whitespace-nowrap sticky left-0 z-[1]',
+                              'px-2 py-0.5 text-[13px] font-mono tabular-nums font-bold whitespace-nowrap sticky left-0 z-[1]',
                               'text-zinc-600 bg-neutral-950/90'
                             )}
                           >
@@ -804,7 +804,7 @@ export default function DispatchBoardView({
                         <tr
                           key={`${ev.res.id}-${ev.kind}-${slot.time}`}
                           className={cn(
-                            'border-t border-neutral-800/80 text-[12px] text-zinc-200',
+                            'border-t border-neutral-800/80 text-[13px] text-zinc-200',
                             ev.kind === 'intake' ? 'bg-sky-500/[0.04]' : 'bg-rose-500/[0.04]'
                           )}
                         >
@@ -812,7 +812,7 @@ export default function DispatchBoardView({
                             <td
                               rowSpan={slot.events.length}
                               className={cn(
-                                'px-2 py-1 text-[12px] font-black font-mono tabular-nums whitespace-nowrap align-top sticky left-0 z-[1]',
+                                'px-2 py-1 text-[13px] font-black font-mono tabular-nums whitespace-nowrap align-top sticky left-0 z-[1]',
                                 'text-amber-400 bg-[#121214]'
                               )}
                             >
@@ -822,7 +822,7 @@ export default function DispatchBoardView({
                           <td className="px-2 py-1 whitespace-nowrap">
                             <span
                               className={cn(
-                                'inline-block px-1.5 py-0.5 rounded text-[10px] font-black',
+                                'inline-block px-1.5 py-0.5 rounded text-[12px] font-black',
                                 ev.kind === 'intake'
                                   ? 'bg-sky-500/15 text-sky-400'
                                   : 'bg-rose-500/15 text-rose-400'
@@ -831,7 +831,7 @@ export default function DispatchBoardView({
                               {ev.kind === 'intake' ? '입차' : '출차'}
                             </span>
                           </td>
-                          <td className="px-2 py-1 font-mono text-[11px] tabular-nums text-zinc-400 whitespace-nowrap">
+                          <td className="px-2 py-1 font-mono text-[13px] tabular-nums text-zinc-400 whitespace-nowrap">
                             {exact || '—'}
                           </td>
                           {visibleCols.map((id) =>
@@ -856,7 +856,7 @@ export default function DispatchBoardView({
         >
           <table className="dispatch-print-table w-full min-w-[900px] text-left border-collapse">
             <thead>
-              <tr className="bg-[#1C1C1E] text-[10px] text-zinc-400 font-black uppercase tracking-wide print:bg-neutral-100">
+              <tr className="bg-[#1C1C1E] text-[13px] text-zinc-400 font-black uppercase tracking-wide print:bg-neutral-100">
                 {visibleCols.map((id) => (
                   <th key={id} className="px-2 py-2.5 whitespace-nowrap">
                     {columnHeader(id)}
@@ -869,7 +869,7 @@ export default function DispatchBoardView({
                 <tr>
                   <td
                     colSpan={Math.max(visibleCols.length, 1)}
-                    className="px-4 py-10 text-center text-sm text-zinc-500 font-semibold"
+                    className="px-4 py-10 text-center text-[15px] text-zinc-500 font-semibold"
                   >
                     해당 날짜의 입·출차 예약이 없습니다.
                   </td>
@@ -884,7 +884,7 @@ export default function DispatchBoardView({
                     <tr
                       key={row.res.id || idx}
                       className={cn(
-                        'border-t border-neutral-800/80 text-[12px] text-zinc-200 print:border-neutral-300 print:text-neutral-900',
+                        'border-t border-neutral-800/80 text-[13px] text-zinc-200 print:border-neutral-300 print:text-neutral-900',
                         both ? 'bg-amber-500/5' : 'bg-transparent'
                       )}
                     >
@@ -897,7 +897,7 @@ export default function DispatchBoardView({
           </table>
         </div>
 
-        <p className="dispatch-no-print mt-2 text-[10px] text-zinc-500 font-semibold">
+        <p className="dispatch-no-print mt-2 text-[13px] text-zinc-500 font-semibold">
           {isTimetable
             ? `시간표(화면) · 인쇄·CSV는 목록 · ${rows.length}대`
             : `${rows.length}건`}

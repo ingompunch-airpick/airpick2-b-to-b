@@ -63,7 +63,7 @@ export default function HqParkingPartnersView({
       <div className="px-4 pt-4 pb-3 space-y-3 border-b border-neutral-900">
         <div>
           <h2 className="text-base font-black text-white">주차 업체</h2>
-          <p className="text-[12px] text-zinc-500 font-semibold mt-1">
+          <p className="text-[13px] text-zinc-500 font-semibold mt-1">
             영업·손님앱 노출·프로필 상태. 매출·예약은{' '}
             <NavLink onClick={() => onNavigate?.('statistics')}>대시보드 →</NavLink>
             {' · '}제휴 코드는{' '}
@@ -84,7 +84,7 @@ export default function HqParkingPartnersView({
               type="button"
               onClick={() => setTab(item.id)}
               className={cn(
-                'pb-2 text-[12px] font-black border-b-2 -mb-px transition-colors',
+                'pb-2 text-[13px] font-black border-b-2 -mb-px transition-colors',
                 tab === item.id
                   ? 'text-amber-400 border-amber-400'
                   : 'text-zinc-500 border-transparent hover:text-zinc-300'

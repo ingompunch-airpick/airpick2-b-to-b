@@ -315,7 +315,7 @@ export default function EditModal({
           </button>
           <div className="flex items-center gap-1.5 shrink-0">
             <span className={cn(
-              "text-[12.5px] px-2.5 py-1 rounded-full font-black tracking-wide uppercase",
+              "text-[12px] px-2.5 py-1 rounded-full font-black tracking-wide uppercase",
               cancelled
                 ? "bg-zinc-700/40 text-zinc-400"
                 : doneOut
@@ -361,7 +361,7 @@ export default function EditModal({
                             setMoreOpen(false);
                             window.open(receiptUrl, '_blank', 'noopener,noreferrer');
                           }}
-                          className="w-full text-left px-4 py-3 text-[13.5px] font-bold text-sky-400 hover:bg-neutral-700/60 cursor-pointer"
+                          className="w-full text-left px-4 py-3 text-[14px] font-bold text-sky-400 hover:bg-neutral-700/60 cursor-pointer"
                         >
                           {receiptViewLabel}
                         </button>
@@ -373,7 +373,7 @@ export default function EditModal({
                             setMoreOpen(false);
                             onRevertStatus?.();
                           }}
-                          className="w-full text-left px-4 py-3 text-[13.5px] font-bold text-amber-400 hover:bg-neutral-700/60 cursor-pointer"
+                          className="w-full text-left px-4 py-3 text-[14px] font-bold text-amber-400 hover:bg-neutral-700/60 cursor-pointer"
                         >
                           {revertLabel}
                         </button>
@@ -385,7 +385,7 @@ export default function EditModal({
                             setMoreOpen(false);
                             onCancelReservation?.();
                           }}
-                          className="w-full text-left px-4 py-3 text-[13.5px] font-bold text-rose-400 hover:bg-neutral-700/60 cursor-pointer"
+                          className="w-full text-left px-4 py-3 text-[14px] font-bold text-rose-400 hover:bg-neutral-700/60 cursor-pointer"
                         >
                           {isPendingBeforeIntake ? '예약 취소' : '취소·무효'}
                         </button>
@@ -406,46 +406,46 @@ export default function EditModal({
 
           <div className="grid grid-cols-2 gap-4">
             <div className="relative group">
-              <label className="text-[12px] font-black text-zinc-500 block mb-1">차량 번호</label>
+              <label className="text-[13px] font-black text-zinc-500 block mb-1">차량 번호</label>
               <input
                 type="text"
                 value={driverEditCarNumber}
                 onChange={(e) => setDriverEditCarNumber(e.target.value)}
-                className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[13.5px] text-white font-extrabold outline-none focus:border-[#FF9F0A] transition-colors"
+                className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[14px] text-white font-extrabold outline-none focus:border-[#FF9F0A] transition-colors"
                 placeholder="차량번호"
               />
             </div>
             <div className="relative group">
-              <label className="text-[12px] font-black text-zinc-500 block mb-1">차종</label>
+              <label className="text-[13px] font-black text-zinc-500 block mb-1">차종</label>
               <input
                 type="text"
                 value={driverEditCarModel}
                 onChange={(e) => setDriverEditCarModel(e.target.value)}
-                className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[13.5px] text-white font-bold outline-none focus:border-[#FF9F0A] transition-colors"
+                className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[14px] text-white font-bold outline-none focus:border-[#FF9F0A] transition-colors"
                 placeholder="그랜저 등"
               />
             </div>
           </div>
 
           <div className="relative group">
-            <label className="text-[12px] font-black text-zinc-500 block mb-1">고객명</label>
+            <label className="text-[13px] font-black text-zinc-500 block mb-1">고객명</label>
             <input
               type="text"
               value={driverEditUserName}
               onChange={(e) => setDriverEditUserName(e.target.value)}
-              className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[14px] text-white font-bold outline-none focus:border-amber-500 transition-colors"
+              className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[15px] text-white font-bold outline-none focus:border-amber-500 transition-colors"
               placeholder="고객 이름"
             />
           </div>
 
           <div className="relative group">
-            <label className="text-[12px] font-black text-zinc-500 block mb-1">전화번호</label>
+            <label className="text-[13px] font-black text-zinc-500 block mb-1">전화번호</label>
             <div className="relative">
               <input
                 type="text"
                 value={driverEditPhone}
                 onChange={(e) => setDriverEditPhone(e.target.value)}
-                className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 pr-8 text-[13.5px] text-white font-bold outline-none focus:border-amber-500 transition-colors font-mono"
+                className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 pr-8 text-[14px] text-white font-bold outline-none focus:border-amber-500 transition-colors font-mono"
                 placeholder="전화번호를 입력해주세요"
               />
               <Phone size={14} className="absolute right-1 top-2.5 text-zinc-500" />
@@ -454,38 +454,38 @@ export default function EditModal({
 
           <div className="space-y-2.5">
             <div className="flex items-center gap-2">
-              <span className="w-10 shrink-0 text-[12px] font-black text-zinc-400">입고</span>
+              <span className="w-10 shrink-0 text-[13px] font-black text-zinc-400">입고</span>
               <div className="flex-1 grid grid-cols-2 gap-2">
                 <input
                   type="date"
                   value={driverEditDepartureDate}
                   onChange={(e) => setDriverEditDepartureDate(e.target.value)}
-                  className="w-full bg-[#2C2C2E] border border-neutral-700/80 rounded-xl px-2.5 h-[42px] text-xs text-white font-bold outline-none focus:border-amber-500 text-center"
+                  className="w-full bg-[#2C2C2E] border border-neutral-700/80 rounded-xl px-2.5 h-[42px] text-[13px] text-white font-bold outline-none focus:border-amber-500 text-center"
                 />
                 <input
                   type="text"
                   value={driverEditDepartureTime}
                   onChange={(e) => setDriverEditDepartureTime(e.target.value)}
                   placeholder="08:30"
-                  className="w-full bg-[#2C2C2E] border border-neutral-700/80 rounded-xl px-2.5 h-[42px] text-xs text-white font-bold outline-none focus:border-amber-500 text-center font-mono"
+                  className="w-full bg-[#2C2C2E] border border-neutral-700/80 rounded-xl px-2.5 h-[42px] text-[13px] text-white font-bold outline-none focus:border-amber-500 text-center font-mono"
                 />
               </div>
             </div>
             <div className="flex items-center gap-2">
-              <span className="w-10 shrink-0 text-[12px] font-black text-zinc-400">출고</span>
+              <span className="w-10 shrink-0 text-[13px] font-black text-zinc-400">출고</span>
               <div className="flex-1 grid grid-cols-2 gap-2">
                 <input
                   type="date"
                   value={driverEditArrivalDate}
                   onChange={(e) => setDriverEditArrivalDate(e.target.value)}
-                  className="w-full bg-[#2C2C2E] border border-neutral-700/80 rounded-xl px-2.5 h-[42px] text-xs text-white font-bold outline-none focus:border-amber-500 text-center"
+                  className="w-full bg-[#2C2C2E] border border-neutral-700/80 rounded-xl px-2.5 h-[42px] text-[13px] text-white font-bold outline-none focus:border-amber-500 text-center"
                 />
                 <input
                   type="text"
                   value={driverEditArrivalTime}
                   onChange={(e) => setDriverEditArrivalTime(e.target.value)}
                   placeholder="21:15"
-                  className="w-full bg-[#2C2C2E] border border-neutral-700/80 rounded-xl px-2.5 h-[42px] text-xs text-white font-bold outline-none focus:border-amber-500 text-center font-mono"
+                  className="w-full bg-[#2C2C2E] border border-neutral-700/80 rounded-xl px-2.5 h-[42px] text-[13px] text-white font-bold outline-none focus:border-amber-500 text-center font-mono"
                 />
               </div>
             </div>
@@ -493,7 +493,7 @@ export default function EditModal({
 
           {parkingTypeChoices.length > 0 && (
             <div className="space-y-2">
-              <label className="text-[12px] font-black text-zinc-500 block">주차 유형</label>
+              <label className="text-[13px] font-black text-zinc-500 block">주차 유형</label>
               <div
                 className={cn(
                   'grid gap-2 p-1 bg-neutral-950 rounded-xl border border-neutral-800',
@@ -521,7 +521,7 @@ export default function EditModal({
                         }
                       }}
                       className={cn(
-                        'py-2.5 rounded-lg text-xs font-black transition-all cursor-pointer',
+                        'py-2.5 rounded-lg text-[13px] font-black transition-all cursor-pointer',
                         active
                           ? choice.isIndoor
                             ? 'bg-[#A855F7] text-white shadow-sm'
@@ -544,7 +544,7 @@ export default function EditModal({
               return (
                 <span
                   className={cn(
-                    'inline-flex text-[11px] font-black border px-2 py-0.5 rounded-md',
+                    'inline-flex text-[12px] font-black border px-2 py-0.5 rounded-md',
                     bookingSourceBadgeClass(source)
                   )}
                 >
@@ -553,7 +553,7 @@ export default function EditModal({
               );
             })()}
             <div>
-              <label className="text-[12px] font-black text-zinc-500 block mb-1">출국 터미널</label>
+              <label className="text-[13px] font-black text-zinc-500 block mb-1">출국 터미널</label>
               <TerminalPicker
                 airportId={editAirportId}
                 value={driverEditDepartureTerminal}
@@ -564,7 +564,7 @@ export default function EditModal({
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="relative group">
-                <label className="text-[12px] font-black text-zinc-500 block mb-1">출국 항공사</label>
+                <label className="text-[13px] font-black text-zinc-500 block mb-1">출국 항공사</label>
                 <AirlinePicker
                   value={driverEditDeptAirline}
                   onChange={setDriverEditDeptAirline}
@@ -572,12 +572,12 @@ export default function EditModal({
                 />
               </div>
               <div className="relative group">
-                <label className="text-[12px] font-black text-zinc-500 block mb-1">출국 항공편</label>
+                <label className="text-[13px] font-black text-zinc-500 block mb-1">출국 항공편</label>
                 <input
                   type="text"
                   value={driverEditDeptFlight}
                   onChange={(e) => setDriverEditDeptFlight(e.target.value)}
-                  className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[14px] text-white font-bold outline-none focus:border-[#FF9F0A] transition-colors font-mono"
+                  className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[15px] text-white font-bold outline-none focus:border-[#FF9F0A] transition-colors font-mono"
                   placeholder="예: KE101"
                 />
               </div>
@@ -586,7 +586,7 @@ export default function EditModal({
 
           <div className="space-y-3">
             <div>
-              <label className="text-[12px] font-black text-zinc-500 block mb-1">입국 터미널</label>
+              <label className="text-[13px] font-black text-zinc-500 block mb-1">입국 터미널</label>
               <TerminalPicker
                 airportId={editAirportId}
                 value={driverEditArrivalTerminal}
@@ -597,7 +597,7 @@ export default function EditModal({
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="relative group">
-                <label className="text-[12px] font-black text-zinc-500 block mb-1">입국 항공사</label>
+                <label className="text-[13px] font-black text-zinc-500 block mb-1">입국 항공사</label>
                 <AirlinePicker
                   value={driverEditArrAirline}
                   onChange={setDriverEditArrAirline}
@@ -605,12 +605,12 @@ export default function EditModal({
                 />
               </div>
               <div className="relative group">
-                <label className="text-[12px] font-black text-zinc-500 block mb-1">입국 항공편</label>
+                <label className="text-[13px] font-black text-zinc-500 block mb-1">입국 항공편</label>
                 <input
                   type="text"
                   value={driverEditArrFlight}
                   onChange={(e) => setDriverEditArrFlight(e.target.value)}
-                  className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[14px] text-white font-bold outline-none focus:border-[#FF9F0A] transition-colors font-mono"
+                  className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[15px] text-white font-bold outline-none focus:border-[#FF9F0A] transition-colors font-mono"
                   placeholder="예: KE102"
                 />
               </div>
@@ -618,38 +618,38 @@ export default function EditModal({
           </div>
 
           <div className="relative group">
-            <label className="text-[12px] font-black text-zinc-500 block mb-1">여행지</label>
+            <label className="text-[13px] font-black text-zinc-500 block mb-1">여행지</label>
             <input
               type="text"
               value={driverEditDestination}
               onChange={(e) => setDriverEditDestination(e.target.value)}
-              className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[14px] text-white font-bold outline-none focus:border-[#FF9F0A] transition-colors"
+              className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[15px] text-white font-bold outline-none focus:border-[#FF9F0A] transition-colors"
               placeholder="예: 오사카, 싱가포르"
             />
           </div>
 
           {!hideReservationPassword && (
             <div className="relative group">
-              <label className="text-[12px] font-black text-zinc-500 block mb-1">예약 비밀번호</label>
+              <label className="text-[13px] font-black text-zinc-500 block mb-1">예약 비밀번호</label>
               <input
                 type="text"
                 value={driverEditReservationPassword}
                 readOnly
-                className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[14px] text-zinc-400 font-bold outline-none font-mono"
+                className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[15px] text-zinc-400 font-bold outline-none font-mono"
                 placeholder="생성 시에만 설정"
               />
-              <p className="text-[11px] text-zinc-600 mt-1">보안상 앱에서 변경할 수 없습니다.</p>
+              <p className="text-[13px] text-zinc-600 mt-1">보안상 앱에서 변경할 수 없습니다.</p>
             </div>
           )}
 
           <div className="space-y-2">
-            <label className="text-[12px] font-black text-zinc-500 block">수납 상태</label>
+            <label className="text-[13px] font-black text-zinc-500 block">수납 상태</label>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => setPaymentChoice('unpaid')}
                 className={cn(
-                  'py-2.5 rounded-xl text-xs font-black border transition-all cursor-pointer',
+                  'py-2.5 rounded-xl text-[13px] font-black border transition-all cursor-pointer',
                   paymentChoice === 'unpaid'
                     ? 'bg-rose-500/15 border-rose-500 text-rose-400'
                     : 'bg-neutral-950 border-neutral-800 text-zinc-400 hover:border-neutral-700'
@@ -661,7 +661,7 @@ export default function EditModal({
                 type="button"
                 onClick={() => setPaymentChoice('paid')}
                 className={cn(
-                  'py-2.5 rounded-xl text-xs font-black border transition-all cursor-pointer',
+                  'py-2.5 rounded-xl text-[13px] font-black border transition-all cursor-pointer',
                   paymentChoice === 'paid'
                     ? 'bg-emerald-500/15 border-emerald-500 text-emerald-400'
                     : 'bg-neutral-950 border-neutral-800 text-zinc-400 hover:border-neutral-700'
@@ -679,10 +679,10 @@ export default function EditModal({
               onClick={() => setNotesOpen((o) => !o)}
               className="w-full flex items-center justify-between gap-2 py-2.5 border-b border-neutral-800/80 cursor-pointer"
             >
-              <span className="text-[12.5px] font-black text-zinc-400 tracking-wider flex items-center gap-1.5">
+              <span className="text-[13px] font-black text-zinc-400 tracking-wider flex items-center gap-1.5">
                 요청 · 특이사항
                 {hasNotesContent && (
-                  <span className="tracking-normal text-[10px] font-black px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/25">
+                  <span className="tracking-normal text-[12px] font-black px-1.5 py-0.5 rounded bg-amber-500/15 text-amber-400 border border-amber-500/25">
                     있음
                   </span>
                 )}
@@ -695,22 +695,22 @@ export default function EditModal({
             {notesOpen && (
               <div className="space-y-4 pt-3">
                 <div className="relative group">
-                  <label className="text-[12px] font-black text-zinc-500 block mb-1">고객요청사항</label>
+                  <label className="text-[13px] font-black text-zinc-500 block mb-1">고객요청사항</label>
                   <input
                     type="text"
                     value={driverEditUserRequest}
                     onChange={(e) => setDriverEditUserRequest(e.target.value)}
-                    className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[14px] text-zinc-300 font-medium outline-none focus:border-amber-500 transition-colors"
+                    className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[15px] text-zinc-300 font-medium outline-none focus:border-amber-500 transition-colors"
                     placeholder="요청사항을 기재하세요"
                   />
                 </div>
                 <div className="relative group">
-                  <label className="text-[12px] font-black text-zinc-500 block mb-1">관리자메모 (특이사항)</label>
+                  <label className="text-[13px] font-black text-zinc-500 block mb-1">관리자메모 (특이사항)</label>
                   <input
                     type="text"
                     value={driverEditAdminMemo}
                     onChange={(e) => setDriverEditAdminMemo(e.target.value)}
-                    className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[14px] text-zinc-300 font-medium outline-none focus:border-amber-500 transition-colors"
+                    className="w-full bg-[#1C1C1E] border-b border-[#2C2C2E] py-1.5 text-[15px] text-zinc-300 font-medium outline-none focus:border-amber-500 transition-colors"
                     placeholder="특이사항을 입력해주세요"
                   />
                 </div>
@@ -723,7 +723,7 @@ export default function EditModal({
         {/* Bottom: 요금 미리보기 · 저장 · 다음 상태 */}
         <div className="border-t border-neutral-800 shrink-0 bg-[#1C1C1E]">
           <div className="px-5 py-2.5 flex items-center justify-between gap-3 border-b border-neutral-800/80">
-            <span className="text-[12px] font-bold text-zinc-500">주차 요금</span>
+            <span className="text-[13px] font-bold text-zinc-500">주차 요금</span>
             <div className="flex items-center gap-1 shrink-0">
               <input
                 type="number"
@@ -738,7 +738,7 @@ export default function EditModal({
                 className="w-[7.5rem] bg-[#131315] border border-neutral-700 rounded-lg px-2 py-1.5 text-right text-[15px] font-black tabular-nums text-amber-400 focus:outline-none focus:border-amber-500/50"
                 aria-label="주차 요금"
               />
-              <span className="text-[13px] font-bold text-zinc-500">원</span>
+              <span className="text-[14px] font-bold text-zinc-500">원</span>
             </div>
           </div>
           <div className="flex items-stretch">

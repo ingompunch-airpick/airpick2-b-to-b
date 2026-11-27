@@ -664,10 +664,10 @@ export default function SearchReceptionView({
           <ArrowLeft size={16} />
         </button>
         <div>
-          <h2 className="text-sm font-black tracking-tight text-white">
+          <h2 className="text-[15px] font-black tracking-tight text-white">
             {receptionSubMode === 'search' ? '차량 검색 및 정보 수정' : '신규 예약'}
           </h2>
-          <p className="text-[11px] text-zinc-500 font-bold">
+          <p className="text-[13px] text-zinc-500 font-bold">
             {receptionSubMode === 'search' ? '차량 검색 · 정보 수정' : '현장 접수'}
           </p>
         </div>
@@ -682,7 +682,7 @@ export default function SearchReceptionView({
             setReceptionSearchText('');
           }}
           className={cn(
-            "py-2 text-[13px] font-black rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer",
+            "py-2 text-[14px] font-black rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer",
             receptionSubMode === 'search' ? "bg-amber-500 text-neutral-950 font-black shadow-sm" : "text-zinc-400 hover:text-white"
           )}
         >
@@ -693,7 +693,7 @@ export default function SearchReceptionView({
           type="button"
           onClick={() => setReceptionSubMode('new_contract')}
           className={cn(
-            "py-2 text-[13px] font-black rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer",
+            "py-2 text-[14px] font-black rounded-lg transition-all flex items-center justify-center gap-1.5 cursor-pointer",
             receptionSubMode === 'new_contract' ? "bg-amber-500 text-neutral-950 font-black shadow-sm" : "text-zinc-400 hover:text-white"
           )}
         >
@@ -713,7 +713,7 @@ export default function SearchReceptionView({
                 placeholder="고객명, 예약번호, 또는 차량 뒷자리로 검색..."
                 value={receptionSearchText}
                 onChange={e => setReceptionSearchText(e.target.value)}
-                className="w-full pl-10 pr-4 py-3 bg-neutral-900 border border-neutral-850 rounded-2xl text-xs sm:text-xs font-bold text-white focus:outline-none focus:border-amber-500 placeholder-zinc-650"
+                className="w-full pl-10 pr-4 py-3 bg-neutral-900 border border-neutral-850 rounded-2xl text-[13px] sm:text-[13px] font-bold text-white focus:outline-none focus:border-amber-500 placeholder-zinc-650"
                 id="reception-search-input"
               />
             </div>
@@ -723,7 +723,7 @@ export default function SearchReceptionView({
                 <button
                   key={chip}
                   onClick={() => setReceptionSearchText(chip)}
-                  className="text-[11.5px] font-bold text-zinc-400 hover:text-white bg-neutral-900 border border-neutral-850 px-2 py-1 rounded-lg cursor-pointer"
+                  className="text-[12px] font-bold text-zinc-400 hover:text-white bg-neutral-900 border border-neutral-850 px-2 py-1 rounded-lg cursor-pointer"
                 >
                   +{chip}
                 </button>
@@ -739,8 +739,8 @@ export default function SearchReceptionView({
                 return (
                   <div className="bg-neutral-900/30 p-10 rounded-3xl border border-neutral-850/50 text-center space-y-2">
                     <Search size={22} className="mx-auto text-zinc-600 mb-1" />
-                    <p className="text-xs text-zinc-400 font-bold">검색어를 입력해 주세요.</p>
-                    <p className="text-[12px] text-zinc-650">반납완료·취소 건도 검색됩니다. 열어서 결제·취소·되돌리기 하세요.</p>
+                    <p className="text-[13px] text-zinc-400 font-bold">검색어를 입력해 주세요.</p>
+                    <p className="text-[13px] text-zinc-650">반납완료·취소 건도 검색됩니다. 열어서 결제·취소·되돌리기 하세요.</p>
                   </div>
                 );
               }
@@ -753,15 +753,15 @@ export default function SearchReceptionView({
                 return (
                   <div className="bg-neutral-900/50 p-10 rounded-3xl border border-neutral-850 text-center space-y-2">
                     <Search size={22} className="mx-auto text-zinc-500 mb-1" />
-                    <p className="text-xs text-white font-black">검색된 일치 차량 정보가 존재하지 않습니다.</p>
-                    <p className="text-[12px] text-zinc-500">고객명, 정확한 차량번호 또는 연락처 뒷자리를 다시 확인해 주십시오.</p>
+                    <p className="text-[13px] text-white font-black">검색된 일치 차량 정보가 존재하지 않습니다.</p>
+                    <p className="text-[13px] text-zinc-500">고객명, 정확한 차량번호 또는 연락처 뒷자리를 다시 확인해 주십시오.</p>
                   </div>
                 );
               }
 
               return (
                 <div className="space-y-3.5">
-                  <div className="text-[12px] font-black text-amber-500 px-1 uppercase tracking-wider">
+                  <div className="text-[13px] font-black text-amber-500 px-1 uppercase tracking-wider">
                     일치 차량 ({matchedList.length}건)
                   </div>
                   {matchedList.map((res, idx) => (
@@ -834,17 +834,17 @@ export default function SearchReceptionView({
         <form onSubmit={handleCreateIntakeBooking} className="bg-neutral-900 border border-neutral-850 rounded-3xl p-5 space-y-4 shadow-xl">
           <div className="flex items-center gap-2 border-b border-neutral-850 pb-2.5">
             <PlusCircle size={14} className="text-amber-500" />
-            <span className="text-[13px] font-black text-white tracking-tight">신규 예약</span>
+            <span className="text-[14px] font-black text-white tracking-tight">신규 예약</span>
           </div>
 
           {intakeCompanyOptions.length > 1 && (
             <div>
-              <label className="text-[12px] block mb-1 font-black text-zinc-500">접수 업체 *</label>
+              <label className="text-[13px] block mb-1 font-black text-zinc-500">접수 업체 *</label>
               <select
                 required
                 value={selectedCompanyId || currentCompanyId}
                 onChange={(e) => setSelectedCompanyId(e.target.value)}
-                className="w-full px-3 py-2 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-100 outline-none focus:border-amber-500 text-xs font-bold"
+                className="w-full px-3 py-2 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-100 outline-none focus:border-amber-500 text-[13px] font-bold"
               >
                 {intakeCompanyOptions.map((opt) => (
                   <option key={opt.id} value={opt.id}>
@@ -855,9 +855,9 @@ export default function SearchReceptionView({
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-3 text-xs">
+          <div className="grid grid-cols-2 gap-3 text-[13px]">
             <div>
-              <label className="text-[12px] block mb-1 font-bold text-zinc-500">차량번호 *</label>
+              <label className="text-[13px] block mb-1 font-bold text-zinc-500">차량번호 *</label>
               <input
                 required
                 type="text"
@@ -869,7 +869,7 @@ export default function SearchReceptionView({
             </div>
 
             <div>
-              <label className="text-[12px] block mb-1 font-black text-zinc-500">차종 *</label>
+              <label className="text-[13px] block mb-1 font-black text-zinc-500">차종 *</label>
               <input
                 required
                 type="text"
@@ -881,7 +881,7 @@ export default function SearchReceptionView({
             </div>
 
             <div>
-              <label className="text-[12px] block mb-1 font-black text-zinc-500">고객명 *</label>
+              <label className="text-[13px] block mb-1 font-black text-zinc-500">고객명 *</label>
               <input
                 required
                 type="text"
@@ -893,7 +893,7 @@ export default function SearchReceptionView({
             </div>
 
             <div>
-              <label className="text-[12px] block mb-1 font-black text-zinc-500">연락처 *</label>
+              <label className="text-[13px] block mb-1 font-black text-zinc-500">연락처 *</label>
               <input
                 required
                 type="text"
@@ -906,14 +906,14 @@ export default function SearchReceptionView({
             </div>
 
             <div className="col-span-2 pt-2 border-t border-neutral-850 mt-1 space-y-3">
-              <label className="text-[12px] block font-bold text-zinc-500">입고 *</label>
+              <label className="text-[13px] block font-bold text-zinc-500">입고 *</label>
               <div className="grid grid-cols-2 gap-2">
                 <div
                   onClick={() => setDatePickerTarget('intakeStart')}
                   className="relative flex items-center bg-[#1C1C1E] border border-neutral-850 hover:border-neutral-700 hover:bg-neutral-900 active:scale-[0.98] rounded-xl px-2.5 h-[42px] transition-all duration-100 cursor-pointer select-none overflow-hidden"
                 >
                   <div className="flex items-center w-full justify-center pointer-events-none z-10 text-zinc-100">
-                    <span className="text-[13px] font-bold">
+                    <span className="text-[14px] font-bold">
                       {intakeStartDate ? intakeStartDate.substring(0, 10) : '날짜'}
                     </span>
                   </div>
@@ -923,14 +923,14 @@ export default function SearchReceptionView({
                   className="relative flex items-center bg-[#1C1C1E] border border-neutral-850 hover:border-[#FF9F0A] hover:bg-[#2C2C2E]/50 active:scale-[0.98] rounded-xl px-2.5 h-[42px] transition-all duration-100 cursor-pointer select-none overflow-hidden"
                 >
                   <div className="flex items-center w-full justify-center z-10 text-zinc-100">
-                    <span className="text-[13px] font-bold text-[#FF9F0A]">
+                    <span className="text-[14px] font-bold text-[#FF9F0A]">
                       {intakeStartDate ? intakeStartDate.substring(11, 16) : '시간'}
                     </span>
                   </div>
                 </div>
               </div>
               <div>
-                <span className="text-[11px] text-zinc-500 font-bold block mb-1">출국 터미널</span>
+                <span className="text-[13px] text-zinc-500 font-bold block mb-1">출국 터미널</span>
                 <TerminalPicker
                   airportId={intakeAirportId}
                   value={departureTerminal}
@@ -941,14 +941,14 @@ export default function SearchReceptionView({
             </div>
 
             <div className="col-span-2 pt-2 border-t border-neutral-850 space-y-3">
-              <label className="text-[12px] block font-bold text-zinc-500">출고 *</label>
+              <label className="text-[13px] block font-bold text-zinc-500">출고 *</label>
               <div className="grid grid-cols-2 gap-2">
                 <div
                   onClick={() => setDatePickerTarget('intakeEnd')}
                   className="relative flex items-center bg-[#1C1C1E] border border-neutral-850 hover:border-neutral-700 hover:bg-neutral-900 active:scale-[0.98] rounded-xl px-2.5 h-[42px] transition-all duration-100 cursor-pointer select-none overflow-hidden"
                 >
                   <div className="flex items-center w-full justify-center pointer-events-none z-10 text-zinc-100">
-                    <span className="text-[13px] font-bold">
+                    <span className="text-[14px] font-bold">
                       {intakeEndDate ? intakeEndDate.substring(0, 10) : '날짜'}
                     </span>
                   </div>
@@ -958,14 +958,14 @@ export default function SearchReceptionView({
                   className="relative flex items-center bg-[#1C1C1E] border border-neutral-850 hover:border-[#FF9F0A] hover:bg-[#2C2C2E]/50 active:scale-[0.98] rounded-xl px-2.5 h-[42px] transition-all duration-100 cursor-pointer select-none overflow-hidden"
                 >
                   <div className="flex items-center w-full justify-center z-10 text-zinc-100">
-                    <span className="text-[13px] font-bold text-[#FF9F0A]">
+                    <span className="text-[14px] font-bold text-[#FF9F0A]">
                       {intakeEndDate ? intakeEndDate.substring(11, 16) : '시간'}
                     </span>
                   </div>
                 </div>
               </div>
               <div>
-                <span className="text-[11px] text-zinc-500 font-bold block mb-1">입국 터미널</span>
+                <span className="text-[13px] text-zinc-500 font-bold block mb-1">입국 터미널</span>
                 <TerminalPicker
                   airportId={intakeAirportId}
                   value={arrivalTerminal}
@@ -976,14 +976,14 @@ export default function SearchReceptionView({
             </div>
 
             <div className="col-span-2 pt-2 border-t border-neutral-850 mt-1">
-              <label className="text-[12px] block mb-1 font-bold text-zinc-500">주차 유형 *</label>
+              <label className="text-[13px] block mb-1 font-bold text-zinc-500">주차 유형 *</label>
               <div className="grid grid-cols-2 gap-2 p-1 bg-neutral-955 rounded-xl border border-neutral-850">
                 <button
                   type="button"
                   onClick={() => setIsIndoor(true)}
                   disabled={!intakeParkingTypes.indoor}
                   className={cn(
-                    'py-1.5 text-[12.5px] font-bold rounded-lg transition-all',
+                    'py-1.5 text-[12px] font-bold rounded-lg transition-all',
                     !intakeParkingTypes.indoor
                       ? 'text-zinc-700 cursor-not-allowed'
                       : isIndoor
@@ -999,7 +999,7 @@ export default function SearchReceptionView({
                   onClick={() => setIsIndoor(false)}
                   disabled={!intakeParkingTypes.outdoor}
                   className={cn(
-                    'py-1.5 text-[12.5px] font-bold rounded-lg transition-all',
+                    'py-1.5 text-[12px] font-bold rounded-lg transition-all',
                     !intakeParkingTypes.outdoor
                       ? 'text-zinc-700 cursor-not-allowed'
                       : !isIndoor
@@ -1012,17 +1012,17 @@ export default function SearchReceptionView({
                 </button>
               </div>
               {(!intakeParkingTypes.indoor || !intakeParkingTypes.outdoor) && (
-                <p className="mt-1 text-[11px] font-bold text-zinc-600">
+                <p className="mt-1 text-[13px] font-bold text-zinc-600">
                   이 업체는 {intakeParkingTypes.indoor ? '실내' : '야외'} 주차만 받습니다.
                 </p>
               )}
             </div>
 
             <div className="col-span-2 pt-2 border-t border-neutral-850 space-y-3">
-              <label className="text-[12px] block font-bold text-zinc-500">항공 · 여행</label>
+              <label className="text-[13px] block font-bold text-zinc-500">항공 · 여행</label>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="text-[11px] text-zinc-500 font-bold block mb-1">출국 항공사</label>
+                  <label className="text-[13px] text-zinc-500 font-bold block mb-1">출국 항공사</label>
                   <AirlinePicker
                     value={departureAirline}
                     onChange={setDepartureAirline}
@@ -1030,17 +1030,17 @@ export default function SearchReceptionView({
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] text-zinc-500 font-bold block mb-1">출국 편명</label>
+                  <label className="text-[13px] text-zinc-500 font-bold block mb-1">출국 편명</label>
                   <input
                     type="text"
                     value={departureFlight}
                     onChange={(e) => setDepartureFlight(e.target.value)}
                     placeholder="KE101"
-                    className="w-full px-3 py-2 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-100 text-xs font-bold outline-none focus:border-amber-500 font-mono"
+                    className="w-full px-3 py-2 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-100 text-[13px] font-bold outline-none focus:border-amber-500 font-mono"
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] text-zinc-500 font-bold block mb-1">입국 항공사</label>
+                  <label className="text-[13px] text-zinc-500 font-bold block mb-1">입국 항공사</label>
                   <AirlinePicker
                     value={arrivalAirline}
                     onChange={setArrivalAirline}
@@ -1048,44 +1048,44 @@ export default function SearchReceptionView({
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] text-zinc-500 font-bold block mb-1">입국 편명</label>
+                  <label className="text-[13px] text-zinc-500 font-bold block mb-1">입국 편명</label>
                   <input
                     type="text"
                     value={arrivalFlight}
                     onChange={(e) => setArrivalFlight(e.target.value)}
                     placeholder="KE102"
-                    className="w-full px-3 py-2 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-100 text-xs font-bold outline-none focus:border-amber-500 font-mono"
+                    className="w-full px-3 py-2 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-100 text-[13px] font-bold outline-none focus:border-amber-500 font-mono"
                   />
                 </div>
                 <div className="col-span-2">
-                  <label className="text-[11px] text-zinc-500 font-bold block mb-1">여행지</label>
+                  <label className="text-[13px] text-zinc-500 font-bold block mb-1">여행지</label>
                   <input
                     type="text"
                     value={destination}
                     onChange={(e) => setDestination(e.target.value)}
                     placeholder="오사카, 싱가포르"
-                    className="w-full px-3 py-2 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-100 text-xs font-bold outline-none focus:border-amber-500"
+                    className="w-full px-3 py-2 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-100 text-[13px] font-bold outline-none focus:border-amber-500"
                   />
                 </div>
                 <div className="col-span-2">
-                  <label className="text-[11px] text-zinc-500 font-bold block mb-1">요청사항</label>
+                  <label className="text-[13px] text-zinc-500 font-bold block mb-1">요청사항</label>
                   <input
                     type="text"
                     value={customerNotes}
                     onChange={(e) => setCustomerNotes(e.target.value)}
                     placeholder="고객 요청 메모"
-                    className="w-full px-3 py-2 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-100 text-xs font-bold outline-none focus:border-amber-500"
+                    className="w-full px-3 py-2 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-100 text-[13px] font-bold outline-none focus:border-amber-500"
                   />
                 </div>
                 <div>
-                  <label className="text-[11px] text-zinc-500 font-bold block mb-1">예약 비밀번호</label>
+                  <label className="text-[13px] text-zinc-500 font-bold block mb-1">예약 비밀번호</label>
                   <input
                     type="text"
                     value={reservationPassword}
                     onChange={(e) => setReservationPassword(e.target.value)}
                     placeholder="4자리 숫자"
                     maxLength={8}
-                    className="w-full px-3 py-2 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-100 text-xs font-bold outline-none focus:border-amber-500 font-mono"
+                    className="w-full px-3 py-2 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-100 text-[13px] font-bold outline-none focus:border-amber-500 font-mono"
                   />
                 </div>
               </div>
@@ -1157,12 +1157,12 @@ export default function SearchReceptionView({
             const finalTotalPrice = getCalculatePrice(partner, intakeStartDate, intakeEndDate, isIndoor, isT2);
 
             return (
-              <div className="col-span-2 p-4 bg-[#141416] border border-neutral-850 rounded-2xl space-y-2 text-xs text-zinc-350 font-sans">
+              <div className="col-span-2 p-4 bg-[#141416] border border-neutral-850 rounded-2xl space-y-2 text-[13px] text-zinc-350 font-sans">
                 <div className="flex items-center justify-between border-b border-neutral-850 pb-2">
-                  <span className="font-black text-amber-500 text-[12px] tracking-tight">요금</span>
-                  <span className="text-[12px] text-zinc-500 font-mono">{diffDays}일</span>
+                  <span className="font-black text-amber-500 text-[13px] tracking-tight">요금</span>
+                  <span className="text-[13px] text-zinc-500 font-mono">{diffDays}일</span>
                 </div>
-                <div className="space-y-1 text-[12.5px]">
+                <div className="space-y-1 text-[13px]">
                   <div className="flex justify-between font-bold">
                     <span>선택 공간 ({isIndoor ? '실내' : '야외'} 주차)</span>
                     <span className="text-zinc-200 font-mono">{basePrice.toLocaleString()}원 (기본 {baseDays}일)</span>
@@ -1193,9 +1193,9 @@ export default function SearchReceptionView({
                     }
                     
                     return (
-                      <div className="flex justify-between items-center text-[12.5px] font-bold">
+                      <div className="flex justify-between items-center text-[13px] font-bold">
                         <div className="flex flex-col">
-                          <span>야간/새벽 할증 추가금 {details.length > 0 && <span className="text-[11px] text-zinc-500 font-normal">({details.join(', ')})</span>}</span>
+                          <span>야간/새벽 할증 추가금 {details.length > 0 && <span className="text-[13px] text-zinc-500 font-normal">({details.join(', ')})</span>}</span>
                         </div>
                         <span className={cn("font-mono", totalSurcharge > 0 ? "text-amber-500 font-black" : "text-zinc-500")}>
                           {totalSurcharge > 0 ? `+${totalSurcharge.toLocaleString()}원` : '0원'}
@@ -1218,7 +1218,7 @@ export default function SearchReceptionView({
                     </span>
                   </div>
                 </div>
-                <div className="flex justify-between items-center pt-2 border-t border-dashed border-neutral-800 text-sm mt-1 gap-2">
+                <div className="flex justify-between items-center pt-2 border-t border-dashed border-neutral-800 text-[15px] mt-1 gap-2">
                   <span className="font-extrabold text-white">합계</span>
                   <div className="flex items-center gap-1 shrink-0">
                     <input
@@ -1234,7 +1234,7 @@ export default function SearchReceptionView({
                       className="w-[7.5rem] bg-[#1C1C1E] border border-neutral-700 rounded-lg px-2 py-1 text-right text-[15px] font-black font-mono text-amber-500 focus:outline-none focus:border-amber-500/50"
                       aria-label="합계 요금"
                     />
-                    <span className="font-black text-amber-500 text-[13px]">원</span>
+                    <span className="font-black text-amber-500 text-[14px]">원</span>
                   </div>
                 </div>
               </div>
@@ -1246,7 +1246,7 @@ export default function SearchReceptionView({
             <button
               type="submit"
               disabled={isSubmittingBooking}
-              className="w-full py-3.5 bg-amber-500 text-neutral-950 hover:bg-amber-400 rounded-2xl text-xs font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+              className="w-full py-3.5 bg-amber-500 text-neutral-950 hover:bg-amber-400 rounded-2xl text-[13px] font-black transition-all flex items-center justify-center gap-1.5 cursor-pointer"
             >
               {isSubmittingBooking ? <RefreshCw className="animate-spin" size={14} /> : <CheckCircle2 size={14} />}
               <span>예약 접수</span>
@@ -1312,28 +1312,28 @@ export default function SearchReceptionView({
             <div className="p-4 border-b border-neutral-800 flex items-center justify-between bg-neutral-900/50">
               <div className="flex items-center gap-2">
                 <Settings className="text-amber-500" size={16} />
-                <span className="text-xs font-black text-white">현장/전화 수납 정보 수정</span>
+                <span className="text-[13px] font-black text-white">현장/전화 수납 정보 수정</span>
               </div>
               <button 
                 onClick={() => setEditingSearchedRes(null)}
-                className="p-1 px-2.5 bg-neutral-950 hover:bg-zinc-800 text-zinc-500 rounded-lg text-[12px] font-black cursor-pointer"
+                className="p-1 px-2.5 bg-neutral-950 hover:bg-zinc-800 text-zinc-500 rounded-lg text-[13px] font-black cursor-pointer"
               >
                 닫기
               </button>
             </div>
 
-            <div className="overflow-y-auto p-5 flex-1 space-y-4 text-xs font-sans">
+            <div className="overflow-y-auto p-5 flex-1 space-y-4 text-[13px] font-sans">
               <div className="p-3 bg-neutral-950 border border-neutral-850/60 rounded-2xl flex items-center justify-between font-sans">
                 <div>
-                  <span className="text-[11px] text-zinc-500 block">고객 고유 예약 코드</span>
-                  <span className="text-xs font-black text-white font-mono">{editingSearchedRes.receiptCode || editingSearchedRes.id}</span>
+                  <span className="text-[13px] text-zinc-500 block">고객 고유 예약 코드</span>
+                  <span className="text-[13px] font-black text-white font-mono">{editingSearchedRes.receiptCode || editingSearchedRes.id}</span>
                   {(() => {
                     const source = resolveBookingSourceFromReservation(editingSearchedRes);
                     if (source !== 'airpick-b2c') return null;
                     return (
                       <span
                         className={cn(
-                          'mt-1 inline-block text-[10px] font-black border px-2 py-0.5 rounded-md',
+                          'mt-1 inline-block text-[12px] font-black border px-2 py-0.5 rounded-md',
                           bookingSourceBadgeClass(source)
                         )}
                       >
@@ -1349,7 +1349,7 @@ export default function SearchReceptionView({
 
               <div className="grid grid-cols-2 gap-3 font-sans">
                 <div>
-                  <label className="text-[11.5px] font-bold text-zinc-500 block mb-1">인계 고객명</label>
+                  <label className="text-[13px] font-bold text-zinc-500 block mb-1">인계 고객명</label>
                   <input 
                     type="text" 
                     value={editSearchedUserName}
@@ -1358,7 +1358,7 @@ export default function SearchReceptionView({
                   />
                 </div>
                 <div>
-                  <label className="text-[11.5px] font-bold text-zinc-500 block mb-1">고객 연락처</label>
+                  <label className="text-[13px] font-bold text-zinc-500 block mb-1">고객 연락처</label>
                   <input 
                     type="text" 
                     value={editSearchedPhone}
@@ -1371,7 +1371,7 @@ export default function SearchReceptionView({
 
               <div className="grid grid-cols-2 gap-3 font-sans">
                 <div>
-                  <label className="text-[11.5px] font-bold text-zinc-500 block mb-1">차량 번호</label>
+                  <label className="text-[13px] font-bold text-zinc-500 block mb-1">차량 번호</label>
                   <input 
                     type="text" 
                     value={editSearchedCarNumber}
@@ -1380,7 +1380,7 @@ export default function SearchReceptionView({
                   />
                 </div>
                 <div>
-                  <label className="text-[11.5px] font-bold text-zinc-500 block mb-1">차량 모델</label>
+                  <label className="text-[13px] font-bold text-zinc-500 block mb-1">차량 모델</label>
                   <input 
                     type="text" 
                     value={editSearchedCarModel}
@@ -1391,29 +1391,29 @@ export default function SearchReceptionView({
               </div>
 
               <div className="space-y-1.5 p-3.5 bg-[#141416] border border-neutral-850 rounded-2xl font-sans">
-                <span className="text-[11.5px] font-black text-amber-500 block">입/출항 여정 동선 지정</span>
-                <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+                <span className="text-[13px] font-black text-amber-500 block">입/출항 여정 동선 지정</span>
+                <div className="grid grid-cols-2 gap-2 text-[13px] pt-1">
                   <div>
-                    <span className="text-[11px] text-zinc-500 block mb-1 font-bold">입고일 (출발일)</span>
+                    <span className="text-[13px] text-zinc-500 block mb-1 font-bold">입고일 (출발일)</span>
                     <div 
                       onClick={() => setDatePickerTarget('editSearchedDeparture')}
                       className="relative flex items-center bg-[#1C1C1E] border border-neutral-850 hover:border-neutral-700 hover:bg-neutral-900 active:scale-[0.98] rounded-xl px-2.5 h-[42px] transition-all duration-100 cursor-pointer select-none overflow-hidden"
                     >
                       <div className="flex items-center w-full justify-center pointer-events-none z-10 text-zinc-100">
-                        <span className="text-[13px] font-bold">
+                        <span className="text-[14px] font-bold">
                           {editSearchedDepartureDate || '날짜 선택'}
                         </span>
                       </div>
                     </div>
                   </div>
                   <div>
-                    <span className="text-[11px] text-zinc-500 block mb-1 font-bold">입고 시각</span>
+                    <span className="text-[13px] text-zinc-500 block mb-1 font-bold">입고 시각</span>
                     <div 
                       onClick={() => setTimePickerTarget('editDeparture')}
                       className="relative flex items-center bg-[#1C1C1E] border border-neutral-850 hover:border-[#FF9F0A] hover:bg-[#2C2C2E]/50 active:scale-[0.98] rounded-xl px-2.5 h-[42px] transition-all duration-100 cursor-pointer select-none overflow-hidden"
                     >
                       <div className="flex items-center w-full justify-center z-10 text-zinc-100">
-                        <span className="text-[13px] font-bold text-[#FF9F0A]">
+                        <span className="text-[14px] font-bold text-[#FF9F0A]">
                           {editSearchedDepartureTime || '시간 선택'}
                         </span>
                       </div>
@@ -1421,7 +1421,7 @@ export default function SearchReceptionView({
                   </div>
                 </div>
 
-                <div className="flex gap-2.5 pt-1 text-[12px]">
+                <div className="flex gap-2.5 pt-1 text-[13px]">
                   <span className="text-zinc-500 font-bold my-auto">입고 터미널:</span>
                   <TerminalPicker
                     airportId={resolveCompanyAirportId(
@@ -1438,29 +1438,29 @@ export default function SearchReceptionView({
               </div>
 
               <div className="space-y-1.5 p-3.5 bg-[#141416] border border-neutral-850 rounded-2xl font-sans">
-                <span className="text-[11.5px] font-black text-emerald-500 block">고객 반납일</span>
-                <div className="grid grid-cols-2 gap-2 text-xs pt-1">
+                <span className="text-[13px] font-black text-emerald-500 block">고객 반납일</span>
+                <div className="grid grid-cols-2 gap-2 text-[13px] pt-1">
                   <div>
-                    <span className="text-[11px] text-zinc-500 block mb-1 font-bold">출고일 (반납일)</span>
+                    <span className="text-[13px] text-zinc-500 block mb-1 font-bold">출고일 (반납일)</span>
                     <div 
                       onClick={() => setDatePickerTarget('editSearchedArrival')}
                       className="relative flex items-center bg-[#1C1C1E] border border-neutral-850 hover:border-neutral-700 hover:bg-neutral-900 active:scale-[0.98] rounded-xl px-2.5 h-[42px] transition-all duration-100 cursor-pointer select-none overflow-hidden"
                     >
                       <div className="flex items-center w-full justify-center pointer-events-none z-10 text-zinc-100">
-                        <span className="text-[13px] font-bold">
+                        <span className="text-[14px] font-bold">
                           {editSearchedArrivalDate || '날짜 선택'}
                         </span>
                       </div>
                     </div>
                   </div>
                   <div>
-                    <span className="text-[11px] text-zinc-500 block mb-1 font-bold">출고 시각</span>
+                    <span className="text-[13px] text-zinc-500 block mb-1 font-bold">출고 시각</span>
                     <div 
                       onClick={() => setTimePickerTarget('editArrival')}
                       className="relative flex items-center bg-[#1C1C1E] border border-neutral-850 hover:border-[#FF9F0A] hover:bg-[#2C2C2E]/50 active:scale-[0.98] rounded-xl px-2.5 h-[42px] transition-all duration-100 cursor-pointer select-none overflow-hidden"
                     >
                       <div className="flex items-center w-full justify-center z-10 text-zinc-100">
-                        <span className="text-[13px] font-bold text-[#FF9F0A]">
+                        <span className="text-[14px] font-bold text-[#FF9F0A]">
                           {editSearchedArrivalTime || '시간 선택'}
                         </span>
                       </div>
@@ -1468,7 +1468,7 @@ export default function SearchReceptionView({
                   </div>
                 </div>
 
-                <div className="flex gap-2.5 pt-1 text-[12px]">
+                <div className="flex gap-2.5 pt-1 text-[13px]">
                   <span className="text-zinc-500 font-bold my-auto">반납 터미널:</span>
                   <TerminalPicker
                     airportId={resolveCompanyAirportId(
@@ -1485,10 +1485,10 @@ export default function SearchReceptionView({
               </div>
 
               <div className="space-y-3 p-3.5 bg-[#141416] border border-neutral-850 rounded-2xl font-sans">
-                <span className="text-[11.5px] font-black text-amber-500 block">항공편 · 여행 정보</span>
+                <span className="text-[13px] font-black text-amber-500 block">항공편 · 여행 정보</span>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <label className="text-[11px] text-zinc-500 font-bold block mb-1">출국 항공사</label>
+                    <label className="text-[13px] text-zinc-500 font-bold block mb-1">출국 항공사</label>
                     <AirlinePicker
                       value={editSearchedDepartureAirline}
                       onChange={setEditSearchedDepartureAirline}
@@ -1496,11 +1496,11 @@ export default function SearchReceptionView({
                     />
                   </div>
                   <div>
-                    <label className="text-[11px] text-zinc-500 font-bold block mb-1">출국 편명</label>
-                    <input type="text" value={editSearchedDepartureFlight} onChange={(e) => setEditSearchedDepartureFlight(e.target.value)} className="w-full px-2 py-2 bg-neutral-955 border border-neutral-800 rounded-xl text-zinc-200 text-xs font-bold outline-none focus:border-amber-500 font-mono" />
+                    <label className="text-[13px] text-zinc-500 font-bold block mb-1">출국 편명</label>
+                    <input type="text" value={editSearchedDepartureFlight} onChange={(e) => setEditSearchedDepartureFlight(e.target.value)} className="w-full px-2 py-2 bg-neutral-955 border border-neutral-800 rounded-xl text-zinc-200 text-[13px] font-bold outline-none focus:border-amber-500 font-mono" />
                   </div>
                   <div>
-                    <label className="text-[11px] text-zinc-500 font-bold block mb-1">입국 항공사</label>
+                    <label className="text-[13px] text-zinc-500 font-bold block mb-1">입국 항공사</label>
                     <AirlinePicker
                       value={editSearchedArrivalAirline}
                       onChange={setEditSearchedArrivalAirline}
@@ -1508,35 +1508,35 @@ export default function SearchReceptionView({
                     />
                   </div>
                   <div>
-                    <label className="text-[11px] text-zinc-500 font-bold block mb-1">입국 편명</label>
-                    <input type="text" value={editSearchedArrivalFlight} onChange={(e) => setEditSearchedArrivalFlight(e.target.value)} className="w-full px-2 py-2 bg-neutral-955 border border-neutral-800 rounded-xl text-zinc-200 text-xs font-bold outline-none focus:border-amber-500 font-mono" />
+                    <label className="text-[13px] text-zinc-500 font-bold block mb-1">입국 편명</label>
+                    <input type="text" value={editSearchedArrivalFlight} onChange={(e) => setEditSearchedArrivalFlight(e.target.value)} className="w-full px-2 py-2 bg-neutral-955 border border-neutral-800 rounded-xl text-zinc-200 text-[13px] font-bold outline-none focus:border-amber-500 font-mono" />
                   </div>
                   <div className="col-span-2">
-                    <label className="text-[11px] text-zinc-500 font-bold block mb-1">여행지</label>
-                    <input type="text" value={editSearchedDestination} onChange={(e) => setEditSearchedDestination(e.target.value)} className="w-full px-2 py-2 bg-neutral-955 border border-neutral-800 rounded-xl text-zinc-200 text-xs font-bold outline-none focus:border-amber-500" />
+                    <label className="text-[13px] text-zinc-500 font-bold block mb-1">여행지</label>
+                    <input type="text" value={editSearchedDestination} onChange={(e) => setEditSearchedDestination(e.target.value)} className="w-full px-2 py-2 bg-neutral-955 border border-neutral-800 rounded-xl text-zinc-200 text-[13px] font-bold outline-none focus:border-amber-500" />
                   </div>
                   <div className="col-span-2">
-                    <label className="text-[11px] text-zinc-500 font-bold block mb-1">고객 요청사항</label>
-                    <input type="text" value={editSearchedCustomerNotes} onChange={(e) => setEditSearchedCustomerNotes(e.target.value)} className="w-full px-2 py-2 bg-neutral-955 border border-neutral-800 rounded-xl text-zinc-200 text-xs font-bold outline-none focus:border-amber-500" />
+                    <label className="text-[13px] text-zinc-500 font-bold block mb-1">고객 요청사항</label>
+                    <input type="text" value={editSearchedCustomerNotes} onChange={(e) => setEditSearchedCustomerNotes(e.target.value)} className="w-full px-2 py-2 bg-neutral-955 border border-neutral-800 rounded-xl text-zinc-200 text-[13px] font-bold outline-none focus:border-amber-500" />
                   </div>
                   {!isExternalCustomerBooking(editingSearchedRes) && (
                   <div>
-                    <label className="text-[11px] text-zinc-500 font-bold block mb-1">예약 비밀번호</label>
-                    <input type="text" value={editSearchedReservationPassword} onChange={(e) => setEditSearchedReservationPassword(e.target.value)} className="w-full px-2 py-2 bg-neutral-955 border border-neutral-800 rounded-xl text-zinc-200 text-xs font-bold outline-none focus:border-amber-500 font-mono" />
+                    <label className="text-[13px] text-zinc-500 font-bold block mb-1">예약 비밀번호</label>
+                    <input type="text" value={editSearchedReservationPassword} onChange={(e) => setEditSearchedReservationPassword(e.target.value)} className="w-full px-2 py-2 bg-neutral-955 border border-neutral-800 rounded-xl text-zinc-200 text-[13px] font-bold outline-none focus:border-amber-500 font-mono" />
                   </div>
                   )}
                 </div>
               </div>
 
               <div className="col-span-2 font-sans">
-                <label className="text-[11.5px] font-bold text-zinc-500 block mb-1">주차 보관 구역</label>
+                <label className="text-[13px] font-bold text-zinc-500 block mb-1">주차 보관 구역</label>
                 <div className="grid grid-cols-2 gap-2.5">
                   <button
                     type="button"
                     onClick={() => setEditSearchedIsIndoor(true)}
                     disabled={!editParkingTypes.indoor}
                     className={cn(
-                      "py-2.5 rounded-xl border font-black flex items-center justify-center gap-1.5 transition-all text-xs",
+                      "py-2.5 rounded-xl border font-black flex items-center justify-center gap-1.5 transition-all text-[13px]",
                       !editParkingTypes.indoor
                         ? "bg-neutral-955 border-neutral-850 text-zinc-700 cursor-not-allowed"
                         : editSearchedIsIndoor
@@ -1551,7 +1551,7 @@ export default function SearchReceptionView({
                     onClick={() => setEditSearchedIsIndoor(false)}
                     disabled={!editParkingTypes.outdoor}
                     className={cn(
-                      "py-2.5 rounded-xl border font-black flex items-center justify-center gap-1.5 transition-all text-xs",
+                      "py-2.5 rounded-xl border font-black flex items-center justify-center gap-1.5 transition-all text-[13px]",
                       !editParkingTypes.outdoor
                         ? "bg-neutral-955 border-neutral-850 text-zinc-700 cursor-not-allowed"
                         : !editSearchedIsIndoor
@@ -1588,7 +1588,7 @@ export default function SearchReceptionView({
                 const shown = editSearchedPriceManual ? editSearchedTotalPrice : autoEditPrice;
                 return (
                   <div className="col-span-2 flex items-center justify-between gap-2 p-3 rounded-xl border border-neutral-800 bg-[#141416]">
-                    <span className="text-[11px] font-black text-amber-500">주차 요금</span>
+                    <span className="text-[13px] font-black text-amber-500">주차 요금</span>
                     <div className="flex items-center gap-1 shrink-0">
                       <input
                         type="number"
@@ -1602,7 +1602,7 @@ export default function SearchReceptionView({
                         }}
                         className="w-[7.5rem] bg-[#1C1C1E] border border-neutral-700 rounded-lg px-2 py-1.5 text-right text-sm font-black font-mono text-amber-400 focus:outline-none focus:border-amber-500/50"
                       />
-                      <span className="text-[12px] font-bold text-zinc-500">원</span>
+                      <span className="text-[13px] font-bold text-zinc-500">원</span>
                     </div>
                   </div>
                 );
@@ -1614,14 +1614,14 @@ export default function SearchReceptionView({
               <button 
                 type="button"
                 onClick={() => setEditingSearchedRes(null)}
-                className="px-4 py-3 bg-[#1C1C1E] border border-neutral-800 hover:bg-neutral-800 text-zinc-400 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                className="px-4 py-3 bg-[#1C1C1E] border border-neutral-800 hover:bg-neutral-800 text-zinc-400 rounded-xl text-[13px] font-bold transition-all cursor-pointer"
               >
                 변경 취소
               </button>
               <button 
                 type="button"
                 onClick={handleSaveSearchedResEdit}
-                className="flex-1 py-3 bg-amber-500 hover:bg-amber-450 text-neutral-950 rounded-xl text-xs font-black shadow-lg shadow-amber-500/10 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
+                className="flex-1 py-3 bg-amber-500 hover:bg-amber-450 text-neutral-950 rounded-xl text-[13px] font-black shadow-lg shadow-amber-500/10 transition-all flex items-center justify-center gap-1.5 cursor-pointer"
               >
                 <CheckCircle2 size={13} />
                 정보 수정 완료 및 갱신

@@ -89,7 +89,7 @@ export default function DateNavBar({
         className={cn(
           'relative z-10 flex min-w-0 items-center justify-center gap-1.5 rounded-xl font-bold text-white',
           'hover:bg-neutral-800/50 active:bg-neutral-800 touch-manipulation select-none cursor-pointer',
-          compact ? 'h-full text-sm' : 'py-2.5 text-[13px]'
+          compact ? 'h-full text-[15px]' : 'py-2.5 text-[14px]'
         )}
       >
         <Calendar
@@ -102,7 +102,7 @@ export default function DateNavBar({
         )}
         <span className="font-mono text-zinc-100 tabular-nums">{current}</span>
         {!isToday && showLabel && !compact && (
-          <span className="text-[10px] text-zinc-500 font-semibold">(오늘 아님)</span>
+          <span className="text-[13px] text-zinc-500 font-semibold">(오늘 아님)</span>
         )}
       </button>
 
@@ -126,7 +126,7 @@ export default function DateNavBar({
         }}
         className={cn(
           'relative z-10 shrink-0 font-black touch-manipulation select-none',
-          compact ? 'h-8 px-2 rounded-xl text-[10px]' : 'h-11 px-3 rounded-xl text-[12px]',
+          compact ? 'h-8 px-2 rounded-xl text-[13px]' : 'h-11 px-3 rounded-xl text-[13px]',
           isToday
             ? 'cursor-default text-zinc-600'
             : 'cursor-pointer text-amber-400 bg-amber-500/10 border border-amber-500/25 hover:bg-amber-500/20 active:bg-amber-500/30'

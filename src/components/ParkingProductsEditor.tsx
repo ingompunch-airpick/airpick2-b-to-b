@@ -29,12 +29,12 @@ interface Props {
   basePriceLabel: { indoor: string; outdoor: string };
 }
 
-const chipBase = 'px-2.5 py-1.5 rounded-lg text-[11px] font-black border transition-all';
+const chipBase = 'px-2.5 py-1.5 rounded-lg text-[12px] font-black border transition-all';
 const chipOn = 'bg-amber-500 border-amber-500 text-neutral-950';
 const chipOff = 'bg-neutral-900 border-neutral-800 text-zinc-400 hover:text-zinc-200';
 const inputCls =
   'w-full bg-[#1C1C1E] border border-neutral-800 rounded-lg px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-amber-500 font-bold';
-const labelCls = 'text-[11px] text-white/80 font-bold block mb-1';
+const labelCls = 'text-[13px] text-white/80 font-bold block mb-1';
 
 const HANDOFF_OPTIONS: { key: HandoffType; field: 'curb' | 'meetGreet' | 'drop'; hint: string }[] = [
   { key: 'curb', field: 'curb', hint: '출국장 대면' },
@@ -154,15 +154,15 @@ export default function ParkingProductsEditor({
   return (
     <div className="space-y-4">
       <div className="bg-neutral-900/40 p-5 rounded-3xl border border-neutral-850 space-y-2">
-        <p className="text-xs font-black text-amber-500 tracking-wider">주차 상품</p>
-        <p className="text-[12px] text-white/70 leading-relaxed">
+        <p className="text-[13px] font-black text-amber-500 tracking-wider">주차 상품</p>
+        <p className="text-[13px] text-white/70 leading-relaxed">
           손님 앱은 상품 단위로 비교합니다. 빈칸은 손님 앱에 나가지 않습니다. 기본요금은 「요금」 탭 값을
           그대로 씁니다 (실내 {basePriceLabel.indoor} · 야외 {basePriceLabel.outdoor}).
         </p>
       </div>
 
       {products.length === 0 ? (
-        <p className="text-center py-6 bg-neutral-950/20 border border-neutral-850/50 rounded-2xl text-white/50 text-[12.5px]">
+        <p className="text-center py-6 bg-neutral-950/20 border border-neutral-850/50 rounded-2xl text-white/50 text-[13px]">
           상품이 없으면 손님 앱 목록에 나오지 않습니다.
         </p>
       ) : null}
@@ -181,9 +181,9 @@ export default function ParkingProductsEditor({
             }`}
           >
             <div className="flex items-center justify-between gap-2">
-              <span className="text-[12.5px] font-black text-white">
+              <span className="text-[13px] font-black text-white">
                 상품 {index + 1}
-                {p.hidden ? <span className="ml-2 text-[11px] text-zinc-500">비노출</span> : null}
+                {p.hidden ? <span className="ml-2 text-[13px] text-zinc-500">비노출</span> : null}
               </span>
               <div className="flex items-center gap-1.5">
                 <button
@@ -263,9 +263,9 @@ export default function ParkingProductsEditor({
                       }}
                       className="w-4 h-4 rounded border-neutral-800 text-amber-500 focus:ring-amber-500 bg-[#1C1C1E]"
                     />
-                    <span className="text-[12px] text-white font-bold">
+                    <span className="text-[13px] text-white font-bold">
                       {HANDOFF_TYPE_LABELS[h.key]}
-                      <span className="ml-1.5 text-[11px] text-zinc-500 font-semibold">{h.hint}</span>
+                      <span className="ml-1.5 text-[13px] text-zinc-500 font-semibold">{h.hint}</span>
                     </span>
                   </label>
                 ))}
@@ -417,7 +417,7 @@ export default function ParkingProductsEditor({
         <button
           type="button"
           onClick={add}
-          className="w-full py-3 rounded-2xl border border-dashed border-neutral-700 text-[12px] font-black text-zinc-300 hover:text-white hover:border-amber-500 inline-flex items-center justify-center gap-1.5"
+          className="w-full py-3 rounded-2xl border border-dashed border-neutral-700 text-[13px] font-black text-zinc-300 hover:text-white hover:border-amber-500 inline-flex items-center justify-center gap-1.5"
         >
           <Plus size={14} />
           상품 추가
@@ -426,8 +426,8 @@ export default function ParkingProductsEditor({
 
       {anyFee ? (
         <div className="bg-neutral-900/40 p-5 rounded-3xl border border-neutral-850 space-y-3">
-          <p className="text-xs font-black text-amber-500 tracking-wider">추가요금</p>
-          <p className="text-[12px] text-white/70 leading-relaxed">
+          <p className="text-[13px] font-black text-amber-500 tracking-wider">추가요금</p>
+          <p className="text-[13px] text-white/70 leading-relaxed">
             기본요금에 더해지는 금액만 적습니다. 무료면 0원. 같은 방식의 상품에 모두 적용됩니다.
           </p>
           {curbT1 || curbT2 ? (

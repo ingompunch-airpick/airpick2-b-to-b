@@ -114,7 +114,7 @@ export default function PartnerOnboardingChecklist({
           className={isDark ? 'text-amber-500 shrink-0' : 'text-indigo-600 shrink-0'}
         />
         <div className="flex-1 min-w-0">
-          <p className="text-xs font-black tracking-tight">
+          <p className="text-[13px] font-black tracking-tight">
             제휴업체 온보딩 체크리스트
             {id ? (
               <span className={cn('font-mono ml-1', isDark ? 'text-amber-400' : 'text-indigo-600')}>
@@ -122,7 +122,7 @@ export default function PartnerOnboardingChecklist({
               </span>
             ) : null}
           </p>
-          <p className={cn('text-[11px] mt-0.5 truncate', isDark ? 'text-zinc-500' : 'text-slate-500')}>
+          <p className={cn('text-[13px] mt-0.5 truncate', isDark ? 'text-zinc-500' : 'text-slate-500')}>
             {companyName
               ? `${companyName} · `
               : id
@@ -149,7 +149,7 @@ export default function PartnerOnboardingChecklist({
           )}
         >
           <div className="pt-3">
-            <p className={cn('text-[11px] font-bold mb-1.5', isDark ? 'text-zinc-400' : 'text-slate-600')}>
+            <p className={cn('text-[13px] font-bold mb-1.5', isDark ? 'text-zinc-400' : 'text-slate-600')}>
               고객 유입 경로
             </p>
             <div className="grid grid-cols-2 gap-1.5">
@@ -164,7 +164,7 @@ export default function PartnerOnboardingChecklist({
                   type="button"
                   onClick={() => onChannelChange(value)}
                   className={cn(
-                    'rounded-xl py-2 px-2 text-[11px] font-bold transition-all',
+                    'rounded-xl py-2 px-2 text-[13px] font-bold transition-all',
                     channel === value
                       ? isDark
                         ? 'bg-amber-500 text-neutral-950'
@@ -200,7 +200,7 @@ export default function PartnerOnboardingChecklist({
                     />
                     <span
                       className={cn(
-                        'text-[11.5px] leading-snug font-medium',
+                        'text-[13px] leading-snug font-medium',
                         checked
                           ? isDark
                             ? 'text-zinc-500 line-through'
@@ -224,7 +224,7 @@ export default function PartnerOnboardingChecklist({
                 type="button"
                 onClick={resetChecks}
                 className={cn(
-                  'text-[11px] font-bold px-2.5 py-1 rounded-lg',
+                  'text-[12px] font-bold px-2.5 py-1 rounded-lg',
                   isDark
                     ? 'text-zinc-500 hover:text-zinc-300'
                     : 'text-slate-500 hover:text-slate-700'
@@ -233,7 +233,7 @@ export default function PartnerOnboardingChecklist({
                 체크 초기화
               </button>
             ) : null}
-            <span className={cn('text-[10px] self-center', isDark ? 'text-zinc-600' : 'text-slate-400')}>
+            <span className={cn('text-[13px] self-center', isDark ? 'text-zinc-600' : 'text-slate-400')}>
               상세: docs/PARTNER_ONBOARDING.md
             </span>
           </div>

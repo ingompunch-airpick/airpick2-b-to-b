@@ -231,8 +231,8 @@ export default function ServiceHistoryView({
           <ArrowLeft size={16} />
         </button>
         <div>
-          <h2 className="text-sm font-black tracking-tight text-white">나의 서비스 기록</h2>
-          <p className="text-[12px] text-zinc-500 font-bold">
+          <h2 className="text-[15px] font-black tracking-tight text-white">나의 서비스 기록</h2>
+          <p className="text-[13px] text-zinc-500 font-bold">
             입고·출고·출차 · 예약 내역은 앱에 유지 (사진은 출차 후 14일)
           </p>
         </div>
@@ -241,21 +241,21 @@ export default function ServiceHistoryView({
       {/* 당일 요약 — 얇게 */}
       <div className="bg-[#1C1C1E] p-4 rounded-[20px] border border-neutral-800/80 mb-4">
         <div className="flex items-center justify-between mb-3">
-          <span className="text-[12px] font-bold text-zinc-400 flex items-center gap-1.5">
+          <span className="text-[13px] font-bold text-zinc-400 flex items-center gap-1.5">
             <ClipboardCheck size={13} className="text-amber-500" />
             오늘 요약
           </span>
-          <span className="text-[11px] font-mono text-zinc-500 tabular-nums">{todayStr}</span>
+          <span className="text-[13px] font-mono text-zinc-500 tabular-nums">{todayStr}</span>
         </div>
         <div className="grid grid-cols-2 gap-2.5">
           <div className="bg-[#A855F7]/10 px-3.5 py-3 border border-[#A855F7]/20 rounded-2xl">
-            <p className="text-[11px] text-zinc-400 font-bold mb-1">입고완료</p>
+            <p className="text-[13px] text-zinc-400 font-bold mb-1">입고완료</p>
             <p className="font-mono font-black text-lg text-[#A855F7] tabular-nums leading-none">
               {stats.todayAdmitted}건
             </p>
           </div>
           <div className="bg-[#22C55E]/10 px-3.5 py-3 border border-[#22C55E]/20 rounded-2xl">
-            <p className="text-[11px] text-zinc-400 font-bold mb-1">출차완료</p>
+            <p className="text-[13px] text-zinc-400 font-bold mb-1">출차완료</p>
             <p className="font-mono font-black text-lg text-[#22C55E] tabular-nums leading-none">
               {stats.todayExited}건
             </p>
@@ -272,7 +272,7 @@ export default function ServiceHistoryView({
             value={searchKeyword}
             onChange={(e) => setSearchKeyword(e.target.value)}
             placeholder="차량번호, 고객명, 연락처"
-            className="w-full bg-[#1C1C1E] border border-neutral-800 text-sm rounded-[16px] pl-10 pr-9 py-3 text-white placeholder-zinc-600 outline-none focus:ring-1 focus:ring-amber-500/25 font-semibold"
+            className="w-full bg-[#1C1C1E] border border-neutral-800 text-[15px] rounded-[16px] pl-10 pr-9 py-3 text-white placeholder-zinc-600 outline-none focus:ring-1 focus:ring-amber-500/25 font-semibold"
           />
           {searchKeyword ? (
             <button
@@ -293,7 +293,7 @@ export default function ServiceHistoryView({
                 type="button"
                 onClick={() => setPeriod(opt.id)}
                 className={cn(
-                  'flex-1 py-2 rounded-[12px] text-[12px] font-bold transition-all border',
+                  'flex-1 py-2 rounded-[12px] text-[13px] font-bold transition-all border',
                   active
                     ? 'bg-amber-500/15 text-amber-400 border-amber-500/25'
                     : 'bg-[#1C1C1E] text-zinc-500 border-neutral-800 hover:text-zinc-300'
@@ -307,17 +307,17 @@ export default function ServiceHistoryView({
       </div>
 
       <div className="flex items-center justify-between px-0.5 mb-3">
-        <h3 className="text-[12px] text-zinc-400 font-bold">
+        <h3 className="text-[13px] text-zinc-400 font-bold">
           움직인 차량 {filteredHistory.length}건
         </h3>
-        <span className="text-[11px] text-zinc-600 font-medium">최신순</span>
+        <span className="text-[13px] text-zinc-600 font-medium">최신순</span>
       </div>
 
       <div className="space-y-5">
         {hasFiltered ? (
           groupedHistory.map((group) => (
             <div key={group.sortKey + group.heading} className="space-y-2.5">
-              <h3 className="text-xs font-black text-amber-500 border-l-2 border-amber-500 pl-2.5 tracking-wide">
+              <h3 className="text-[13px] font-black text-amber-500 border-l-2 border-amber-500 pl-2.5 tracking-wide">
                 {group.heading}
               </h3>
               <div className="space-y-2">
@@ -353,12 +353,12 @@ export default function ServiceHistoryView({
                             {res.carNumber || '미등록차량'}
                           </span>
                           {(res.carModel || space) && (
-                            <span className="text-[12px] text-zinc-500 font-semibold truncate">
+                            <span className="text-[13px] text-zinc-500 font-semibold truncate">
                               {[res.carModel, space].filter(Boolean).join(' · ')}
                             </span>
                           )}
                         </div>
-                        <p className="text-[12px] text-zinc-400 font-semibold truncate">
+                        <p className="text-[13px] text-zinc-400 font-semibold truncate">
                           {[res.userName, `${res.departureTime || '-'} ~ ${res.arrivalTime || '-'}`]
                             .filter(Boolean)
                             .join(' · ')}
@@ -366,18 +366,18 @@ export default function ServiceHistoryView({
                         <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
                           <span
                             className={cn(
-                              'text-[11px] px-1.5 py-0.5 rounded-md font-bold',
+                              'text-[12px] px-1.5 py-0.5 rounded-md font-bold',
                               statusBadgeColorClass(res.status)
                             )}
                           >
                             {serviceStatusLabel(res.status)}
                           </span>
-                          <span className="text-[11px] px-1.5 py-0.5 rounded-md font-bold bg-zinc-800 text-zinc-300">
+                          <span className="text-[12px] px-1.5 py-0.5 rounded-md font-bold bg-zinc-800 text-zinc-300">
                             {facility}
                           </span>
                           <span
                             className={cn(
-                              'text-[11px] px-1.5 py-0.5 rounded-md font-bold border',
+                              'text-[12px] px-1.5 py-0.5 rounded-md font-bold border',
                               unpaid
                                 ? 'bg-rose-500/12 text-rose-400 border-rose-500/20'
                                 : 'bg-emerald-500/12 text-emerald-400 border-emerald-500/20'
@@ -389,7 +389,7 @@ export default function ServiceHistoryView({
                             <button
                               type="button"
                               onClick={(e) => handleCopyReceipt(e, receiptCode)}
-                              className="text-[11px] px-1.5 py-0.5 rounded-md font-bold bg-neutral-950 border border-neutral-700 text-zinc-400 hover:text-white flex items-center gap-1"
+                              className="text-[12px] px-1.5 py-0.5 rounded-md font-bold bg-neutral-950 border border-neutral-700 text-zinc-400 hover:text-white flex items-center gap-1"
                               title="영수증 코드 복사"
                             >
                               {copiedId === receiptCode ? (
@@ -403,7 +403,7 @@ export default function ServiceHistoryView({
                         </div>
                       </div>
                       <div className="shrink-0 text-right">
-                        <p className="text-[13px] font-bold tabular-nums text-zinc-300">
+                        <p className="text-[14px] font-bold tabular-nums text-zinc-300">
                           {(res.totalPrice ?? 0).toLocaleString()}원
                         </p>
                       </div>
@@ -418,13 +418,13 @@ export default function ServiceHistoryView({
             <ClipboardCheck size={28} className="text-neutral-700" />
             {hasAnyMoved ? (
               <>
-                <p className="text-xs font-bold text-zinc-400">검색·기간에 맞는 기록이 없습니다</p>
-                <p className="text-[12px] text-zinc-600">기간을 넓히거나 검색어를 바꿔 보세요.</p>
+                <p className="text-[13px] font-bold text-zinc-400">검색·기간에 맞는 기록이 없습니다</p>
+                <p className="text-[13px] text-zinc-600">기간을 넓히거나 검색어를 바꿔 보세요.</p>
               </>
             ) : (
               <>
-                <p className="text-xs font-bold text-zinc-400">아직 움직인 차량 기록이 없습니다</p>
-                <p className="text-[12px] text-zinc-600">입고를 시작한 차량부터 여기에 표시됩니다.</p>
+                <p className="text-[13px] font-bold text-zinc-400">아직 움직인 차량 기록이 없습니다</p>
+                <p className="text-[13px] text-zinc-600">입고를 시작한 차량부터 여기에 표시됩니다.</p>
               </>
             )}
           </div>

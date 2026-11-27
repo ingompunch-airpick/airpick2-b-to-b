@@ -180,8 +180,8 @@ export default function HomepageDateTimeField({
                 onClick={() => choose(open, option.value)}
                 className={`font-semibold tabular-nums ${
                   timePart
-                    ? 'rounded-lg px-1 py-2 text-center text-[13px]'
-                    : 'block w-full px-3 py-1.5 text-left text-sm'
+                    ? 'rounded-lg px-1 py-2 text-center text-[14px]'
+                    : 'block w-full px-3 py-1.5 text-left text-[15px]'
                 } ${selected ? 'bg-stone-900 text-white' : 'text-stone-800 hover:bg-stone-100'}`}
               >
                 {option.label}

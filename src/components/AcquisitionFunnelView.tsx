@@ -26,9 +26,9 @@ function companyLabel(c: Company): string {
 function Metric({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div className="rounded-2xl border border-neutral-800 bg-[#141416] px-3 py-3">
-      <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">{label}</p>
+      <p className="text-[13px] font-black uppercase tracking-wide text-zinc-500">{label}</p>
       <p className="mt-1 text-xl font-black text-zinc-100 tabular-nums">{value}</p>
-      {sub ? <p className="mt-0.5 text-[10px] font-semibold text-zinc-500">{sub}</p> : null}
+      {sub ? <p className="mt-0.5 text-[13px] font-semibold text-zinc-500">{sub}</p> : null}
     </div>
   );
 }
@@ -117,7 +117,7 @@ export default function AcquisitionFunnelView({
         </div>
         <div className="min-w-0">
           <h2 className="text-base font-black text-white">명함 QR · B2C 예약 링크</h2>
-          <p className="text-[11px] text-zinc-500 font-semibold mt-0.5">
+          <p className="text-[13px] text-zinc-500 font-semibold mt-0.5">
             스캔→예약 전환. 파트너 홈(네이버·구글) 방문은 대시보드 「파트너 홈」
           </p>
         </div>
@@ -126,11 +126,11 @@ export default function AcquisitionFunnelView({
       <div className="flex flex-wrap gap-2 items-end">
         {isSuperAdmin ? (
           <label className="space-y-1">
-            <span className="text-[10px] font-black text-zinc-500 uppercase">업체</span>
+            <span className="text-[13px] font-black text-zinc-500 uppercase">업체</span>
             <select
               value={companyId}
               onChange={(e) => setCompanyId(e.target.value)}
-              className="block w-full min-w-[10rem] px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-sm text-zinc-100 font-bold"
+              className="block w-full min-w-[10rem] px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-[15px] text-zinc-100 font-bold"
             >
               {options.map((c) => (
                 <option key={c.id} value={c.id}>
@@ -141,11 +141,11 @@ export default function AcquisitionFunnelView({
           </label>
         ) : null}
         <label className="space-y-1">
-          <span className="text-[10px] font-black text-zinc-500 uppercase">기간</span>
+          <span className="text-[13px] font-black text-zinc-500 uppercase">기간</span>
           <select
             value={days}
             onChange={(e) => setDays(Number(e.target.value))}
-            className="block px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-sm text-zinc-100 font-bold"
+            className="block px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-[15px] text-zinc-100 font-bold"
           >
             <option value={7}>최근 7일</option>
             <option value={30}>최근 30일</option>
@@ -155,7 +155,7 @@ export default function AcquisitionFunnelView({
         <button
           type="button"
           onClick={() => void load()}
-          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-neutral-700 text-[11px] font-black text-zinc-300 hover:text-white"
+          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-neutral-700 text-[13px] font-black text-zinc-300 hover:text-white"
         >
           <RefreshCw size={12} className={loading ? 'animate-spin' : undefined} />
           새로고침
@@ -163,20 +163,20 @@ export default function AcquisitionFunnelView({
       </div>
 
       <div className="rounded-2xl border border-neutral-800 bg-[#1C1C1E] p-4 space-y-2">
-        <p className="text-[11px] font-black text-zinc-300">명함용 QR URL</p>
-        <p className="text-[10px] text-zinc-500 font-semibold break-all font-mono">{goUrl || '—'}</p>
-        <p className="text-[10px] text-zinc-600 font-semibold">
+        <p className="text-[13px] font-black text-zinc-300">명함용 QR URL</p>
+        <p className="text-[13px] text-zinc-500 font-semibold break-all font-mono">{goUrl || '—'}</p>
+        <p className="text-[13px] text-zinc-600 font-semibold">
           /h/…?src=business_card · campaign={campaignHint}
         </p>
         <button
           type="button"
           onClick={() => void copyUrl()}
-          className="inline-flex items-center gap-1.5 mt-1 px-3 py-1.5 rounded-xl bg-amber-500 text-neutral-950 text-[11px] font-black"
+          className="inline-flex items-center gap-1.5 mt-1 px-3 py-1.5 rounded-xl bg-amber-500 text-neutral-950 text-[12px] font-black"
         >
           <Copy size={12} />
           {copied ? '복사됨' : 'URL 복사'}
         </button>
-        <p className="text-[10px] text-zinc-500 font-semibold pt-1">
+        <p className="text-[13px] text-zinc-500 font-semibold pt-1">
           전단지 등: URL에{' '}
           <span className="font-mono text-zinc-400">?src=flyer</span> 또는{' '}
           <span className="font-mono text-zinc-400">?src=instagram&amp;med=qr</span> 를 붙이면
@@ -185,7 +185,7 @@ export default function AcquisitionFunnelView({
       </div>
 
       {error ? (
-        <p className="text-sm font-semibold text-red-400">{error}</p>
+        <p className="text-[15px] font-semibold text-red-400">{error}</p>
       ) : null}
 
       {stats ? (
@@ -204,8 +204,8 @@ export default function AcquisitionFunnelView({
 
           {Object.keys(stats.bySource).length > 0 ? (
             <div className="rounded-2xl border border-neutral-800 overflow-hidden">
-              <table className="w-full text-left text-[12px]">
-                <thead className="bg-[#1C1C1E] text-[10px] text-zinc-500 font-black uppercase">
+              <table className="w-full text-left text-[13px]">
+                <thead className="bg-[#1C1C1E] text-[13px] text-zinc-500 font-black uppercase">
                   <tr>
                     <th className="px-3 py-2">소스</th>
                     <th className="px-3 py-2">스캔</th>
@@ -228,13 +228,13 @@ export default function AcquisitionFunnelView({
               </table>
             </div>
           ) : (
-            <p className="text-[12px] text-zinc-500 font-semibold">
+            <p className="text-[13px] text-zinc-500 font-semibold">
               아직 이 기간의 QR 스캔이 없습니다. 명함에 URL을 넣어 배포해 보세요.
             </p>
           )}
         </>
       ) : loading ? (
-        <p className="text-[12px] text-zinc-500 font-semibold">불러오는 중…</p>
+        <p className="text-[13px] text-zinc-500 font-semibold">불러오는 중…</p>
       ) : null}
     </div>
   );

@@ -190,7 +190,7 @@ export default function ParkingPinMap({
   if (status === 'missing_key') {
     return (
       <div
-        className={`${heightClass} w-full rounded-xl border border-amber-200 bg-amber-50 p-3 text-[11px] text-amber-900 space-y-2`}
+        className={`${heightClass} w-full rounded-xl border border-amber-200 bg-amber-50 p-3 text-[13px] text-amber-900 space-y-2`}
       >
         <p className="font-black">네이버 지도 API 키가 필요합니다</p>
         <p className="leading-relaxed">
@@ -198,7 +198,7 @@ export default function ParkingPinMap({
           프로젝트 루트 <code className="font-mono bg-white/70 px-1 rounded">.env</code>에
           아래를 넣으세요.
         </p>
-        <pre className="bg-white/80 rounded-lg px-2 py-1.5 font-mono text-[10px] overflow-x-auto">
+        <pre className="bg-white/80 rounded-lg px-2 py-1.5 font-mono text-[12px] overflow-x-auto">
           VITE_NAVER_MAP_CLIENT_ID=발급받은_Client_ID
         </pre>
         <p className="leading-relaxed">
@@ -231,13 +231,13 @@ export default function ParkingPinMap({
             }
           }}
           placeholder="주소·건물명 검색"
-          className="flex-1 min-w-0 px-3 py-2 border border-slate-200 bg-white text-slate-900 rounded-xl text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500"
+          className="flex-1 min-w-0 px-3 py-2 border border-slate-200 bg-white text-slate-900 rounded-xl text-[13px] focus:outline-none focus:ring-1 focus:ring-indigo-500"
         />
         <button
           type="button"
           disabled={searching || status !== 'ready'}
           onClick={() => void handleSearch()}
-          className="shrink-0 px-3 py-2 rounded-xl bg-slate-900 text-white text-[11px] font-black disabled:opacity-50"
+          className="shrink-0 px-3 py-2 rounded-xl bg-slate-900 text-white text-[13px] font-black disabled:opacity-50"
         >
           {searching ? '…' : '검색'}
         </button>
@@ -245,12 +245,12 @@ export default function ParkingPinMap({
 
       <div className={`relative z-0 isolate overflow-hidden ${heightClass} w-full`}>
         {status === 'loading' && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-[11px] text-slate-500 font-bold">
+          <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl border border-slate-200 bg-slate-50 text-[13px] text-slate-500 font-bold">
             네이버 지도 불러오는 중…
           </div>
         )}
         {status === 'error' && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-3 text-center text-[11px] text-rose-800 font-bold">
+          <div className="absolute inset-0 z-10 flex items-center justify-center rounded-xl border border-rose-200 bg-rose-50 px-3 text-center text-[13px] text-rose-800 font-bold">
             {errorMsg || '지도 로드 실패'}
           </div>
         )}

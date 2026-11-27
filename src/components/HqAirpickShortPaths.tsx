@@ -87,8 +87,8 @@ export default function HqAirpickShortPaths({
     <div className="bg-[#121214] border border-fuchsia-500/20 rounded-[22px] p-4 space-y-3">
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
-          <p className="text-xs font-black text-fuchsia-300 tracking-wider">에어픽 짧은 경로</p>
-          <p className="text-[11px] text-zinc-500 font-bold mt-1 leading-relaxed">
+          <p className="text-[13px] font-black text-fuchsia-300 tracking-wider">에어픽 짧은 경로</p>
+          <p className="text-[13px] text-zinc-500 font-bold mt-1 leading-relaxed">
             방문 + 예약 · /long1·?src=·검색·referrer 분류 · 최초유입 30일 · 접수일·방문일(KST)
           </p>
         </div>
@@ -99,7 +99,7 @@ export default function HqAirpickShortPaths({
                 key={p.id}
                 type="button"
                 onClick={() => setPeriodLocal(p.id)}
-                className={`px-2.5 py-1.5 text-[11px] font-black rounded-lg transition-all ${
+                className={`px-2.5 py-1.5 text-[12px] font-black rounded-lg transition-all ${
                   period === p.id
                     ? 'bg-fuchsia-500/20 text-fuchsia-200 border border-fuchsia-500/30'
                     : 'text-zinc-500 hover:text-zinc-300 border border-transparent'
@@ -112,47 +112,47 @@ export default function HqAirpickShortPaths({
         ) : null}
       </div>
 
-      <p className="text-[10px] text-zinc-600 font-bold px-0.5">
+      <p className="text-[13px] text-zinc-600 font-bold px-0.5">
         {shortDate(stats.fromYmd)} – {shortDate(stats.toYmd)}
         {period === 'last7' ? ' · 오늘 기준' : ''}
       </p>
 
       <div className="grid grid-cols-2 gap-2">
         <div className="rounded-xl bg-amber-500/10 border border-amber-500/20 px-3 py-2.5">
-          <span className="text-[10px] text-amber-300 font-bold block">방문 합</span>
+          <span className="text-[13px] text-amber-300 font-bold block">방문 합</span>
           <span className="text-xl font-black text-amber-100 font-mono">
             {visitDays === null ? '…' : stats.visitTotal}
-            <span className="text-sm ml-0.5">회</span>
+            <span className="text-[15px] ml-0.5">회</span>
           </span>
         </div>
         <div className="rounded-xl bg-fuchsia-500/10 border border-fuchsia-500/20 px-3 py-2.5">
-          <span className="text-[10px] text-fuchsia-300 font-bold block">예약 합</span>
+          <span className="text-[13px] text-fuchsia-300 font-bold block">예약 합</span>
           <span className="text-xl font-black text-fuchsia-100 font-mono">
             {stats.total}
-            <span className="text-sm ml-0.5">건</span>
+            <span className="text-[15px] ml-0.5">건</span>
           </span>
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-2">
         <div className="rounded-xl bg-neutral-900/80 border border-neutral-800 px-3 py-2.5">
-          <span className="text-[10px] text-zinc-400 font-bold block">경로 있는 예약</span>
+          <span className="text-[13px] text-zinc-400 font-bold block">경로 있는 예약</span>
           <span className="text-lg font-black text-zinc-100 font-mono">
             {stats.withPath}
-            <span className="text-sm ml-0.5">건</span>
+            <span className="text-[15px] ml-0.5">건</span>
           </span>
         </div>
         <div className="rounded-xl bg-neutral-900/80 border border-neutral-800 px-3 py-2.5">
-          <span className="text-[10px] text-zinc-400 font-bold block">경로 없는 예약</span>
+          <span className="text-[13px] text-zinc-400 font-bold block">경로 없는 예약</span>
           <span className="text-lg font-black text-zinc-100 font-mono">
             {stats.withoutPath}
-            <span className="text-sm ml-0.5">건</span>
+            <span className="text-[15px] ml-0.5">건</span>
           </span>
         </div>
       </div>
 
       {stats.rows.length === 0 ? (
-        <p className="text-[12px] text-zinc-500 font-bold py-2 px-0.5">
+        <p className="text-[13px] text-zinc-500 font-bold py-2 px-0.5">
           {visitDays === null
             ? '불러오는 중…'
             : '이 기간에 방문·예약이 없습니다.'}
@@ -160,27 +160,27 @@ export default function HqAirpickShortPaths({
       ) : (
         <div className="space-y-2">
           <div className="grid grid-cols-[1fr_3.25rem_3.25rem] gap-1 px-0.5">
-            <span className="text-[10px] text-zinc-600 font-bold">경로</span>
-            <span className="text-[10px] text-zinc-600 font-bold text-right">방문</span>
-            <span className="text-[10px] text-zinc-600 font-bold text-right">예약</span>
+            <span className="text-[13px] text-zinc-600 font-bold">경로</span>
+            <span className="text-[13px] text-zinc-600 font-bold text-right">방문</span>
+            <span className="text-[13px] text-zinc-600 font-bold text-right">예약</span>
           </div>
           {stats.rows.map((row) => (
             <div
               key={row.source}
               className="grid grid-cols-[1fr_3.25rem_3.25rem] gap-1 items-center"
             >
-              <span className="text-[11px] text-zinc-300 font-bold truncate min-w-0">
+              <span className="text-[13px] text-zinc-300 font-bold truncate min-w-0">
                 {row.label}
               </span>
               <span
-                className={`text-[11px] font-mono font-black text-right ${
+                className={`text-[13px] font-mono font-black text-right ${
                   row.visits > 0 ? 'text-amber-400' : 'text-zinc-700'
                 }`}
               >
                 {row.visits > 0 ? row.visits : '—'}
               </span>
               <span
-                className={`text-[11px] font-mono font-black text-right ${
+                className={`text-[13px] font-mono font-black text-right ${
                   row.count > 0 ? 'text-fuchsia-300' : 'text-zinc-700'
                 }`}
               >
@@ -193,31 +193,31 @@ export default function HqAirpickShortPaths({
 
       {powerLinkRows.length > 0 ? (
         <div className="space-y-2 pt-2 border-t border-neutral-800">
-          <p className="text-[10px] text-fuchsia-300/80 font-black tracking-wider">
+          <p className="text-[13px] text-fuchsia-300/80 font-black tracking-wider">
             파워링크 검색어 (n_query)
           </p>
           <div className="grid grid-cols-[1fr_3.25rem_3.25rem] gap-1 px-0.5">
-            <span className="text-[10px] text-zinc-600 font-bold">검색어</span>
-            <span className="text-[10px] text-zinc-600 font-bold text-right">방문</span>
-            <span className="text-[10px] text-zinc-600 font-bold text-right">예약</span>
+            <span className="text-[13px] text-zinc-600 font-bold">검색어</span>
+            <span className="text-[13px] text-zinc-600 font-bold text-right">방문</span>
+            <span className="text-[13px] text-zinc-600 font-bold text-right">예약</span>
           </div>
           {powerLinkRows.map((row) => (
             <div
               key={row.query}
               className="grid grid-cols-[1fr_3.25rem_3.25rem] gap-1 items-center"
             >
-              <span className="text-[11px] text-zinc-300 font-bold truncate min-w-0">
+              <span className="text-[13px] text-zinc-300 font-bold truncate min-w-0">
                 {row.query}
               </span>
               <span
-                className={`text-[11px] font-mono font-black text-right ${
+                className={`text-[13px] font-mono font-black text-right ${
                   row.visits > 0 ? 'text-amber-400' : 'text-zinc-700'
                 }`}
               >
                 {row.visits > 0 ? row.visits : '—'}
               </span>
               <span
-                className={`text-[11px] font-mono font-black text-right ${
+                className={`text-[13px] font-mono font-black text-right ${
                   row.bookings > 0 ? 'text-fuchsia-300' : 'text-zinc-700'
                 }`}
               >

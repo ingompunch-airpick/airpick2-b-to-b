@@ -835,7 +835,7 @@ export default function AdminDashboard({
   return (
     <div className="space-y-4 text-zinc-100">
       {flashMsg ? (
-        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/15 px-3 py-2.5 text-[12px] font-bold text-emerald-200">
+        <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/15 px-3 py-2.5 text-[13px] font-bold text-emerald-200">
           {flashMsg}
         </div>
       ) : null}
@@ -844,7 +844,7 @@ export default function AdminDashboard({
         <button
           type="button"
           onClick={() => setActiveTab('create')}
-          className={`flex-1 py-2.5 text-xs font-black rounded-xl transition-all ${
+          className={`flex-1 py-2.5 text-[13px] font-black rounded-xl transition-all ${
             activeTab === 'create' ? 'bg-[#1C1C1E] text-zinc-50 shadow-xs border border-neutral-700' : 'text-zinc-500 hover:text-zinc-200'
           }`}
         >
@@ -853,7 +853,7 @@ export default function AdminDashboard({
         <button
           type="button"
           onClick={() => setActiveTab('partners')}
-          className={`flex-1 py-2.5 text-xs font-black rounded-xl transition-all ${
+          className={`flex-1 py-2.5 text-[13px] font-black rounded-xl transition-all ${
             activeTab === 'partners' ? 'bg-[#1C1C1E] text-zinc-50 shadow-xs border border-neutral-700' : 'text-zinc-500 hover:text-zinc-200'
           }`}
         >
@@ -874,8 +874,8 @@ export default function AdminDashboard({
           )}
           <div className="bg-[#1C1C1E] p-3.5 rounded-2xl border border-neutral-800 flex items-center justify-between text-left">
             <div>
-              <h4 className="text-xs font-black text-zinc-100">주차 대행 업체 수정·삭제</h4>
-              <p className="text-[12px] text-zinc-500 mt-0.5">
+              <h4 className="text-[13px] font-black text-zinc-100">주차 대행 업체 수정·삭제</h4>
+              <p className="text-[13px] text-zinc-500 mt-0.5">
                 예약·입출고를 다루는 업체만 관리합니다. ↑↓로 순서를 바꾸면 위쪽 업체 선택에도 반영됩니다.
               </p>
             </div>
@@ -888,7 +888,7 @@ export default function AdminDashboard({
             <div className="overflow-x-auto">
               <table className="w-full text-left border-collapse">
                 <thead>
-                  <tr className="bg-neutral-900/80 border-b border-neutral-800 text-[11px] text-zinc-500 font-extrabold tracking-wider">
+                  <tr className="bg-neutral-900/80 border-b border-neutral-800 text-[13px] text-zinc-500 font-extrabold tracking-wider">
                     <th className="py-2.5 px-2 text-center w-12">순서</th>
                     <th className="py-2.5 px-3">가맹 대행사 정보</th>
                     <th className="py-2.5 px-2 text-center">상태</th>
@@ -904,7 +904,7 @@ export default function AdminDashboard({
                     const isPrimary = company?.isOperatorPrimary || !company?.parentCompanyId;
                     const orderBusy = reorderingId === p.companyId;
                     return (
-                      <tr key={p.companyId} className={`hover:bg-neutral-900/70 transition-all text-xs ${isSuspended ? 'bg-neutral-950/50 text-zinc-500' : 'text-zinc-300'}`}>
+                      <tr key={p.companyId} className={`hover:bg-neutral-900/70 transition-all text-[13px] ${isSuspended ? 'bg-neutral-950/50 text-zinc-500' : 'text-zinc-300'}`}>
                         <td className="py-3 px-2 align-middle text-center">
                           <div className="inline-flex flex-col gap-0.5">
                             <button
@@ -934,19 +934,19 @@ export default function AdminDashboard({
                         <td className="py-3 px-3 text-left">
                           <div className="font-bold text-zinc-100 flex items-center gap-1.5 flex-wrap">
                             <span>{p.name}</span>
-                            <span className="text-[10px] font-mono text-amber-400 bg-amber-500/10 px-1 py-0.2 rounded font-black uppercase">
+                            <span className="text-[13px] font-mono text-amber-400 bg-amber-500/10 px-1 py-0.2 rounded font-black uppercase">
                               {p.companyId}
                             </span>
                             {isPrimary && (
-                              <span className="text-[10px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded font-black">
+                              <span className="text-[12px] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded font-black">
                                 대표
                               </span>
                             )}
                           </div>
-                          <div className="text-[12px] text-zinc-500 font-medium mt-0.5">
+                          <div className="text-[13px] text-zinc-500 font-medium mt-0.5">
                             대표: {p.representative} • {p.phone}
                           </div>
-                          <div className="text-[11px] bg-neutral-900 border border-neutral-800 p-1 rounded-lg mt-1 text-zinc-500 font-mono inline-block">
+                          <div className="text-[13px] bg-neutral-900 border border-neutral-800 p-1 rounded-lg mt-1 text-zinc-500 font-mono inline-block">
                             정산: {p.settlementMemo}
                           </div>
                         </td>
@@ -965,8 +965,8 @@ export default function AdminDashboard({
                           </button>
                         </td>
                         <td className="py-3 px-2 align-middle text-center font-mono whitespace-nowrap">
-                          <div className="text-[12px] text-zinc-200 font-black">금일 {stats.todayCompleted}건</div>
-                          <div className="text-[11px] text-zinc-500 font-bold mt-0.5">월간 {stats.monthlyCompleted}건</div>
+                          <div className="text-[13px] text-zinc-200 font-black">금일 {stats.todayCompleted}건</div>
+                          <div className="text-[13px] text-zinc-500 font-bold mt-0.5">월간 {stats.monthlyCompleted}건</div>
                         </td>
                         <td className="py-3 px-3 align-middle text-right whitespace-nowrap">
                           <a
@@ -1003,30 +1003,30 @@ export default function AdminDashboard({
                     const stats = computeStats(c.id);
                     const parent = companies.find((x) => x.id === c.parentCompanyId);
                     return (
-                      <tr key={`sub-${c.id}`} className="hover:bg-neutral-900/70 transition-all text-xs text-zinc-400 bg-neutral-950/40">
-                        <td className="py-3 px-2 align-middle text-center text-[10px] text-zinc-600 font-bold">
+                      <tr key={`sub-${c.id}`} className="hover:bg-neutral-900/70 transition-all text-[13px] text-zinc-400 bg-neutral-950/40">
+                        <td className="py-3 px-2 align-middle text-center text-[13px] text-zinc-600 font-bold">
                           —
                         </td>
                         <td className="py-3 px-3 text-left">
                           <div className="font-bold text-zinc-200 flex items-center gap-1.5 flex-wrap">
                             <span>{c.name}</span>
-                            <span className="text-[10px] font-mono text-violet-300 bg-violet-500/15 px-1 py-0.2 rounded font-black uppercase">
+                            <span className="text-[13px] font-mono text-violet-300 bg-violet-500/15 px-1 py-0.2 rounded font-black uppercase">
                               {c.id}
                             </span>
-                            <span className="text-[10px] bg-violet-500/20 text-violet-300 px-1.5 py-0.5 rounded font-black">
+                            <span className="text-[12px] bg-violet-500/20 text-violet-300 px-1.5 py-0.5 rounded font-black">
                               하위 → {parent?.name || c.parentCompanyId}
                             </span>
                           </div>
-                          <div className="text-[12px] text-zinc-500 font-medium mt-0.5">
+                          <div className="text-[13px] text-zinc-500 font-medium mt-0.5">
                             대표: {c.representative || '-'} • {c.phone || '-'}
                           </div>
                         </td>
                         <td className="py-3 px-2 align-middle text-center">
                           <div className="flex flex-col items-center gap-1">
-                            <span className="text-[11px] text-zinc-500 font-bold">하위 브랜드</span>
+                            <span className="text-[13px] text-zinc-500 font-bold">하위 브랜드</span>
                             {c.partnerHomepage?.config && (
                               <span
-                                className={`rounded-full border px-1.5 py-0.5 text-[10px] font-black ${
+                                className={`rounded-full border px-1.5 py-0.5 text-[12px] font-black ${
                                   c.partnerHomepage.enabled
                                     ? 'border-sky-500/30 bg-sky-500/10 text-sky-300'
                                     : 'border-zinc-700 bg-zinc-800 text-zinc-500'
@@ -1038,8 +1038,8 @@ export default function AdminDashboard({
                           </div>
                         </td>
                         <td className="py-3 px-2 align-middle text-center font-mono whitespace-nowrap">
-                          <div className="text-[12px] text-zinc-200 font-black">금일 {stats.todayCompleted}건</div>
-                          <div className="text-[11px] text-zinc-500 font-bold mt-0.5">월간 {stats.monthlyCompleted}건</div>
+                          <div className="text-[13px] text-zinc-200 font-black">금일 {stats.todayCompleted}건</div>
+                          <div className="text-[13px] text-zinc-500 font-bold mt-0.5">월간 {stats.monthlyCompleted}건</div>
                         </td>
                         <td className="py-3 px-3 align-middle text-right whitespace-nowrap">
                           <a
@@ -1089,10 +1089,10 @@ export default function AdminDashboard({
                 <div className="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
                   <div className="pointer-events-auto w-full max-w-sm rounded-2xl border border-rose-500/30 bg-[#17171A] shadow-xl overflow-hidden">
                     <div className="px-5 pt-5 pb-3 border-b border-neutral-800 bg-[#1C1C1E]">
-                      <h4 id="partner-delete-title" className="text-sm font-black text-rose-300">
+                      <h4 id="partner-delete-title" className="text-[15px] font-black text-rose-300">
                         정말 삭제할까요?
                       </h4>
-                      <p className="text-[12px] text-zinc-400 mt-1.5 leading-relaxed font-semibold">
+                      <p className="text-[13px] text-zinc-400 mt-1.5 leading-relaxed font-semibold">
                         [{pendingDelete.companyName}]{' '}
                         <span className="font-mono text-amber-400/90">{pendingDelete.companyId}</span>
                         {pendingDelete.kind === 'sub'
@@ -1105,7 +1105,7 @@ export default function AdminDashboard({
                         type="button"
                         disabled={deletingPartner}
                         onClick={() => setPendingDelete(null)}
-                        className="px-3.5 py-2 rounded-xl border border-neutral-700 bg-neutral-900 text-zinc-200 text-[12px] font-black hover:bg-neutral-800 disabled:opacity-50"
+                        className="px-3.5 py-2 rounded-xl border border-neutral-700 bg-neutral-900 text-zinc-200 text-[13px] font-black hover:bg-neutral-800 disabled:opacity-50"
                       >
                         취소
                       </button>
@@ -1113,7 +1113,7 @@ export default function AdminDashboard({
                         type="button"
                         disabled={deletingPartner}
                         onClick={() => void confirmPendingDelete()}
-                        className="px-3.5 py-2 rounded-xl border border-rose-500/40 bg-rose-500 text-white text-[12px] font-black hover:bg-rose-400 disabled:opacity-50 inline-flex items-center gap-1.5"
+                        className="px-3.5 py-2 rounded-xl border border-rose-500/40 bg-rose-500 text-white text-[13px] font-black hover:bg-rose-400 disabled:opacity-50 inline-flex items-center gap-1.5"
                       >
                         <Trash2 size={12} />
                         {deletingPartner ? '삭제 중…' : '삭제 확인'}
@@ -1137,13 +1137,13 @@ export default function AdminDashboard({
                 />
                 <div className="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
                   <div
-                    className="pointer-events-auto bg-[#17171A] w-full max-w-lg rounded-2xl shadow-xl border border-neutral-800 flex flex-col text-xs text-left overflow-hidden"
+                    className="pointer-events-auto bg-[#17171A] w-full max-w-lg rounded-2xl shadow-xl border border-neutral-800 flex flex-col text-[13px] text-left overflow-hidden"
                     style={{ height: 'min(90dvh, 900px)', maxHeight: '90vh' }}
                   >
                     <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-neutral-800 shrink-0 bg-[#1C1C1E]">
                       <div>
-                        <h4 className="text-sm font-black text-zinc-100">제휴 가맹점 정보 수정</h4>
-                        <p className="text-[12px] text-zinc-500 mt-0.5">
+                        <h4 className="text-[15px] font-black text-zinc-100">제휴 가맹점 정보 수정</h4>
+                        <p className="text-[13px] text-zinc-500 mt-0.5">
                           이름, 로그인 아이디, 비밀번호를 바꿀 수 있습니다.
                         </p>
                       </div>
@@ -1158,7 +1158,7 @@ export default function AdminDashboard({
 
                     <div className="px-5 py-3 space-y-3 overflow-y-auto flex-1 min-h-0 overscroll-contain">
                       <div>
-                        <label className="text-[12px] text-zinc-400 block mb-1 font-bold">로그인 아이디</label>
+                        <label className="text-[13px] text-zinc-400 block mb-1 font-bold">로그인 아이디</label>
                         <input
                           type="text"
                           value={editId}
@@ -1168,13 +1168,13 @@ export default function AdminDashboard({
                           autoCorrect="off"
                           spellCheck={false}
                         />
-                        <p className="mt-1 text-[10px] text-zinc-500 font-semibold">
+                        <p className="mt-1 text-[13px] text-zinc-500 font-semibold">
                           영문 소문자, 숫자, 밑줄. 바꾸면 예약과 로그인 주소가 새 아이디를 따릅니다.
                         </p>
                       </div>
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="text-[12px] text-zinc-400 block mb-1 font-bold">가맹사 법인명 (상호명) *</label>
+                          <label className="text-[13px] text-zinc-400 block mb-1 font-bold">가맹사 법인명 (상호명) *</label>
                           <input
                             type="text"
                             value={editName}
@@ -1183,7 +1183,7 @@ export default function AdminDashboard({
                           />
                         </div>
                         <div>
-                          <label className="text-[12px] text-zinc-400 block mb-1 font-bold">대표자 성함 *</label>
+                          <label className="text-[13px] text-zinc-400 block mb-1 font-bold">대표자 성함 *</label>
                           <input
                             type="text"
                             value={editRep}
@@ -1195,7 +1195,7 @@ export default function AdminDashboard({
 
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="text-[12px] text-zinc-400 block mb-1 font-bold">업체 대표 연락처 *</label>
+                          <label className="text-[13px] text-zinc-400 block mb-1 font-bold">업체 대표 연락처 *</label>
                           <input
                             type="text"
                             value={editPhone}
@@ -1204,7 +1204,7 @@ export default function AdminDashboard({
                           />
                         </div>
                         <div>
-                          <label className="text-[12px] text-zinc-400 block mb-1 font-bold">로그인 비밀번호</label>
+                          <label className="text-[13px] text-zinc-400 block mb-1 font-bold">로그인 비밀번호</label>
                           <input
                             type="text"
                             value={editPassword}
@@ -1212,13 +1212,13 @@ export default function AdminDashboard({
                             className="w-full px-3 py-2 border border-neutral-700 bg-[#1C1C1E] text-zinc-100 rounded-xl focus:outline-none focus:ring-1 focus:ring-amber-500/40 font-mono font-semibold"
                             placeholder="새 비밀번호"
                           />
-                          <p className="mt-1 text-[10px] text-zinc-500 font-semibold">비워 두면 지금 비밀번호를 유지합니다.</p>
+                          <p className="mt-1 text-[13px] text-zinc-500 font-semibold">비워 두면 지금 비밀번호를 유지합니다.</p>
                         </div>
                       </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                         <div>
-                          <label className="text-[12px] text-zinc-400 block mb-1 font-bold">
+                          <label className="text-[13px] text-zinc-400 block mb-1 font-bold">
                             B2C 수수료율 (%) · 부가세 별도
                           </label>
                           <input
@@ -1229,12 +1229,12 @@ export default function AdminDashboard({
                             className="w-full px-3 py-2 border border-neutral-700 bg-[#1C1C1E] text-zinc-100 rounded-xl focus:outline-none focus:ring-1 focus:ring-amber-500/40 font-mono font-semibold"
                             placeholder="15"
                           />
-                          <p className="mt-1 text-[10px] text-zinc-500 font-semibold leading-relaxed">
+                          <p className="mt-1 text-[13px] text-zinc-500 font-semibold leading-relaxed">
                             에어픽 앱 예약만. 홈·현장은 0%. 기본 15.
                           </p>
                         </div>
                         <div>
-                          <label className="text-[12px] text-zinc-400 block mb-1 font-bold">
+                          <label className="text-[13px] text-zinc-400 block mb-1 font-bold">
                             정산 방식 및 계약 조건 메모
                           </label>
                           <textarea
@@ -1248,15 +1248,15 @@ export default function AdminDashboard({
                       <div className="rounded-xl border border-neutral-800 bg-neutral-950/50 p-3 space-y-2.5">
                         <div className="flex items-center justify-between gap-2">
                           <div>
-                            <p className="text-[12px] font-black text-zinc-200">
+                            <p className="text-[13px] font-black text-zinc-200">
                               업체 채널 알림톡 (홈·현장)
                             </p>
-                            <p className="text-[10px] text-zinc-500 font-semibold mt-0.5 leading-relaxed">
+                            <p className="text-[13px] text-zinc-500 font-semibold mt-0.5 leading-relaxed">
                               에어픽 B2C는 업체와 무관하게 @airpickup으로 항상 발송됩니다. 여기는
                               홈페이지·현장용 업체 채널 연결입니다.
                             </p>
                           </div>
-                          <label className="inline-flex items-center gap-1.5 text-[11px] font-black text-zinc-300 shrink-0">
+                          <label className="inline-flex items-center gap-1.5 text-[13px] font-black text-zinc-300 shrink-0">
                             <input
                               type="checkbox"
                               checked={editAlimtalk.enabled}
@@ -1272,7 +1272,7 @@ export default function AdminDashboard({
                           </label>
                         </div>
                         <label className="block space-y-1">
-                          <span className="text-[10px] font-black text-zinc-500 uppercase">
+                          <span className="text-[13px] font-black text-zinc-500 uppercase">
                             채널 ID
                           </span>
                           <input
@@ -1286,12 +1286,12 @@ export default function AdminDashboard({
                             }
                             placeholder="@wawa0521"
                             disabled={!editAlimtalk.enabled}
-                            className="w-full px-3 py-2 border border-neutral-700 bg-[#1C1C1E] text-zinc-100 rounded-xl font-mono text-[12px] disabled:opacity-40"
+                            className="w-full px-3 py-2 border border-neutral-700 bg-[#1C1C1E] text-zinc-100 rounded-xl font-mono text-[13px] disabled:opacity-40"
                           />
                         </label>
                         <div className="grid grid-cols-2 gap-2">
                           <label className="block space-y-1">
-                            <span className="text-[10px] font-black text-zinc-500 uppercase">
+                            <span className="text-[13px] font-black text-zinc-500 uppercase">
                               예약완료 코드
                             </span>
                             <input
@@ -1305,11 +1305,11 @@ export default function AdminDashboard({
                               }
                               placeholder="wawareserve"
                               disabled={!editAlimtalk.enabled}
-                              className="w-full px-3 py-2 border border-neutral-700 bg-[#1C1C1E] text-zinc-100 rounded-xl font-mono text-[12px] disabled:opacity-40"
+                              className="w-full px-3 py-2 border border-neutral-700 bg-[#1C1C1E] text-zinc-100 rounded-xl font-mono text-[13px] disabled:opacity-40"
                             />
                           </label>
                           <label className="block space-y-1">
-                            <span className="text-[10px] font-black text-zinc-500 uppercase">
+                            <span className="text-[13px] font-black text-zinc-500 uppercase">
                               버튼명
                             </span>
                             <input
@@ -1323,11 +1323,11 @@ export default function AdminDashboard({
                               }
                               placeholder="접수증보기"
                               disabled={!editAlimtalk.enabled}
-                              className="w-full px-3 py-2 border border-neutral-700 bg-[#1C1C1E] text-zinc-100 rounded-xl text-[12px] font-semibold disabled:opacity-40"
+                              className="w-full px-3 py-2 border border-neutral-700 bg-[#1C1C1E] text-zinc-100 rounded-xl text-[13px] font-semibold disabled:opacity-40"
                             />
                           </label>
                         </div>
-                        <div className="flex flex-wrap gap-3 text-[11px] font-bold text-zinc-400">
+                        <div className="flex flex-wrap gap-3 text-[13px] font-bold text-zinc-400">
                           <label className="inline-flex items-center gap-1.5">
                             <input
                               type="checkbox"
@@ -1365,14 +1365,14 @@ export default function AdminDashboard({
                         companyId={editingPartner.companyId}
                         variant="dark"
                       />
-                      <p className="text-[11px] text-amber-300/90 font-bold bg-amber-500/10 border border-amber-500/20 rounded-lg px-2.5 py-1.5">
+                      <p className="text-[12px] text-amber-300/90 font-bold bg-amber-500/10 border border-amber-500/20 rounded-lg px-2.5 py-1.5">
                         보험·주소·핀·T1/T2 거리·사진은 companies에 저장되며 B2C MY가 읽습니다. 가맹점은 확인만 가능합니다.
                       </p>
                     </div>
 
                     <div className="shrink-0 flex flex-col gap-2 px-5 py-3 border-t border-neutral-800 bg-[#1C1C1E]">
                       {saveEditError ? (
-                        <p className="text-[11px] font-bold text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-xl px-3 py-2 whitespace-pre-wrap">
+                        <p className="text-[13px] font-bold text-rose-300 bg-rose-500/10 border border-rose-500/30 rounded-xl px-3 py-2 whitespace-pre-wrap">
                           {saveEditError}
                         </p>
                       ) : null}
@@ -1384,7 +1384,7 @@ export default function AdminDashboard({
                           e.stopPropagation();
                           void handleSaveEdit(e);
                         }}
-                        className="w-full py-3.5 bg-amber-500 text-black rounded-xl font-black hover:bg-amber-400 transition-all disabled:opacity-50 text-sm"
+                        className="w-full py-3.5 bg-amber-500 text-black rounded-xl font-black hover:bg-amber-400 transition-all disabled:opacity-50 text-[15px]"
                       >
                         {savingEdit ? '저장 중…' : '변경 내용 저장'}
                       </button>
@@ -1417,13 +1417,13 @@ export default function AdminDashboard({
                 />
                 <div className="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
                   <div
-                    className="pointer-events-auto bg-[#17171A] w-full max-w-lg rounded-2xl shadow-xl border border-neutral-800 flex flex-col text-xs text-left overflow-hidden"
+                    className="pointer-events-auto bg-[#17171A] w-full max-w-lg rounded-2xl shadow-xl border border-neutral-800 flex flex-col text-[13px] text-left overflow-hidden"
                     style={{ height: 'min(90dvh, 900px)', maxHeight: '90vh' }}
                   >
                     <div className="flex items-center justify-between px-5 pt-5 pb-3 border-b border-neutral-800 shrink-0 bg-[#1C1C1E]">
                       <div>
-                        <h4 className="text-sm font-black text-zinc-100">하위 업체 정보 수정</h4>
-                        <p className="text-[12px] text-zinc-500 mt-0.5">
+                        <h4 className="text-[15px] font-black text-zinc-100">하위 업체 정보 수정</h4>
+                        <p className="text-[13px] text-zinc-500 mt-0.5">
                           ID: <span className="font-mono font-bold text-violet-300">{editingSubCompany.id}</span>
                           {' · '}
                           대표: {editingSubCompany.parentCompanyId}
@@ -1440,7 +1440,7 @@ export default function AdminDashboard({
                     <div className="px-5 py-3 space-y-3 overflow-y-auto flex-1 min-h-0">
                       <div className="grid grid-cols-2 gap-3">
                         <div>
-                          <label className="text-[12px] text-zinc-400 block mb-1 font-bold">가맹사 법인명 (상호명) *</label>
+                          <label className="text-[13px] text-zinc-400 block mb-1 font-bold">가맹사 법인명 (상호명) *</label>
                           <input
                             type="text"
                             value={editSubName}
@@ -1449,7 +1449,7 @@ export default function AdminDashboard({
                           />
                         </div>
                         <div>
-                          <label className="text-[12px] text-zinc-400 block mb-1 font-bold">대표자 성함 *</label>
+                          <label className="text-[13px] text-zinc-400 block mb-1 font-bold">대표자 성함 *</label>
                           <input
                             type="text"
                             value={editSubRep}
@@ -1459,7 +1459,7 @@ export default function AdminDashboard({
                         </div>
                       </div>
                       <div>
-                        <label className="text-[12px] text-zinc-400 block mb-1 font-bold">업체 대표 연락처 *</label>
+                        <label className="text-[13px] text-zinc-400 block mb-1 font-bold">업체 대표 연락처 *</label>
                         <input
                           type="text"
                           value={editSubPhone}
@@ -1467,7 +1467,7 @@ export default function AdminDashboard({
                           className="w-full px-3 py-2 border border-neutral-700 bg-[#1C1C1E] text-zinc-100 rounded-xl focus:outline-none focus:ring-1 focus:ring-violet-500/40 font-mono font-semibold"
                           placeholder="예: 010-1234-5678"
                         />
-                        <p className="text-[11px] text-zinc-500 mt-1">
+                        <p className="text-[13px] text-zinc-500 mt-1">
                           B2C·홈페이지에 노출되는 예약 전화번호입니다.
                         </p>
                       </div>
@@ -1503,17 +1503,17 @@ export default function AdminDashboard({
       )}
 
       {activeTab === 'create' && (
-        <form onSubmit={handleCreatePartner} className="space-y-3 bg-[#1C1C1E] p-4 rounded-2xl border border-neutral-800 text-xs text-left">
+        <form onSubmit={handleCreatePartner} className="space-y-3 bg-[#1C1C1E] p-4 rounded-2xl border border-neutral-800 text-[13px] text-left">
           <div className="border-b border-neutral-800 pb-2 mb-2">
-            <h4 className="text-xs font-black text-zinc-100">신규 제휴 가맹점 입점 승인</h4>
-            <p className="text-[11.5px] text-zinc-500">대표 업체는 B2B 로그인·통합 관리, 하위 업체는 B2C 전용입니다.</p>
+            <h4 className="text-[13px] font-black text-zinc-100">신규 제휴 가맹점 입점 승인</h4>
+            <p className="text-[13px] text-zinc-500">대표 업체는 B2B 로그인·통합 관리, 하위 업체는 B2C 전용입니다.</p>
           </div>
 
           <div className="grid grid-cols-2 gap-2 p-1 bg-neutral-900 rounded-xl border border-neutral-800">
             <button
               type="button"
               onClick={() => setRegisterKind('primary')}
-              className={`py-2 rounded-lg text-[12px] font-black transition-all ${
+              className={`py-2 rounded-lg text-[13px] font-black transition-all ${
                 registerKind === 'primary' ? 'bg-[#141416] text-zinc-50 shadow-xs border border-neutral-700' : 'text-zinc-500'
               }`}
             >
@@ -1529,7 +1529,7 @@ export default function AdminDashboard({
                 setRegisterKind('sub');
               }}
               disabled={!canRegisterSub}
-              className={`py-2 rounded-lg text-[12px] font-black transition-all ${
+              className={`py-2 rounded-lg text-[13px] font-black transition-all ${
                 registerKind === 'sub'
                   ? 'bg-[#141416] text-violet-200 shadow-xs border border-violet-500/30'
                   : canRegisterSub
@@ -1543,9 +1543,9 @@ export default function AdminDashboard({
 
           {registerKind === 'sub' && (
             <div>
-              <label className="text-[12px] text-zinc-300 block mb-1 font-extrabold">소속 대표 업체 *</label>
+              <label className="text-[13px] text-zinc-300 block mb-1 font-extrabold">소속 대표 업체 *</label>
               {!canRegisterSub ? (
-                <p className="text-[12px] text-rose-400 font-bold py-2">
+                <p className="text-[13px] text-rose-400 font-bold py-2">
                   등록된 대표 업체가 없습니다. 먼저 「대표 업체 (B2B 로그인)」 탭에서 대표를 등록하세요.
                 </p>
               ) : (
@@ -1568,7 +1568,7 @@ export default function AdminDashboard({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-[12px] text-zinc-300 block mb-1 font-extrabold">
+              <label className="text-[13px] text-zinc-300 block mb-1 font-extrabold">
                 {registerKind === 'sub' ? 'B2C 노출용 ID (로그인 없음) *' : '가맹점 고유 식별 코드 (companyId) *'}
               </label>
               <input
@@ -1582,7 +1582,7 @@ export default function AdminDashboard({
             </div>
             {registerKind === 'primary' && (
             <div>
-              <label className="text-[12px] text-zinc-300 block mb-1 font-extrabold">임시 로그인 비밀번호 *</label>
+              <label className="text-[13px] text-zinc-300 block mb-1 font-extrabold">임시 로그인 비밀번호 *</label>
               <input
                 type="password"
                 required={registerKind === 'primary'}
@@ -1597,7 +1597,7 @@ export default function AdminDashboard({
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className="text-[12px] text-zinc-300 block mb-1 font-extrabold">가맹사 법인명 (상호명) *</label>
+              <label className="text-[13px] text-zinc-300 block mb-1 font-extrabold">가맹사 법인명 (상호명) *</label>
               <input
                 type="text"
                 required
@@ -1608,7 +1608,7 @@ export default function AdminDashboard({
               />
             </div>
             <div>
-              <label className="text-[12px] text-zinc-300 block mb-1 font-extrabold">대표자 성함 *</label>
+              <label className="text-[13px] text-zinc-300 block mb-1 font-extrabold">대표자 성함 *</label>
               <input
                 type="text"
                 required
@@ -1621,7 +1621,7 @@ export default function AdminDashboard({
           </div>
 
           <div>
-            <label className="text-[12px] text-zinc-300 block mb-1 font-extrabold">업체 대표 연락처 *</label>
+            <label className="text-[13px] text-zinc-300 block mb-1 font-extrabold">업체 대표 연락처 *</label>
             <input
               type="text"
               required
@@ -1633,7 +1633,7 @@ export default function AdminDashboard({
           </div>
 
           <div>
-            <label className="text-[12px] text-zinc-300 block mb-1 font-extrabold">
+            <label className="text-[13px] text-zinc-300 block mb-1 font-extrabold">
               {registerKind === 'primary' ? '정산 방식 및 계약 조건 메모' : '메모 (선택)'}
             </label>
             <textarea
@@ -1654,7 +1654,7 @@ export default function AdminDashboard({
           <button
             type="submit"
             disabled={registerKind === 'sub' && !canRegisterSub}
-            className={`w-full py-2.5 rounded-xl font-black text-xs transition-all flex items-center justify-center gap-1 shadow-xs disabled:opacity-40 disabled:cursor-not-allowed ${
+            className={`w-full py-2.5 rounded-xl font-black text-[13px] transition-all flex items-center justify-center gap-1 shadow-xs disabled:opacity-40 disabled:cursor-not-allowed ${
               registerKind === 'sub'
                 ? 'bg-violet-600 hover:bg-violet-500 text-white'
                 : 'bg-amber-500 hover:bg-amber-400 text-black'
@@ -1672,7 +1672,7 @@ export default function AdminDashboard({
             />
           )}
           {registerKind === 'primary' && (
-            <p className="text-[11px] text-zinc-500 text-center">
+            <p className="text-[13px] text-zinc-500 text-center">
               온보딩 체크리스트는 등록 필수가 아닙니다. (운영 메모용)
             </p>
           )}

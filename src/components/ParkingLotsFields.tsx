@@ -40,24 +40,24 @@ function LotCard({
       : 'rounded-xl border border-slate-200 bg-white p-3 space-y-3';
   const inputCls =
     variant === 'dark'
-      ? 'w-full px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-sm text-zinc-100 outline-none focus:border-amber-500'
-      : 'w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-sm text-slate-800 outline-none focus:border-indigo-400';
+      ? 'w-full px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-[15px] text-zinc-100 outline-none focus:border-amber-500'
+      : 'w-full px-3 py-2 bg-white border border-slate-200 rounded-xl text-[15px] text-slate-800 outline-none focus:border-indigo-400';
   const labelCls =
     variant === 'dark'
-      ? 'text-[11px] text-zinc-400 font-bold block mb-1'
-      : 'text-[11px] text-slate-500 font-bold block mb-1';
+      ? 'text-[13px] text-zinc-400 font-bold block mb-1'
+      : 'text-[13px] text-slate-500 font-bold block mb-1';
 
   return (
     <div className={panelCls}>
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-black text-indigo-500">
+        <span className="text-[13px] font-black text-indigo-500">
           {lot.type === 'indoor' ? '실내' : '야외'} #{index + 1}
         </span>
         {canRemove && (
           <button
             type="button"
             onClick={onRemove}
-            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[11px] font-bold text-rose-400 hover:bg-rose-500/10"
+            className="inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[12px] font-bold text-rose-400 hover:bg-rose-500/10"
           >
             <Trash2 size={12} />
             삭제
@@ -79,7 +79,7 @@ function LotCard({
       <div>
         <div className="flex items-center justify-between gap-2 mb-1">
           <label className={labelCls + ' mb-0'}>지도 핀</label>
-          <span className="text-[10px] text-slate-400">검색·지도 탭으로 위치 지정</span>
+          <span className="text-[13px] text-slate-400">검색·지도 탭으로 위치 지정</span>
         </div>
         <ParkingPinMap
           airportId={airportId}
@@ -127,12 +127,12 @@ export default function ParkingLotsFields({
       : 'rounded-xl border border-slate-100 bg-slate-50/80 p-3 space-y-3';
   const titleCls =
     variant === 'dark'
-      ? 'text-[12px] text-zinc-200 block font-black'
-      : 'text-[12px] text-slate-700 block font-black';
+      ? 'text-[13px] text-zinc-200 block font-black'
+      : 'text-[13px] text-slate-700 block font-black';
   const addBtnCls =
     variant === 'dark'
-      ? 'inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-black border border-neutral-700 text-zinc-200 hover:bg-neutral-800'
-      : 'inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[11px] font-black border border-slate-200 text-slate-700 hover:bg-white';
+      ? 'inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[13px] font-black border border-neutral-700 text-zinc-200 hover:bg-neutral-800'
+      : 'inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-[13px] font-black border border-slate-200 text-slate-700 hover:bg-white';
 
   const indoorLots = lots.filter((l) => l.type === 'indoor');
   const outdoorLots = lots.filter((l) => l.type === 'outdoor');
@@ -154,7 +154,7 @@ export default function ParkingLotsFields({
     <div className={sectionCls}>
       <div>
         <label className={titleCls}>주차장 목록</label>
-        <p className="text-[11px] text-slate-400 mt-1">
+        <p className="text-[13px] text-slate-400 mt-1">
           실내·야외 각각 여러 곳을 등록할 수 있습니다. 이름 예: 실내1, 실외2. (공항까지
           거리는 더 이상 입력하지 않습니다.)
         </p>
@@ -163,14 +163,14 @@ export default function ParkingLotsFields({
       {showIndoor && (
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-black text-zinc-400">실내 주차장</span>
+            <span className="text-[13px] font-black text-zinc-400">실내 주차장</span>
             <button type="button" className={addBtnCls} onClick={() => addLot('indoor')}>
               <Plus size={12} />
               실내 추가
             </button>
           </div>
           {indoorLots.length === 0 ? (
-            <p className="text-[11px] text-zinc-500 font-semibold px-1">등록된 실내 주차장 없음</p>
+            <p className="text-[13px] text-zinc-500 font-semibold px-1">등록된 실내 주차장 없음</p>
           ) : (
             indoorLots.map((lot, i) => (
               <LotCard
@@ -191,14 +191,14 @@ export default function ParkingLotsFields({
       {showOutdoor && (
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-2">
-            <span className="text-[11px] font-black text-zinc-400">야외 주차장</span>
+            <span className="text-[13px] font-black text-zinc-400">야외 주차장</span>
             <button type="button" className={addBtnCls} onClick={() => addLot('outdoor')}>
               <Plus size={12} />
               야외 추가
             </button>
           </div>
           {outdoorLots.length === 0 ? (
-            <p className="text-[11px] text-zinc-500 font-semibold px-1">등록된 야외 주차장 없음</p>
+            <p className="text-[13px] text-zinc-500 font-semibold px-1">등록된 야외 주차장 없음</p>
           ) : (
             outdoorLots.map((lot, i) => (
               <LotCard

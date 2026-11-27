@@ -464,11 +464,11 @@ export default function App() {
         <div className="fixed top-0 inset-x-0 z-[110] px-3 pt-3">
           <div className="mx-auto max-w-md rounded-2xl border border-rose-500/40 bg-neutral-900/95 backdrop-blur-md p-3 shadow-xl flex items-start gap-3">
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-black text-rose-400">예약 동기화 실패</p>
-              <p className="text-[11px] text-zinc-400 mt-1 leading-relaxed">
+              <p className="text-[13px] font-black text-rose-400">예약 동기화 실패</p>
+              <p className="text-[13px] text-zinc-400 mt-1 leading-relaxed">
                 {reservationSyncError}
               </p>
-              <p className="text-[10px] text-zinc-600 mt-1 font-semibold">
+              <p className="text-[13px] text-zinc-600 mt-1 font-semibold">
                 직전 목록은 유지됩니다. 권한이 없으면 로그아웃하세요.
               </p>
             </div>
@@ -476,7 +476,7 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => retryReservationSync()}
-                className="shrink-0 px-3 py-1.5 rounded-lg bg-amber-500 text-neutral-950 text-[11px] font-black"
+                className="shrink-0 px-3 py-1.5 rounded-lg bg-amber-500 text-neutral-950 text-[12px] font-black"
               >
                 다시 시도
               </button>
@@ -485,7 +485,7 @@ export default function App() {
                 onClick={() => {
                   void handleOperatorLogout();
                 }}
-                className="shrink-0 px-3 py-1.5 rounded-lg text-zinc-500 text-[10px] font-bold"
+                className="shrink-0 px-3 py-1.5 rounded-lg text-zinc-500 text-[12px] font-bold"
               >
                 로그아웃
               </button>
@@ -498,8 +498,8 @@ export default function App() {
         <div className="fixed top-0 inset-x-0 z-[100] px-3 pt-3">
           <div className="mx-auto max-w-md rounded-2xl border border-amber-500/30 bg-neutral-900/95 backdrop-blur-md p-3 shadow-xl flex items-start gap-3">
             <div className="flex-1 min-w-0">
-              <p className="text-xs font-black text-amber-400">예약 알림</p>
-              <p className="text-[11px] text-zinc-400 mt-1 leading-relaxed">
+              <p className="text-[13px] font-black text-amber-400">예약 알림</p>
+              <p className="text-[13px] text-zinc-400 mt-1 leading-relaxed">
                 새 예약은 「예약」, 출고로 넘어가면 「출고요청」이 울립니다. 안드로이드는 앱을 꺼도 푸시가 옵니다.
               </p>
             </div>
@@ -507,14 +507,14 @@ export default function App() {
               <button
                 type="button"
                 onClick={() => { void enableReservationAlerts(); }}
-                className="px-3 py-1.5 rounded-lg bg-amber-500 text-neutral-950 text-[11px] font-black"
+                className="px-3 py-1.5 rounded-lg bg-amber-500 text-neutral-950 text-[12px] font-black"
               >
                 알림 켜기
               </button>
               <button
                 type="button"
                 onClick={dismissReservationAlertsBanner}
-                className="px-3 py-1.5 rounded-lg text-zinc-500 text-[10px] font-bold"
+                className="px-3 py-1.5 rounded-lg text-zinc-500 text-[12px] font-bold"
               >
                 나중에
               </button>
@@ -570,7 +570,7 @@ export default function App() {
                       </option>
                     ))}
                   </select>
-                  <span className="text-[11px] text-amber-500/95 font-bold bg-amber-500/10 px-1.5 py-0.5 rounded font-sans tracking-wide shrink-0">
+                  <span className="text-[12px] text-amber-500/95 font-bold bg-amber-500/10 px-1.5 py-0.5 rounded font-sans tracking-wide shrink-0">
                     본사
                   </span>
                 </div>
@@ -585,7 +585,7 @@ export default function App() {
                     </span>
                   </h1>
                   {operatorGroupLabel && (
-                    <p className="text-[10px] text-zinc-500 font-bold mt-1 leading-tight max-w-[220px] sm:max-w-none truncate">
+                    <p className="text-[13px] text-zinc-500 font-bold mt-1 leading-tight max-w-[220px] sm:max-w-none truncate">
                       {operatorGroupLabel}
                     </p>
                   )}
@@ -607,7 +607,7 @@ export default function App() {
                     id="blockout-calendar-trigger"
                   >
                     <CalendarRange size={11} className="text-zinc-400" />
-                    <span className="text-[11px] sm:text-[11.5px] font-semibold tracking-tight text-zinc-300">
+                    <span className="text-[13px] sm:text-[13px] font-semibold tracking-tight text-zinc-300">
                       <span className="hidden sm:inline">예약 관리</span><span className="sm:hidden">예약</span>
                     </span>
                   </button>
@@ -618,7 +618,7 @@ export default function App() {
                       type="button"
                       onClick={enterAdminMode}
                       className={cn(
-                        "px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-[12px] font-semibold transition-all cursor-pointer",
+                        "px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[12px] sm:text-[12px] font-semibold transition-all cursor-pointer",
                         isAdminModeActive 
                           ? "bg-amber-500 text-neutral-950" 
                           : "text-zinc-500 hover:text-zinc-300"
@@ -630,7 +630,7 @@ export default function App() {
                       type="button"
                       onClick={enterDriverMode}
                       className={cn(
-                        "px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[11px] sm:text-[12px] font-semibold transition-all cursor-pointer",
+                        "px-2.5 sm:px-3 py-1 sm:py-1.5 rounded-lg text-[12px] sm:text-[12px] font-semibold transition-all cursor-pointer",
                         !isAdminModeActive 
                           ? "bg-amber-500 text-neutral-950" 
                           : "text-zinc-500 hover:text-zinc-300"
@@ -642,7 +642,7 @@ export default function App() {
                 )}
                 
                 {isEmployee && (
-                  <div className="px-2 sm:px-3.5 py-1 sm:py-1.5 bg-zinc-800/80 text-zinc-300 border border-zinc-700/50 rounded-[12px] text-[11px] sm:text-[12px] font-semibold select-none shrink-0">
+                  <div className="px-2 sm:px-3.5 py-1 sm:py-1.5 bg-zinc-800/80 text-zinc-300 border border-zinc-700/50 rounded-[12px] text-[12px] sm:text-[12px] font-semibold select-none shrink-0">
                     <span>{employeeRole === 'admin' ? `부관리자 (${employeeName})` : `기사 (${employeeName})`}</span>
                   </div>
                 )}
@@ -881,7 +881,7 @@ export default function App() {
                   animate={{ opacity: 1 }}
                   className="py-16 text-center space-y-3"
                 >
-                  <p className="text-sm font-bold text-zinc-300">
+                  <p className="text-[15px] font-bold text-zinc-300">
                     결제는 차량 검색·타임라인에서 해당 차를 열어 수정하세요.
                   </p>
                   <button
@@ -890,7 +890,7 @@ export default function App() {
                       setReceptionSubMode('search');
                       handleNavigate('search_reception');
                     }}
-                    className="px-4 py-2 rounded-xl bg-amber-500 text-neutral-950 text-xs font-black"
+                    className="px-4 py-2 rounded-xl bg-amber-500 text-neutral-950 text-[13px] font-black"
                   >
                     차량 검색으로 이동
                   </button>
@@ -990,7 +990,7 @@ export default function App() {
               <div className="p-4 border-b border-neutral-800 flex items-center justify-between bg-[#1A1A1D]">
                 <div className="flex items-center gap-2">
                   <ShieldCheck className="text-amber-500" size={18} />
-                  <span className="text-[13px] font-black font-mono text-zinc-100">
+                  <span className="text-[14px] font-black font-mono text-zinc-100">
                     최고관리자 설정
                   </span>
                 </div>
@@ -1041,54 +1041,54 @@ export default function App() {
               exit={{ opacity: 0, scale: 0.96 }}
               className="relative bg-neutral-900 w-full max-w-xs rounded-2xl shadow-xl p-5 border border-neutral-800"
             >
-              <h3 className="text-xs font-black text-white mb-1.5 flex items-center gap-2">
+              <h3 className="text-[13px] font-black text-white mb-1.5 flex items-center gap-2">
                 <Lock className="text-amber-500 shrink-0" size={14} />
                 대표 관리자 자격 증명
               </h3>
-              <p className="text-[12px] text-zinc-500 leading-relaxed mb-4">제휴 대행사 데이터 및 고유 수수료 기준을 사후 승인 수정하는 최고 권한을 서명합니다.</p>
+              <p className="text-[13px] text-zinc-500 leading-relaxed mb-4">제휴 대행사 데이터 및 고유 수수료 기준을 사후 승인 수정하는 최고 권한을 서명합니다.</p>
               
-              <form onSubmit={handleCredentialLogin} className="space-y-3.5 text-xs">
+              <form onSubmit={handleCredentialLogin} className="space-y-3.5 text-[13px]">
                 {loginError && (
-                  <div className="p-2.5 bg-red-950/20 text-red-400 text-[12px] rounded-lg border border-red-900/30 flex items-center gap-1.5 font-sans">
+                  <div className="p-2.5 bg-red-950/20 text-red-400 text-[13px] rounded-lg border border-red-900/30 flex items-center gap-1.5 font-sans">
                     <AlertCircle size={12} className="shrink-0" />
                     {loginError}
                   </div>
                 )}
                 
                 <div className="space-y-1">
-                  <label className="text-[11px] font-black text-zinc-500">관리자 아이디 / 이메일</label>
+                  <label className="text-[13px] font-black text-zinc-500">관리자 아이디 / 이메일</label>
                   <input 
                     type="text"
                     value={loginEmail}
                     onChange={e => setLoginEmail(e.target.value)}
                     placeholder="아이디 또는 이메일"
-                    className="w-full px-3 py-2.5 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-200 outline-none focus:border-amber-500 font-bold text-xs"
+                    className="w-full px-3 py-2.5 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-200 outline-none focus:border-amber-500 font-bold text-[13px]"
                   />
                 </div>
 
                 <div className="space-y-1">
-                  <label className="text-[11px] font-black text-zinc-500">비밀번호</label>
+                  <label className="text-[13px] font-black text-zinc-500">비밀번호</label>
                   <input 
                     type="password"
                     value={loginPassword}
                     onChange={e => setLoginPassword(e.target.value)}
                     placeholder="비밀번호를 입력해 주세요"
-                    className="w-full px-3 py-2.5 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-200 outline-none focus:border-amber-500 text-xs font-mono"
+                    className="w-full px-3 py-2.5 bg-neutral-950 border border-neutral-850 rounded-xl text-zinc-200 outline-none focus:border-amber-500 text-[13px] font-mono"
                   />
-                  <p className="text-[10.5px] text-zinc-650">본사 계정은 등록된 관리자 이메일의 비밀번호를 사용합니다.</p>
+                  <p className="text-[13px] text-zinc-650">본사 계정은 등록된 관리자 이메일의 비밀번호를 사용합니다.</p>
                 </div>
 
                 <div className="flex gap-2 pt-2">
                   <button 
                     type="button"
                     onClick={() => setShowLoginModal(false)}
-                    className="flex-1 py-2 bg-zinc-800 text-zinc-400 rounded-lg text-[12px] font-black transition-colors"
+                    className="flex-1 py-2 bg-zinc-800 text-zinc-400 rounded-lg text-[13px] font-black transition-colors"
                   >
                     취소
                   </button>
                   <button 
                     type="submit"
-                    className="flex-1 py-2 bg-amber-500 text-neutral-950 text-[12px] font-black shadow-md shadow-amber-500/10 transition-colors"
+                    className="flex-1 py-2 bg-amber-500 text-neutral-950 text-[13px] font-black shadow-md shadow-amber-500/10 transition-colors"
                   >
                     비밀 자격 서명
                   </button>

@@ -178,12 +178,12 @@ function PartnerCompanyCard({
         onClick={() => setOpen((v) => !v)}
         className="w-full text-left flex items-center justify-between gap-3"
       >
-        <span className="text-sm font-black text-white truncate">{name}</span>
+        <span className="text-[15px] font-black text-white truncate">{name}</span>
         <div className="flex items-center gap-3 shrink-0">
           <div className="text-right">
-            <span className="text-xs text-zinc-500 font-bold block">방문</span>
+            <span className="text-[13px] text-zinc-500 font-bold block">방문</span>
             <span
-              className={`text-sm font-black font-mono ${
+              className={`text-[15px] font-black font-mono ${
                 pageViews > 0 ? 'text-amber-400' : 'text-zinc-600'
               }`}
             >
@@ -191,9 +191,9 @@ function PartnerCompanyCard({
             </span>
           </div>
           <div className="text-right">
-            <span className="text-xs text-zinc-500 font-bold block">예약</span>
+            <span className="text-[13px] text-zinc-500 font-bold block">예약</span>
             <span
-              className={`text-sm font-black font-mono ${
+              className={`text-[15px] font-black font-mono ${
                 bookingTotal > 0 ? 'text-sky-300' : 'text-zinc-600'
               }`}
             >
@@ -201,9 +201,9 @@ function PartnerCompanyCard({
             </span>
           </div>
           <div className="text-right min-w-[2.75rem]">
-            <span className="text-xs text-zinc-500 font-bold block">전환</span>
+            <span className="text-[13px] text-zinc-500 font-bold block">전환</span>
             <span
-              className={`text-sm font-black font-mono ${
+              className={`text-[15px] font-black font-mono ${
                 pageViews > 0 && bookingTotal > 0 ? 'text-emerald-300' : 'text-zinc-600'
               }`}
             >
@@ -216,12 +216,12 @@ function PartnerCompanyCard({
       {open ? (
         <div className="space-y-2 border-t border-neutral-800 pt-2">
           <div className="grid grid-cols-[1fr_3.25rem_3.25rem] gap-1 px-0.5">
-            <span className="text-xs text-zinc-600 font-bold">링크</span>
-            <span className="text-xs text-zinc-600 font-bold text-right">방문</span>
-            <span className="text-xs text-zinc-600 font-bold text-right">예약</span>
+            <span className="text-[13px] text-zinc-600 font-bold">링크</span>
+            <span className="text-[13px] text-zinc-600 font-bold text-right">방문</span>
+            <span className="text-[13px] text-zinc-600 font-bold text-right">예약</span>
           </div>
           {merged.length === 0 ? (
-            <p className="text-xs text-zinc-500 font-bold py-1">이 기간 수치가 없습니다.</p>
+            <p className="text-[13px] text-zinc-500 font-bold py-1">이 기간 수치가 없습니다.</p>
           ) : (
             merged.map((row) => {
               const isVisitChannel = channels.some((c) => c.key === row.key);
@@ -231,26 +231,26 @@ function PartnerCompanyCard({
                   className="grid grid-cols-[1fr_3.25rem_3.25rem] gap-1 items-center px-0.5"
                 >
                   <div className="min-w-0 flex items-center gap-1.5">
-                    <span className="text-xs text-zinc-300 font-bold truncate">{row.label}</span>
+                    <span className="text-[13px] text-zinc-300 font-bold truncate">{row.label}</span>
                     {isVisitChannel ? (
                       <button
                         type="button"
                         onClick={() => copy(row.key)}
-                        className="text-xs font-black text-zinc-600 hover:text-white shrink-0"
+                        className="text-[13px] font-black text-zinc-600 hover:text-white shrink-0"
                       >
                         {copiedKey === row.key ? '복사됨' : '주소'}
                       </button>
                     ) : null}
                   </div>
                   <span
-                    className={`text-xs font-mono font-black text-right ${
+                    className={`text-[13px] font-mono font-black text-right ${
                       row.visits > 0 ? 'text-amber-400' : 'text-zinc-700'
                     }`}
                   >
                     {row.visits > 0 ? row.visits : '—'}
                   </span>
                   <span
-                    className={`text-xs font-mono font-black text-right ${
+                    className={`text-[13px] font-mono font-black text-right ${
                       row.bookings > 0 ? 'text-sky-300' : 'text-zinc-700'
                     }`}
                   >
@@ -267,7 +267,7 @@ function PartnerCompanyCard({
                 type="button"
                 disabled={saving}
                 onClick={() => setAdding(true)}
-                className="text-xs font-black text-zinc-400 hover:text-white"
+                className="text-[13px] font-black text-zinc-400 hover:text-white"
               >
                 방문 측정 추가
               </button>
@@ -325,7 +325,7 @@ function PartnerCompanyCard({
               </div>
             )}
             {(formError || error) && (
-              <p className="text-xs font-bold text-rose-400">{formError || error}</p>
+              <p className="text-[13px] font-bold text-rose-400">{formError || error}</p>
             )}
           </div>
         </div>
@@ -460,7 +460,7 @@ export default function HqAcquisitionView({
             key={item.id}
             type="button"
             onClick={() => setPeriod(item.id)}
-            className={`flex-1 py-2 rounded-lg text-[12px] font-black transition-all ${
+            className={`flex-1 py-2 rounded-lg text-[13px] font-black transition-all ${
               period === item.id ? 'bg-neutral-800 text-white' : 'text-zinc-500 hover:text-white'
             }`}
           >
@@ -468,12 +468,12 @@ export default function HqAcquisitionView({
           </button>
         ))}
       </div>
-      <p className="px-1 text-xs text-zinc-500 font-bold">
+      <p className="px-1 text-[13px] text-zinc-500 font-bold">
         {shortDate(range.start)} – {shortDate(range.end)}
         {period === 'last7' ? ' · 오늘 기준' : ''}
       </p>
       {nonePathBookings > 0 ? (
-        <p className="px-1 text-xs text-amber-400/90 font-bold">
+        <p className="px-1 text-[13px] text-amber-400/90 font-bold">
           경로 없는 홈 예약 {nonePathBookings}건
         </p>
       ) : null}
@@ -488,24 +488,24 @@ export default function HqAcquisitionView({
       <div className="space-y-2.5">
         <div className="flex items-end justify-between px-1 gap-2">
           <div>
-            <p className="text-sm font-black text-sky-300 tracking-wider">업체 홈</p>
+            <p className="text-[15px] font-black text-sky-300 tracking-wider">업체 홈</p>
           </div>
           <div className="flex gap-3 shrink-0 text-right">
             <div>
-              <span className="text-xs text-zinc-500 font-bold block">방문</span>
-              <span className="text-sm font-black font-mono text-amber-400">
+              <span className="text-[13px] text-zinc-500 font-bold block">방문</span>
+              <span className="text-[15px] font-black font-mono text-amber-400">
                 {days === null ? '…' : allVisits.toLocaleString()}
               </span>
             </div>
             <div>
-              <span className="text-xs text-zinc-500 font-bold block">예약</span>
-              <span className="text-sm font-black font-mono text-sky-300">
+              <span className="text-[13px] text-zinc-500 font-bold block">예약</span>
+              <span className="text-[15px] font-black font-mono text-sky-300">
                 {allBookings.toLocaleString()}
               </span>
             </div>
             <div>
-              <span className="text-xs text-zinc-500 font-bold block">전환</span>
-              <span className="text-sm font-black font-mono text-emerald-300">
+              <span className="text-[13px] text-zinc-500 font-bold block">전환</span>
+              <span className="text-[15px] font-black font-mono text-emerald-300">
                 {days === null || allConversion == null ? '—' : `${allConversion}%`}
               </span>
             </div>
@@ -513,11 +513,11 @@ export default function HqAcquisitionView({
         </div>
 
         {error ? (
-          <p className="px-4 py-4 text-center text-xs text-zinc-500 font-bold">{error}</p>
+          <p className="px-4 py-4 text-center text-[13px] text-zinc-500 font-bold">{error}</p>
         ) : days === null ? (
-          <p className="px-4 py-4 text-center text-xs text-zinc-500 font-bold">방문 불러오는 중</p>
+          <p className="px-4 py-4 text-center text-[13px] text-zinc-500 font-bold">방문 불러오는 중</p>
         ) : partnerRows.length === 0 ? (
-          <p className="px-4 py-4 text-center text-xs text-zinc-500 font-bold">
+          <p className="px-4 py-4 text-center text-[13px] text-zinc-500 font-bold">
             표시할 업체가 없습니다.
           </p>
         ) : (

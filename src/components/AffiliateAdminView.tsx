@@ -28,9 +28,9 @@ type Props = {
 function Metric({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
     <div className="rounded-2xl border border-neutral-800 bg-[#141416] px-3 py-3">
-      <p className="text-[10px] font-black uppercase tracking-wide text-zinc-500">{label}</p>
+      <p className="text-[13px] font-black uppercase tracking-wide text-zinc-500">{label}</p>
       <p className="mt-1 text-xl font-black text-zinc-100 tabular-nums">{value}</p>
-      {sub ? <p className="mt-0.5 text-[10px] font-semibold text-zinc-500">{sub}</p> : null}
+      {sub ? <p className="mt-0.5 text-[13px] font-semibold text-zinc-500">{sub}</p> : null}
     </div>
   );
 }
@@ -61,7 +61,7 @@ function BudgetBreakdown({
   const over = remainder < 0;
   return (
     <div
-      className={`rounded-xl border px-3 py-2 text-[11px] font-semibold ${
+      className={`rounded-xl border px-3 py-2 text-[13px] font-semibold ${
         over
           ? 'border-rose-500/40 bg-rose-500/10 text-rose-300'
           : 'border-neutral-800 bg-neutral-950 text-zinc-400'
@@ -317,43 +317,43 @@ export default function AffiliateAdminView({ reservations }: Props) {
         </div>
         <div className="min-w-0">
           <h2 className="text-base font-black text-white">마케팅 제휴</h2>
-          <p className="text-[11px] text-zinc-500 font-semibold mt-0.5 leading-relaxed">
+          <p className="text-[13px] text-zinc-500 font-semibold mt-0.5 leading-relaxed">
             마케팅 제휴사만 등록합니다. 주차 업체 Gate와 분리 · 실적은 /a 포털 로그인.
           </p>
         </div>
       </div>
 
-      <div className="rounded-xl border border-neutral-800 bg-neutral-950/80 px-3 py-2.5 text-[11px] text-zinc-500 font-semibold leading-relaxed">
+      <div className="rounded-xl border border-neutral-800 bg-neutral-950/80 px-3 py-2.5 text-[13px] text-zinc-500 font-semibold leading-relaxed">
         <span className="text-zinc-300 font-black">주차 업체</span> → 주차 업체 ·{' '}
         <span className="text-zinc-300 font-black">마케팅 제휴</span> → 여기서 코드·할인·고객 링크·포털
         비밀번호
       </div>
 
       <div className="rounded-2xl border border-neutral-800 bg-[#1C1C1E] p-4 space-y-3">
-        <p className="text-[11px] font-black text-zinc-300 flex items-center gap-1.5">
+        <p className="text-[13px] font-black text-zinc-300 flex items-center gap-1.5">
           <Plus size={12} /> 제휴사 등록
         </p>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <label className="space-y-1">
-            <span className="text-[10px] font-black text-zinc-500 uppercase">코드</span>
+            <span className="text-[13px] font-black text-zinc-500 uppercase">코드</span>
             <input
               value={draftCode}
               onChange={(e) => setDraftCode(e.target.value)}
               placeholder="kim01"
-              className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-sm text-zinc-100 font-mono"
+              className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-[15px] text-zinc-100 font-mono"
             />
           </label>
           <label className="space-y-1">
-            <span className="text-[10px] font-black text-zinc-500 uppercase">이름</span>
+            <span className="text-[13px] font-black text-zinc-500 uppercase">이름</span>
             <input
               value={draftName}
               onChange={(e) => setDraftName(e.target.value)}
               placeholder="김대리 / ○○여행사"
-              className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-sm text-zinc-100 font-bold"
+              className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-[15px] text-zinc-100 font-bold"
             />
           </label>
           <label className="space-y-1 sm:col-span-2">
-            <span className="text-[10px] font-black text-zinc-500 uppercase">
+            <span className="text-[13px] font-black text-zinc-500 uppercase">
               마케팅 버짓 (원)
             </span>
             <input
@@ -362,47 +362,47 @@ export default function AffiliateAdminView({ reservations }: Props) {
               step={1000}
               value={draftBudget}
               onChange={(e) => setDraftBudget(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-sm text-zinc-100 tabular-nums"
+              className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-[15px] text-zinc-100 tabular-nums"
             />
           </label>
           <label className="space-y-1">
-            <span className="text-[10px] font-black text-zinc-500 uppercase">고객 할인 (원)</span>
+            <span className="text-[13px] font-black text-zinc-500 uppercase">고객 할인 (원)</span>
             <input
               type="number"
               min={0}
               step={1000}
               value={draftCustomerDiscount}
               onChange={(e) => setDraftCustomerDiscount(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-sm text-zinc-100 tabular-nums"
+              className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-[15px] text-zinc-100 tabular-nums"
             />
           </label>
           <label className="space-y-1">
-            <span className="text-[10px] font-black text-zinc-500 uppercase">제휴 페이백 (원)</span>
+            <span className="text-[13px] font-black text-zinc-500 uppercase">제휴 페이백 (원)</span>
             <input
               type="number"
               min={0}
               step={1000}
               value={draftReferrerCredit}
               onChange={(e) => setDraftReferrerCredit(e.target.value)}
-              className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-sm text-zinc-100 tabular-nums"
+              className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-[15px] text-zinc-100 tabular-nums"
             />
           </label>
           <label className="space-y-1">
-            <span className="text-[10px] font-black text-zinc-500 uppercase">연락처</span>
+            <span className="text-[13px] font-black text-zinc-500 uppercase">연락처</span>
             <input
               value={draftPhone}
               onChange={(e) => setDraftPhone(e.target.value)}
               placeholder="선택"
-              className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-sm text-zinc-100"
+              className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-[15px] text-zinc-100"
             />
           </label>
           <label className="space-y-1">
-            <span className="text-[10px] font-black text-zinc-500 uppercase">메모</span>
+            <span className="text-[13px] font-black text-zinc-500 uppercase">메모</span>
             <input
               value={draftMemo}
               onChange={(e) => setDraftMemo(e.target.value)}
               placeholder="선택"
-              className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-sm text-zinc-100"
+              className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-[15px] text-zinc-100"
             />
           </label>
         </div>
@@ -411,14 +411,14 @@ export default function AffiliateAdminView({ reservations }: Props) {
           customer={parseWonInput(draftCustomerDiscount)}
           referrer={parseWonInput(draftReferrerCredit)}
         />
-        <p className="text-[10px] text-zinc-600 font-semibold">
+        <p className="text-[13px] text-zinc-600 font-semibold">
           코드: 영문 소문자·숫자·밑줄 3~16자 · 고객+제휴 ≤ 버짓 · Firestore companies 미생성
         </p>
         <button
           type="button"
           disabled={saving || !draftCode.trim() || !draftName.trim() || draftOver}
           onClick={() => void handleCreate()}
-          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-500 text-neutral-950 text-[11px] font-black disabled:opacity-40"
+          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-500 text-neutral-950 text-[13px] font-black disabled:opacity-40"
         >
           제휴사 등록
         </button>
@@ -426,11 +426,11 @@ export default function AffiliateAdminView({ reservations }: Props) {
 
       <div className="flex flex-wrap gap-2 items-end">
         <label className="space-y-1">
-          <span className="text-[10px] font-black text-zinc-500 uppercase">제휴사</span>
+          <span className="text-[13px] font-black text-zinc-500 uppercase">제휴사</span>
           <select
             value={selectedCode}
             onChange={(e) => setSelectedCode(e.target.value)}
-            className="block w-full min-w-[12rem] px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-sm text-zinc-100 font-bold"
+            className="block w-full min-w-[12rem] px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-[15px] text-zinc-100 font-bold"
           >
             {rows.length === 0 ? <option value="">등록된 제휴 없음</option> : null}
             {rows.map((r) => (
@@ -441,11 +441,11 @@ export default function AffiliateAdminView({ reservations }: Props) {
           </select>
         </label>
         <label className="space-y-1">
-          <span className="text-[10px] font-black text-zinc-500 uppercase">기간</span>
+          <span className="text-[13px] font-black text-zinc-500 uppercase">기간</span>
           <select
             value={days}
             onChange={(e) => setDays(Number(e.target.value))}
-            className="block px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-sm text-zinc-100 font-bold"
+            className="block px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-[15px] text-zinc-100 font-bold"
           >
             <option value={7}>최근 7일</option>
             <option value={30}>최근 30일</option>
@@ -455,7 +455,7 @@ export default function AffiliateAdminView({ reservations }: Props) {
         <button
           type="button"
           onClick={() => void load()}
-          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-neutral-700 text-[11px] font-black text-zinc-300 hover:text-white"
+          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-neutral-700 text-[13px] font-black text-zinc-300 hover:text-white"
         >
           <RefreshCw size={12} className={loading ? 'animate-spin' : undefined} />
           새로고침
@@ -465,28 +465,28 @@ export default function AffiliateAdminView({ reservations }: Props) {
             type="button"
             disabled={saving}
             onClick={() => void toggleStatus()}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-neutral-700 text-[11px] font-black text-zinc-300 hover:text-white disabled:opacity-40"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-neutral-700 text-[13px] font-black text-zinc-300 hover:text-white disabled:opacity-40"
           >
             {selected.status === 'active' ? '정지' : '재활성'}
           </button>
         ) : null}
       </div>
 
-      {error ? <p className="text-sm font-semibold text-red-400">{error}</p> : null}
+      {error ? <p className="text-[15px] font-semibold text-red-400">{error}</p> : null}
 
       {justCreatedCode && selected?.code === justCreatedCode ? (
         <div className="rounded-2xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 space-y-1">
-          <p className="text-[12px] font-black text-emerald-300">
+          <p className="text-[13px] font-black text-emerald-300">
             [{selected.name}] 제휴사 등록 완료
           </p>
-          <p className="text-[11px] text-emerald-200/80 font-semibold leading-relaxed">
+          <p className="text-[13px] text-emerald-200/80 font-semibold leading-relaxed">
             아래 고객 예약 링크와 포털 비밀번호를 제휴사에 전달하세요. 주차 업체 계정은 만들지
             않았습니다.
           </p>
           <button
             type="button"
             onClick={() => setJustCreatedCode(null)}
-            className="text-[10px] font-black text-emerald-400/80 hover:text-emerald-300 pt-1"
+            className="text-[13px] font-black text-emerald-400/80 hover:text-emerald-300 pt-1"
           >
             안내 닫기
           </button>
@@ -496,10 +496,10 @@ export default function AffiliateAdminView({ reservations }: Props) {
       {selected ? (
         <>
           <div className="rounded-2xl border border-neutral-800 bg-[#1C1C1E] p-4 space-y-3">
-            <p className="text-[11px] font-black text-zinc-300">이 링크 버짓 배분</p>
+            <p className="text-[13px] font-black text-zinc-300">이 링크 버짓 배분</p>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <label className="space-y-1">
-                <span className="text-[10px] font-black text-zinc-500 uppercase">
+                <span className="text-[13px] font-black text-zinc-500 uppercase">
                   마케팅 버짓 (원)
                 </span>
                 <input
@@ -508,11 +508,11 @@ export default function AffiliateAdminView({ reservations }: Props) {
                   step={1000}
                   value={editBudget}
                   onChange={(e) => setEditBudget(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-sm text-zinc-100 tabular-nums"
+                  className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-[15px] text-zinc-100 tabular-nums"
                 />
               </label>
               <label className="space-y-1">
-                <span className="text-[10px] font-black text-zinc-500 uppercase">
+                <span className="text-[13px] font-black text-zinc-500 uppercase">
                   고객 할인 (원)
                 </span>
                 <input
@@ -521,11 +521,11 @@ export default function AffiliateAdminView({ reservations }: Props) {
                   step={1000}
                   value={editCustomerDiscount}
                   onChange={(e) => setEditCustomerDiscount(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-sm text-zinc-100 tabular-nums"
+                  className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-[15px] text-zinc-100 tabular-nums"
                 />
               </label>
               <label className="space-y-1">
-                <span className="text-[10px] font-black text-zinc-500 uppercase">
+                <span className="text-[13px] font-black text-zinc-500 uppercase">
                   제휴 페이백 (원)
                 </span>
                 <input
@@ -534,7 +534,7 @@ export default function AffiliateAdminView({ reservations }: Props) {
                   step={1000}
                   value={editReferrerCredit}
                   onChange={(e) => setEditReferrerCredit(e.target.value)}
-                  className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-sm text-zinc-100 tabular-nums"
+                  className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-[15px] text-zinc-100 tabular-nums"
                 />
               </label>
             </div>
@@ -547,7 +547,7 @@ export default function AffiliateAdminView({ reservations }: Props) {
               type="button"
               disabled={saving || editOver}
               onClick={() => void saveRewards()}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-500 text-neutral-950 text-[11px] font-black disabled:opacity-40"
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-amber-500 text-neutral-950 text-[13px] font-black disabled:opacity-40"
             >
               금액 저장
             </button>
@@ -560,11 +560,11 @@ export default function AffiliateAdminView({ reservations }: Props) {
                 : 'border-neutral-800'
             }`}
           >
-            <p className="text-[11px] font-black text-zinc-300 flex items-center gap-1.5">
+            <p className="text-[13px] font-black text-zinc-300 flex items-center gap-1.5">
               <Link2 size={12} /> 고객 예약 링크 (B2C 유입)
             </p>
-            <p className="text-[10px] text-zinc-500 font-semibold break-all font-mono">{link}</p>
-            <p className="text-[10px] text-zinc-600 font-semibold">
+            <p className="text-[13px] text-zinc-500 font-semibold break-all font-mono">{link}</p>
+            <p className="text-[13px] text-zinc-600 font-semibold">
               손님에게 공유 · 버짓 {formatAffiliateRewardWon(selected.marketingBudgetWon)} · 고객{' '}
               {formatAffiliateRewardWon(selected.customerDiscountWon)} · 제휴{' '}
               {formatAffiliateRewardWon(selected.referrerCreditWon)} · 본사{' '}
@@ -580,13 +580,13 @@ export default function AffiliateAdminView({ reservations }: Props) {
             <button
               type="button"
               onClick={() => void copyLink()}
-              className="inline-flex items-center gap-1.5 mt-1 px-3 py-1.5 rounded-xl bg-amber-500 text-neutral-950 text-[11px] font-black"
+              className="inline-flex items-center gap-1.5 mt-1 px-3 py-1.5 rounded-xl bg-amber-500 text-neutral-950 text-[12px] font-black"
             >
               <Copy size={12} />
               {copied ? '복사됨' : '고객 링크 복사'}
             </button>
             {selected.phone || selected.memo ? (
-              <p className="text-[10px] text-zinc-500 font-semibold pt-1">
+              <p className="text-[13px] text-zinc-500 font-semibold pt-1">
                 {[selected.phone, selected.memo].filter(Boolean).join(' · ')}
               </p>
             ) : null}
@@ -599,26 +599,26 @@ export default function AffiliateAdminView({ reservations }: Props) {
                 : 'border-neutral-800'
             }`}
           >
-            <p className="text-[11px] font-black text-zinc-300 flex items-center gap-1.5">
+            <p className="text-[13px] font-black text-zinc-300 flex items-center gap-1.5">
               <KeyRound size={12} /> 실적 포털 로그인
             </p>
-            <p className="text-[10px] text-zinc-500 font-semibold break-all font-mono">
+            <p className="text-[13px] text-zinc-500 font-semibold break-all font-mono">
               {portalUrl}
             </p>
-            <p className="text-[10px] text-zinc-600 font-semibold leading-relaxed">
+            <p className="text-[13px] text-zinc-600 font-semibold leading-relaxed">
               아이디 = 제휴 코드 ({selected.code})
               {passwordHasSet ? ' · 비밀번호 설정됨' : ' · 비밀번호 미설정'}
             </p>
             {revealedPassword ? (
               <div className="rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 space-y-1">
-                <p className="text-[10px] font-black text-amber-300">지금만 보이는 비밀번호</p>
-                <p className="text-sm font-mono font-black text-amber-100 tracking-wide">
+                <p className="text-[13px] font-black text-amber-300">지금만 보이는 비밀번호</p>
+                <p className="text-[15px] font-mono font-black text-amber-100 tracking-wide">
                   {revealedPassword}
                 </p>
                 <button
                   type="button"
                   onClick={() => void copyText(revealedPassword, 'password')}
-                  className="inline-flex items-center gap-1.5 text-[11px] font-black text-amber-300 hover:text-amber-200"
+                  className="inline-flex items-center gap-1.5 text-[13px] font-black text-amber-300 hover:text-amber-200"
                 >
                   <Copy size={12} />
                   {copiedPassword ? '복사됨' : '비밀번호 복사'}
@@ -629,7 +629,7 @@ export default function AffiliateAdminView({ reservations }: Props) {
               <button
                 type="button"
                 onClick={() => void copyPortal()}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500 text-neutral-950 text-[11px] font-black"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500 text-neutral-950 text-[12px] font-black"
               >
                 <Copy size={12} />
                 {copiedPortal ? '복사됨' : '포털 주소 복사'}
@@ -638,14 +638,14 @@ export default function AffiliateAdminView({ reservations }: Props) {
                 type="button"
                 disabled={saving}
                 onClick={() => void resetPassword()}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-neutral-700 text-[11px] font-black text-zinc-300 hover:text-white disabled:opacity-40"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-neutral-700 text-[12px] font-black text-zinc-300 hover:text-white disabled:opacity-40"
               >
                 {passwordHasSet ? '비밀번호 재발급' : '비밀번호 발급'}
               </button>
             </div>
             <div className="flex flex-wrap gap-2 items-end pt-1">
               <label className="space-y-1 flex-1 min-w-[8rem]">
-                <span className="text-[10px] font-black text-zinc-500 uppercase">
+                <span className="text-[13px] font-black text-zinc-500 uppercase">
                   직접 지정
                 </span>
                 <input
@@ -653,14 +653,14 @@ export default function AffiliateAdminView({ reservations }: Props) {
                   value={newPassword}
                   onChange={(e) => setNewPassword(e.target.value)}
                   placeholder="4자 이상"
-                  className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-sm text-zinc-100 font-mono"
+                  className="w-full px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-[15px] text-zinc-100 font-mono"
                 />
               </label>
               <button
                 type="button"
                 disabled={saving || newPassword.trim().length < 4}
                 onClick={() => void savePassword(newPassword)}
-                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-neutral-700 text-[11px] font-black text-zinc-300 hover:text-white disabled:opacity-40"
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-neutral-700 text-[13px] font-black text-zinc-300 hover:text-white disabled:opacity-40"
               >
                 저장
               </button>
@@ -681,17 +681,17 @@ export default function AffiliateAdminView({ reservations }: Props) {
           />
         </div>
       ) : loading ? (
-        <p className="text-[12px] text-zinc-500 font-semibold">불러오는 중…</p>
+        <p className="text-[13px] text-zinc-500 font-semibold">불러오는 중…</p>
       ) : (
-        <p className="text-[12px] text-zinc-500 font-semibold">
+        <p className="text-[13px] text-zinc-500 font-semibold">
           제휴를 등록하면 고객 링크·포털 비밀번호·실적을 볼 수 있습니다.
         </p>
       )}
 
       {rows.length > 0 ? (
         <div className="rounded-2xl border border-neutral-800 overflow-hidden overflow-x-auto">
-          <table className="w-full text-left text-[12px] min-w-[36rem]">
-            <thead className="bg-[#1C1C1E] text-[10px] text-zinc-500 font-black uppercase">
+          <table className="w-full text-left text-[13px] min-w-[36rem]">
+            <thead className="bg-[#1C1C1E] text-[13px] text-zinc-500 font-black uppercase">
               <tr>
                 <th className="px-3 py-2">코드</th>
                 <th className="px-3 py-2">이름</th>

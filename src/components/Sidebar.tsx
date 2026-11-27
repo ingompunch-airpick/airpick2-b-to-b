@@ -183,13 +183,13 @@ export default function Sidebar({
                     <img src={safeCompanyInfo.logo} alt="로고" className="w-full h-full object-cover" referrerPolicy="no-referrer" />
                   </div>
                 ) : (
-                  <div className="bg-amber-500 text-neutral-950 p-2.5 rounded-2xl font-bold text-sm w-10 h-10 flex items-center justify-center shrink-0 select-none">
+                  <div className="bg-amber-500 text-neutral-950 p-2.5 rounded-2xl font-bold text-[15px] w-10 h-10 flex items-center justify-center shrink-0 select-none">
                     {safeCompanyInfo.name.substring(0, 2)}
                   </div>
                 )
               ) : null}
               <div className="min-w-0">
-                <h3 className="font-bold text-sm tracking-tight text-white flex items-center gap-1.5">
+                <h3 className="font-bold text-[15px] tracking-tight text-white flex items-center gap-1.5">
                   {isAirpickHeadquarters(currentCompanyId)
                     ? '에어픽 본사'
                     : isSuperAdmin
@@ -210,7 +210,7 @@ export default function Sidebar({
                   </span>
                 </h3>
                 {!isAirpickHeadquarters(currentCompanyId) && (
-                  <p className="text-[12px] text-zinc-400 font-mono mt-0.5 truncate max-w-[150px]">
+                  <p className="text-[13px] text-zinc-400 font-mono mt-0.5 truncate max-w-[150px]">
                     {isSuperAdmin
                       ? `본사 원격 · ${currentCompanyId || companyInfo?.id || '—'}`
                       : isAdminModeActive
@@ -236,7 +236,7 @@ export default function Sidebar({
             </button>
           </div>
 
-          <p className="text-[11px] text-zinc-500 font-semibold">
+          <p className="text-[13px] text-zinc-500 font-semibold">
             단말기 <span className="font-mono font-bold text-zinc-300 uppercase">{currentCompanyId || companyInfo?.id || '—'}</span>
           </p>
         </div>
@@ -245,7 +245,7 @@ export default function Sidebar({
         <div className="flex-1 overflow-y-auto px-3 py-4 space-y-5 no-scrollbar">
           {menuGroups.map((group) => (
             <div key={group.title}>
-              <p className="px-3 mb-1.5 text-[11px] font-black text-zinc-500">{group.title}</p>
+              <p className="px-3 mb-1.5 text-[13px] font-black text-zinc-500">{group.title}</p>
               <div className="space-y-1.5">
                 {group.items.map((item) => {
                   const Icon = item.icon;
@@ -267,7 +267,7 @@ export default function Sidebar({
                       <Icon size={21} className={isActive ? 'text-neutral-950' : 'text-zinc-500'} />
                       <span className="flex-1 text-[16px] font-bold tracking-tight">{item.label}</span>
                       {item.badge ? (
-                        <span className="min-w-5 px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[11px] font-black text-center">
+                        <span className="min-w-5 px-1.5 py-0.5 rounded-full bg-red-500 text-white text-[12px] font-black text-center">
                           {item.badge}
                         </span>
                       ) : null}
@@ -281,7 +281,7 @@ export default function Sidebar({
           {/* Admin portal (Toggled modal) */}
           {!isAirpickHeadquarters(currentCompanyId) && !isSuperAdmin && !isAdmin && !isEmployee && (
             <div className="pt-4 mt-4 border-t border-neutral-800/80 space-y-2">
-              <p className="text-[12px] text-zinc-500 font-bold tracking-widest px-2">관리자 로그인</p>
+              <p className="text-[13px] text-zinc-500 font-bold tracking-widest px-2">관리자 로그인</p>
               
               <button
                 onClick={() => {
@@ -292,8 +292,8 @@ export default function Sidebar({
               >
                 <ShieldAlert size={18} className="text-neutral-500" />
                 <div>
-                  <h4 className="text-xs font-bold">관리자 계정 전환</h4>
-                  <p className="text-[12px] text-zinc-500 mt-0.5">최고 권한 활성화 자격증 보증</p>
+                  <h4 className="text-[13px] font-bold">관리자 계정 전환</h4>
+                  <p className="text-[13px] text-zinc-500 mt-0.5">최고 권한 활성화 자격증 보증</p>
                 </div>
               </button>
             </div>
@@ -319,10 +319,10 @@ export default function Sidebar({
               <BellOff size={16} />
             )}
             <div className="flex-1">
-              <span className="text-xs font-black block">
+              <span className="text-[13px] font-black block">
                 {isAirpickHeadquarters(currentCompanyId) ? '알림 문구' : '알림'}
               </span>
-              <span className="text-[10px] opacity-80">
+              <span className="text-[13px] opacity-80">
                 {isAirpickHeadquarters(currentCompanyId)
                   ? '예약 · 출고 읽어 주는 말'
                   : alertsEnabled
@@ -341,7 +341,7 @@ export default function Sidebar({
                   onNavigate('timeline');
                   onClose();
                 }}
-                className="flex-1 min-h-[52px] py-3 bg-zinc-800 text-white hover:bg-zinc-700/80 text-[14px] font-bold rounded-xl transition-all"
+                className="flex-1 min-h-[52px] py-3 bg-zinc-800 text-white hover:bg-zinc-700/80 text-[15px] font-bold rounded-xl transition-all"
               >
                 타임라인으로
               </button>
@@ -351,7 +351,7 @@ export default function Sidebar({
                 onLogout();
                 onClose();
               }}
-              className="flex-1 min-h-[52px] py-3 rounded-xl border border-red-500/60 text-red-300 hover:bg-red-500/10 font-black flex items-center justify-center gap-1.5 transition-all text-[14px] outline-none"
+              className="flex-1 min-h-[52px] py-3 rounded-xl border border-red-500/60 text-red-300 hover:bg-red-500/10 font-black flex items-center justify-center gap-1.5 transition-all text-[15px] outline-none"
               title="로그아웃"
             >
               <LogOut size={14} className="stroke-[2.5]" />
@@ -359,7 +359,7 @@ export default function Sidebar({
             </button>
           </div>
 
-          <p className="text-[11px] text-zinc-650 font-mono text-center mt-3">
+          <p className="text-[13px] text-zinc-650 font-mono text-center mt-3">
             에어픽 1.0.8
           </p>
         </div>

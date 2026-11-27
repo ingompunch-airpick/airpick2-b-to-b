@@ -39,7 +39,7 @@ type Props = {
 /** 문제가 있을 때만 보인다 */
 function Warning({ text }: { text: string }) {
   return (
-    <p className="px-3 py-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-[12px] font-bold text-rose-300 leading-relaxed">
+    <p className="px-3 py-2.5 rounded-xl bg-rose-500/10 border border-rose-500/30 text-[13px] font-bold text-rose-300 leading-relaxed">
       {text}
     </p>
   );
@@ -67,17 +67,17 @@ function CopyRow({
   return (
     <div className="space-y-1.5">
       <div className="flex items-center gap-2">
-        <span className="w-14 shrink-0 text-[11px] font-bold text-zinc-500">{label}</span>
+        <span className="w-14 shrink-0 text-[13px] font-bold text-zinc-500">{label}</span>
         {editable ? (
           <input
             value={value}
             maxLength={24}
             onChange={(e) => onChange(e.target.value)}
-            className="flex-1 min-w-0 px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-sm text-zinc-100 font-bold"
+            className="flex-1 min-w-0 px-3 py-2 rounded-xl bg-neutral-950 border border-neutral-800 text-[15px] text-zinc-100 font-bold"
             placeholder={placeholder}
           />
         ) : (
-          <span className="flex-1 min-w-0 text-sm font-black text-zinc-100">{value || placeholder}</span>
+          <span className="flex-1 min-w-0 text-[15px] font-black text-zinc-100">{value || placeholder}</span>
         )}
         <button
           type="button"
@@ -95,7 +95,7 @@ function CopyRow({
               key={p}
               type="button"
               onClick={() => onChange(p)}
-              className="px-2 py-0.5 rounded-lg text-[10px] font-black border bg-neutral-900 text-zinc-400 border-neutral-800 hover:text-zinc-200"
+              className="px-2 py-0.5 rounded-lg text-[12px] font-black border bg-neutral-900 text-zinc-400 border-neutral-800 hover:text-zinc-200"
             >
               {p}
             </button>
@@ -217,10 +217,10 @@ export default function ReservationAlertSettingsModal({
           <div className="flex items-center gap-2">
             <Bell size={16} className="text-amber-400" />
             <div>
-              <p className="text-sm font-black text-white">
+              <p className="text-[15px] font-black text-white">
                 {atHq ? '알림 문구' : '알림'}
               </p>
-              <p className="text-[10px] text-zinc-500 font-semibold">
+              <p className="text-[13px] text-zinc-500 font-semibold">
                 {atHq ? '파트너 기기가 읽어 주는 말' : '예약 · 출고요청'}
               </p>
             </div>
@@ -257,11 +257,11 @@ export default function ReservationAlertSettingsModal({
                   )}
                   <span>
                     <span
-                      className={`block text-[13px] font-black ${enabled ? 'text-amber-300' : 'text-zinc-300'}`}
+                      className={`block text-[14px] font-black ${enabled ? 'text-amber-300' : 'text-zinc-300'}`}
                     >
                       이 기기 알림 {enabled ? '켜짐' : '꺼짐'}
                     </span>
-                    <span className="block text-[11px] text-zinc-500 font-semibold">
+                    <span className="block text-[13px] text-zinc-500 font-semibold">
                       새 예약은 소리와 알림창, 출고요청은 소리로 알려줍니다
                     </span>
                   </span>
@@ -295,7 +295,7 @@ export default function ReservationAlertSettingsModal({
                   <button
                     type="button"
                     onClick={() => sendTestReservationAlert()}
-                    className="w-full py-2.5 rounded-xl border border-amber-500/30 text-amber-300 text-[12px] font-black inline-flex items-center justify-center gap-1.5"
+                    className="w-full py-2.5 rounded-xl border border-amber-500/30 text-amber-300 text-[13px] font-black inline-flex items-center justify-center gap-1.5"
                   >
                     <Play size={13} /> 테스트 알림 보내기
                   </button>
@@ -303,18 +303,18 @@ export default function ReservationAlertSettingsModal({
               ) : null}
             </>
           ) : (
-            <p className="text-[11px] text-zinc-500 font-semibold leading-relaxed">
+            <p className="text-[13px] text-zinc-500 font-semibold leading-relaxed">
               본사 단말기에는 예약 알림이 오지 않습니다. 아래에서 파트너 기기가 읽어 주는 말만
               바꿉니다.
             </p>
           )}
 
           {loading ? (
-            <p className="text-[12px] text-zinc-500 font-semibold">불러오는 중…</p>
+            <p className="text-[13px] text-zinc-500 font-semibold">불러오는 중…</p>
           ) : (
             <>
               <p
-                className={`text-[10px] font-black uppercase tracking-wide text-amber-400/90 ${atHq ? '' : 'pt-2 border-t border-neutral-800'}`}
+                className={`text-[13px] font-black uppercase tracking-wide text-amber-400/90 ${atHq ? '' : 'pt-2 border-t border-neutral-800'}`}
               >
                 읽어 주는 말 {hq ? '' : '· 본사에서 정합니다'}
               </p>
@@ -339,14 +339,14 @@ export default function ReservationAlertSettingsModal({
             </>
           )}
 
-          {error ? <p className="text-[12px] text-rose-400 font-semibold">{error}</p> : null}
+          {error ? <p className="text-[13px] text-rose-400 font-semibold">{error}</p> : null}
         </div>
 
         <div className="px-4 py-3 border-t border-neutral-800 flex gap-2">
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 py-2.5 rounded-xl bg-neutral-900 text-zinc-300 text-[12px] font-black"
+            className="flex-1 py-2.5 rounded-xl bg-neutral-900 text-zinc-300 text-[13px] font-black"
           >
             닫기
           </button>
@@ -355,7 +355,7 @@ export default function ReservationAlertSettingsModal({
               type="button"
               disabled={saving || loading}
               onClick={() => void handleSave()}
-              className="flex-1 py-2.5 rounded-xl bg-amber-500 text-neutral-950 text-[12px] font-black disabled:opacity-40 inline-flex items-center justify-center gap-1.5"
+              className="flex-1 py-2.5 rounded-xl bg-amber-500 text-neutral-950 text-[13px] font-black disabled:opacity-40 inline-flex items-center justify-center gap-1.5"
             >
               <Save size={13} />
               {savedFlash ? '저장됨' : saving ? '저장 중…' : '저장'}

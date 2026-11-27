@@ -39,12 +39,12 @@ function TerminalSection({
 
   const labelCls =
     variant === 'dark'
-      ? 'text-[12px] text-zinc-300 block mb-1 font-bold'
-      : 'text-[12px] text-slate-500 block mb-1 font-bold';
+      ? 'text-[13px] text-zinc-300 block mb-1 font-bold'
+      : 'text-[13px] text-slate-500 block mb-1 font-bold';
   const inputCls =
     variant === 'dark'
-      ? 'w-full px-3 py-2 border border-neutral-800 bg-[#1C1C1E] text-white rounded-xl focus:outline-none focus:ring-1 focus:ring-amber-500/40 text-xs'
-      : 'w-full px-3 py-2 border border-slate-200 bg-white text-slate-900 rounded-xl focus:outline-none focus:ring-1 focus:ring-indigo-500 text-xs';
+      ? 'w-full px-3 py-2 border border-neutral-800 bg-[#1C1C1E] text-white rounded-xl focus:outline-none focus:ring-1 focus:ring-amber-500/40 text-[13px]'
+      : 'w-full px-3 py-2 border border-slate-200 bg-white text-slate-900 rounded-xl focus:outline-none focus:ring-1 focus:ring-indigo-500 text-[13px]';
   const panelCls =
     variant === 'dark'
       ? 'rounded-xl border border-neutral-850 bg-[#131315] p-3 space-y-3'
@@ -53,8 +53,8 @@ function TerminalSection({
   return (
     <div className={panelCls}>
       <div className="flex items-center justify-between gap-2">
-        <span className="text-xs font-black text-amber-500">{label}</span>
-        <span className="text-[10px] text-zinc-500">B2C 거리순 정렬 기준</span>
+        <span className="text-[13px] font-black text-amber-500">{label}</span>
+        <span className="text-[13px] text-zinc-500">B2C 거리순 정렬 기준</span>
       </div>
 
       <div className="grid grid-cols-2 gap-3">
@@ -109,13 +109,13 @@ export default function ParkingDistancesFormFields({
         <label
           className={
             variant === 'dark'
-              ? 'text-[12px] text-zinc-200 block font-black'
-              : 'text-[12px] text-slate-700 block font-black'
+              ? 'text-[13px] text-zinc-200 block font-black'
+              : 'text-[13px] text-slate-700 block font-black'
           }
         >
           {title}
         </label>
-        <p className="text-[11px] text-slate-400 mt-1">{hint}</p>
+        <p className="text-[13px] text-slate-400 mt-1">{hint}</p>
       </div>
 
       {terminals.map((t) => (

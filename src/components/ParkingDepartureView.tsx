@@ -37,8 +37,8 @@ export default function ParkingDepartureView({
           <ArrowLeft size={16} />
         </button>
         <div>
-          <h2 className="text-sm font-bold tracking-tight text-white">주차장별 실시간 현황</h2>
-          <p className="text-[12px] text-zinc-500 font-bold">탭하면 예약 상세·수정으로 이동합니다</p>
+          <h2 className="text-[15px] font-bold tracking-tight text-white">주차장별 실시간 현황</h2>
+          <p className="text-[13px] text-zinc-500 font-bold">탭하면 예약 상세·수정으로 이동합니다</p>
         </div>
       </div>
 
@@ -47,16 +47,16 @@ export default function ParkingDepartureView({
           <button
             type="button"
             onClick={() => setActiveTab('indoor')}
-            className={`py-3.5 px-4 text-xs font-bold rounded-xl transition-all duration-150 flex flex-col items-center justify-center gap-1 ${
+            className={`py-3.5 px-4 text-[13px] font-bold rounded-xl transition-all duration-150 flex flex-col items-center justify-center gap-1 ${
               activeTab === 'indoor'
                 ? 'bg-amber-500 text-neutral-950 shadow-md shadow-amber-500/10 scale-[1.01]'
                 : 'text-zinc-400 hover:text-zinc-200 hover:bg-neutral-900/60'
             }`}
             id="tab-select-indoor"
           >
-            <span className="text-[12.5px] font-black">실내 주차장</span>
+            <span className="text-[13px] font-black">실내 주차장</span>
             <span
-              className={`text-[12px] font-mono font-bold ${
+              className={`text-[13px] font-mono font-bold ${
                 activeTab === 'indoor' ? 'text-neutral-900/70' : 'text-zinc-500'
               }`}
             >
@@ -67,16 +67,16 @@ export default function ParkingDepartureView({
           <button
             type="button"
             onClick={() => setActiveTab('outdoor')}
-            className={`py-3.5 px-4 text-xs font-bold rounded-xl transition-all duration-150 flex flex-col items-center justify-center gap-1 ${
+            className={`py-3.5 px-4 text-[13px] font-bold rounded-xl transition-all duration-150 flex flex-col items-center justify-center gap-1 ${
               activeTab === 'outdoor'
                 ? 'bg-amber-500 text-neutral-950 shadow-md shadow-amber-500/10 scale-[1.01]'
                 : 'text-zinc-400 hover:text-zinc-200 hover:bg-neutral-900/60'
             }`}
             id="tab-select-outdoor"
           >
-            <span className="text-[12.5px] font-black">실외 주차장</span>
+            <span className="text-[13px] font-black">실외 주차장</span>
             <span
-              className={`text-[12px] font-mono font-bold ${
+              className={`text-[13px] font-mono font-bold ${
                 activeTab === 'outdoor' ? 'text-neutral-900/70' : 'text-zinc-500'
               }`}
             >
@@ -92,17 +92,17 @@ export default function ParkingDepartureView({
             <Car size={18} className="text-amber-500" />
           </div>
           <div>
-            <h3 className="text-xs font-bold text-zinc-100">
+            <h3 className="text-[13px] font-bold text-zinc-100">
               {activeTab === 'indoor' ? '실내 주차 구역' : '실외 주차 구역'}
             </h3>
-            <p className="text-[12px] text-zinc-500 font-semibold mt-0.5">
+            <p className="text-[13px] text-zinc-500 font-semibold mt-0.5">
               차량번호 · 구역 · 출고 · 출고요청 포함
             </p>
           </div>
         </div>
         <div className="text-right">
-          <span className="text-[13px] font-bold text-[#8E8E93] block">총 주차 대수</span>
-          <span className="text-sm font-black text-amber-500 font-mono tracking-tight leading-none mt-1 block">
+          <span className="text-[14px] font-bold text-[#8E8E93] block">총 주차 대수</span>
+          <span className="text-[15px] font-black text-amber-500 font-mono tracking-tight leading-none mt-1 block">
             {displayedReservations.length}대
           </span>
         </div>
@@ -123,21 +123,21 @@ export default function ParkingDepartureView({
               >
                 <div className="min-w-0 flex-1 space-y-1">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-black text-white font-mono tracking-wide">
+                    <span className="text-[15px] font-black text-white font-mono tracking-wide">
                       {res.carNumber || '번호미상'}
                     </span>
                     {res.status === 'request_out' && (
-                      <span className="text-[10px] font-black px-1.5 py-0.5 rounded-md bg-rose-500/15 text-rose-400 border border-rose-500/25">
+                      <span className="text-[12px] font-black px-1.5 py-0.5 rounded-md bg-rose-500/15 text-rose-400 border border-rose-500/25">
                         출고 진행
                       </span>
                     )}
                     {isReservationUnpaid(res) && (
-                      <span className="text-[10px] font-black px-1.5 py-0.5 rounded-md bg-rose-500/15 text-rose-400 border border-rose-500/25">
+                      <span className="text-[12px] font-black px-1.5 py-0.5 rounded-md bg-rose-500/15 text-rose-400 border border-rose-500/25">
                         미납
                       </span>
                     )}
                   </div>
-                  <div className="flex items-center gap-2 text-[11px] text-zinc-500 font-bold">
+                  <div className="flex items-center gap-2 text-[13px] text-zinc-500 font-bold">
                     {res.parkingSpace ? (
                       <span className="text-emerald-400/90">{res.parkingSpace}</span>
                     ) : (
@@ -158,10 +158,10 @@ export default function ParkingDepartureView({
         ) : (
           <div className="p-12 text-center bg-neutral-900/20 border border-dashed border-neutral-850 rounded-3xl">
             <Car className="mx-auto text-neutral-800 mb-2.5" size={24} />
-            <p className="text-xs text-neutral-500 font-bold">
+            <p className="text-[13px] text-neutral-500 font-bold">
               현재 {activeTab === 'indoor' ? '실내' : '실외'} 주차장에 주차·출고 진행 차량이 없습니다
             </p>
-            <p className="text-[11.5px] text-neutral-650 mt-1 font-medium">
+            <p className="text-[13px] text-neutral-650 mt-1 font-medium">
               주차완료·출고요청 상태만 집계됩니다.
             </p>
           </div>

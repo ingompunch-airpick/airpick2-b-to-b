@@ -137,8 +137,8 @@ export default function CustomDatePickerModal({
             <div className="flex items-center gap-2">
               <Calendar size={16} className="text-amber-500" />
               <div>
-                <h3 className="text-[14px] font-black text-white">{title}</h3>
-                <p className="text-[11px] text-zinc-400 font-bold tracking-tight">날짜를 선택해 주세요</p>
+                <h3 className="text-[15px] font-black text-white">{title}</h3>
+                <p className="text-[13px] text-zinc-400 font-bold tracking-tight">날짜를 선택해 주세요</p>
               </div>
             </div>
             <button
@@ -184,7 +184,7 @@ export default function CustomDatePickerModal({
             {/* Calendar Grid */}
             <div className="space-y-2">
               {/* Day Names */}
-              <div className="grid grid-cols-7 text-center text-[12px] font-black text-zinc-400 uppercase tracking-wider font-mono">
+              <div className="grid grid-cols-7 text-center text-[13px] font-black text-zinc-400 uppercase tracking-wider font-mono">
                 {weekdays.map((day, idx) => (
                   <div key={idx} className={idx === 0 ? 'text-red-500' : idx === 6 ? 'text-blue-400' : 'text-neutral-300'}>
                     {day}
@@ -209,7 +209,7 @@ export default function CustomDatePickerModal({
                       type="button"
                       disabled={isBlocked}
                       onClick={() => handleDateSelect(cell.dateStr!)}
-                      className={`h-9 text-xs font-bold transition-all flex items-center justify-center font-mono select-none relative ${
+                      className={`h-9 text-[13px] font-bold transition-all flex items-center justify-center font-mono select-none relative ${
                         isBlocked
                           ? 'text-zinc-650 cursor-not-allowed opacity-30 line-through'
                           : isSelected
@@ -226,8 +226,8 @@ export default function CustomDatePickerModal({
 
             {/* Currently Selected Preview block */}
             <div className="p-3 bg-[#141416] border border-neutral-850 rounded-xl flex items-center justify-between">
-              <span className="text-[12px] text-zinc-400 font-black">선택한 날짜</span>
-              <span className="text-sm text-white font-black font-mono">
+              <span className="text-[13px] text-zinc-400 font-black">선택한 날짜</span>
+              <span className="text-[15px] text-white font-black font-mono">
                 {selectedDateStr || '-'}
               </span>
             </div>
@@ -239,14 +239,14 @@ export default function CustomDatePickerModal({
             <button
               type="button"
               onClick={onClose}
-              className="flex-1 py-3 text-xs bg-[#2C2C2E] hover:bg-[#3C3C3E] text-zinc-200 hover:text-white rounded-xl font-bold transition-all border border-neutral-800"
+              className="flex-1 py-3 text-[13px] bg-[#2C2C2E] hover:bg-[#3C3C3E] text-zinc-200 hover:text-white rounded-xl font-bold transition-all border border-neutral-800"
             >
               취소
             </button>
             <button
               type="button"
               onClick={handleConfirm}
-              className="flex-[2] py-3 text-xs bg-amber-500 hover:bg-amber-600 text-zinc-950 rounded-xl font-black transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-amber-500/10"
+              className="flex-[2] py-3 text-[13px] bg-amber-500 hover:bg-amber-600 text-zinc-950 rounded-xl font-black transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-amber-500/10"
             >
               <Check size={14} className="stroke-[2.5]" />
               선택 완료

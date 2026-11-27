@@ -176,7 +176,7 @@ export default function ConsolidatedGate({ onLoginSuccess, partners, companies }
           <h2 className="text-toss-display flex items-center justify-center gap-2">
             에어픽 파트너 <span className="text-toss-caption text-amber-400 font-semibold bg-amber-500/15 border border-amber-500/20 px-2 py-0.5 rounded-lg">로그인</span>
           </h2>
-          <p className="mt-2 text-[11px] text-zinc-500 font-semibold leading-relaxed px-2">
+          <p className="mt-2 text-[13px] text-zinc-500 font-semibold leading-relaxed px-2">
             주차 업체·본사 계정용입니다. 마케팅 제휴사는 실적 포털(/a)에서 따로 로그인합니다.
           </p>
         </div>
@@ -187,7 +187,7 @@ export default function ConsolidatedGate({ onLoginSuccess, partners, companies }
 
           <form onSubmit={handleLoginSubmit} className="space-y-4 pt-4">
             {error && (
-              <div className="p-3 bg-red-950/20 text-red-400 text-[12px] rounded-xl border border-red-900/35 flex items-center gap-2 font-sans animate-shake">
+              <div className="p-3 bg-red-950/20 text-red-400 text-[13px] rounded-xl border border-red-900/35 flex items-center gap-2 font-sans animate-shake">
                 <AlertCircle size={13} className="shrink-0 text-red-500" />
                 <span className="font-medium leading-normal">{error}</span>
               </div>
@@ -256,7 +256,7 @@ export default function ConsolidatedGate({ onLoginSuccess, partners, companies }
                     <polyline points="20 6 9 17 4 12" />
                   </svg>
                 </div>
-                <span className="text-[13px] font-medium text-zinc-400 hover:text-zinc-300 transition-colors">
+                <span className="text-[14px] font-medium text-zinc-400 hover:text-zinc-300 transition-colors">
                   아이디 저장
                 </span>
               </label>
@@ -267,7 +267,7 @@ export default function ConsolidatedGate({ onLoginSuccess, partners, companies }
               <button
                 type="submit"
                 disabled={loggingIn}
-                className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 active:scale-[0.98] text-neutral-950 font-black rounded-xl text-xs transition-all shadow-lg shadow-amber-500/10 hover:shadow-amber-500/20 uppercase tracking-wider block disabled:opacity-60 disabled:pointer-events-none"
+                className="w-full py-3.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 active:scale-[0.98] text-neutral-950 font-black rounded-xl text-[13px] transition-all shadow-lg shadow-amber-500/10 hover:shadow-amber-500/20 uppercase tracking-wider block disabled:opacity-60 disabled:pointer-events-none"
               >
                 {loggingIn ? '로그인 중…' : '로그인하기'}
               </button>

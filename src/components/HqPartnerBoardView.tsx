@@ -142,7 +142,7 @@ function ProfileChips({ row }: { row: HqPartnerBoardRow }) {
         <span
           key={i.label}
           className={cn(
-            'inline-flex items-center gap-1 text-[13px] font-black',
+            'inline-flex items-center gap-1 text-[14px] font-black',
             i.ok ? 'text-zinc-300' : 'text-zinc-600 line-through'
           )}
         >
@@ -253,7 +253,7 @@ export default function HqPartnerBoardView({
       disabled={busyId === row.id}
       onClick={() => onRemoteOpen(row.id)}
       className={cn(
-        'shrink-0 whitespace-nowrap rounded-xl text-[14px] font-black disabled:opacity-50',
+        'shrink-0 whitespace-nowrap rounded-xl text-[15px] font-black disabled:opacity-50',
         compact ? 'px-3.5 py-2' : 'px-4 py-2.5',
         row.isDemo
           ? 'border border-neutral-700 bg-neutral-900 text-zinc-300'
@@ -274,7 +274,7 @@ export default function HqPartnerBoardView({
           </span>
         ) : null}
       </div>
-      <p className="text-[14px] text-zinc-400 mt-1 font-semibold">{subLine(row)}</p>
+      <p className="text-[15px] text-zinc-400 mt-1 font-semibold">{subLine(row)}</p>
     </>
   );
 
@@ -298,7 +298,7 @@ export default function HqPartnerBoardView({
             type="button"
             onClick={() => setFilter(f.id)}
             className={cn(
-              'px-3.5 py-2 rounded-full text-[14px] font-bold border',
+              'px-3.5 py-2 rounded-full text-[15px] font-bold border',
               filter === f.id
                 ? 'bg-zinc-100 text-neutral-950 border-zinc-100'
                 : 'bg-neutral-900 text-zinc-300 border-neutral-800'
@@ -318,7 +318,7 @@ export default function HqPartnerBoardView({
           {/* PC: 표 한 장으로 비교 */}
           <table className="hidden md:table w-full text-[15px]">
             <thead>
-              <tr className="text-left text-[14px] text-zinc-400 border-b border-neutral-800">
+              <tr className="text-left text-[15px] text-zinc-400 border-b border-neutral-800">
                 <th className="py-3 pr-3 font-bold">업체</th>
                 <th className="py-3 pr-3 font-bold">영업</th>
                 <th className="py-3 pr-3 font-bold">손님앱</th>
@@ -341,11 +341,11 @@ export default function HqPartnerBoardView({
                     <td className="py-4 pr-3">{sw.open}</td>
                     <td className="py-4 pr-3">{sw.listing}</td>
                     <td className="py-4 pr-3 whitespace-nowrap text-[15px]">{rating(row)}</td>
-                    <td className="py-4 pr-3 text-zinc-200 text-[14px] font-semibold">
+                    <td className="py-4 pr-3 text-zinc-200 text-[15px] font-semibold">
                       {capLine(row)}
                     </td>
                     <td className="py-4 pr-3 text-zinc-200 max-w-[16rem]" title={row.alimtalk.detail}>
-                      <span className="block text-[14px] font-bold leading-snug">
+                      <span className="block text-[15px] font-bold leading-snug">
                         {row.alimtalk.label}
                       </span>
                     </td>
@@ -381,7 +381,7 @@ export default function HqPartnerBoardView({
                     <div className="min-w-0">{nameCell(row)}</div>
                     {remoteButton(row, true)}
                   </div>
-                  <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[14px] text-zinc-300 font-semibold">
+                  <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-[15px] text-zinc-300 font-semibold">
                     {rating(row)}
                     <span>{capLine(row)}</span>
                     <span>알림톡 {row.alimtalk.label}</span>
@@ -392,7 +392,7 @@ export default function HqPartnerBoardView({
                       <button
                         type="button"
                         onClick={onOpenPartnerEditor}
-                        className="ml-auto text-[14px] font-black text-amber-400"
+                        className="ml-auto text-[15px] font-black text-amber-400"
                       >
                         보완하기 →
                       </button>

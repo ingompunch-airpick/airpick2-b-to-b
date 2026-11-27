@@ -19,7 +19,7 @@ export default function MetaField({
   valueClassName,
 }: MetaFieldProps) {
   return (
-    <div className={cn('text-[13px]', className)}>
+    <div className={cn('text-[14px]', className)}>
       <span className="text-zinc-500">{label}: </span>
       <span className={cn('text-zinc-300', valueClassName)}>{value}</span>
     </div>

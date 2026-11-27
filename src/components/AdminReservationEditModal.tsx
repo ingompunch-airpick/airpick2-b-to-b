@@ -152,13 +152,13 @@ export default function AdminReservationEditModal({
           <div className="flex items-center gap-2">
             <Settings className="text-amber-500 animate-spin" size={16} />
             <div>
-              <span className="text-xs font-black text-white block">예약 정보 수동 수정</span>
-              <span className="text-[10.5px] text-zinc-500 font-bold">관리자 전용 · 저장 시 즉시 반영됩니다</span>
+              <span className="text-[13px] font-black text-white block">예약 정보 수동 수정</span>
+              <span className="text-[13px] text-zinc-500 font-bold">관리자 전용 · 저장 시 즉시 반영됩니다</span>
             </div>
           </div>
           <button 
             onClick={onClose}
-            className="p-1.5 bg-neutral-950 hover:bg-neutral-850 text-zinc-400 rounded-xl text-[12px] font-black cursor-pointer border border-neutral-850"
+            className="p-1.5 bg-neutral-950 hover:bg-neutral-850 text-zinc-400 rounded-xl text-[13px] font-black cursor-pointer border border-neutral-850"
           >
             <X size={12} />
           </button>
@@ -168,22 +168,22 @@ export default function AdminReservationEditModal({
           {/* Reservation Header */}
           <div className="p-3.5 bg-neutral-950 border border-neutral-850 rounded-2xl flex items-center justify-between gap-3">
             <div className="space-y-0.5 min-w-0">
-              <span className="text-[11px] text-zinc-500 font-semibold block">접수 번호</span>
-              <span className="text-xs font-black text-white font-mono">{targetReservationForEdit.receiptCode || targetReservationForEdit.id}</span>
+              <span className="text-[13px] text-zinc-500 font-semibold block">접수 번호</span>
+              <span className="text-[13px] font-black text-white font-mono">{targetReservationForEdit.receiptCode || targetReservationForEdit.id}</span>
             </div>
             {operatorBrandLabel ? (
               <MetaField label="업체" value={operatorBrandLabel} className="shrink-0 text-right" />
             ) : (
-              <span className="text-[12px] text-zinc-300 shrink-0">
+              <span className="text-[13px] text-zinc-300 shrink-0">
                 {targetReservationForEdit.companyName}
               </span>
             )}
           </div>
 
           {/* 1st Section: Vehicles/Model space */}
-          <div className="grid grid-cols-3 gap-3 text-xs font-sans">
+          <div className="grid grid-cols-3 gap-3 text-[13px] font-sans">
             <div>
-              <label className="text-[11.5px] font-bold text-zinc-500 block mb-1">차량 모델</label>
+              <label className="text-[13px] font-bold text-zinc-500 block mb-1">차량 모델</label>
               <input 
                 type="text" 
                 value={editCarModel}
@@ -192,7 +192,7 @@ export default function AdminReservationEditModal({
               />
             </div>
             <div>
-              <label className="text-[11.5px] font-bold text-zinc-500 block mb-1">차량 번호</label>
+              <label className="text-[13px] font-bold text-zinc-500 block mb-1">차량 번호</label>
               <input 
                 type="text" 
                 value={editCarNumber}
@@ -201,7 +201,7 @@ export default function AdminReservationEditModal({
               />
             </div>
             <div>
-              <label className="text-[11.5px] font-bold text-zinc-500 block mb-1">주차공간 배정구획</label>
+              <label className="text-[13px] font-bold text-zinc-500 block mb-1">주차공간 배정구획</label>
               <input 
                 type="text" 
                 value={editParkingSpace}
@@ -213,12 +213,12 @@ export default function AdminReservationEditModal({
           </div>
 
           {/* 2nd Section: Pricing Details manually defined (with VAT) */}
-          <div className="p-4 bg-neutral-955 border border-neutral-850 rounded-2xl space-y-3 font-sans text-xs">
-            <span className="text-[12px] font-extrabold text-amber-500 tracking-wider block">결제 금액 수정</span>
+          <div className="p-4 bg-neutral-955 border border-neutral-850 rounded-2xl space-y-3 font-sans text-[13px]">
+            <span className="text-[13px] font-extrabold text-amber-500 tracking-wider block">결제 금액 수정</span>
             
             <div className="grid grid-cols-2 gap-3.5">
               <div>
-                <label className="text-[11.5px] font-bold text-zinc-500 block mb-1">기본보관료 (공급가액)</label>
+                <label className="text-[13px] font-bold text-zinc-500 block mb-1">기본보관료 (공급가액)</label>
                 <input 
                   type="number" 
                   value={editBasePrice || ''}
@@ -227,7 +227,7 @@ export default function AdminReservationEditModal({
                 />
               </div>
               <div>
-                <label className="text-[11.5px] font-bold text-zinc-500 block mb-1">종합 발렛비 (대행 가산금)</label>
+                <label className="text-[13px] font-bold text-zinc-500 block mb-1">종합 발렛비 (대행 가산금)</label>
                 <input 
                   type="number" 
                   value={editValetPrice || ''}
@@ -239,7 +239,7 @@ export default function AdminReservationEditModal({
 
             <div className="grid grid-cols-2 gap-3.5 pt-1">
               <div>
-                <label className="text-[11.5px] font-bold text-zinc-500 block mb-1">초과요금 (연장일차 추가분)</label>
+                <label className="text-[13px] font-bold text-zinc-500 block mb-1">초과요금 (연장일차 추가분)</label>
                 <input 
                   type="number" 
                   value={editOvertimePrice || ''}
@@ -248,7 +248,7 @@ export default function AdminReservationEditModal({
                 />
               </div>
               <div>
-                <label className="text-[11.5px] font-bold text-zinc-500 block mb-1">할인요금 (차감액)</label>
+                <label className="text-[13px] font-bold text-zinc-500 block mb-1">할인요금 (차감액)</label>
                 <input 
                   type="number" 
                   value={editDiscountPrice || ''}
@@ -262,28 +262,28 @@ export default function AdminReservationEditModal({
             <div className="bg-[#1C1C1E] border border-neutral-800/40 p-3 rounded-xl space-y-1.5 mt-2.5">
               {hasManualBreakdown ? (
                 <>
-                  <div className="flex justify-between items-center text-[12px] text-zinc-400">
+                  <div className="flex justify-between items-center text-[13px] text-zinc-400">
                     <span>공급합계 (순액)</span>
                     <span className="font-mono font-bold text-white">{calculatedNetTotal.toLocaleString()}원</span>
                   </div>
-                  <div className="flex justify-between items-center text-[12px] text-zinc-400 border-b border-neutral-800 pb-1.5 mb-1">
+                  <div className="flex justify-between items-center text-[13px] text-zinc-400 border-b border-neutral-800 pb-1.5 mb-1">
                     <span>부가가치세 (10%)</span>
                     <span className="font-mono text-zinc-450">{Math.round(Math.max(0, calculatedNetTotal) * 0.1).toLocaleString()}원</span>
                   </div>
                 </>
               ) : (
-                <p className="text-[11.5px] text-zinc-500 leading-relaxed border-b border-neutral-800 pb-1.5 mb-1">
+                <p className="text-[13px] text-zinc-500 leading-relaxed border-b border-neutral-800 pb-1.5 mb-1">
                   요금 내역을 입력하지 않으면 기존 금액({(targetReservationForEdit.totalPrice || 0).toLocaleString()}원)을 유지합니다.
                 </p>
               )}
-              <div className="flex justify-between items-center text-xs font-black">
+              <div className="flex justify-between items-center text-[13px] font-black">
                 <span className="text-amber-500 flex items-center gap-1">
                   저장될 금액
                   {hasManualBreakdown ? (
-                    <span className="text-[11px] text-zinc-500 font-normal">(VAT 포함)</span>
+                    <span className="text-[13px] text-zinc-500 font-normal">(VAT 포함)</span>
                   ) : null}
                 </span>
-                <span className="text-amber-400 font-mono text-sm tracking-tight text-right">
+                <span className="text-amber-400 font-mono text-[15px] tracking-tight text-right">
                   {saveTotalPrice.toLocaleString()}원
                 </span>
               </div>
@@ -291,23 +291,23 @@ export default function AdminReservationEditModal({
           </div>
 
           {/* 3rd Section: Admin notes */}
-          <div className="bg-neutral-950 border border-neutral-850 p-4 rounded-xl space-y-1.5 font-sans text-xs">
-            <label className="text-[11.5px] font-bold text-zinc-500 block mb-1 tracking-wider">관리자 메모</label>
+          <div className="bg-neutral-950 border border-neutral-850 p-4 rounded-xl space-y-1.5 font-sans text-[13px]">
+            <label className="text-[13px] font-bold text-zinc-500 block mb-1 tracking-wider">관리자 메모</label>
             <textarea 
               value={editAdminMemo}
               onChange={e => setEditAdminMemo(e.target.value)}
               placeholder="고객 요청사항이나 주차 위치를 적어 주세요."
-              className="w-full h-16 px-3 py-2 bg-neutral-900 border border-neutral-800 rounded-xl text-zinc-300 font-semibold placeholder-zinc-750 outline-none focus:border-amber-500 text-[12.5px] leading-relaxed resize-none"
+              className="w-full h-16 px-3 py-2 bg-neutral-900 border border-neutral-800 rounded-xl text-zinc-300 font-semibold placeholder-zinc-750 outline-none focus:border-amber-500 text-[13px] leading-relaxed resize-none"
             />
           </div>
 
           {/* 4th Section: Master Override Status Buttons */}
-          <div className="bg-neutral-955 border border-red-955/40 p-4 rounded-xl space-y-3 font-sans text-xs">
-            <div className="flex items-center gap-1.5 text-zinc-400 font-bold uppercase tracking-wider text-[12px]">
+          <div className="bg-neutral-955 border border-red-955/40 p-4 rounded-xl space-y-3 font-sans text-[13px]">
+            <div className="flex items-center gap-1.5 text-zinc-400 font-bold uppercase tracking-wider text-[13px]">
               <ShieldCheck size={13} className="text-red-500 animate-pulse" />
               <span>차량 상태 강제 변경</span>
             </div>
-            <p className="text-[11.5px] text-zinc-500 leading-normal">
+            <p className="text-[13px] text-zinc-500 leading-normal">
               현장 상황에 맞춰 차량 상태를 직접 바꿀 수 있습니다. 변경하면 즉시 저장되며 손님 앱에도 바로 반영됩니다.
             </p>
 
@@ -320,7 +320,7 @@ export default function AdminReservationEditModal({
                       await handleUpdateValetStatus(targetReservationForEdit.id || '', 'request_out');
                     }
                   }}
-                  className="w-full py-2.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-black transition-colors flex items-center justify-center gap-2 shadow-md cursor-pointer"
+                  className="w-full py-2.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-[13px] font-black transition-colors flex items-center justify-center gap-2 shadow-md cursor-pointer"
                 >
                   <AlertCircle size={13} />
                   강제 출고요청 전환
@@ -335,13 +335,13 @@ export default function AdminReservationEditModal({
                       });
                     }
                   }}
-                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-xs font-black transition-colors flex items-center justify-center gap-2 shadow-md cursor-pointer"
+                  className="w-full py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[13px] font-black transition-colors flex items-center justify-center gap-2 shadow-md cursor-pointer"
                 >
                   <CheckCircle2 size={13} />
                   강제 반납완료 처리
                 </button>
               ) : (
-                <div className="text-center py-2.5 bg-neutral-900 border border-neutral-850 rounded-lg text-zinc-500 text-[12px] font-bold">
+                <div className="text-center py-2.5 bg-neutral-900 border border-neutral-850 rounded-lg text-zinc-500 text-[13px] font-bold">
                   이미 출고완료(반납 완료) 되었거나 취소된 예약입니다.
                 </div>
               )}
@@ -354,7 +354,7 @@ export default function AdminReservationEditModal({
           <button 
             type="button"
             onClick={onClose}
-            className="px-4 py-2.5 bg-[#1C1C1E] hover:bg-neutral-800 text-zinc-400 rounded-lg text-xs font-bold border border-neutral-850 transition-colors cursor-pointer"
+            className="px-4 py-2.5 bg-[#1C1C1E] hover:bg-neutral-800 text-zinc-400 rounded-lg text-[13px] font-bold border border-neutral-850 transition-colors cursor-pointer"
           >
             닫기
           </button>
@@ -373,14 +373,14 @@ export default function AdminReservationEditModal({
                 onClose();
               }
             }}
-            className="px-4 py-2.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-xs font-bold transition-colors whitespace-nowrap cursor-pointer hover:scale-[1.02]"
+            className="px-4 py-2.5 bg-rose-600 hover:bg-rose-500 text-white rounded-lg text-[13px] font-bold transition-colors whitespace-nowrap cursor-pointer hover:scale-[1.02]"
           >
             예약 취소
           </button>
           <button 
             type="button"
             onClick={handleSaveAdminReservationEdit}
-            className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-440 text-neutral-950 rounded-lg text-xs font-bold shadow-md shadow-amber-500/15 transition-all flex items-center justify-center gap-1.5 cursor-pointer hover:scale-[1.01]"
+            className="flex-1 py-2.5 bg-amber-500 hover:bg-amber-440 text-neutral-950 rounded-lg text-[13px] font-bold shadow-md shadow-amber-500/15 transition-all flex items-center justify-center gap-1.5 cursor-pointer hover:scale-[1.01]"
           >
             <CheckCircle2 size={13} />
             정보 변경 완료

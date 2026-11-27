@@ -64,8 +64,8 @@ function VerificationDocumentSlot({
 }) {
   const labelCls =
     variant === 'dark'
-      ? 'text-[12px] text-zinc-300 block mb-1 font-bold'
-      : 'text-[12px] text-slate-500 block mb-1 font-bold';
+      ? 'text-[13px] text-zinc-300 block mb-1 font-bold'
+      : 'text-[13px] text-slate-500 block mb-1 font-bold';
   const boxCls =
     variant === 'dark'
       ? 'rounded-xl border border-neutral-800 bg-[#141416] p-2 space-y-2'
@@ -93,16 +93,16 @@ function VerificationDocumentSlot({
       ) : (
         <button type="button" onClick={onPick} disabled={disabled} className={addBtnCls}>
           <ImagePlus size={16} />
-          <span className="text-[10px] font-bold">이미지 올리기</span>
+          <span className="text-[13px] font-bold">이미지 올리기</span>
         </button>
       )}
       {disabled && disabledHint ? (
-        <p className="text-[10px] text-zinc-500 font-medium leading-snug">{disabledHint}</p>
+        <p className="text-[13px] text-zinc-500 font-medium leading-snug">{disabledHint}</p>
       ) : url ? (
         <button
           type="button"
           onClick={onPick}
-          className={`text-[10px] font-bold underline underline-offset-2 ${
+          className={`text-[13px] font-bold underline underline-offset-2 ${
             variant === 'dark' ? 'text-amber-400' : 'text-indigo-600'
           }`}
         >
@@ -132,8 +132,8 @@ export default function PartnerProfileFormFields({
 
   const labelCls =
     variant === 'dark'
-      ? 'text-[12px] text-zinc-300 block mb-1 font-bold'
-      : 'text-[12px] text-slate-500 block mb-1 font-bold';
+      ? 'text-[13px] text-zinc-300 block mb-1 font-bold'
+      : 'text-[13px] text-slate-500 block mb-1 font-bold';
   const inputCls =
     variant === 'dark'
       ? 'w-full px-3 py-2 border border-neutral-700 bg-[#1C1C1E] text-zinc-100 rounded-xl focus:outline-none focus:ring-1 focus:ring-amber-500/50'
@@ -142,7 +142,7 @@ export default function PartnerProfileFormFields({
     variant === 'dark'
       ? 'rounded-xl border border-neutral-800 bg-[#1C1C1E]/60 p-3 space-y-3'
       : 'rounded-xl border border-slate-100 bg-slate-50/80 p-3 space-y-3';
-  const hintCls = variant === 'dark' ? 'text-[11px] text-zinc-500 mb-2' : 'text-[11px] text-slate-400 mb-2';
+  const hintCls = variant === 'dark' ? 'text-[13px] text-zinc-500 mb-2' : 'text-[13px] text-slate-400 mb-2';
   const facilityActiveCls =
     variant === 'dark'
       ? 'border-amber-500/60 bg-amber-500/10 text-amber-200 shadow-xs'
@@ -233,8 +233,8 @@ export default function PartnerProfileFormFields({
                     active ? facilityActiveCls : facilityIdleCls
                   }`}
                 >
-                  <span className="block text-[12px] font-black">{a.shortName}</span>
-                  <span className="block text-[10px] font-medium mt-0.5 opacity-80">
+                  <span className="block text-[13px] font-black">{a.shortName}</span>
+                  <span className="block text-[13px] font-medium mt-0.5 opacity-80">
                     {a.terminals.map((t) => t.shortLabel).join(' · ')}
                   </span>
                 </button>
@@ -262,8 +262,8 @@ export default function PartnerProfileFormFields({
                     active ? facilityActiveCls : facilityIdleCls
                   }`}
                 >
-                  <span className="block text-[12px] font-black">{opt.label}</span>
-                  <span className="block text-[10px] font-medium mt-0.5 opacity-80">{opt.desc}</span>
+                  <span className="block text-[13px] font-black">{opt.label}</span>
+                  <span className="block text-[13px] font-medium mt-0.5 opacity-80">{opt.desc}</span>
                 </button>
               );
             })}
@@ -288,7 +288,7 @@ export default function PartnerProfileFormFields({
               >
                 <img src={url} alt={`주차장 사진 ${index + 1}`} className="w-full h-full object-cover" />
                 {index === 0 && (
-                  <span className="absolute left-1 top-1 rounded bg-amber-500 px-1 py-0.5 text-[9px] font-black text-black">
+                  <span className="absolute left-1 top-1 rounded bg-amber-500 px-1 py-0.5 text-[12px] font-black text-black">
                     대표
                   </span>
                 )}
@@ -310,7 +310,7 @@ export default function PartnerProfileFormFields({
                 className={addPhotoCls}
               >
                 {uploading ? <Loader2 size={18} className="animate-spin" /> : <ImagePlus size={18} />}
-                <span className="text-[10px] font-bold">{uploading ? '추가 중…' : '추가'}</span>
+                <span className="text-[13px] font-bold">{uploading ? '추가 중…' : '추가'}</span>
               </button>
             )}
           </div>
@@ -395,7 +395,7 @@ export default function PartnerProfileFormFields({
             <button
               type="button"
               onClick={() => set('insuranceEnrolled', !profile.insuranceEnrolled)}
-              className={`px-3 py-1.5 rounded-lg text-[11px] font-black border transition-all ${
+              className={`px-3 py-1.5 rounded-lg text-[12px] font-black border transition-all ${
                 profile.insuranceEnrolled
                   ? variant === 'dark'
                     ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-300'
@@ -445,7 +445,7 @@ export default function PartnerProfileFormFields({
                 className={inputCls}
                 placeholder="예: 대인 1억 · 대물 1억 · 자차 5천만"
               />
-              <p className={`mt-1 text-[10px] font-medium ${hintCls}`}>
+              <p className={`mt-1 text-[13px] font-medium ${hintCls}`}>
                 대인·대물·자차를 한 줄에 적습니다. 문구가 있으면 손님 앱 상세·예약·내 예약 보험 칸에
                 노출됩니다(비교 카드 제외). 비우면 숨깁니다. 보험증권은 위 「증명서류」에 등록합니다.
               </p>

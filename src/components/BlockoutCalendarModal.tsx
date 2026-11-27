@@ -371,8 +371,8 @@ export default function BlockoutCalendarModal({
           <div className="flex items-center gap-2 min-w-0">
             <CalendarRange size={16} className="text-amber-500 shrink-0" />
             <div className="min-w-0">
-              <h3 className="text-sm font-black text-white truncate">{embedded ? '운영' : '예약 관리'}</h3>
-              <p className="text-[11px] text-zinc-400 font-bold tracking-tight truncate">{companyName}</p>
+              <h3 className="text-[15px] font-black text-white truncate">{embedded ? '운영' : '예약 관리'}</h3>
+              <p className="text-[13px] text-zinc-400 font-bold tracking-tight truncate">{companyName}</p>
             </div>
           </div>
           {embedded ? null : (
@@ -401,7 +401,7 @@ export default function BlockoutCalendarModal({
                   setScene(id);
                   setPicked(null);
                 }}
-                className={`py-2 rounded-lg text-[12px] font-black transition-all ${
+                className={`py-2 rounded-lg text-[13px] font-black transition-all ${
                   scene === id ? 'bg-amber-500 text-neutral-950' : 'text-zinc-400 hover:text-zinc-200'
                 }`}
               >
@@ -437,8 +437,8 @@ export default function BlockoutCalendarModal({
 
               <div className="p-3.5 bg-[#141416]/90 border border-neutral-800/85 rounded-2xl space-y-2.5">
                 <div>
-                  <p className="text-[12px] font-black text-zinc-200">당일 예약</p>
-                  <p className="text-[11px] text-zinc-500 mt-0.5">{sameDaySettingDetail(localSameDay)}</p>
+                  <p className="text-[13px] font-black text-zinc-200">당일 예약</p>
+                  <p className="text-[13px] text-zinc-500 mt-0.5">{sameDaySettingDetail(localSameDay)}</p>
                 </div>
                 <div className="flex items-center gap-2">
                   <button
@@ -449,7 +449,7 @@ export default function BlockoutCalendarModal({
                   >
                     −
                   </button>
-                  <p className="flex-1 text-center text-[13px] font-black text-white">
+                  <p className="flex-1 text-center text-[14px] font-black text-white">
                     {sameDaySettingLabel(localSameDay)}
                   </p>
                   <button
@@ -484,11 +484,11 @@ export default function BlockoutCalendarModal({
               {offersBoth ? (
                 <div className="rounded-xl border border-neutral-800 bg-neutral-900/40 p-3 space-y-2">
                   <div className="flex items-center justify-between">
-                    <p className="text-[12px] font-black text-white">주차 대수</p>
+                    <p className="text-[13px] font-black text-white">주차 대수</p>
                     <button
                       type="button"
                       onClick={() => setLocalParkingCapEnabled((v) => !v)}
-                      className={`text-[11px] font-black px-2 py-1 rounded-lg ${
+                      className={`text-[12px] font-black px-2 py-1 rounded-lg ${
                         localParkingCapEnabled ? 'bg-amber-500 text-neutral-950' : 'bg-neutral-800 text-zinc-400'
                       }`}
                     >
@@ -497,7 +497,7 @@ export default function BlockoutCalendarModal({
                   </div>
                   {localParkingCapEnabled ? (
                     <div className="grid grid-cols-2 gap-2">
-                      <label className="text-[11px] font-bold text-zinc-400">
+                      <label className="text-[13px] font-bold text-zinc-400">
                         실내
                         <input
                           type="number"
@@ -507,7 +507,7 @@ export default function BlockoutCalendarModal({
                           className="mt-1 w-full bg-neutral-950 border border-neutral-800 rounded-lg px-2 py-1.5 text-white font-black"
                         />
                       </label>
-                      <label className="text-[11px] font-bold text-zinc-400">
+                      <label className="text-[13px] font-bold text-zinc-400">
                         야외
                         <input
                           type="number"
@@ -519,9 +519,9 @@ export default function BlockoutCalendarModal({
                       </label>
                     </div>
                   ) : (
-                    <p className="text-[11px] text-zinc-500">대수 제한 없음</p>
+                    <p className="text-[13px] text-zinc-500">대수 제한 없음</p>
                   )}
-                  <p className="text-[10px] text-zinc-500">실내와 야외를 따로 셉니다. 예전 합계를 그대로 넣으면 자리가 두 배가 됩니다. 0이면 그 쪽은 제한이 없습니다.</p>
+                  <p className="text-[13px] text-zinc-500">실내와 야외를 따로 셉니다. 예전 합계를 그대로 넣으면 자리가 두 배가 됩니다. 0이면 그 쪽은 제한이 없습니다.</p>
                 </div>
               ) : (
                 <CountRow
@@ -580,19 +580,19 @@ export default function BlockoutCalendarModal({
                 <button type="button" onClick={() => shiftMonth(-1)} className="p-1.5 text-zinc-400 hover:text-white">
                   <ChevronLeft size={18} />
                 </button>
-                <p className="text-[13px] font-black text-white">
+                <p className="text-[14px] font-black text-white">
                   {currentYear}년 {MONTHS[currentMonth]}
                 </p>
                 <button type="button" onClick={() => shiftMonth(1)} className="p-1.5 text-zinc-400 hover:text-white">
                   <ChevronRight size={18} />
                 </button>
               </div>
-              <p className="text-[11px] text-zinc-500">
+              <p className="text-[13px] text-zinc-500">
                 이미 받은 예약은 그대로 두고, 지금 이후 접수만 닫습니다.
               </p>
               <div className="grid grid-cols-7 gap-1">
                 {WEEKDAYS.map((name) => (
-                  <div key={name} className="text-center text-[10px] font-bold text-zinc-500 py-1">
+                  <div key={name} className="text-center text-[13px] font-bold text-zinc-500 py-1">
                     {name}
                   </div>
                 ))}
@@ -625,14 +625,14 @@ export default function BlockoutCalendarModal({
                         }
                         setPicked(date);
                       }}
-                      className={`h-9 rounded-lg text-[12px] font-black border ${
+                      className={`h-9 rounded-lg text-[13px] font-black border ${
                         marked
                           ? 'border-amber-500/70 bg-amber-500/15 text-amber-200'
                           : 'border-neutral-800 text-zinc-200 hover:border-neutral-600'
                       }`}
                     >
                       {day}
-                      {sideMark ? <span className="ml-0.5 text-[9px]">{sideMark}</span> : null}
+                      {sideMark ? <span className="ml-0.5 text-[13px]">{sideMark}</span> : null}
                     </button>
                   );
                 })}
@@ -640,7 +640,7 @@ export default function BlockoutCalendarModal({
               {closeLines.length > 0 ? (
                 <div className="space-y-1.5">
                   {closeLines.map((line) => (
-                    <p key={`${line.date}-${line.text}`} className="text-[12px] font-semibold text-zinc-200 leading-snug">
+                    <p key={`${line.date}-${line.text}`} className="text-[13px] font-semibold text-zinc-200 leading-snug">
                       {line.text}
                     </p>
                   ))}
@@ -654,7 +654,7 @@ export default function BlockoutCalendarModal({
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 py-3 text-xs bg-neutral-900 hover:bg-neutral-850 text-zinc-400 hover:text-white rounded-xl font-bold transition-all border border-neutral-800/50"
+            className="flex-1 py-3 text-[13px] bg-neutral-900 hover:bg-neutral-850 text-zinc-400 hover:text-white rounded-xl font-bold transition-all border border-neutral-800/50"
           >
             닫기
           </button>
@@ -662,7 +662,7 @@ export default function BlockoutCalendarModal({
             type="button"
             onClick={handleSaveClick}
             disabled={isSaving}
-            className="flex-1 py-3 text-xs bg-[#F12B2B] hover:bg-[#D11F1F] text-white rounded-xl font-black transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-red-600/10 disabled:opacity-70"
+            className="flex-1 py-3 text-[13px] bg-[#F12B2B] hover:bg-[#D11F1F] text-white rounded-xl font-black transition-all flex items-center justify-center gap-1.5 shadow-lg shadow-red-600/10 disabled:opacity-70"
           >
             <Check size={13} className="stroke-[3]" />
             {isSaving ? '저장 중…' : '저장하기'}
@@ -688,14 +688,14 @@ function SettingRow({
     <div className="p-3.5 bg-[#141416]/90 border border-neutral-800/85 rounded-2xl flex items-center justify-between gap-3">
       <div className="min-w-0">
         <div className="flex items-center gap-1.5">
-          <p className="text-[12px] font-black text-zinc-200">{label}</p>
+          <p className="text-[13px] font-black text-zinc-200">{label}</p>
           {aside ? (
-            <span className="text-[10px] font-black px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
+            <span className="text-[12px] font-black px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/25">
               {aside}
             </span>
           ) : null}
         </div>
-        <p className="text-[11px] text-zinc-500 mt-0.5">{detail}</p>
+        <p className="text-[13px] text-zinc-500 mt-0.5">{detail}</p>
       </div>
       {children}
     </div>
@@ -725,8 +725,8 @@ function CountRow({
     <div className="p-3.5 bg-[#141416]/90 border border-neutral-800/85 rounded-2xl space-y-2.5">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-[12px] font-black text-zinc-200">{label}</p>
-          <p className="text-[11px] text-zinc-500 mt-0.5">{onText}</p>
+          <p className="text-[13px] font-black text-zinc-200">{label}</p>
+          <p className="text-[13px] text-zinc-500 mt-0.5">{onText}</p>
         </div>
         <button
           type="button"
@@ -748,9 +748,9 @@ function CountRow({
             max={max}
             value={value}
             onChange={(e) => onValue(Number(e.target.value))}
-            className="w-24 px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-white text-sm font-bold text-center"
+            className="w-24 px-3 py-2 bg-neutral-950 border border-neutral-800 rounded-xl text-white text-[15px] font-bold text-center"
           />
-          <span className="text-[12px] text-zinc-400 font-bold">{unit}</span>
+          <span className="text-[13px] text-zinc-400 font-bold">{unit}</span>
         </div>
       ) : null}
     </div>
@@ -791,7 +791,7 @@ function DayEditor({
   const [hours, setHours] = useState<number[]>(initialHours);
   const drafts = scheduleBlocksFromHours({ date, leg, terminal, hours });
   const chip = (on: boolean) =>
-    `px-2.5 py-1.5 rounded-lg text-[11px] font-black border ${
+    `px-2.5 py-1.5 rounded-lg text-[12px] font-black border ${
       on ? 'bg-amber-500 text-neutral-950 border-amber-500' : 'bg-neutral-900 text-zinc-300 border-neutral-800'
     }`;
   const month = Number(date.slice(5, 7));
@@ -803,7 +803,7 @@ function DayEditor({
         <button type="button" onClick={onBack} className={`${chip(false)} shrink-0`}>
           달력
         </button>
-        <p className="text-[13px] font-black text-white">
+        <p className="text-[14px] font-black text-white">
           {month}월 {day}일
         </p>
       </div>
@@ -843,7 +843,7 @@ function DayEditor({
           </button>
         </div>
       ) : null}
-      <p className="text-[11px] text-zinc-500">닫을 시간을 누릅니다. 이어진 시간은 한 구간이 됩니다.</p>
+      <p className="text-[13px] text-zinc-500">닫을 시간을 누릅니다. 이어진 시간은 한 구간이 됩니다.</p>
       <div className="grid grid-cols-2 gap-1.5">
         <button
           type="button"
@@ -876,20 +876,20 @@ function DayEditor({
       {drafts.length > 0 ? (
         <div className="space-y-1">
           {drafts.map((rule) => (
-            <p key={rule.id} className="text-[12px] font-semibold text-zinc-100">
+            <p key={rule.id} className="text-[13px] font-semibold text-zinc-100">
               {scheduleBlockMessage(rule)}
             </p>
           ))}
         </div>
       ) : (
-        <p className="text-[12px] text-zinc-500">이 터미널은 이날 그대로 받습니다.</p>
+        <p className="text-[13px] text-zinc-500">이 터미널은 이날 그대로 받습니다.</p>
       )}
       <div className="flex gap-2">
         <button
           type="button"
           disabled={hours.length === 0}
           onClick={() => onCommit(hours)}
-          className="px-4 py-2 rounded-xl bg-amber-500 text-neutral-950 text-[12px] font-black disabled:opacity-40"
+          className="px-4 py-2 rounded-xl bg-amber-500 text-neutral-950 text-[13px] font-black disabled:opacity-40"
         >
           마감
         </button>
@@ -897,7 +897,7 @@ function DayEditor({
           <button
             type="button"
             onClick={onRemove}
-            className="px-4 py-2 rounded-xl text-[12px] font-black text-zinc-300 border border-neutral-700"
+            className="px-4 py-2 rounded-xl text-[13px] font-black text-zinc-300 border border-neutral-700"
           >
             해제
           </button>

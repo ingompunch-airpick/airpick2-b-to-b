@@ -239,7 +239,7 @@ export default function ScratchModal({
         className="rounded-xl border font-black transition-all active:scale-[0.98] flex flex-col items-center justify-center gap-1.5 py-4 px-3 bg-neutral-950 border-amber-500/40 text-amber-400 hover:bg-amber-500/10"
       >
         <Camera size={22} />
-        <span className="text-xs">촬영</span>
+        <span className="text-[13px]">촬영</span>
       </button>
       <button
         type="button"
@@ -247,7 +247,7 @@ export default function ScratchModal({
         className="rounded-xl border font-black transition-all active:scale-[0.98] flex flex-col items-center justify-center gap-1.5 py-4 px-3 bg-neutral-950 border-sky-500/35 text-sky-400 hover:bg-sky-500/10"
       >
         <Images size={22} />
-        <span className="text-xs">앨범</span>
+        <span className="text-[13px]">앨범</span>
       </button>
     </div>
   );
@@ -275,15 +275,15 @@ export default function ScratchModal({
             {isUploading && (
               <div className="absolute inset-0 z-20 flex flex-col items-center justify-center gap-2.5 rounded-2xl bg-neutral-950/80 backdrop-blur-sm pointer-events-auto">
                 <Loader2 size={36} className="animate-spin text-amber-500" />
-                <p className="text-sm font-black text-white">사진 업로드 중</p>
-                <p className="text-xs text-zinc-400">잠시만 기다려 주세요</p>
+                <p className="text-[15px] font-black text-white">사진 업로드 중</p>
+                <p className="text-[13px] text-zinc-400">잠시만 기다려 주세요</p>
               </div>
             )}
             {/* Header */}
             <div className="p-4 border-b border-neutral-800 flex items-center justify-between bg-neutral-900/40">
               <div className="flex items-center gap-2">
                 <Camera className="text-amber-500 animate-pulse" size={16} />
-                <span className="text-[13px] font-bold font-mono text-zinc-350">
+                <span className="text-[14px] font-bold font-mono text-zinc-350">
                   사진 등록 ({targetReservationForScratch.userName} 고객님 • {targetReservationForScratch.carNumber})
                 </span>
               </div>
@@ -321,11 +321,11 @@ export default function ScratchModal({
               <PhotoCaptureButtons />
 
               <div className="space-y-2">
-                <p className="text-[12px] font-black uppercase text-zinc-500 tracking-wider">
+                <p className="text-[13px] font-black uppercase text-zinc-500 tracking-wider">
                   주차 유형
                 </p>
                 {parkingTypeChoices.length === 0 ? (
-                  <p className="text-[11px] text-amber-400/90 leading-relaxed">
+                  <p className="text-[13px] text-amber-400/90 leading-relaxed">
                     등록된 주차 유형이 없습니다. 마스터에서 실내/야외 또는 주차장을
                     등록해 주세요.
                   </p>
@@ -357,7 +357,7 @@ export default function ScratchModal({
                             }
                           }}
                           className={cn(
-                            'py-3 px-2 rounded-xl text-xs font-black border transition-all',
+                            'py-3 px-2 rounded-xl text-[13px] font-black border transition-all',
                             active
                               ? choice.isIndoor
                                 ? 'bg-[#A855F7] text-white border-transparent'
@@ -372,7 +372,7 @@ export default function ScratchModal({
                   </div>
                 )}
                 <div>
-                  <label className="text-[11px] font-bold text-zinc-500 block mb-1">
+                  <label className="text-[13px] font-bold text-zinc-500 block mb-1">
                     구역·자리 (선택)
                   </label>
                   <input
@@ -380,19 +380,19 @@ export default function ScratchModal({
                     value={parkingZone}
                     onChange={(e) => setParkingZone(e.target.value)}
                     placeholder="예: B-12, 지하3층"
-                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2.5 text-xs text-white font-semibold outline-none focus:border-amber-500/80"
+                    className="w-full bg-neutral-950 border border-neutral-800 rounded-xl px-3 py-2.5 text-[13px] text-white font-semibold outline-none focus:border-amber-500/80"
                   />
                 </div>
               </div>
 
               <div className="space-y-2">
-                <p className="text-[12px] font-black uppercase text-zinc-500 tracking-wider">수납 상태</p>
+                <p className="text-[13px] font-black uppercase text-zinc-500 tracking-wider">수납 상태</p>
                 <div className="grid grid-cols-2 gap-2">
                   <button
                     type="button"
                     onClick={() => setPaymentChoice('unpaid')}
                     className={cn(
-                      'py-3 rounded-xl text-xs font-black border transition-all',
+                      'py-3 rounded-xl text-[13px] font-black border transition-all',
                       paymentChoice === 'unpaid'
                         ? 'bg-rose-500/15 border-rose-500 text-rose-400'
                         : 'bg-neutral-950 border-neutral-800 text-zinc-400 hover:border-neutral-700'
@@ -404,7 +404,7 @@ export default function ScratchModal({
                     type="button"
                     onClick={() => setPaymentChoice('paid')}
                     className={cn(
-                      'py-3 rounded-xl text-xs font-black border transition-all',
+                      'py-3 rounded-xl text-[13px] font-black border transition-all',
                       paymentChoice === 'paid'
                         ? 'bg-emerald-500/15 border-emerald-500 text-emerald-400'
                         : 'bg-neutral-950 border-neutral-800 text-zinc-400 hover:border-neutral-700'
@@ -413,15 +413,15 @@ export default function ScratchModal({
                     완납
                   </button>
                 </div>
-                <p className="text-[11px] text-zinc-550 leading-relaxed">
+                <p className="text-[13px] text-zinc-550 leading-relaxed">
                   선택하지 않은 차량은 목록에 「미납」으로 표시됩니다. 선결·현장 수납 완료는 「완납」을 선택하세요.
                 </p>
               </div>
 
               {/* Real-time photo counter info line */}
-              <div className="flex items-center justify-between text-[12.5px] font-mono border-t border-neutral-850/60 pt-2.5 text-zinc-400">
+              <div className="flex items-center justify-between text-[13px] font-mono border-t border-neutral-850/60 pt-2.5 text-zinc-400">
                 <div className="flex items-center gap-1.5">
-                  <span className="text-amber-500 text-xs">◆</span>
+                  <span className="text-amber-500 text-[13px]">◆</span>
                   <span>등록된 사진 수 :</span>
                   <span className="text-amber-500/90 font-black">{uploadedPhotos.length}장</span>
                 </div>
@@ -430,7 +430,7 @@ export default function ScratchModal({
               {/* Render lists of thumbnails */}
               {uploadedPhotos.length > 0 && (
                 <div className="space-y-1.5">
-                  <span className="text-[12px] uppercase font-black tracking-wider text-zinc-500 px-0.5">촬영 내역</span>
+                  <span className="text-[13px] uppercase font-black tracking-wider text-zinc-500 px-0.5">촬영 내역</span>
                   <div className="grid grid-cols-4 gap-2 max-h-[180px] overflow-y-auto p-1 bg-neutral-950 rounded-xl border border-neutral-850/60">
                     {uploadedPhotos.map((url, idx) => (
                       <div key={idx} className="relative aspect-video rounded-lg border border-neutral-850/60 bg-neutral-900 overflow-hidden group">
@@ -443,7 +443,7 @@ export default function ScratchModal({
                         <div className="absolute inset-0 bg-neutral-950/20 group-hover:bg-neutral-950/0 transition-colors" />
                         
                         {/* Bullet badge count */}
-                        <span className="absolute bottom-1 left-1 bg-neutral-950/85 px-1 py-0.5 rounded text-[11px] font-mono font-bold text-zinc-450 border border-neutral-800">
+                        <span className="absolute bottom-1 left-1 bg-neutral-950/85 px-1 py-0.5 rounded text-[12px] font-mono font-bold text-zinc-450 border border-neutral-800">
                           #{idx + 1}
                         </span>
 
@@ -466,7 +466,7 @@ export default function ScratchModal({
             <div className="p-4 border-t border-neutral-850 space-y-2.5 bg-neutral-900/60">
               <p
                 className={cn(
-                  'text-center text-[11px] font-bold',
+                  'text-center text-[13px] font-bold',
                   uploadedPhotos.length === 0
                     ? 'text-rose-400'
                     : uploadedPhotos.length < RECOMMENDED_CHECKIN_PHOTOS
@@ -490,7 +490,7 @@ export default function ScratchModal({
                   setScratchModalTargetId(null);
                   setSelectedParkingSpace('');
                 }}
-                className="flex-1 py-3 bg-neutral-950 hover:bg-zinc-900 text-zinc-400 rounded-lg text-xs font-bold border border-neutral-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                className="flex-1 py-3 bg-neutral-950 hover:bg-zinc-900 text-zinc-400 rounded-lg text-[13px] font-bold border border-neutral-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 취소
               </button>
@@ -599,7 +599,7 @@ export default function ScratchModal({
                     setIsUploading(false);
                   }
                 }}
-                className="flex-1 min-h-[44px] py-3 bg-amber-500 hover:bg-amber-450 disabled:opacity-70 disabled:cursor-not-allowed text-neutral-950 rounded-lg text-xs font-bold shadow-md shadow-amber-500/15 transition-all flex items-center justify-center gap-1.5"
+                className="flex-1 min-h-[44px] py-3 bg-amber-500 hover:bg-amber-450 disabled:opacity-70 disabled:cursor-not-allowed text-neutral-950 rounded-lg text-[13px] font-bold shadow-md shadow-amber-500/15 transition-all flex items-center justify-center gap-1.5"
                 aria-busy={isUploading}
               >
                 {isUploading ? (

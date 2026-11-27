@@ -64,14 +64,14 @@ function resolveLots(company: Company): CompanyParkingLot[] {
 function LotBlock({ lot }: { lot: CompanyParkingLot }) {
   return (
     <div className="rounded-xl border border-neutral-800 bg-[#131315] p-3 space-y-2">
-      <p className="text-[12px] font-black text-white flex items-center gap-1.5">
+      <p className="text-[13px] font-black text-white flex items-center gap-1.5">
         <MapPin size={12} className="text-amber-500" />
         {lot.name || (lot.type === 'indoor' ? '실내 주차장' : '야외 주차장')}
-        <span className="text-[10px] font-bold text-zinc-500">
+        <span className="text-[13px] font-bold text-zinc-500">
           ({lot.type === 'indoor' ? '실내' : '야외'})
         </span>
       </p>
-      <dl className="space-y-1.5 text-[11px]">
+      <dl className="space-y-1.5 text-[13px]">
         <div className="flex justify-between gap-3">
           <dt className="text-white/50 font-bold shrink-0">주소</dt>
           <dd className="text-white/90 font-semibold text-right">
@@ -109,30 +109,30 @@ export default function PartnerParkingProfileReadonly({ company }: { company?: C
     <div className="bg-neutral-900/40 p-5 rounded-3xl border border-neutral-850 space-y-4">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <div className="flex items-center gap-2 text-xs font-black text-amber-500 tracking-wider uppercase">
+          <div className="flex items-center gap-2 text-[13px] font-black text-amber-500 tracking-wider uppercase">
             <MapPin size={14} className="text-amber-500" />
             <span>보험 · 위치 · 사진 (확인 전용)</span>
           </div>
-          <p className="text-[12px] text-white/70 mt-1.5 leading-relaxed">
+          <p className="text-[13px] text-white/70 mt-1.5 leading-relaxed">
             B2C 손님 MY에 표시되는 보험·주차장(여러 곳)·사진입니다. 수정은 최고관리자만
             가능합니다.
           </p>
         </div>
-        <span className="shrink-0 text-[11px] font-black text-amber-400/90 bg-amber-500/10 border border-amber-500/20 px-2 py-1 rounded-lg">
+        <span className="shrink-0 text-[12px] font-black text-amber-400/90 bg-amber-500/10 border border-amber-500/20 px-2 py-1 rounded-lg">
           시설: {facilityLabel}
         </span>
       </div>
 
       {!company ? (
-        <p className="text-[12px] text-rose-400 font-bold">업체 정보를 불러오지 못했습니다.</p>
+        <p className="text-[13px] text-rose-400 font-bold">업체 정보를 불러오지 못했습니다.</p>
       ) : (
         <div className="space-y-3">
           <div className="rounded-xl border border-neutral-800 bg-[#131315] p-3 space-y-2">
-            <p className="text-[12px] font-black text-white flex items-center gap-1.5">
+            <p className="text-[13px] font-black text-white flex items-center gap-1.5">
               <ShieldCheck size={12} className="text-amber-500" />
               보험 가입
             </p>
-            <div className="flex items-start justify-between gap-3 text-[11px]">
+            <div className="flex items-start justify-between gap-3 text-[13px]">
               <span
                 className={`font-black px-2 py-0.5 rounded-md ${
                   insurance?.enrolled
@@ -151,7 +151,7 @@ export default function PartnerParkingProfileReadonly({ company }: { company?: C
                 href={company.insurance.certificateUrl}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex text-[11px] font-bold text-amber-400 underline-offset-2 hover:underline"
+                className="inline-flex text-[13px] font-bold text-amber-400 underline-offset-2 hover:underline"
               >
                 보험증권 보기
               </a>
@@ -159,33 +159,33 @@ export default function PartnerParkingProfileReadonly({ company }: { company?: C
           </div>
 
           <div className="rounded-xl border border-neutral-800 bg-[#131315] p-3 space-y-2">
-            <p className="text-[12px] font-black text-white">증명서류</p>
+            <p className="text-[13px] font-black text-white">증명서류</p>
             <div className="flex flex-wrap gap-2">
               {company.verificationDocuments?.businessRegistrationUrl ? (
                 <a
                   href={company.verificationDocuments.businessRegistrationUrl}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex text-[11px] font-bold text-amber-400 underline-offset-2 hover:underline"
+                  className="inline-flex text-[13px] font-bold text-amber-400 underline-offset-2 hover:underline"
                 >
                   사업자 등록증
                 </a>
               ) : (
-                <span className="text-[11px] text-white/40 font-semibold">사업자 등록증 없음</span>
+                <span className="text-[13px] text-white/40 font-semibold">사업자 등록증 없음</span>
               )}
             </div>
           </div>
 
           {lots.length === 0 ? (
-            <p className="text-[11px] text-white/50 font-semibold">등록된 주차장 없음</p>
+            <p className="text-[13px] text-white/50 font-semibold">등록된 주차장 없음</p>
           ) : (
             lots.map((lot) => <LotBlock key={lot.id} lot={lot} />)
           )}
 
           <div className="rounded-xl border border-neutral-800 bg-[#131315] p-3 space-y-2">
-            <p className="text-[12px] font-black text-white">주차장 사진</p>
+            <p className="text-[13px] font-black text-white">주차장 사진</p>
             {photos.length === 0 ? (
-              <p className="text-[11px] text-white/50 font-semibold">등록된 사진 없음</p>
+              <p className="text-[13px] text-white/50 font-semibold">등록된 사진 없음</p>
             ) : (
               <div className="flex flex-wrap gap-2">
                 {photos.map((url, i) => (
@@ -195,7 +195,7 @@ export default function PartnerParkingProfileReadonly({ company }: { company?: C
                   >
                     <img src={url} alt={`주차장 ${i + 1}`} className="w-full h-full object-cover" />
                     {i === 0 && (
-                      <span className="absolute left-1 top-1 rounded bg-amber-500 px-1 text-[8px] font-black text-neutral-950">
+                      <span className="absolute left-1 top-1 rounded bg-amber-500 px-1 text-[12px] font-black text-neutral-950">
                         대표
                       </span>
                     )}

@@ -122,7 +122,7 @@ export default function ReservationLedgerView({
   }, [reservations, from, to, basis, terminal, place, status, query, airport]);
 
   const chip = (on: boolean) =>
-    `px-2.5 py-1 rounded-lg text-[11px] font-black border ${
+    `px-2.5 py-1 rounded-lg text-[12px] font-black border ${
       on ? 'bg-amber-500 text-neutral-950 border-amber-500' : 'bg-[#1C1C1E] text-zinc-400 border-neutral-800'
     }`;
   const field =
@@ -131,8 +131,8 @@ export default function ReservationLedgerView({
   return (
     <div className="space-y-3 pb-8">
       <div className="px-1">
-        <h2 className="text-sm font-black text-white">예약 목록</h2>
-        <p className="text-[11px] text-zinc-500 font-semibold mt-0.5">
+        <h2 className="text-[15px] font-black text-white">예약 목록</h2>
+        <p className="text-[13px] text-zinc-500 font-semibold mt-0.5">
           터미널, 실내·야외, 기간, 상태, 차량번호로 거릅니다. 기사 카드는 그대로입니다.
         </p>
       </div>
@@ -140,7 +140,7 @@ export default function ReservationLedgerView({
       <div className="bg-[#1C1C1E] border border-neutral-800/60 rounded-2xl p-3 space-y-2.5">
         <div className="flex flex-wrap items-center gap-2">
           <input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className={field} aria-label="시작일" />
-          <span className="text-zinc-500 text-xs">–</span>
+          <span className="text-zinc-500 text-[13px]">–</span>
           <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className={field} aria-label="종료일" />
           <button type="button" className={chip(basis === 'intake')} onClick={() => setBasis('intake')}>
             입고일
@@ -194,11 +194,11 @@ export default function ReservationLedgerView({
         />
       </div>
 
-      <p className="px-1 text-[11px] text-zinc-500 font-bold">{rows.length}건</p>
+      <p className="px-1 text-[13px] text-zinc-500 font-bold">{rows.length}건</p>
 
       <div className="space-y-2">
         {rows.length === 0 ? (
-          <p className="px-3 py-8 text-center text-[12px] text-zinc-500 font-semibold">
+          <p className="px-3 py-8 text-center text-[13px] text-zinc-500 font-semibold">
             이 조건의 예약이 없습니다.
           </p>
         ) : (
@@ -212,11 +212,11 @@ export default function ReservationLedgerView({
                 className="w-full text-left bg-[#1C1C1E] border border-neutral-800/50 rounded-2xl px-3 py-2.5 hover:border-neutral-700"
               >
                 <div className="flex items-baseline justify-between gap-2">
-                  <span className="text-[14px] font-black text-white">{res.carNumber || '차량번호 없음'}</span>
-                  <span className="text-[11px] font-black text-amber-400">{STATUS_LABEL[code]}</span>
+                  <span className="text-[15px] font-black text-white">{res.carNumber || '차량번호 없음'}</span>
+                  <span className="text-[13px] font-black text-amber-400">{STATUS_LABEL[code]}</span>
                 </div>
-                <p className="text-[12px] text-zinc-300 mt-0.5">{res.userName || '이름 없음'}</p>
-                <p className="text-[11px] text-zinc-500 font-semibold mt-1 tabular-nums">
+                <p className="text-[13px] text-zinc-300 mt-0.5">{res.userName || '이름 없음'}</p>
+                <p className="text-[13px] text-zinc-500 font-semibold mt-1 tabular-nums">
                   입고 {shortWhen(res.departureDate, res.departureTime)}{' '}
                   {terminalShortLabel(airport, res.departureTerminal)}
                   {' · '}

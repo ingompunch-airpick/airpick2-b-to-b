@@ -522,7 +522,7 @@ export default function StatisticsView({
             const v = e.target.value;
             if (v) setHqMonthPrefix(v);
           }}
-          className="bg-transparent text-sm font-black text-amber-400 font-mono text-center min-w-[8.5rem] outline-none [color-scheme:dark]"
+          className="bg-transparent text-[15px] font-black text-amber-400 font-mono text-center min-w-[8.5rem] outline-none [color-scheme:dark]"
         />
         <button
           type="button"
@@ -551,10 +551,10 @@ export default function StatisticsView({
     return (
       <div className="min-h-screen bg-neutral-950 text-white p-4 pb-24 font-sans space-y-4 animate-fade-in">
         <div className="flex items-center justify-between px-1 select-none">
-          <h2 className="text-sm font-black tracking-tight text-white">
+          <h2 className="text-[15px] font-black tracking-tight text-white">
             에어픽 <span className="text-amber-500">본사</span>
           </h2>
-          <span className="text-xs text-zinc-500 font-mono font-bold">{todayStr}</span>
+          <span className="text-[13px] text-zinc-500 font-mono font-bold">{todayStr}</span>
         </div>
 
         <div className="flex p-1 bg-[#1C1C1E] rounded-xl border border-neutral-800/40 select-none">
@@ -563,7 +563,7 @@ export default function StatisticsView({
               key={t.id}
               type="button"
               onClick={() => setHqTab(t.id)}
-              className={`flex-1 py-2 rounded-lg text-[12.5px] font-black transition-all ${
+              className={`flex-1 py-2 rounded-lg text-[13px] font-black transition-all ${
                 hqTab === t.id
                   ? 'bg-amber-500 text-neutral-950 shadow-sm'
                   : 'text-zinc-500 hover:text-white'
@@ -587,7 +587,7 @@ export default function StatisticsView({
                   key={item.label}
                   className="bg-[#121214] border border-neutral-800/80 rounded-2xl px-4 py-3.5"
                 >
-                  <span className="text-xs text-zinc-500 font-bold block">{item.label}</span>
+                  <span className="text-[13px] text-zinc-500 font-bold block">{item.label}</span>
                   <span className="text-xl font-black text-amber-400 font-mono tracking-tight">
                     {item.value}
                   </span>
@@ -595,13 +595,13 @@ export default function StatisticsView({
               ))}
             </div>
             <div className="bg-[#121214] border border-neutral-800/80 rounded-2xl px-4 py-3.5 flex items-center justify-between">
-              <span className="text-xs text-zinc-500 font-bold">오늘 매출</span>
+              <span className="text-[13px] text-zinc-500 font-bold">오늘 매출</span>
               <span className="text-lg font-black text-white font-mono">
                 {masterTodaySales.toLocaleString()}원
               </span>
             </div>
             <div className="bg-[#121214] border border-neutral-800/80 rounded-2xl px-4 py-3 flex flex-wrap items-center gap-x-3 gap-y-1">
-              <span className="text-xs text-zinc-500 font-bold">오늘 접수</span>
+              <span className="text-[13px] text-zinc-500 font-bold">오늘 접수</span>
               {(
                 [
                   ['airpick-b2c', 'text-fuchsia-300'],
@@ -609,20 +609,20 @@ export default function StatisticsView({
                   ['b2b', 'text-amber-300'],
                 ] as const
               ).map(([key, tone]) => (
-                <span key={key} className={`text-[13px] font-black font-mono ${tone}`}>
+                <span key={key} className={`text-[14px] font-black font-mono ${tone}`}>
                   {bookingSourceLabel(key)} {hqTodaySourceMetrics[key].count}
                 </span>
               ))}
               <button
                 type="button"
                 onClick={() => setHqTab('acquisition')}
-                className="ml-auto text-xs font-black text-zinc-500 hover:text-white"
+                className="ml-auto text-[13px] font-black text-zinc-500 hover:text-white"
               >
                 유입 →
               </button>
             </div>
             {hqTodayCompanyRows.length === 0 ? (
-              <p className="px-4 py-6 text-center text-sm text-zinc-500 font-bold">
+              <p className="px-4 py-6 text-center text-[15px] text-zinc-500 font-bold">
                 등록된 입점업체가 없습니다.
               </p>
             ) : (
@@ -653,14 +653,14 @@ export default function StatisticsView({
                           {row.name}
                         </span>
                         <span
-                          className={`text-[13px] font-black font-mono shrink-0 ${
+                          className={`text-[14px] font-black font-mono shrink-0 ${
                             row.sales > 0 ? 'text-white' : 'text-zinc-600'
                           }`}
                         >
                           {row.sales.toLocaleString()}원
                         </span>
                       </button>
-                      <p className="text-xs text-zinc-500 font-bold">
+                      <p className="text-[13px] text-zinc-500 font-bold">
                         접수 앱 {row.airpick} · 홈 {row.homepage} · 현장 {row.onsite}
                       </p>
                       <div className="grid grid-cols-4 gap-1.5">
@@ -669,7 +669,7 @@ export default function StatisticsView({
                             key={m.label}
                             className="rounded-xl bg-neutral-900/80 border border-neutral-800 px-2 py-2 text-center"
                           >
-                            <span className="text-xs text-zinc-500 font-bold block">{m.label}</span>
+                            <span className="text-[13px] text-zinc-500 font-bold block">{m.label}</span>
                             <span
                               className={`text-base font-black font-mono tracking-tight ${
                                 m.value > 0 ? 'text-amber-400' : 'text-zinc-600'
@@ -683,7 +683,7 @@ export default function StatisticsView({
                       {open ? (
                         <div className="space-y-1.5 pt-1 border-t border-neutral-800">
                           {hqTodayFocusRows.length === 0 ? (
-                            <p className="text-xs text-zinc-500 font-bold py-2">
+                            <p className="text-[13px] text-zinc-500 font-bold py-2">
                               오늘 관련 예약이 없습니다.
                             </p>
                           ) : (
@@ -695,15 +695,15 @@ export default function StatisticsView({
                                 className="w-full text-left rounded-xl bg-neutral-900/70 border border-neutral-800 px-3 py-2 flex items-center justify-between gap-2"
                               >
                                 <span className="min-w-0">
-                                  <span className="text-[13px] font-black text-white block truncate">
+                                  <span className="text-[14px] font-black text-white block truncate">
                                     {r.carNumber || '—'}
                                   </span>
-                                  <span className="text-xs text-zinc-500 font-bold">
+                                  <span className="text-[13px] text-zinc-500 font-bold">
                                     {statusToLabel(r.status)} ·{' '}
                                     {(r.totalPrice || 0).toLocaleString()}원
                                   </span>
                                 </span>
-                                <span className="text-xs text-zinc-500 font-mono shrink-0">
+                                <span className="text-[13px] text-zinc-500 font-mono shrink-0">
                                   {normalizeDateString(r.departureDate).slice(5)}→
                                   {normalizeDateString(r.arrivalDate).slice(5)}
                                 </span>
@@ -723,21 +723,21 @@ export default function StatisticsView({
         {hqTab === 'month' && (
           <div className="space-y-4">
             <div className="flex items-center justify-between px-1 gap-2">
-              <h3 className="text-sm font-black text-zinc-400">합계</h3>
+              <h3 className="text-[15px] font-black text-zinc-400">합계</h3>
               {hqMonthPicker}
             </div>
 
             <div className="bg-[#121214] rounded-[22px] border border-neutral-800/80 p-4 space-y-4">
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <span className="text-xs text-zinc-500 font-bold block">입고</span>
+                  <span className="text-[13px] text-zinc-500 font-bold block">입고</span>
                   <div className="text-3xl font-black text-amber-400 font-mono tracking-tight mt-0.5">
                     {shownAdmitted == null ? '…' : shownAdmitted}
                     <span className="text-lg ml-0.5">대</span>
                   </div>
                 </div>
                 <div className="text-right">
-                  <span className="text-xs text-zinc-500 font-bold block">출고</span>
+                  <span className="text-[13px] text-zinc-500 font-bold block">출고</span>
                   <div className="text-3xl font-black text-emerald-400 font-mono tracking-tight mt-0.5">
                     {shownSettled == null ? '…' : shownSettled}
                     <span className="text-lg ml-0.5">건</span>
@@ -753,7 +753,7 @@ export default function StatisticsView({
                     : 0;
                   return (
                     <div key={key} className="flex items-center gap-2">
-                      <span className="shrink-0 text-xs text-zinc-400 font-bold w-12">
+                      <span className="shrink-0 text-[13px] text-zinc-400 font-bold w-12">
                         {label}
                       </span>
                       <div className="flex-1 min-w-0">
@@ -766,10 +766,10 @@ export default function StatisticsView({
                           />
                         </div>
                       </div>
-                      <span className="text-xs text-zinc-400 font-mono w-10 text-right shrink-0">
+                      <span className="text-[13px] text-zinc-400 font-mono w-10 text-right shrink-0">
                         {count}대
                       </span>
-                      <span className="text-xs text-zinc-300 font-bold font-mono w-[4.5rem] text-right shrink-0">
+                      <span className="text-[13px] text-zinc-300 font-bold font-mono w-[4.5rem] text-right shrink-0">
                         {pct}%
                       </span>
                     </div>
@@ -780,7 +780,7 @@ export default function StatisticsView({
 
             <div className="space-y-2.5">
               {shownCompanyRows.length === 0 ? (
-                <p className="px-4 py-6 text-center text-sm text-zinc-500 font-bold">
+                <p className="px-4 py-6 text-center text-[15px] text-zinc-500 font-bold">
                   {pastLoading ? '…' : '등록된 입점업체가 없습니다.'}
                 </p>
               ) : (
@@ -805,7 +805,7 @@ export default function StatisticsView({
                           {row.name}
                         </span>
                         <div className="text-right shrink-0">
-                          <span className="text-xs text-emerald-500/80 font-bold block">
+                          <span className="text-[13px] text-emerald-500/80 font-bold block">
                             출고
                           </span>
                           <span
@@ -814,12 +814,12 @@ export default function StatisticsView({
                             }`}
                           >
                             {row.settled}
-                            <span className="text-xs font-bold ml-0.5">건</span>
+                            <span className="text-[13px] font-bold ml-0.5">건</span>
                           </span>
                         </div>
                       </div>
                       {showMix ? (
-                        <p className="text-xs font-bold text-zinc-400">
+                        <p className="text-[13px] font-bold text-zinc-400">
                           신규{' '}
                           <span className="text-sky-300 font-mono">{newC}</span>
                           {' · '}
@@ -839,7 +839,7 @@ export default function StatisticsView({
                             key={m.label}
                             className="rounded-xl bg-neutral-900/80 border border-neutral-800 px-2 py-2 text-center"
                           >
-                            <span className="text-xs text-zinc-500 font-bold block">{m.label}</span>
+                            <span className="text-[13px] text-zinc-500 font-bold block">{m.label}</span>
                             <span
                               className={`text-base font-black font-mono tracking-tight ${
                                 m.value > 0 ? m.tone : 'text-zinc-600'
@@ -863,7 +863,7 @@ export default function StatisticsView({
             >
               <div className="flex items-center justify-between gap-3">
                 <div>
-                  <p className="text-sm font-black text-fuchsia-300 tracking-wider">B2C 수수료 정산</p>
+                  <p className="text-[15px] font-black text-fuchsia-300 tracking-wider">B2C 수수료 정산</p>
                 </div>
                 <div className="text-right shrink-0">
                   <span className="text-lg font-black text-fuchsia-200 font-mono block">
@@ -871,7 +871,7 @@ export default function StatisticsView({
                       ? '—'
                       : `${hqCommissionSum.commissionWon.toLocaleString()}원`}
                   </span>
-                  <span className="text-xs text-zinc-500 font-bold">
+                  <span className="text-[13px] text-zinc-500 font-bold">
                     {hqCommissionSum.count}건 · 정산 →
                   </span>
                 </div>
@@ -1020,14 +1020,14 @@ export default function StatisticsView({
           <ShieldCheck size={20} />
         </div>
         <div>
-          <h2 className="text-sm font-black tracking-tight text-white">{companyName} 매장 대시보드</h2>
+          <h2 className="text-[15px] font-black tracking-tight text-white">{companyName} 매장 대시보드</h2>
         </div>
       </div>
 
       {/* 💳 Sales Statistics Card */}
       <div className="bg-gradient-to-br from-[#121214] via-[#121214] to-[#1C1C1F] p-4.5 rounded-[22px] border border-neutral-800/80 shadow-lg space-y-4">
         <div className="flex items-center justify-between">
-          <span className="text-[12.5px] font-black text-zinc-400 tracking-wider flex items-center gap-1.5">
+          <span className="text-[13px] font-black text-zinc-400 tracking-wider flex items-center gap-1.5">
             <Coins size={14} className="text-amber-500" />
             매출 통계
           </span>
@@ -1048,7 +1048,7 @@ export default function StatisticsView({
                 const v = e.target.value;
                 if (v && v <= summaryMonthMax) setSummaryMonthPrefix(v);
               }}
-              className="bg-transparent text-xs font-black text-amber-400 font-mono text-center min-w-[7rem] outline-none [color-scheme:dark]"
+              className="bg-transparent text-[13px] font-black text-amber-400 font-mono text-center min-w-[7rem] outline-none [color-scheme:dark]"
               aria-label="매출 조회 월"
             />
             <button
@@ -1067,7 +1067,7 @@ export default function StatisticsView({
           {salesMonthIsNow && (
             <>
               <div>
-                <span className="text-[13px] text-[#8E8E93] font-bold block mb-0.5">오늘 매출 · 입고일</span>
+                <span className="text-[14px] text-[#8E8E93] font-bold block mb-0.5">오늘 매출 · 입고일</span>
                 <div className="text-2xl font-black text-amber-400 tracking-tight font-mono">
                   {todaySales.toLocaleString()}원
                 </div>
@@ -1076,9 +1076,9 @@ export default function StatisticsView({
             </>
           )}
 
-          <div className="flex justify-between items-center text-xs font-mono">
+          <div className="flex justify-between items-center text-[13px] font-mono">
             <div>
-              <span className="text-[13px] text-[#8E8E93] font-bold block mb-0.5">
+              <span className="text-[14px] text-[#8E8E93] font-bold block mb-0.5">
                 {monthLabelFromPrefix(summaryMonthPrefix)} 누적
                 {salesMonthIsNow ? ' · 오늘까지' : ''}
               </span>
@@ -1091,7 +1091,7 @@ export default function StatisticsView({
           {partnerMix && partnerMix.newCustomers + partnerMix.returningCustomers > 0 ? (
             <>
               <div className="h-px bg-neutral-800/40" />
-              <p className="text-[13px] font-bold text-zinc-400">
+              <p className="text-[14px] font-bold text-zinc-400">
                 신규{' '}
                 <span className="text-sky-300 font-mono">{partnerMix.newCustomers}</span>
                 {' · '}
@@ -1114,7 +1114,7 @@ export default function StatisticsView({
           <div className="h-px bg-neutral-800/40" />
 
           <div className="space-y-3">
-            <span className="text-[13px] text-[#8E8E93] font-bold block">유입별</span>
+            <span className="text-[14px] text-[#8E8E93] font-bold block">유입별</span>
             {(salesMonthIsNow ? ['today', 'month'] as const : ['month'] as const).map((period) => {
               const snapReady = period === 'month' && pastCompanySnap?.status === 'ready';
               const otherCount = snapReady
@@ -1146,7 +1146,7 @@ export default function StatisticsView({
                   : `${monthNum}월 전체`;
               return (
                 <div key={period} className="space-y-2">
-                  <div className="text-xs">
+                  <div className="text-[13px]">
                     <span className="text-zinc-500 font-bold">{title}</span>
                   </div>
                   <div className="space-y-1.5">
@@ -1172,10 +1172,10 @@ export default function StatisticsView({
                               />
                             </div>
                           </div>
-                          <span className="text-xs text-zinc-400 font-mono shrink-0 w-16 text-right">
+                          <span className="text-[13px] text-zinc-400 font-mono shrink-0 w-16 text-right">
                             {count}건
                           </span>
-                          <span className="text-xs text-zinc-200 font-bold font-mono shrink-0 w-20 text-right">
+                          <span className="text-[13px] text-zinc-200 font-bold font-mono shrink-0 w-20 text-right">
                             {mixedSources ? '' : `${revenue.toLocaleString()}원`}
                           </span>
                         </div>
@@ -1229,7 +1229,7 @@ export default function StatisticsView({
 
         return (
           <div className="space-y-3 pt-1 border-t border-neutral-800/60">
-            <h3 className="px-0.5 text-[12.5px] text-zinc-400 font-black tracking-wider flex items-center gap-1.5">
+            <h3 className="px-0.5 text-[13px] text-zinc-400 font-black tracking-wider flex items-center gap-1.5">
               <ClipboardList size={13} className="text-amber-500" />
               주차접수 현황
             </h3>
@@ -1250,7 +1250,7 @@ export default function StatisticsView({
                 placeholder="차량번호 또는 고객명 검색…"
                 value={crmSearch}
                 onChange={(e) => setCrmSearch(e.target.value)}
-                className="w-full bg-[#1C1C1E] border border-neutral-800/60 text-xs rounded-xl pl-9 pr-4 py-2.5 text-white placeholder-zinc-500 outline-none focus:border-amber-500/80 transition-all font-semibold"
+                className="w-full bg-[#1C1C1E] border border-neutral-800/60 text-[13px] rounded-xl pl-9 pr-4 py-2.5 text-white placeholder-zinc-500 outline-none focus:border-amber-500/80 transition-all font-semibold"
               />
             </div>
 
@@ -1265,12 +1265,12 @@ export default function StatisticsView({
                   key={key}
                   type="button"
                   onClick={() => { setCrmTab(key); setCrmSearch(''); }}
-                  className={`py-2 rounded-lg text-[12px] font-bold transition-all flex flex-col items-center gap-0.5 leading-tight ${
+                  className={`py-2 rounded-lg text-[13px] font-bold transition-all flex flex-col items-center gap-0.5 leading-tight ${
                     crmTab === key && !crmSearch ? color + ' shadow-sm' : 'text-zinc-400 hover:text-white hover:bg-neutral-800/40'
                   }`}
                 >
                   <span>{label}</span>
-                  <span className="text-[10.5px] font-mono font-extrabold">{count}건</span>
+                  <span className="text-[13px] font-mono font-extrabold">{count}건</span>
                 </button>
               ))}
             </div>
@@ -1279,7 +1279,7 @@ export default function StatisticsView({
             {crmFiltered.length === 0 ? (
               <div className="text-center py-8 bg-[#1C1C1E] rounded-2xl border border-neutral-850">
                 <ShieldAlert size={24} className="mx-auto text-zinc-600 mb-2" />
-                <p className="text-xs text-zinc-500 font-bold">해당 조건의 접수 내역이 없습니다.</p>
+                <p className="text-[13px] text-zinc-500 font-bold">해당 조건의 접수 내역이 없습니다.</p>
               </div>
             ) : (
               <div className="space-y-2.5">
@@ -1310,8 +1310,8 @@ export default function StatisticsView({
                     >
                       <div className="flex justify-between items-center">
                         <div className="flex items-center gap-2 min-w-0">
-                          <span className="text-xs font-black text-white font-mono">{res.carNumber}</span>
-                          <span className="text-[12px] text-zinc-500 truncate">{res.carModel}</span>
+                          <span className="text-[13px] font-black text-white font-mono">{res.carNumber}</span>
+                          <span className="text-[13px] text-zinc-500 truncate">{res.carModel}</span>
                           <CustomerVisitBadge reservation={res} pool={visitOrdinalPool} />
                           {(() => {
                             const grouped = toGroupedBookingSource(resolveBookingSourceFromReservation(res));
@@ -1330,7 +1330,7 @@ export default function StatisticsView({
                       {operatorBrandLabel ? (
                         <MetaField label="업체" value={operatorBrandLabel} />
                       ) : null}
-                      <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[13px]">
+                      <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[14px]">
                         <div className="text-zinc-500">입고: <span className="text-zinc-300 font-mono">{res.departureDate} {res.departureTime}</span></div>
                         <div className="text-zinc-500">주차: <span className="text-zinc-300 font-mono">{space}</span></div>
                         <div className="text-zinc-500">고객: <span className="text-zinc-300">{res.userName}</span></div>
@@ -1348,7 +1348,7 @@ export default function StatisticsView({
       {/* 📊 월별 흐름 */}
       <div className="space-y-3 pt-1 border-t border-neutral-800/60">
         <div className="flex items-center justify-between gap-2 px-1 select-none">
-          <h3 className="text-[12.5px] text-zinc-400 font-extrabold tracking-wider uppercase shrink-0">
+          <h3 className="text-[13px] text-zinc-400 font-extrabold tracking-wider uppercase shrink-0">
             입·출차 요약
           </h3>
           <div className="flex items-center gap-1 bg-[#1C1C1E] border border-neutral-800/50 rounded-xl p-1">
@@ -1368,7 +1368,7 @@ export default function StatisticsView({
                 const v = e.target.value;
                 if (v && v <= summaryMonthMax) setSummaryMonthPrefix(v);
               }}
-              className="bg-transparent text-xs font-black text-amber-400 font-mono text-center min-w-[7.5rem] outline-none [color-scheme:dark]"
+              className="bg-transparent text-[13px] font-black text-amber-400 font-mono text-center min-w-[7.5rem] outline-none [color-scheme:dark]"
               aria-label="조회 월"
             />
             <button
@@ -1387,7 +1387,7 @@ export default function StatisticsView({
 
         <div className="space-y-2.5">
           <div className="flex items-center justify-between px-1 select-none">
-            <p className="text-xs text-zinc-500 font-bold">
+            <p className="text-[13px] text-zinc-500 font-bold">
               {monthLabelFromPrefix(summaryMonthPrefix)}
             </p>
           </div>
@@ -1395,27 +1395,27 @@ export default function StatisticsView({
           {/* 현재 재차(주차 중) + 월 요약 */}
           <div className="grid grid-cols-4 gap-2 select-none">
             <div className="col-span-1 bg-[#1C1C1E] border border-neutral-800/40 rounded-2xl p-3 flex flex-col justify-center">
-              <span className="text-xs text-zinc-500 font-bold tracking-wider leading-tight">주차 중</span>
+              <span className="text-[13px] text-zinc-500 font-bold tracking-wider leading-tight">주차 중</span>
               <span className="text-xl font-black text-white font-mono leading-none mt-1">
-                {parkedNow}<span className="text-[13px] ml-0.5">대</span>
+                {parkedNow}<span className="text-[14px] ml-0.5">대</span>
               </span>
             </div>
             <div className="col-span-3 bg-[#1C1C1E] border border-neutral-800/40 rounded-2xl p-3 grid grid-cols-4 gap-1 items-center">
               <div className="text-center">
-                <span className="text-xs text-zinc-500 font-bold block tracking-wider leading-tight">예약</span>
-                <span className="text-sm font-black text-white font-mono">{shownMonthReserved}</span>
+                <span className="text-[13px] text-zinc-500 font-bold block tracking-wider leading-tight">예약</span>
+                <span className="text-[15px] font-black text-white font-mono">{shownMonthReserved}</span>
               </div>
               <div className="text-center border-l border-neutral-800/60">
-                <span className="text-xs text-zinc-500 font-bold block tracking-wider leading-tight">입고</span>
-                <span className="text-sm font-black text-white font-mono">{shownMonthAdmitted}</span>
+                <span className="text-[13px] text-zinc-500 font-bold block tracking-wider leading-tight">입고</span>
+                <span className="text-[15px] font-black text-white font-mono">{shownMonthAdmitted}</span>
               </div>
               <div className="text-center border-l border-neutral-800/60">
-                <span className="text-xs text-zinc-500 font-bold block tracking-wider leading-tight">출고</span>
-                <span className="text-sm font-black text-white font-mono">{shownMonthExited}</span>
+                <span className="text-[13px] text-zinc-500 font-bold block tracking-wider leading-tight">출고</span>
+                <span className="text-[15px] font-black text-white font-mono">{shownMonthExited}</span>
               </div>
               <div className="text-center border-l border-neutral-800/60">
-                <span className="text-xs text-zinc-500 font-bold block tracking-wider leading-tight">취소</span>
-                <span className="text-sm font-black text-rose-400 font-mono">{shownMonthCancelled}</span>
+                <span className="text-[13px] text-zinc-500 font-bold block tracking-wider leading-tight">취소</span>
+                <span className="text-[15px] font-black text-rose-400 font-mono">{shownMonthCancelled}</span>
               </div>
             </div>
           </div>

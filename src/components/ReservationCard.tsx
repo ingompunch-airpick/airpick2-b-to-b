@@ -252,7 +252,7 @@ export default function ReservationCard({
               {showAsExitSchedule ? res.arrivalTime : res.departureTime}
             </span>
             {flightDelayBadge && (
-              <span className="text-[13px] font-semibold leading-none text-orange-400 tabular-nums">
+              <span className="text-[14px] font-semibold leading-none text-orange-400 tabular-nums">
                 {flightDelayBadge.label === '결항'
                   ? '결항'
                   : flightDelayBadge.delayMinutes > 0
@@ -262,7 +262,7 @@ export default function ReservationCard({
             )}
           </div>
           {operatorBrandLabel ? (
-            <MetaField label="업체" value={operatorBrandLabel} className="text-[12px]" />
+            <MetaField label="업체" value={operatorBrandLabel} className="text-[13px]" />
           ) : null}
         </div>
       </div>
@@ -271,7 +271,7 @@ export default function ReservationCard({
       <div className="flex flex-col justify-center items-end gap-1.5 shrink-0 self-stretch">
         {!isAdminModeActive && (
           isExitScheduleNotAdmitted ? (
-            <span className="text-sm font-semibold text-zinc-400 tracking-tight leading-none select-none px-1">
+            <span className="text-[15px] font-semibold text-zinc-400 tracking-tight leading-none select-none px-1">
               미입고
             </span>
           ) : (
@@ -355,16 +355,16 @@ export default function ReservationCard({
           'flex items-baseline justify-end gap-1.5 min-w-0',
           isExitScheduleNotAdmitted && 'opacity-40'
         )}>
-          <span className="text-[11px] sm:text-toss-label tabular-nums text-[var(--color-toss-fg-muted)] shrink-0 text-right">
+          <span className="text-[13px] sm:text-toss-label tabular-nums text-[var(--color-toss-fg-muted)] shrink-0 text-right">
             {res.totalPrice?.toLocaleString()}원
             {(res.pointSpentWon ?? 0) > 0 ? (
-              <span className="mt-0.5 block text-[10px] font-bold text-amber-700">
+              <span className="mt-0.5 block text-[13px] font-bold text-amber-700">
                 포인트 {res.pointSpentWon?.toLocaleString()}원 차감
               </span>
             ) : null}
             {res.priceCheck?.ok === false ? (
               <span
-                className="mt-0.5 block text-[10px] font-bold text-[var(--color-toss-fg-muted)]"
+                className="mt-0.5 block text-[13px] font-bold text-[var(--color-toss-fg-muted)]"
                 title={(res.priceCheck.issues || []).join('\n')}
               >
                 {res.priceCheck.expectedCoreWon

@@ -129,12 +129,12 @@ export default function HqReviewsView({
             </div>
             <div>
               <div className="flex items-center gap-2">
-                <h2 className="text-sm font-black tracking-tight text-white">후기 관리</h2>
+                <h2 className="text-[15px] font-black tracking-tight text-white">후기 관리</h2>
                 <span className="text-[12px] bg-amber-500/10 text-amber-500 border border-amber-500/20 px-2 py-0.5 rounded-lg font-black">
                   본사
                 </span>
               </div>
-              <p className="text-[12px] text-zinc-500 mt-0.5">
+              <p className="text-[13px] text-zinc-500 mt-0.5">
                 게시·숨김 후기를 확인하고 숨기거나 삭제합니다.
               </p>
             </div>
@@ -178,7 +178,7 @@ export default function HqReviewsView({
           <select
             value={companyFilter}
             onChange={(e) => setCompanyFilter(e.target.value)}
-            className="rounded-2xl border border-neutral-800 bg-[#1C1C1E] px-3 py-2.5 text-sm text-white outline-none"
+            className="rounded-2xl border border-neutral-800 bg-[#1C1C1E] px-3 py-2.5 text-[15px] text-white outline-none"
           >
             <option value="all">전체 업체</option>
             {companyOptions.map((c) => (
@@ -190,7 +190,7 @@ export default function HqReviewsView({
           <select
             value={ratingFilter}
             onChange={(e) => setRatingFilter(Number(e.target.value) || 0)}
-            className="rounded-2xl border border-neutral-800 bg-[#1C1C1E] px-3 py-2.5 text-sm text-white outline-none"
+            className="rounded-2xl border border-neutral-800 bg-[#1C1C1E] px-3 py-2.5 text-[15px] text-white outline-none"
           >
             <option value={0}>별점 전체</option>
             {[5, 4, 3, 2, 1].map((n) => (
@@ -203,18 +203,18 @@ export default function HqReviewsView({
       </div>
 
       {error && (
-        <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-3 py-2.5 text-[12px] font-bold text-rose-300">
+        <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-3 py-2.5 text-[13px] font-bold text-rose-300">
           {error}
         </div>
       )}
 
       {loading ? (
-        <div className="flex items-center justify-center gap-2 py-16 text-zinc-500 text-sm font-bold">
+        <div className="flex items-center justify-center gap-2 py-16 text-zinc-500 text-[15px] font-bold">
           <Loader2 size={16} className="animate-spin" />
           불러오는 중…
         </div>
       ) : visible.length === 0 ? (
-        <div className="rounded-[22px] border border-neutral-800 bg-[#1C1C1E] px-4 py-10 text-center text-sm text-zinc-500 font-bold">
+        <div className="rounded-[22px] border border-neutral-800 bg-[#1C1C1E] px-4 py-10 text-center text-[15px] text-zinc-500 font-bold">
           조건에 맞는 후기가 없습니다.
         </div>
       ) : (
@@ -230,20 +230,20 @@ export default function HqReviewsView({
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="flex flex-wrap items-center gap-1.5">
-                      <span className="inline-flex items-center gap-0.5 text-amber-400 font-black text-sm">
+                      <span className="inline-flex items-center gap-0.5 text-amber-400 font-black text-[15px]">
                         <Star size={13} className="fill-amber-400" />
                         {review.rating}
                       </span>
-                      <span className="text-sm font-black text-white truncate">
+                      <span className="text-[15px] font-black text-white truncate">
                         {review.companyName || review.companyId || '업체미상'}
                       </span>
                       {hidden && (
-                        <span className="text-[11px] font-black px-1.5 py-0.5 rounded-md bg-zinc-500/20 text-zinc-300 border border-zinc-500/30">
+                        <span className="text-[12px] font-black px-1.5 py-0.5 rounded-md bg-zinc-500/20 text-zinc-300 border border-zinc-500/30">
                           숨김
                         </span>
                       )}
                     </div>
-                    <p className="text-[12px] text-zinc-500 mt-0.5">
+                    <p className="text-[13px] text-zinc-500 mt-0.5">
                       {review.authorMask}
                       {review.carMask ? ` · ${review.carMask}` : ''}
                       {' · '}
@@ -253,11 +253,11 @@ export default function HqReviewsView({
                 </div>
 
                 {review.body ? (
-                  <p className="text-[13px] text-zinc-200 leading-relaxed whitespace-pre-wrap">
+                  <p className="text-[14px] text-zinc-200 leading-relaxed whitespace-pre-wrap">
                     {review.body}
                   </p>
                 ) : (
-                  <p className="text-[12px] text-zinc-600 font-bold">본문 없음</p>
+                  <p className="text-[13px] text-zinc-600 font-bold">본문 없음</p>
                 )}
 
                 {review.photoUrls && review.photoUrls.length > 0 && (
@@ -277,7 +277,7 @@ export default function HqReviewsView({
                 )}
 
                 <div className="flex flex-wrap items-center gap-2 pt-1">
-                  <p className="text-[11px] text-zinc-600 font-mono mr-auto truncate max-w-[50%]">
+                  <p className="text-[13px] text-zinc-600 font-mono mr-auto truncate max-w-[50%]">
                     {review.reservationId}
                   </p>
                   {!hidden && (
@@ -285,7 +285,7 @@ export default function HqReviewsView({
                       type="button"
                       disabled={busy}
                       onClick={() => void runModerate(review.id, 'hide')}
-                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-zinc-600 bg-neutral-900 text-[11px] font-black text-zinc-200 disabled:opacity-50"
+                      className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-zinc-600 bg-neutral-900 text-[12px] font-black text-zinc-200 disabled:opacity-50"
                     >
                       <EyeOff size={12} />
                       숨김
@@ -295,7 +295,7 @@ export default function HqReviewsView({
                     type="button"
                     disabled={busy}
                     onClick={() => void runModerate(review.id, 'delete')}
-                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-rose-500/40 bg-rose-500/10 text-[11px] font-black text-rose-300 disabled:opacity-50"
+                    className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-rose-500/40 bg-rose-500/10 text-[12px] font-black text-rose-300 disabled:opacity-50"
                   >
                     <Trash2 size={12} />
                     삭제
