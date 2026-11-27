@@ -10,6 +10,7 @@ import {
   type InboxDocResult,
 } from '../lib/documentImportApi';
 import { isAirpickHeadquarters } from '../constants/platform';
+import { useFileDropPaste } from '../hooks/useFileDropPaste';
 
 /**
  * 본사 「주차 업체 → 서류함」 — 업체 상관없이 서류를 넣으면
@@ -55,7 +56,7 @@ export default function HqDocumentInbox({ companies }: { companies: Company[] })
   );
   const nameOf = (id: string) => companyOptions.find((c) => c.id === id)?.name || id;
 
-  const pick = async (list: FileList | null) => {
+  const pick = async (list: FileList | File[] | null) => {
     const files = Array.from(list || []);
     if (!files.length) return;
     setError('');
@@ -97,6 +98,8 @@ export default function HqDocumentInbox({ companies }: { companies: Company[] })
       if (inputRef.current) inputRef.current.value = '';
     }
   };
+
+  const { dragging, dropProps } = useFileDropPaste((files) => void pick(files), !busy && !applying);
 
   const update = (path: string, patch: Partial<DocState>) =>
     setState((prev) => ({ ...prev, [path]: { ...prev[path], ...patch } }));
@@ -157,7 +160,7 @@ export default function HqDocumentInbox({ companies }: { companies: Company[] })
   };
 
   return (
-    <div className="px-4 pt-4 pb-24 space-y-4">
+    <div className="px-4 pt-4 pb-24 space-y-4" {...dropProps}>
       <div>
         <h3 className="text-[17px] font-black text-white">서류함</h3>
         <p className="mt-1 text-[15px] font-semibold leading-relaxed text-zinc-400">
@@ -178,10 +181,22 @@ export default function HqDocumentInbox({ companies }: { companies: Company[] })
         type="button"
         disabled={busy || applying}
         onClick={() => inputRef.current?.click()}
-        className="flex w-full items-center justify-center gap-2 rounded-2xl bg-amber-500 py-4 text-[16px] font-black text-neutral-950 disabled:opacity-50"
+        className={cn(
+          'flex w-full flex-col items-center justify-center gap-1.5 rounded-2xl border-2 border-dashed py-8 disabled:opacity-50',
+          dragging
+            ? 'border-amber-400 bg-amber-500/15 text-amber-200'
+            : 'border-neutral-700 bg-neutral-950 text-zinc-200 hover:border-amber-500/60'
+        )}
       >
-        {busy ? <Loader2 size={18} className="animate-spin" aria-hidden /> : <FileUp size={18} aria-hidden />}
-        {busy ? '읽는 중… 장당 10초쯤 걸려요' : `서류 넣기 (사진·PDF ${MAX_IMPORT_FILES}장까지)`}
+        {busy ? <Loader2 size={22} className="animate-spin" aria-hidden /> : <FileUp size={22} aria-hidden />}
+        <span className="text-[16px] font-black">
+          {busy ? '읽는 중… 장당 10초쯤 걸려요' : dragging ? '여기에 놓으세요' : '서류를 끌어다 놓거나 눌러서 고르기'}
+        </span>
+        {!busy ? (
+          <span className="text-[14px] font-semibold text-zinc-500">
+            캡처한 사진은 ⌘V(Ctrl+V)로 붙여넣어도 돼요 · 사진·PDF {MAX_IMPORT_FILES}장까지
+          </span>
+        ) : null}
       </button>
 
       {error ? (

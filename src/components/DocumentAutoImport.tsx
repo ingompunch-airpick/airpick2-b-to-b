@@ -6,6 +6,7 @@ import {
   MAX_IMPORT_FILES,
   type ImportedDocResult,
 } from '../lib/documentImportApi';
+import { useFileDropPaste } from '../hooks/useFileDropPaste';
 
 /**
  * 「서류 한 번에 올리기」 — 사업자등록증·보험증권을 섞어 올리면 서버가 종류를 나누고 값을 읽는다.
@@ -45,7 +46,7 @@ export default function DocumentAutoImport({
   const id = String(companyId || '').trim().toLowerCase();
   const ready = /^[a-z0-9_]{1,64}$/.test(id);
 
-  const pick = async (list: FileList | null) => {
+  const pick = async (list: FileList | File[] | null) => {
     const files = Array.from(list || []);
     if (!files.length) return;
     setError('');
@@ -65,6 +66,9 @@ export default function DocumentAutoImport({
       if (inputRef.current) inputRef.current.value = '';
     }
   };
+
+  // 끌어다 놓기 · 캡처 사진 붙여넣기(⌘V)
+  const { dragging, dropProps } = useFileDropPaste((files) => void pick(files), ready && !busy);
 
   const apply = (r: ImportedDocResult) => {
     const cur = profileRef.current;
@@ -103,7 +107,7 @@ export default function DocumentAutoImport({
     : 'bg-indigo-600 text-white disabled:opacity-40';
 
   return (
-    <div className={box}>
+    <div className={cn(box, dragging && 'ring-2 ring-amber-400')} {...dropProps}>
       <div>
         <p className={cn('text-[15px] font-black', strong)}>서류 한 번에 올리기</p>
         <p className={cn('mt-0.5 text-[13px] font-medium leading-snug', muted)}>
@@ -127,7 +131,7 @@ export default function DocumentAutoImport({
         className={cn('flex w-full items-center justify-center gap-2 rounded-xl py-3 text-[15px] font-black', btn)}
       >
         {busy ? <Loader2 size={16} className="animate-spin" aria-hidden /> : <FileUp size={16} aria-hidden />}
-        {busy ? '읽는 중… 장당 10초쯤 걸려요' : '서류 고르기'}
+        {busy ? '읽는 중… 장당 10초쯤 걸려요' : dragging ? '여기에 놓으세요' : '서류 고르기 · 끌어다 놓기'}
       </button>
       {!ready ? (
         <p className={cn('text-[13px] font-medium', muted)}>업체 아이디를 먼저 정하면 쓸 수 있어요.</p>
