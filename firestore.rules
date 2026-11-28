@@ -659,6 +659,26 @@ service cloud.firestore {
       allow create, update, delete: if false;
     }
 
+    // ── 운영 점수 (Functions updatePartnerScoresDaily 만 씀) ───────────────
+    // 업체별 점수·부족한 예약. 다른 업체 점수는 보이지 않는다.
+    match /partnerScores/{companyId}/months/{monthId} {
+      allow read: if monthId.matches('^[0-9]{4}-[0-9]{2}$')
+        && (isPlatformAdmin() || partnerCanAccessCompany(companyId));
+      allow write: if false;
+    }
+
+    // 전체 업체 순위 — 본사만
+    match /partnerScoreMonths/{monthId} {
+      allow read: if isPlatformAdmin() && monthId.matches('^[0-9]{4}-[0-9]{2}$');
+      allow write: if false;
+    }
+
+    // 손님 「추천순」 가중치·배지 — 점수는 넣지 않는다
+    match /partnerExposure/{docId} {
+      allow read: if true;
+      allow write: if false;
+    }
+
     // ── appConfig (본사 설정) ────────────────────────────────────────────
     match /appConfig/{configId} {
       allow get: if isSignedIn();

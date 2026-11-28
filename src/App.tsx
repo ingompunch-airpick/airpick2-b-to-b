@@ -725,7 +725,7 @@ export default function App() {
 
       {/* 3. Core Workspace Content Switcher - Dynamically widened for Timeline & Dashboards */}
       {(() => {
-        const isWideView = ['timeline', 'statistics', 'cancelled_list', 'master_settings', 'dispatch_board', 'reservation_ledger', 'service_history', 'parking_departure', 'payment_change', 'acquisition_funnel', 'affiliate_admin', 'hq_partner_board', 'hq_reviews', 'hq_customers', 'hq_partner_applications'].includes(currentView);
+        const isWideView = ['timeline', 'statistics', 'cancelled_list', 'master_settings', 'dispatch_board', 'reservation_ledger', 'service_history', 'parking_departure', 'payment_change', 'acquisition_funnel', 'affiliate_admin', 'hq_partner_board', 'hq_reviews', 'hq_customers', 'hq_partner_applications', 'ops_score'].includes(currentView);
         // 본사 주차 업체 표·입점 신청함은 PC에서 넓게 (2026-11-14)
         const isHqWideView =
           isAirpickHeadquarters(currentCompanyId) &&

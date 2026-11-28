@@ -19,6 +19,7 @@ import {
   UserPlus,
   ChevronRight,
   Inbox,
+  Gauge,
 } from 'lucide-react';
 import { AppView } from '../types';
 import { isAirpickHeadquarters } from '../constants/platform';
@@ -118,6 +119,7 @@ export default function Sidebar({
           items: [
             { id: 'admin_statistics', label: '대시보드', icon: TrendingUp, view: 'statistics' },
             { id: 'admin_master_settings', label: '주차 업체', icon: Building2, view: 'master_settings' },
+            { id: 'admin_ops_score', label: '운영 점수', icon: Gauge, view: 'ops_score' },
             {
               id: 'admin_partner_applications',
               label: '입점 신청',
@@ -144,6 +146,7 @@ export default function Sidebar({
             { id: 'admin_statistics', label: '대시보드', icon: TrendingUp, view: 'statistics' },
             { id: 'admin_dispatch_board', label: '입출차 배차표', icon: ClipboardList, view: 'dispatch_board' },
             { id: 'admin_reservation_ledger', label: '예약 목록', icon: ListFilter, view: 'reservation_ledger' },
+            { id: 'admin_ops_score', label: '에어픽 운영 점수', icon: Gauge, view: 'ops_score' },
             { id: 'admin_master_settings', label: '업체 정보 설정', icon: Settings, view: 'master_settings' },
           ],
         },

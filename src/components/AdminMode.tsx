@@ -10,6 +10,7 @@ import HqReviewsView from './HqReviewsView';
 import HqCustomersView from './HqCustomersView';
 import AffiliateAdminView from './AffiliateAdminView';
 import HqPartnerApplicationsView from './HqPartnerApplicationsView';
+import OpsScoreView from './OpsScoreView';
 import { isAirpickHeadquarters } from '../constants/platform';
 
 interface AdminModeProps {
@@ -186,6 +187,17 @@ export default function AdminMode({
           companies={companies}
           currentCompanyId={currentCompanyId}
           onEditReservation={onEditReservation}
+        />
+      );
+
+    case 'ops_score':
+      return (
+        <OpsScoreView
+          companies={companies}
+          currentCompanyId={currentCompanyId}
+          isHq={isSuperAdmin && isAirpickHeadquarters(currentCompanyId)}
+          reservations={allReservations.length > 0 ? allReservations : reservations}
+          onOpenReservation={onEditReservation}
         />
       );
 

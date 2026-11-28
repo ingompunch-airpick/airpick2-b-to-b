@@ -13,6 +13,7 @@ export const ADMIN_ONLY_VIEWS: AppView[] = [
   'master_settings',
   'dispatch_board',
   'reservation_ledger',
+  'ops_score',
 ];
 /** 기사 모드 전용 화면 — 관리자 모드에서 진입 시 statistics로 보냄 */
 export const DRIVER_ONLY_VIEWS: AppView[] = [
@@ -28,6 +29,7 @@ export const DRIVER_ONLY_VIEWS: AppView[] = [
 export const HQ_ADMIN_VIEWS: AppView[] = [
   'statistics',
   'master_settings',
+  'ops_score',
   'hq_reviews',
   'hq_customers',
   'acquisition_funnel',

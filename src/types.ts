@@ -601,6 +601,8 @@ export type AppView =
   | 'reservation_ledger'
   /** @deprecated 「② 주차 업체」로 통합 — master_settings 로 리다이렉트 */
   | 'hq_partner_board'
+  /** 에어픽 운영 점수 — 업체: 자기 점수 · 본사: 전체 순위 */
+  | 'ops_score'
   /** 본사 · 후기 숨김/삭제 */
   | 'hq_reviews'
   /** 본사 · 고객 전화 조회 */

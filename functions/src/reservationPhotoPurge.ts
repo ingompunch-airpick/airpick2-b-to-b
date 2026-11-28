@@ -1,5 +1,6 @@
 import * as admin from 'firebase-admin';
 import { checkoutPhotosDue } from './retention';
+import { countReservationPhotos } from './partnerScore/run';
 
 const MEDIA_FOLDERS = new Set(['images', 'scratch']);
 
@@ -49,7 +50,10 @@ export async function purgeCheckoutPhotos(
         orphans += 1;
         continue;
       }
+      // 운영 점수(입고 사진 4장)는 사진을 지운 뒤에도 장수로 본다
+      const photoCount = countReservationPhotos((snap.data() || {}) as Record<string, unknown>);
       await snap.ref.update({
+        ...(photoCount > 0 ? { photoCountAtPurge: photoCount } : {}),
         images: admin.firestore.FieldValue.delete(),
         scratchPhotos: admin.firestore.FieldValue.delete(),
         photosPurgedAt: new Date(nowMs).toISOString(),
