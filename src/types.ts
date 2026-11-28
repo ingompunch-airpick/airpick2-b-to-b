@@ -375,6 +375,14 @@ export type ReservationStatus =
 /** online·points = 에어픽 사이트에서 결제(서버가 기록) */
 export type PaymentMethod = 'cash' | 'account' | 'card' | 'prepaid' | 'unpaid' | 'paid' | 'online' | 'points';
 
+export type CancelledBy =
+  | 'customer'
+  | 'customer_request'
+  | 'partner'
+  | 'void'
+  | 'payment_timeout'
+  | 'payment_late_full';
+
 export interface ScratchPhotoSet {
   /** 스크래치·손상 사진 URL 목록 (장수 제한 없음) */
   urls?: string[];
@@ -497,6 +505,12 @@ export interface Reservation {
   // Cancellation and restore tracking fields
   cancelReason?: string;
   cancelledAt?: string;
+  /**
+   * 누가 취소했나 (운영 점수 「업체 사정 취소」 계산용 · 2026-11-28~)
+   * customer: 손님이 앱에서 직접 · customer_request: 손님 요청을 업체가 대신 처리 ·
+   * partner: 업체 사정 · void: 테스트·잘못 등록 · payment_*: 결제 시간 초과 등 서버
+   */
+  cancelledBy?: CancelledBy;
 
   // Process operator tracking
   /** 유입 채널: homepage | airpick-b2c | b2b (접수자 이름 넣지 말 것) */

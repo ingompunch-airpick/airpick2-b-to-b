@@ -48,7 +48,8 @@ import EditModal from './components/EditModal';
 import SearchReceptionView from './components/SearchReceptionView';
 import TimelineView from './components/TimelineView';
 import AdminReservationEditModal from './components/AdminReservationEditModal';
-import { appAlert, appConfirm, appPrompt } from './components/AppDialogHost';
+import { appAlert, appCancelReason, appConfirm } from './components/AppDialogHost';
+import { cancelledByLabel } from './utils/cancelledBy';
 
 // --- Safe Storage Fallback for Sandboxed Web Views & Private Browsing Mode ---
 const safeStorage = (() => {
@@ -430,14 +431,12 @@ export default function App() {
     const isTestHint =
       /test|테스트/i.test(driverDetailRes.userName || '') ||
       /test|테스트/i.test(driverDetailRes.carNumber || '');
-    const reason = await appPrompt(
-      '취소·무효 사유를 입력하세요\n(테스트 등록 / 잘못 출고 / 고객 취소 등)',
-      isTestHint ? '테스트 예약 무효' : '현장 취소 처리'
-    );
-    if (reason === null) return;
+    const picked = await appCancelReason('누가 취소했나요?', isTestHint ? { defaultBy: 'void' } : {});
+    if (!picked) return;
 
     await handleUpdateValetStatus(driverDetailRes.id, 'cancelled', {
-      cancelReason: reason || '현장 취소 처리',
+      cancelledBy: picked.by,
+      cancelReason: picked.reason || cancelledByLabel(picked.by) || '현장 취소 처리',
       cancelledAt: getKSTDateTimeString(),
     });
     setDriverDetailRes(null);

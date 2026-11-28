@@ -139,39 +139,57 @@ export const readItinerary = onCall(
     const url =
       `https://${GEMINI_LOCATION}-aiplatform.googleapis.com/v1/projects/${projectId()}` +
       `/locations/${GEMINI_LOCATION}/publishers/google/models/${GEMINI_MODEL}:generateContent`;
-    let text = '';
-    try {
+    const ask = async (): Promise<string> => {
       const res = await googlePost<{
         candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }>;
       }>(url, {
         contents: [
           {
             role: 'user',
-            parts: [
-              filePart,
-              { text: PROMPT.replace('{TODAY}', today) },
-            ],
+            parts: [filePart, { text: PROMPT.replace('{TODAY}', today) }],
           },
         ],
         generationConfig: { responseMimeType: 'application/json', responseSchema: SCHEMA, temperature: 0 },
       });
-      text = (res.candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join('');
+      return (res.candidates?.[0]?.content?.parts || []).map((p) => p.text || '').join('');
+    };
+
+    let parsed: ReturnType<typeof parseItineraryResponse>;
+    let pick: ReturnType<typeof pickTrip>;
+    let retried = false;
+    try {
+      parsed = parseItineraryResponse(await ask());
+      pick = pickTrip(parsed.legs, today);
+      // 글자 붙여넣기는 AI 가 가끔 한쪽 편을 빠뜨린다 → 한쪽이 비면 한 번만 다시 읽고 더 많이 찾은 쪽을 쓴다
+      if (pastedText && parsed.legs.length && (!pick.outbound || !pick.inbound)) {
+        retried = true;
+        try {
+          const again = parseItineraryResponse(await ask());
+          const againPick = pickTrip(again.legs, today);
+          const score = (x: typeof pick) => Number(!!x.outbound) + Number(!!x.inbound);
+          if (score(againPick) > score(pick)) {
+            parsed = again;
+            pick = againPick;
+          }
+        } catch {
+          // 두 번째가 실패하면 첫 결과를 쓴다
+        }
+      }
     } catch (err) {
       logger.error('readItinerary: gemini failed', { message: (err as Error).message });
       throw new HttpsError('unavailable', '지금은 읽을 수 없어요. 항공편을 직접 넣어 주세요.');
     }
 
-    const parsed = parseItineraryResponse(text);
     if (!parsed.isItinerary || !parsed.legs.length) {
       return { ok: false, message: '항공편을 찾지 못했어요. 항공편이 보이게 다시 찍거나 직접 넣어 주세요.' };
     }
-    const pick = pickTrip(parsed.legs, today);
     // 내용은 남기지 않고 결과 개수만 기록
     logger.info('readItinerary', {
       legs: parsed.legs.length,
       outbound: !!pick.outbound,
       inbound: !!pick.inbound,
       kind: pastedText ? 'text' : isPdf ? 'pdf' : 'image',
+      retried,
     });
     return { ok: !!pick.outbound || !!pick.inbound, ...pick };
   }

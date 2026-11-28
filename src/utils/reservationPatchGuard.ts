@@ -148,6 +148,7 @@ export function statusRevertCleanupPatch(
     out.cancelReason = deleteField();
     out.cancelNote = deleteField();
     out.cancelledAt = deleteField();
+    out.cancelledBy = deleteField();
   }
 
   return out;

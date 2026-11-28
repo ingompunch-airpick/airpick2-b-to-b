@@ -13,7 +13,8 @@ import {
   isMultiOperatorScope,
   resolveOperatorBrandLabel,
 } from '../utils/operatorBrandLabel';
-import { appAlert, appConfirm, appPrompt } from './AppDialogHost';
+import { appAlert, appCancelReason, appConfirm } from './AppDialogHost';
+import { cancelledByLabel } from '../utils/cancelledBy';
 function cn(...classes: (string | boolean | undefined)[]) {
   return classes.filter(Boolean).join(' ');
 }
@@ -361,10 +362,11 @@ export default function AdminReservationEditModal({
           <button 
             type="button"
             onClick={async () => {
-              const reason = await appPrompt("취소 사유를 입력해 주세요 (예: 고객 취소 요청)", "관리자 취소 처리");
-              if (reason !== null) {
+              const picked = await appCancelReason('누가 취소했나요?');
+              if (picked) {
                 handleUpdateValetStatus(targetReservationForEdit.id || '', 'cancelled', {
-                  cancelReason: reason || "관리자 취소 처리",
+                  cancelledBy: picked.by,
+                  cancelReason: picked.reason || cancelledByLabel(picked.by) || '관리자 취소 처리',
                   cancelledAt: new Date(Date.now() + 9 * 60 * 60 * 1000)
                     .toISOString()
                     .replace('T', ' ')

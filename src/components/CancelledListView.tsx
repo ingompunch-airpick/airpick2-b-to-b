@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'motion/react';
 import { Search, Undo2, Ban, ShieldAlert, Calendar, Car, Coins, FileText, ChevronRight } from 'lucide-react';
 import { Reservation, AppView } from '../types';
 import { terminalBadgeLabel } from '../utils/airport';
+import { cancelledByLabel } from '../utils/cancelledBy';
 
 interface CancelledListViewProps {
   reservations: Reservation[];
@@ -176,6 +177,17 @@ export default function CancelledListView({ reservations, onUpdateStatus, onBack
                   <div className="flex items-center gap-1 text-rose-400/90 font-bold">
                     <ShieldAlert size={11} className="shrink-0" />
                     <span>취소 사유 및 일자</span>
+                    {cancelledByLabel(res.cancelledBy) ? (
+                      <span
+                        className={`rounded-md px-1.5 py-0.5 text-[12px] font-bold ${
+                          res.cancelledBy === 'partner'
+                            ? 'bg-rose-500/20 text-rose-300'
+                            : 'bg-white/10 text-zinc-300'
+                        }`}
+                      >
+                        {cancelledByLabel(res.cancelledBy)}
+                      </span>
+                    ) : null}
                     {res.cancelledAt && (
                       <span className="text-[13px] font-mono font-medium text-rose-450/70 ml-auto">
                         ({res.cancelledAt})
