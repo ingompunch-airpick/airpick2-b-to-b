@@ -22,6 +22,7 @@ import {
   type OpsMiss,
   type OpsMissKind,
   type OpsMonthSummary,
+  OPS_SCORE_START_MONTH,
 } from '../lib/opsScore';
 import { resolveOperatorCompanyIds } from '../utils/operatorHierarchy';
 import { isWawaCompany } from '../utils/pricing';
@@ -305,8 +306,11 @@ export default function OpsScoreView({
   reservations,
   onOpenReservation,
 }: OpsScoreViewProps) {
-  const months = useMemo(() => [kstMonth(0), kstMonth(-1)], []);
-  const [month, setMonth] = useState(months[0]);
+  const months = useMemo(
+    () => [kstMonth(0), kstMonth(-1)].filter((m) => m >= OPS_SCORE_START_MONTH),
+    []
+  );
+  const [month, setMonth] = useState(months[0] || OPS_SCORE_START_MONTH);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
@@ -332,6 +336,10 @@ export default function OpsScoreView({
   }, [isHq, currentCompanyId, companies]);
 
   const load = useCallback(async () => {
+    if (month < OPS_SCORE_START_MONTH || month > kstMonth(0)) {
+      setLoading(false);
+      return;
+    }
     setLoading(true);
     setError('');
     try {
@@ -418,7 +426,7 @@ export default function OpsScoreView({
             </p>
           </div>
         </div>
-        {isHq && (
+        {isHq && months.length > 0 && (
           <button
             type="button"
             onClick={() => void recompute()}
@@ -452,6 +460,15 @@ export default function OpsScoreView({
   );
 
   const body = (() => {
+    if (months.length === 0) {
+      return (
+        <div className="rounded-[22px] border border-neutral-800 bg-[#1C1C1E] px-4 py-10 text-center text-[14px] text-zinc-500 font-bold leading-relaxed">
+          12월 1일부터 에어픽 예약 기록으로 계산해요.
+          <br />
+          1월 손님 추천순은 12월 점수로 정해요.
+        </div>
+      );
+    }
     if (loading) {
       return (
         <div className="flex items-center justify-center gap-2 py-16 text-zinc-500 text-[15px] font-bold">

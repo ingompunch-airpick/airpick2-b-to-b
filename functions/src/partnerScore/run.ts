@@ -12,9 +12,9 @@ import {
   type ScoreReview,
 } from './compute';
 
-/** 이 달부터 점수를 남긴다. 그 전 달은 자동 확정하지 않는다. */
-export const SCORE_START_MONTH = '2026-11';
-/** 이 판정월부터 손님 추천순 가중치(partnerExposure)를 낸다. 11월은 시험 계산. */
+/** 이 달부터 점수를 남긴다. 11월까지는 시험 운영 기록이라 계산하지 않는다. */
+export const SCORE_START_MONTH = '2026-12';
+/** 이 판정월부터 손님 추천순 가중치(partnerExposure)를 낸다. */
 export const EXPOSURE_START_MONTH = '2026-12';
 
 const HQ_ID = 'airpick';

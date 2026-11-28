@@ -77,6 +77,9 @@ export type OpsMonthSummary = {
   companies: OpsMonthRow[];
 };
 
+/** functions SCORE_START_MONTH 와 같게 — 11월까지는 시험 운영이라 점수가 없다 */
+export const OPS_SCORE_START_MONTH = '2026-12';
+
 export function kstMonth(offset = 0): string {
   const now = new Date(Date.now() + 9 * 60 * 60 * 1000);
   const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + offset, 1));
