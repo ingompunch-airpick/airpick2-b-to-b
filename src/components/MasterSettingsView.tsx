@@ -26,6 +26,7 @@ import {
   inferFacilityType,
   partnerOnboardingError,
   profileExtrasForFirestore,
+  withoutUndefined,
   readPartnerProfileFromCompany,
   type PartnerProfileInput,
 } from '../utils/companyProfile';
@@ -798,7 +799,8 @@ export default function MasterSettingsView({
         const docRef = doc(db, 'companies', companyInfo.id);
         await setDoc(
           docRef,
-          {
+          // 빈 칸(undefined)이 하나라도 섞이면 저장 전체가 실패하므로 빼고 보낸다
+          withoutUndefined({
             ...pricingPayload,
             ...valetFirestorePayload,
             ...profilePayload,
@@ -807,7 +809,7 @@ export default function MasterSettingsView({
             representative: cleanRepresentative || deleteField(),
             pickupLocation: cleanPickupLocation || deleteField(),
             updatedAt: savedAt,
-          },
+          }),
           { merge: true }
         );
       } catch (err: any) {

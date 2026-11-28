@@ -33,6 +33,8 @@ const PROMPT = `이 자료는 손님이 올린 항공권(e-티켓), 여행사 �
 - 도착이 다음 날(+1)이면 도착 날짜를 하루 뒤로 적는다.
 - 공항 이름만 있으면 코드로 바꾼다 (인천=ICN, 김포=GMP, 나리타=NRT 등). 모르면 그 구간은 적지 않는다.
 - 공동운항이면 항공권에 크게 적힌 편명을 쓴다.
+- 글자로 붙여넣은 일정은 여러 구간이 한 줄에 「/」「,」「→」 등으로 이어져 있을 수 있다. 구간마다 빠짐없이 따로 적는다.
+  왕복이면 보통 가는 편(인천 출발)과 오는 편(인천 도착)이 모두 있다.
 - 항공편이 하나도 없는 자료면 isItinerary=false, legs=[].`;
 
 const SCHEMA = {
@@ -104,7 +106,9 @@ export const readItinerary = onCall(
       if (pastedText.length > MAX_TEXT) {
         throw new HttpsError('invalid-argument', '글자가 너무 길어요. 항공편 부분만 붙여넣어 주세요.');
       }
-      filePart = { text: `----- 손님이 붙여넣은 글자 -----\n${pastedText}\n----- 끝 -----` };
+      // 「… 도착 / 오는편 …」처럼 한 줄에 이어 붙인 일정은 구간마다 줄을 나눠 준다 (12/20 같은 날짜의 / 는 그대로)
+      const lines = pastedText.replace(/\s+\/\s+/g, '\n');
+      filePart = { text: `----- 손님이 붙여넣은 글자 -----\n${lines}\n----- 끝 -----` };
     } else {
       if (!isPdf && !IMAGE_TYPES.has(mimeType)) {
         throw new HttpsError('invalid-argument', '사진(JPG·PNG)이나 PDF만 올릴 수 있어요.');

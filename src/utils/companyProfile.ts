@@ -520,7 +520,32 @@ export function applyPartnerProfileToCompany(
   };
 }
 
+/**
+ * Firestore 는 값이 undefined 인 칸이 하나라도 있으면 저장 전체를 거부한다.
+ * (보험 피보험자·증권번호처럼 비어 있는 칸 때문에 설정 저장이 통째로 실패했다 — 2026-11-28)
+ * 일반 객체·배열 안까지 undefined 칸만 뺀다. null·Firestore 특수값(deleteField 등)은 그대로 둔다.
+ * 빠진 칸은 merge 저장이라 기존 값이 유지된다.
+ */
+export function withoutUndefined<T>(value: T): T {
+  if (Array.isArray(value)) {
+    return value.filter((v) => v !== undefined).map((v) => withoutUndefined(v)) as unknown as T;
+  }
+  if (value && typeof value === 'object' && Object.getPrototypeOf(value) === Object.prototype) {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) {
+      if (v === undefined) continue;
+      out[k] = withoutUndefined(v);
+    }
+    return out as T;
+  }
+  return value;
+}
+
 export function profileExtrasForFirestore(input: PartnerProfileInput): Record<string, unknown> {
+  return withoutUndefined(profileExtrasRaw(input));
+}
+
+function profileExtrasRaw(input: PartnerProfileInput): Record<string, unknown> {
   const company = applyPartnerProfileToCompany(
     {
       id: '_',
